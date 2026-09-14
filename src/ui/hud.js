@@ -134,6 +134,15 @@ export class HUD {
       this.input.panTo(((e.clientX - r.left) / r.width) * MAP_W * TILE, ((e.clientY - r.top) / r.height) * MAP_H * TILE);
     });
     this.root.append(h('div.card.minimap', this.mini));
+    // jump back to your village (or come home from visiting another realm)
+    this.root.append(h('button.card.home-btn', {
+      title: 'Home (H)',
+      onclick: () => {
+        if (this.visiting) { this.onReturnHome(); return; }
+        this.follow = null;
+        this.input.panTo(this.game.center.x, this.game.center.y);
+      },
+    }, h('span', '🏠'), h('span.home-label', 'Home')));
     this.drawMinimapBase();
 
     this.els.threats = h('div.threats');

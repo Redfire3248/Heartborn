@@ -787,3 +787,12 @@ kbd { justify-self: start; padding: 2px 7px; border-radius: 6px; background: var
 body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .pack-item { cursor: grab; touch-action: none; }
 .pack-item:hover { border-color: var(--gold); }
+
+.realm-terrain { image-rendering: auto !important; }
+
+/* home button above the minimap */
+.home-btn { position: fixed; right: 10px; bottom: 226px; z-index: 10; display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 12px; color: var(--text); cursor: pointer; font: inherit; font-size: 14px; transition: border-color .12s, transform .12s; }
+.home-btn:hover { border-color: var(--gold); transform: translateY(-1px); }
+.home-btn span:first-child { font-size: 17px; }
+@media (max-width: 760px) { .home-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 118px); right: 6px; padding: 6px 9px; } .home-label { display: none; } }
+@media (max-width: 1150px) and (min-width: 761px) { .statusbar { bottom: 270px; } }

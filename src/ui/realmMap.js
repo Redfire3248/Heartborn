@@ -1,6 +1,8 @@
 import { h, icon, avatar, modal, fmt } from './dom.js';
 import { ERAS } from '../data/buildings.js';
 import { realmPos as rawPos, travelMs, fmtMinutes } from '../net/multiplayer.js';
+import { World } from '../game/world.js';
+import { TerrainPainter } from '../render/terrain.js';
 
 // keep pins away from the map edges so names are never clipped
 const realmPos = uid => { const p = rawPos(uid); return { x: 8 + p.x * 0.84, y: 7 + p.y * 0.84 }; };
@@ -28,9 +30,9 @@ export function openRealmMap({ hud, onVisit }) {
   const close = () => { clearInterval(timer); m.close(); };
 
   function villages() {
-    const list = (mp?.players || []).map(p => ({ ...p }));
+    const list = (mp?.players || []).map(p => (p.uid === me ? { ...p, seed: game.state.seed } : { ...p }));
     if (!list.some(p => p.uid === me)) {
-      list.push({ uid: me, name: game.state.owner.name, villageName: game.state.owner.villageName, pop: game.state.villagers.length, era: game.state.era, karma: Math.round(game.state.karma), online: true });
+      list.push({ uid: me, seed: game.state.seed, name: game.state.owner.name, villageName: game.state.owner.villageName, pop: game.state.villagers.length, era: game.state.era, karma: Math.round(game.state.karma), online: true });
     }
     return list;
   }
@@ -160,15 +162,38 @@ export function openRealmMap({ hud, onVisit }) {
 
 // ------------------------------------------------------------------ world terrain
 
-const seeded = uid => { let s = 2166136261; for (const ch of uid) s = Math.imul(s ^ ch.charCodeAt(0), 16777619); return () => ((s = Math.imul(s ^ (s >>> 15), 2246822507) >>> 0) / 4294967296); };
-const hash2 = (x, y, seed) => { let n = Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(seed, 2147483647); n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967295; };
-function vnoise(x, y, seed) {
-  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
-  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
-  const a = hash2(xi, yi, seed), b = hash2(xi + 1, yi, seed), c = hash2(xi, yi + 1, seed), d = hash2(xi + 1, yi + 1, seed);
-  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+/*
+ * Every island is that player's REAL land: their world is rebuilt from its seed and painted with the
+ * same terrain painter as the game and minimap, so your island here looks exactly like your map.
+ * No buildings, just the land. Islands are joined by land bridges.
+ */
+
+const islandCache = new Map();   // seed -> canvas
+
+function fallbackSeed(uid) { let s = 2166136261; for (const ch of uid) s = Math.imul(s ^ ch.charCodeAt(0), 16777619); return s >>> 0; }
+
+function islandImage(seed) {
+  let c = islandCache.get(seed);
+  if (c) return c;
+  const world = new World(seed);
+  const painter = new TerrainPainter();
+  painter.world = world;
+  const src = painter.paint(0, 0, world.w, world.h, 4);   // 384×384, like the minimap
+  // fade the surrounding ocean into the dark sea so only the island remains
+  c = document.createElement('canvas');
+  c.width = src.width; c.height = src.height;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(src, 0, 0);
+  ctx.globalCompositeOperation = 'destination-in';
+  const r = c.width / 2;
+  const fade = ctx.createRadialGradient(r, r, r * 0.55, r, r, r);
+  fade.addColorStop(0, 'rgba(0,0,0,1)');
+  fade.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, 0, c.width, c.height);
+  islandCache.set(seed, c);
+  return c;
 }
-const fbm = (x, y, seed) => vnoise(x, y, seed) * 0.55 + vnoise(x * 2.1, y * 2.1, seed + 7) * 0.28 + vnoise(x * 4.3, y * 4.3, seed + 13) * 0.17;
 
 // nearest neighbours joined by land bridges: a spanning tree + each island's second-nearest link
 function bridgesFor(nodes) {
@@ -188,90 +213,42 @@ function bridgesFor(nodes) {
   }
   nodes.forEach((n, i) => {
     const near = nodes.map((m, j) => [j, dist(n, m)]).filter(([j]) => j !== i).sort((a, b) => a[1] - b[1]);
-    if (near[1] && near[1][1] < 32) add(i, near[1][0]);
+    if (near[1] && near[1][1] < 0.32 * 900) add(i, near[1][0]);
   });
   return links;
 }
 
-const PALETTE = {
-  deep: [6, 10, 16], sea: [10, 22, 34], shallow: [22, 58, 74], foam: [60, 104, 112],
-  sand: [201, 178, 120], grass: [86, 138, 58], grass2: [70, 120, 48], forest: [42, 82, 38], forest2: [32, 66, 32],
-  rock: [112, 108, 104], rock2: [86, 84, 84], snow: [226, 232, 238],
-};
-
 let cache = { key: '', canvas: null };
 
-/** A dark world map with a real terrain island for every civilization. Pure terrain: no buildings on it. */
 function worldCanvas(list) {
-  const key = list.map(p => `${p.uid}:${Math.round(Math.sqrt(p.pop || 3))}`).sort().join('|');
+  const key = list.map(p => `${p.uid}:${p.seed ?? ''}`).sort().join('|');
   if (cache.key === key && cache.canvas) return cache.canvas;
-  const N = 260;
+  const N = 900;
   const c = document.createElement('canvas');
   c.width = c.height = N;
   c.className = 'realm-terrain';
   const ctx = c.getContext('2d');
-  const img = ctx.createImageData(N, N);
+  ctx.fillStyle = '#05080d';
+  ctx.fillRect(0, 0, N, N);
 
-  const nodes = list.map(p => {
-    const pos = realmPos(p.uid);
-    const rand = seeded(p.uid);
-    return { x: pos.x / 100 * N, y: pos.y / 100 * N, r: (4.2 + Math.min(5, Math.sqrt(p.pop || 3) * 0.6)) / 100 * N, seed: Math.floor(rand() * 1e6), stretch: 0.75 + rand() * 0.5, angle: rand() * Math.PI };
-  });
-  const links = bridgesFor(nodes);
+  // fewer players → bigger islands
+  const size = N * Math.max(0.14, Math.min(0.34, 0.62 / Math.sqrt(Math.max(1, list.length))));
+  const nodes = list.map(p => { const pos = realmPos(p.uid); return { x: pos.x / 100 * N, y: pos.y / 100 * N, seed: p.seed ?? fallbackSeed(p.uid) }; });
 
-  // distance from a point to a gently curved bridge (sampled quadratic curve)
-  const bridgeSamples = links.map(([A, B]) => {
+  // land bridges first, under the islands
+  ctx.lineCap = 'round';
+  for (const [A, B] of bridgesFor(nodes)) {
     const mx = (A.x + B.x) / 2 + (A.y - B.y) * 0.12, my = (A.y + B.y) / 2 + (B.x - A.x) * 0.12;
-    const pts = [];
-    for (let t = 0; t <= 1.0001; t += 0.04) pts.push([(1 - t) ** 2 * A.x + 2 * (1 - t) * t * mx + t * t * B.x, (1 - t) ** 2 * A.y + 2 * (1 - t) * t * my + t * t * B.y]);
-    return pts;
-  });
-
-  const elevation = new Float32Array(N * N);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    let e = -1;
-    for (const n of nodes) {
-      const dx = x - n.x, dy = y - n.y;
-      const ca = Math.cos(n.angle), sa = Math.sin(n.angle);
-      const rx = (dx * ca + dy * sa) / n.stretch, ry = (-dx * sa + dy * ca) * n.stretch;
-      const d = Math.hypot(rx, ry) / n.r;
-      if (d > 2.2) continue;
-      const warp = (fbm(x * 0.06, y * 0.06, n.seed) - 0.5) * 0.9;
-      e = Math.max(e, 1 - d + warp);
-    }
-    // land bridges: thin, slightly wobbly strips of low land
-    for (const pts of bridgeSamples) {
-      let best = 1e9;
-      for (const [px, py] of pts) { const d = (px - x) ** 2 + (py - y) ** 2; if (d < best) best = d; }
-      const w = 2.2 + (fbm(x * 0.12, y * 0.12, 91) - 0.5) * 2.4;
-      e = Math.max(e, Math.min(0.12, (w - Math.sqrt(best)) * 0.08));
-    }
-    elevation[y * N + x] = e;
+    const path = () => { ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.quadraticCurveTo(mx, my, B.x, B.y); };
+    path(); ctx.strokeStyle = 'rgba(40,110,130,0.35)'; ctx.lineWidth = size * 0.1; ctx.stroke();   // shallow water
+    path(); ctx.strokeStyle = '#cdb77f'; ctx.lineWidth = size * 0.055; ctx.stroke();                // sand
+    path(); ctx.strokeStyle = '#5f9a3e'; ctx.lineWidth = size * 0.03; ctx.stroke();                 // grass
   }
 
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const e = elevation[y * N + x];
-    const detail = fbm(x * 0.18, y * 0.18, 5);
-    let col;
-    if (e < -0.35) col = PALETTE.deep;
-    else if (e < -0.08) col = PALETTE.sea;
-    else if (e < 0) col = e > -0.03 ? PALETTE.foam : PALETTE.shallow;
-    else if (e < 0.07) col = PALETTE.sand;
-    else if (e < 0.42) col = detail > 0.55 ? PALETTE.grass2 : PALETTE.grass;
-    else if (e < 0.62) col = detail > 0.5 ? PALETTE.forest2 : PALETTE.forest;
-    else if (e < 0.8) col = detail > 0.5 ? PALETTE.rock2 : PALETTE.rock;
-    else col = PALETTE.snow;
-    // hill shading from the slope toward the top-left light
-    const ex = elevation[y * N + Math.min(N - 1, x + 1)] - e, ey = elevation[Math.min(N - 1, y + 1) * N + x] - e;
-    const shade = e >= 0 ? 1 - Math.max(-0.25, Math.min(0.35, (ex + ey) * 6)) : 1;
-    const grain = 0.94 + hash2(x, y, 3) * 0.1;
-    const i = (y * N + x) * 4;
-    img.data[i] = Math.min(255, col[0] * shade * grain);
-    img.data[i + 1] = Math.min(255, col[1] * shade * grain);
-    img.data[i + 2] = Math.min(255, col[2] * shade * grain);
-    img.data[i + 3] = 255;
-  }
-  ctx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  for (const n of nodes) ctx.drawImage(islandImage(n.seed), n.x - size / 2, n.y - size / 2, size, size);
+
   cache = { key, canvas: c };
   return c;
 }
