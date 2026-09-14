@@ -1,0 +1,500 @@
+import { h } from './dom.js';
+import { EVENTS } from '../data/events.js';
+import { CREATURES } from '../data/objects.js';
+import { ERAS } from '../data/buildings.js';
+import { LAW_CATEGORIES } from '../data/laws.js';
+import { DAY_LENGTH, RESOURCES } from '../core/constants.js';
+import * as api from '../net/admin.js';
+
+const HISTORY_KEY = 'hb_admin_history';
+
+/*
+ * Drop-down admin command line (F2) with live autocomplete. Commands that target "me"
+ * act on your own village instantly; commands that target another player are
+ * delivered through the Realtime Database the next time they are online.
+ * Server rules restrict every admin write to the admin account.
+ */
+
+// What each argument position expects, for autocomplete + hints.
+// Arrays are fixed choices; '...' repeats the pair before it (give res n res n …).
+const ARG_SPECS = {
+  players: ['text'], info: ['player'], give: ['player', 'res', 'number', '...'], karma: ['player', 'number'],
+  shield: ['player', 'number'], msg: ['player', 'text'], broadcast: ['text'], event: ['event', 'target'],
+  spawn: ['creature', 'number', 'target'], warband: ['number', 'number'], ban: ['player', 'text'], unban: ['player'],
+  reset: ['player', ['confirm']], chat: [['15', 'clear', 'del']], skip: ['number'], era: [['up', '0', '1', '2', '3']],
+  villager: ['number'],
+};
+
+export class AdminConsole {
+  constructor({ game, mp, user }) {
+    this.game = game;
+    this.mp = mp;
+    this.user = user;
+    this.players = null;
+    this.history = load();
+    this.hIndex = this.history.length;
+    this.sugIndex = 0;
+    this.suggestions = [];
+    this.build();
+    this.print(`Welcome back, ${game.state.owner.name}.`, 'accent');
+    this.print('Start typing — suggestions appear as you go. Tab completes · ↑↓ choose · Enter runs · Esc closes.', 'dim');
+  }
+
+  get open() { return !this.el.classList.contains('hidden'); }
+
+  toggle() {
+    this.el.classList.toggle('hidden');
+    if (this.open) {
+      setTimeout(() => this.input.focus(), 30);
+      this.updateStatus();
+      this.loadPlayers().then(() => { this.updateStatus(); this.refreshSuggestions(); }).catch(() => {});
+    }
+  }
+
+  build() {
+    this.out = h('div.gc-out');
+    this.ghost = h('div.gc-ghost');
+    this.input = h('input.gc-input', { spellcheck: false, autocomplete: 'off', placeholder: 'type a command…' });
+    this.menu = h('div.gc-menu.hidden');
+    this.hint = h('div.gc-hint');
+    this.status = h('div.gc-status');
+    this.el = h('div.gc.hidden',
+      h('div.gc-head',
+        h('div.gc-dots', h('i'), h('i'), h('i')),
+        h('div.gc-title', 'HEARTBORN', h('span', ' // admin')),
+        this.status,
+        h('button.gc-close', { onclick: () => this.toggle(), title: 'Close (F2)' }, '✕')),
+      this.out,
+      h('div.gc-bottom',
+        this.menu,
+        h('div.gc-line',
+          h('span.gc-prompt', '❯'),
+          h('div.gc-field', this.ghost, this.input)),
+        this.hint));
+    document.getElementById('ui').append(this.el);
+    this.input.addEventListener('keydown', e => this.onKey(e));
+    this.input.addEventListener('input', () => { this.sugIndex = 0; this.refreshSuggestions(); });
+    this.input.addEventListener('scroll', () => { this.ghost.scrollLeft = this.input.scrollLeft; });
+    this.el.addEventListener('mousedown', e => {
+      if (!e.target.closest('.gc-menu, button, .gc-out')) setTimeout(() => this.input.focus(), 0);
+    });
+    this.refreshSuggestions();
+  }
+
+  updateStatus() {
+    const online = this.players ? this.players.filter(p => p.online).length : '…';
+    const total = this.players ? this.players.length : '…';
+    this.status.replaceChildren(
+      h('span.gc-pill', h('b.dot-on'), `${online} online`),
+      h('span.gc-pill', `${total} players`),
+      h('span.gc-pill', this.game.state.owner.villageName));
+  }
+
+  onKey(e) {
+    e.stopPropagation();
+    const menuOpen = !this.menu.classList.contains('hidden') && this.suggestions.length > 0;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const line = this.input.value.trim();
+      this.input.value = '';
+      this.refreshSuggestions();
+      if (!line) return;
+      this.history.push(line);
+      if (this.history.length > 100) this.history.shift();
+      this.hIndex = this.history.length;
+      save(this.history);
+      this.print(line, 'cmd');
+      this.run(line).catch(err => this.print(err.message, 'err'));
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      this.accept();
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const dir = e.key === 'ArrowUp' ? -1 : 1;
+      if (menuOpen && this.input.value.trim()) {
+        this.sugIndex = (this.sugIndex + dir + this.suggestions.length) % this.suggestions.length;
+        this.renderMenu();
+      } else {
+        this.hIndex = Math.max(0, Math.min(this.history.length, this.hIndex + dir));
+        this.input.value = this.history[this.hIndex] || '';
+        this.refreshSuggestions();
+      }
+    } else if (e.key === 'ArrowRight' && this.input.selectionStart === this.input.value.length && this.ghost.dataset.full) {
+      e.preventDefault();
+      this.accept();
+    } else if (e.key === 'Escape' || e.key === 'F2') {
+      e.preventDefault();
+      if (menuOpen && e.key === 'Escape') { this.menu.classList.add('hidden'); this.suggestions = []; this.renderGhost(); return; }
+      this.toggle();
+    }
+  }
+
+  // ---------------------------------------------------------------- autocomplete
+  context() {
+    const value = this.input.value;
+    const parts = value.split(' ');
+    const current = parts[parts.length - 1];
+    return { value, parts, current, cmdName: parts[0].toLowerCase(), argIndex: parts.length - 2, start: value.length - current.length };
+  }
+
+  optionsFor(kind) {
+    if (Array.isArray(kind)) return kind.map(v => ({ value: v, label: v, detail: '' }));
+    const players = (this.players || []).map(p => ({
+      value: (p.villageName || p.uid).replace(/\s+/g, '_'), label: p.villageName || p.uid,
+      detail: `${p.name || ''}${p.ban ? ' · banned' : ''}`, online: p.online,
+    }));
+    const me = { value: 'me', label: 'me', detail: 'your own village' };
+    switch (kind) {
+      case 'player': return [me, ...players];
+      case 'target': return [me, { value: 'all', label: 'all', detail: 'every online player' }, ...players];
+      case 'res': return RESOURCES.map(r => ({ value: r, label: r, detail: 'resource' }));
+      case 'creature': return Object.entries(CREATURES).map(([k, d]) => ({ value: k, label: k, detail: d.hostile ? `hostile · ${d.hp} hp` : 'animal' }));
+      case 'event': return [{ value: 'list', label: 'list', detail: 'show all events' }, ...EVENTS.map(ev => ({ value: ev.id, label: ev.id, detail: ev.title }))];
+      default: return [];
+    }
+  }
+
+  kindAt(cmdName, argIndex) {
+    const spec = ARG_SPECS[cmdName] || [];
+    const repeat = spec.indexOf('...');
+    if (repeat > 0 && argIndex >= repeat) {
+      const pairStart = repeat - 2;
+      return spec[pairStart + ((argIndex - pairStart) % 2)];
+    }
+    return spec[argIndex];
+  }
+
+  refreshSuggestions() {
+    const { parts, current, cmdName, argIndex } = this.context();
+    const q = current.toLowerCase();
+    let items = [];
+    let hint = '';
+    const cmd = COMMANDS[cmdName];
+
+    if (parts.length === 1) {
+      items = Object.entries(COMMANDS)
+        .filter(([name]) => q && name.startsWith(q) && name !== q)
+        .map(([name, c]) => ({ value: name, label: name, detail: c.desc }));
+      if (q && !items.length && !cmd) hint = 'unknown command — try "help"';
+      if (cmd) hint = cmd.usage;
+    } else if (cmd) {
+      hint = cmd.usage;
+      const kind = this.kindAt(cmdName, argIndex);
+      if (kind === 'number') hint += '   ·   expects a number';
+      else if (kind === 'text') hint += '   ·   free text';
+      items = this.optionsFor(kind)
+        .filter(o => o.value.toLowerCase() !== q && (o.value.toLowerCase().startsWith(q) || o.label.toLowerCase().includes(q)));
+    }
+
+    this.suggestions = items.slice(0, 8);
+    this.sugIndex = Math.min(this.sugIndex, Math.max(0, this.suggestions.length - 1));
+    this.hint.textContent = hint;
+    this.renderMenu();
+  }
+
+  renderMenu() {
+    const items = this.suggestions;
+    this.menu.classList.toggle('hidden', !items.length);
+    this.menu.replaceChildren(...items.map((o, i) => h(`div.gc-item${i === this.sugIndex ? '.on' : ''}`, {
+      onmousedown: e => { e.preventDefault(); this.sugIndex = i; this.accept(); },
+    }, h('span.gc-item-label', o.online ? h('b.dot-on') : null, o.label), h('span.gc-item-detail', o.detail))));
+    this.menu.querySelector('.gc-item.on')?.scrollIntoView({ block: 'nearest' });
+    this.renderGhost();
+  }
+
+  /** Grey inline preview of the highlighted suggestion. */
+  renderGhost() {
+    const { value, current } = this.context();
+    const top = this.suggestions[this.sugIndex];
+    if (top && top.value.toLowerCase().startsWith(current.toLowerCase()) && top.value.length > current.length) {
+      this.ghost.replaceChildren(h('span.gc-typed', value), top.value.slice(current.length));
+      this.ghost.dataset.full = '1';
+    } else {
+      this.ghost.replaceChildren();
+      delete this.ghost.dataset.full;
+    }
+  }
+
+  accept() {
+    const top = this.suggestions[this.sugIndex];
+    if (!top) return;
+    const { value, start } = this.context();
+    this.input.value = value.slice(0, start) + top.value + ' ';
+    this.sugIndex = 0;
+    this.refreshSuggestions();
+    this.input.setSelectionRange(this.input.value.length, this.input.value.length);
+  }
+
+  // ---------------------------------------------------------------- output
+  print(text, cls = '') {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    String(text).split('\n').forEach((line, i) => this.out.append(h(`div.gc-row${cls ? '.' + cls : ''}`,
+      h('span.gc-time', i === 0 ? time : ''),
+      h('span.gc-text', cls === 'cmd' ? `❯ ${line}` : line))));
+    while (this.out.childElementCount > 500) this.out.firstChild.remove();
+    this.out.scrollTop = this.out.scrollHeight;
+  }
+
+  table(rows, cols) {
+    const widths = cols.map(c => Math.max(c.length, ...rows.map(r => String(r[c] ?? '').length)));
+    const fmtRow = r => cols.map((c, i) => String(r[c] ?? '').padEnd(widths[i])).join('  ');
+    this.print(fmtRow(Object.fromEntries(cols.map(c => [c, c.toUpperCase()]))), 'accent');
+    for (const r of rows) this.print(fmtRow(r));
+  }
+
+  async run(line) {
+    const [cmd, ...args] = tokenize(line);
+    const fn = COMMANDS[cmd.toLowerCase()];
+    if (!fn) throw new Error(`unknown command "${cmd}" — try "help"`);
+    await fn.run.call(this, args);
+  }
+
+  async loadPlayers(force = false) {
+    if (!this.players || force) {
+      try { this.players = await api.fetchPlayers(); } catch (e) { this.players ||= []; throw e; }
+    }
+    return this.players;
+  }
+
+  /** "me", uid, email, village or player name (exact, then unique partial). */
+  async resolve(query) {
+    if (!query) throw new Error('missing player (use "me", a village name, player name, email or uid)');
+    if (query === 'me') return { me: true, uid: this.user.uid, villageName: this.game.state.owner.villageName };
+    const list = await this.loadPlayers();
+    const q = query.toLowerCase().replace(/_/g, ' ');
+    const exact = list.filter(p => [p.uid, p.email, p.villageName, p.name].some(x => (x || '').toLowerCase() === q));
+    if (exact.length === 1) return exact[0];
+    const partial = list.filter(p => [p.uid, p.email, p.villageName, p.name].some(x => (x || '').toLowerCase().includes(q)));
+    if (partial.length === 1) return partial[0];
+    if (!partial.length) throw new Error(`no player matches "${query}"`);
+    throw new Error(`"${query}" matches ${partial.length} players: ${partial.slice(0, 6).map(p => p.villageName).join(', ')}`);
+  }
+}
+
+// ------------------------------------------------------------------ commands
+
+const COMMANDS = {
+  help: {
+    usage: 'help', desc: 'List commands',
+    run() {
+      for (const c of Object.values(COMMANDS)) this.print(`${c.usage.padEnd(44)} ${c.desc}`);
+    },
+  },
+  clear: { usage: 'clear', desc: 'Clear the screen', run() { this.out.replaceChildren(); } },
+
+  players: {
+    usage: 'players [filter]', desc: 'List all players',
+    async run([filter]) {
+      const list = await this.loadPlayers(true);
+      const q = (filter || '').toLowerCase();
+      const rows = list.filter(p => !q || JSON.stringify([p.name, p.email, p.villageName]).toLowerCase().includes(q))
+        .sort((a, b) => (b.online - a.online) || (b.pop || 0) - (a.pop || 0))
+        .map(p => ({ status: p.ban ? 'BANNED' : p.online ? 'online' : 'offline', village: p.villageName, player: p.name, email: p.email, pop: p.pop, karma: p.karma, era: ERAS[p.era || 0]?.name }));
+      this.table(rows, ['status', 'village', 'player', 'email', 'pop', 'karma', 'era']);
+      this.print(`${rows.length} player(s)`, 'dim');
+    },
+  },
+  online: {
+    usage: 'online', desc: 'Who is online right now',
+    async run() {
+      const list = (await this.loadPlayers(true)).filter(p => p.online);
+      this.table(list.map(p => ({ village: p.villageName, player: p.name, pop: p.pop })), ['village', 'player', 'pop']);
+      this.print(`${list.length} online`, 'dim');
+    },
+  },
+  info: {
+    usage: 'info <player>', desc: 'Detailed player info + save summary',
+    async run([who]) {
+      const p = await this.resolve(who);
+      const save = p.me ? { state: this.game.state, size: 0, updatedAt: Date.now() } : await api.getSaveInfo(p.uid);
+      const s = save?.state;
+      this.print(JSON.stringify({
+        uid: p.uid, player: p.name, email: p.email, village: p.villageName, online: p.online, banned: p.ban?.reason || false,
+        day: s ? Math.floor(s.time / DAY_LENGTH) + 1 : undefined, era: s ? ERAS[s.era]?.name : undefined, karma: s?.karma,
+        population: s?.villagers.length, buildings: s?.buildings.length, laws: s?.laws, resources: s?.resources,
+        stats: s?.stats, saveKB: save ? Math.round(save.size / 1024) : undefined,
+      }, null, 2));
+    },
+  },
+  give: {
+    usage: 'give <player|me> <res> <n> [<res> <n>…]', desc: 'Give resources',
+    async run([who, ...pairs]) {
+      const p = await this.resolve(who);
+      const res = {};
+      for (let i = 0; i < pairs.length; i += 2) {
+        if (!RESOURCES.includes(pairs[i])) throw new Error(`unknown resource "${pairs[i]}" (${RESOURCES.join(', ')})`);
+        res[pairs[i]] = Number(pairs[i + 1]) || 0;
+      }
+      if (!Object.keys(res).length) throw new Error('usage: give me gold 100 wood 50');
+      if (p.me) { for (const [k, v] of Object.entries(res)) this.game.addResource(k, v); this.game.emit('change'); }
+      else await api.sendCommand(p.uid, { type: 'give', res });
+      this.print(`✓ gave ${Object.entries(res).map(([k, v]) => `${v} ${k}`).join(', ')} to ${p.villageName}`, 'ok');
+    },
+  },
+  karma: {
+    usage: 'karma <player|me> <-100..100>', desc: 'Set karma',
+    async run([who, value]) {
+      const p = await this.resolve(who);
+      const n = Math.max(-100, Math.min(100, Number(value)));
+      if (Number.isNaN(n)) throw new Error('karma needs a number');
+      if (p.me) { this.game.state.karma = n; this.game.emit('change'); }
+      else await api.sendCommand(p.uid, { type: 'karma', value: n });
+      this.print(`✓ karma of ${p.villageName} → ${n}`, 'ok');
+    },
+  },
+  shield: {
+    usage: 'shield <player|me> <hours>', desc: 'Protect from attacks',
+    async run([who, hours]) {
+      const p = await this.resolve(who);
+      const hrs = Number(hours) || 24;
+      if (p.me) this.game.state.shieldUntil = Date.now() + hrs * 3600000;
+      else await api.sendCommand(p.uid, { type: 'shield', hours: hrs });
+      this.print(`✓ ${hrs}h shield for ${p.villageName}`, 'ok');
+    },
+  },
+  msg: {
+    usage: 'msg <player> <text…>', desc: 'Private message banner',
+    async run([who, ...words]) {
+      const p = await this.resolve(who);
+      const text = words.join(' ');
+      if (!text) throw new Error('message is empty');
+      await api.sendCommand(p.uid, { type: 'message', text });
+      this.print(`✓ message queued for ${p.villageName}`, 'ok');
+    },
+  },
+  broadcast: {
+    usage: 'broadcast <text…>', desc: 'Banner for every player',
+    async run(words) {
+      const text = words.join(' ');
+      if (!text) throw new Error('broadcast is empty');
+      await api.broadcast(text);
+      this.print('✓ broadcast sent', 'ok');
+    },
+  },
+  event: {
+    usage: 'event list | event <id> [me|all|<player>]', desc: 'Trigger a story event',
+    async run([id, target = 'me']) {
+      if (!id || id === 'list') { this.table(EVENTS.map(e => ({ id: e.id, title: e.title })), ['id', 'title']); return; }
+      const ev = EVENTS.find(e => e.id === id);
+      if (!ev) throw new Error(`no event "${id}" (event list)`);
+      if (target === 'all') { await api.triggerGlobalEvent(id); this.print(`✓ "${ev.title}" sent to every online player`, 'ok'); return; }
+      const p = await this.resolve(target);
+      if (p.me) { this.toggle(); this.game.startEvent(ev); }
+      else await api.sendCommand(p.uid, { type: 'event', id });
+      this.print(`✓ "${ev.title}" → ${p.villageName}`, 'ok');
+    },
+  },
+  spawn: {
+    usage: 'spawn <creature> [count] [me|<player>]', desc: 'Send monsters at a village',
+    async run([type, count = '1', target = 'me']) {
+      if (!CREATURES[type]) throw new Error(`unknown creature (${Object.keys(CREATURES).join(', ')})`);
+      const n = Math.min(20, Number(count) || 1);
+      const p = await this.resolve(target);
+      if (p.me) this.game.spawnRaiders(type, n);
+      else await api.sendCommand(p.uid, { type: 'spawn', creature: type, count: n });
+      this.print(`✓ ${n} ${type} → ${p.villageName}`, 'ok');
+    },
+  },
+  warband: {
+    usage: 'warband [soldiers] [seconds]', desc: 'Send a barbarian army at your village',
+    run([count = '4', secs = '60']) {
+      const s = this.game.state;
+      s.incoming.push({ id: `w${Date.now().toString(36)}`, kind: 'warband', name: 'The Admin Horde', count: Math.min(12, Number(count) || 4), scale: 1, arrivesAt: s.time + (Number(secs) || 60), warned: false });
+      this.print('✓ warband marching', 'ok');
+    },
+  },
+  ban: {
+    usage: 'ban <player> [reason…]', desc: 'Ban a player',
+    async run([who, ...reason]) {
+      const p = await this.resolve(who);
+      if (p.me) throw new Error('you cannot ban yourself');
+      await api.banPlayer(p.uid, reason.join(' ') || 'No reason given');
+      this.players = null;
+      this.print(`✓ banned ${p.name} (${p.villageName})`, 'ok');
+    },
+  },
+  unban: {
+    usage: 'unban <player>', desc: 'Lift a ban',
+    async run([who]) {
+      const p = await this.resolve(who);
+      await api.unbanPlayer(p.uid);
+      this.players = null;
+      this.print(`✓ unbanned ${p.name}`, 'ok');
+    },
+  },
+  reset: {
+    usage: 'reset <player>', desc: 'Wipe a village (asks to confirm)',
+    async run([who, confirm]) {
+      const p = await this.resolve(who);
+      if (p.me) throw new Error('use Settings → Abandon village for your own');
+      if (confirm !== 'confirm') {
+        this.print(`⚠ this wipes ${p.villageName} forever. Run: reset ${who} confirm`, 'warn');
+        return;
+      }
+      await api.resetPlayer(p.uid);
+      this.print(`✓ ${p.villageName} has been reset`, 'ok');
+    },
+  },
+  chat: {
+    usage: 'chat [n] | chat del <id> | chat clear', desc: 'Read or moderate chat',
+    async run([sub, arg]) {
+      if (sub === 'clear') { await api.clearChat(); this.print('✓ chat cleared', 'ok'); return; }
+      if (sub === 'del') { await api.deleteChatMessage(arg); this.print(`✓ deleted ${arg}`, 'ok'); return; }
+      const n = Number(sub) || 15;
+      for (const m of (this.mp?.chat || []).slice(-n)) this.print(`[${m.id}] ${m.name} (${m.village || '?'}): ${m.text}`);
+    },
+  },
+  laws: {
+    usage: 'laws', desc: 'Show your laws',
+    run() {
+      const laws = this.game.state.laws || {};
+      for (const c of LAW_CATEGORIES) this.print(`${c.name.padEnd(12)} ${c.options.find(o => o.id === laws[c.id])?.name || '—'}`);
+    },
+  },
+  skip: {
+    usage: 'skip <days>', desc: 'Fast-forward your village',
+    run([days = '1']) {
+      const d = Math.min(30, Number(days) || 1);
+      const sum = this.game.simulate(DAY_LENGTH * d);
+      this.game.emit('change');
+      this.print(`✓ skipped ${d} day(s): pop ${sum.pop >= 0 ? '+' : ''}${sum.pop}, births ${sum.births}, deaths ${sum.deaths}`, 'ok');
+    },
+  },
+  era: {
+    usage: 'era [up|<0-3>]', desc: 'Change your era',
+    run([arg = 'up']) {
+      const s = this.game.state;
+      s.era = arg === 'up' ? Math.min(ERAS.length - 1, s.era + 1) : Math.max(0, Math.min(ERAS.length - 1, Number(arg) || 0));
+      this.game.emit('change');
+      this.print(`✓ era → ${ERAS[s.era].name}`, 'ok');
+    },
+  },
+  finish: {
+    usage: 'finish', desc: 'Finish all your construction',
+    run() {
+      const pending = this.game.state.buildings.filter(b => !b.built);
+      for (const b of pending) this.game.finishBuilding(b);
+      this.print(`✓ finished ${pending.length} building(s)`, 'ok');
+    },
+  },
+  villager: {
+    usage: 'villager [n]', desc: 'Add villagers to your village',
+    run([n = '1']) {
+      const count = Math.min(20, Number(n) || 1);
+      for (let i = 0; i < count; i++) this.game.addWanderer();
+      this.game.emit('change');
+      this.print(`✓ ${count} villager(s) joined`, 'ok');
+    },
+  },
+};
+
+function tokenize(line) {
+  const out = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let m;
+  while ((m = re.exec(line))) out.push(m[1] ?? m[2] ?? m[3]);
+  return out;
+}
+
+function load() { try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch { return []; } }
+function save(list) { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch { /* ignore */ } }

@@ -1,0 +1,71 @@
+rules_version = '2';
+
+// Paste into Firebase console → Firestore Database → Rules → Publish
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    // Admins are listed in the database (admins/{uid}), never in this public file.
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Add admins by hand in the Firebase console; players can only check themselves
+    match /admins/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+    function notBanned() { return !exists(/databases/$(database)/documents/bans/$(request.auth.uid)); }
+
+    // Full village save (one JSON blob per player)
+    match /saves/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if (isOwner(uid) && notBanned()) || isAdmin();
+    }
+
+    // Civilization save slots (any world)
+    match /saves/{uid}/slots/{slot} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write, delete: if (isOwner(uid) && notBanned()) || isAdmin();
+    }
+
+    // Village saves in private / solo worlds (older format)
+    match /saves/{uid}/worlds/{world} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if (isOwner(uid) && notBanned()) || isAdmin();
+    }
+
+    // Public village profiles inside private worlds
+    match /worldPlayers/{world}/players/{uid} {
+      allow read: if signedIn();
+      allow write: if (isOwner(uid) && notBanned()) || isAdmin();
+    }
+
+    // Public profile: leaderboards, raids, player list (no email here)
+    match /players/{uid} {
+      allow read: if signedIn();
+      allow write: if (isOwner(uid) && notBanned()) || isAdmin();
+    }
+
+    // Private account info (email) — only the player and admins
+    match /private/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid) || isAdmin();
+    }
+
+    // Unique usernames (document id = lowercase name)
+    match /usernames/{name} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+      allow delete: if (signedIn() && resource.data.uid == request.auth.uid) || isAdmin();
+    }
+
+    // Bans — only admins write; the banned player may read their own
+    match /bans/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isAdmin();
+    }
+  }
+}

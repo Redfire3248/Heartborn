@@ -1,0 +1,137 @@
+# HEARTBORN – Sprite Sheet Prompts
+
+8 sheets × 36 sprites = **288 assets**. Every sheet is a **6×6 grid**, generated as a **square image (1024×1024)**.
+Slice with `tools/slicer.html` → outputs 32×32 PNGs named automatically.
+
+**Rules for every generation**
+- Always square (1:1). Don't crop or resize before slicing.
+- The ORDER of items matters – the slicer names cells left→right, top→bottom.
+- If one cell comes out wrong, regenerate the whole sheet (or fix that cell in an editor), don't shuffle positions.
+- Use the same generator + same seed/style reference for all 5 sheets to keep them uniform.
+
+---
+
+## Sheet 1 – Characters & Creatures → `characters/`
+
+```
+A pixel art sprite sheet, square image, arranged in a perfectly uniform 6x6 grid of 36 equal square cells. Each cell contains exactly ONE isolated sprite, centered in its cell, all sprites drawn at the same scale and filling about 80% of their cell, with even empty spacing between cells. No gridlines, no borders, no text, no labels, no numbers. Transparent background (if not possible: plain flat solid white background). Style: 32x32 retro 16-bit SNES pixel art, top-down 3/4 view, facing the viewer, clean 1px dark outline, limited warm earthy palette, soft light from top-left, no ground shadows, consistent style across all cells.
+
+Cells in order, left to right, top to bottom:
+Row 1: primitive man in brown cloth tunic barefoot | primitive woman in beige dress hair tied back | small child in tiny tunic | old elder with grey beard and walking stick | farmer with straw hat | miner with helmet candle
+Row 2: hunter with fur cloak | warrior in leather armor with round shield | blacksmith with leather apron and hammer | merchant with big backpack and purple hood | healer in green robe with herb basket | priest in white robe with gold trim
+Row 3: king with gold crown and red cape | queen with silver tiara and blue gown | witch with pointy hat and dark cloak | bandit with red bandana mask and dagger | green goblin with club | skeleton warrior
+Row 4: brown deer with antlers | grey wolf snarling | brown bear | wild boar with tusks | white rabbit | white chicken
+Row 5: black and white cow | fluffy white sheep | pink pig | brown horse | blue fish | green snake
+Row 6: green slime blob | giant black spider | floating white ghost | cave troll with glowing red eyes | glowing green forest spirit of leaves | small red dragon with wings spread
+```
+
+## Sheet 2 – Buildings → `buildings/`
+
+```
+A pixel art sprite sheet, square image, arranged in a perfectly uniform 6x6 grid of 36 equal square cells. Each cell contains exactly ONE isolated building, centered in its cell, all buildings drawn at the same scale and filling about 85% of their cell, with even empty spacing between cells. No gridlines, no borders, no text, no labels, no numbers. Transparent background (if not possible: plain flat solid white background). Style: 32x32 retro 16-bit SNES pixel art, top-down 3/4 view, clean 1px dark outline, limited warm medieval palette, soft light from top-left, no ground tiles under buildings, consistent style across all cells.
+
+Cells in order, left to right, top to bottom:
+Row 1: campfire with stone ring | animal hide tent | stockpile of logs stones and sacks | round hut with straw roof | small wooden house with red roof and chimney | small farm plot with green crops and fence
+Row 2: stone water well with roof | wooden lumber mill with saw blade | mine entrance in rock with wooden beams | stone shrine with glowing blue crystal | wooden windmill | wooden granary barn
+Row 3: blacksmith forge with anvil and glowing furnace | market stall with red white striped awning | tavern with beer mug sign and lit windows | wooden barracks with red banner | horse stable | fishing hut with net
+Row 4: healer hut with green cross sign | small schoolhouse with bell | stone library with book emblem | stone bank with gold coin emblem | white marble temple with golden dome | stone castle keep with blue flags
+Row 5: wooden palisade wall segment | stone wall segment with battlements | wooden gate | stone gatehouse with portcullis | tall wooden watchtower | wooden dock with rowboat
+Row 6: stone hero statue | stone water fountain | giant glowing golden obelisk wonder | wooden scaffolding construction site | crumbled mossy stone ruins | wooden grave cross on dirt mound with flower
+```
+
+## Sheet 3 – Tiles & Nature → `nature/`
+
+```
+A pixel art sprite sheet, square image, arranged in a perfectly uniform 6x6 grid of 36 equal square cells, no gridlines, no borders, no text, no labels, no numbers. Style: 32x32 retro 16-bit SNES pixel art, top-down 3/4 view, limited natural palette, soft light from top-left, consistent style across all cells.
+The first TWO rows are seamless tileable ground textures that completely FILL their entire square cell edge to edge, flat top-down, no outline.
+The remaining four rows each contain exactly ONE isolated object, centered in its cell, filling about 80% of the cell, clean 1px dark outline, transparent background (if not possible: plain flat solid white background).
+
+Cells in order, left to right, top to bottom:
+Row 1 (full tiles): green grass | green grass with tiny flowers | brown dirt | light sand | shallow blue water with ripples | dark deep blue water
+Row 2 (full tiles): white snow | grey cobblestone path | plowed brown farmland rows | murky green swamp | glowing orange lava | dark grey cave floor
+Row 3: round green oak tree | tall pine tree | apple tree with red apples | palm tree | dead leafless tree | snow covered pine tree
+Row 4: chopped tree stump | tiny green sapling | green bush with red berries | tuft of tall grass | cluster of colorful flowers | red spotted mushroom
+Row 5: grey boulder | rock with black coal chunks | rock with orange iron veins | rock with shiny gold veins | dark rock with purple and blue gems | glowing cyan crystal cluster
+Row 6: golden ripe wheat plant | carrot plant with orange top showing | orange pumpkin | green cactus | water reeds cattails | fallen mossy log
+```
+
+## Sheet 4 – Items & UI Icons → `items/`
+
+```
+A pixel art icon sheet, square image, arranged in a perfectly uniform 6x6 grid of 36 equal square cells. Each cell contains exactly ONE isolated game icon, centered in its cell, all icons drawn at the same scale and filling about 80% of their cell, with even empty spacing between cells. No gridlines, no borders, no text, no letters, no numbers. Transparent background (if not possible: plain flat solid white background). Style: 32x32 retro 16-bit SNES RPG inventory icons, slight 3/4 angle, clean 1px dark outline, bright readable colors, soft light from top-left, consistent style across all cells.
+
+Cells in order, left to right, top to bottom:
+Row 1: roasted meat drumstick with red apple | bundle of three wooden logs | pile of grey stones | lump of black coal | iron ingot bar | stack of gold coins
+Row 2: sparkling purple gemstone | glowing golden sun orb with rays | iron pickaxe | iron axe | farming hoe | wooden hammer
+Row 3: iron short sword | wooden spear | wooden bow | round wooden shield | red potion bottle | ancient glowing golden amulet
+Row 4: parchment scroll with red ribbon | white halo with small angel wings | red devil horns with dark aura | red heart | empty bowl with spoon | yellow smiling face
+Row 5: blue crying face | three small people silhouettes | glowing golden twenty-sided dice | two hands shaking | two crossed swords | blue banner flag with shield emblem
+Row 6: white speech bubble with three dots | treasure chest with small cloud | blue glowing bubble shield | golden crown | baby wrapped in blanket | golden star
+```
+
+## Sheet 5 – Effects, Emotes & Weather → `effects/`
+
+```
+A pixel art effects sheet, square image, arranged in a perfectly uniform 6x6 grid of 36 equal square cells. Each cell contains exactly ONE isolated small effect sprite, centered in its cell, all drawn at the same scale and filling about 70% of their cell, with even empty spacing between cells. No gridlines, no borders, no text, no letters. Transparent background (if not possible: plain flat solid black background). Style: 32x32 retro 16-bit SNES pixel art game effects, bold bright colors, clean 1px dark outline, simple readable shapes, consistent style across all cells.
+
+Cells in order, left to right, top to bottom:
+Row 1: golden four-point sparkle star | grey smoke puff | brown dust cloud | single orange yellow flame | orange explosion burst | yellow lightning bolt
+Row 2: green plus sign | purple glowing skull | green toxic bubble | glowing blue magic orb | light blue ice crystal | white impact hit star
+Row 3: blue raindrop | white snowflake | green falling leaf | blue water splash | small falling rock chunk | spinning gold coin
+Row 4: speech bubble with red exclamation mark | speech bubble with question mark | speech bubble with sleepy Z symbols | speech bubble with pink heart | speech bubble with red anger symbol | speech bubble with music note
+Row 5: bouncing yellow down arrow marker | red flag on pole | red target crosshair circle | two crossed swords war marker | small footprint | white feather
+Row 6: white fluffy cloud | yellow sun | crescent moon | flaming meteor | grey tornado | glowing blue wisp soul
+```
+
+## Sheet 6 – Buildings II → save as `Buildings2.png`
+
+```
+A pixel art sprite sheet, square image, arranged in a perfectly uniform 6x6 grid of 36 equal square cells. Each cell contains exactly ONE isolated building, centered in its cell, all buildings drawn at the same scale and filling about 85% of their cell, with even empty spacing between cells. No gridlines, no borders, no text, no labels, no numbers. Transparent background (if not possible: plain flat solid white background). Style: 32x32 retro 16-bit SNES pixel art, top-down 3/4 view, clean 1px dark outline, limited warm medieval palette, soft light from top-left, no ground tiles under buildings, matching the style of a medieval village builder game, consistent style across all cells.
+
+Cells in order, left to right, top to bottom:
+Row 1: small wooden craft hut with spears and axes leaning on the wall | stone weaponsmith forge with glowing furnace and swords on a rack | stone armory with shields and banners on the walls | fenced training ground with straw target dummies | small wooden guard post with a torch and spear | siege workshop with a wooden catapult beside it
+Row 2: small orchard of fruit trees with a low fence | fenced pasture with two cows | hunters lodge with antlers over the door and animal pelts | wooden apiary with beehive boxes | stone bakery with bread sign and smoking oven chimney | brewery with large wooden barrels
+Row 3: stone quarry pit with cut stone blocks and a wooden crane | charcoal kiln dome made of earth with smoke rising | stone smelter with molten orange metal and crucible | carpenter workshop with planks and a saw bench | large wooden warehouse with big double doors and crates | small open workshop shed with tools on the wall
+Row 4: town hall with a clock tower and flag | stone courthouse with columns and a scales of justice emblem | small stone jail with barred windows | cozy two-story inn with a bed sign | stone bathhouse with steam rising | stone hospital with a red cross banner
+Row 5: small stone chapel with a bell tower | grand gothic cathedral with stained glass windows and spires | stone monastery with a cloister garden | stone observatory tower with a domed telescope roof | grand university building with a dome and scrolls banner | tall purple mage tower with glowing crystals at the top
+Row 6: tall round stone defense tower with battlements | massive stone fortress with thick walls and towers | royal palace with golden roofs and red banners | round stone colosseum arena | tall striped lighthouse on rocks with a glowing light | royal garden with hedges, flowers and a small fountain
+```
+
+## Sheet 7 – Buildings III: Intrigue & the Future → save as `Buildings3.png`
+
+```
+A pixel art sprite sheet, square image, arranged in a perfectly uniform 6x6 grid of 36 equal square cells. Each cell contains exactly ONE isolated building, centered in its cell, all buildings drawn at the same scale and filling about 85% of their cell, with even empty spacing between cells. No gridlines, no borders, no text, no labels, no numbers. Transparent background (if not possible: plain flat solid white background). Style: 32x32 retro 16-bit SNES pixel art, top-down 3/4 view, clean 1px dark outline, soft light from top-left, no ground tiles under buildings, same style as a medieval village builder game that advances through the industrial age into a sci-fi future, consistent style across all cells.
+
+Cells in order, left to right, top to bottom:
+Row 1: shady wooden spy den with hooded window and hidden door | stone gunpowder mill with black powder barrels | grim stone prison with barred windows and a watchtower | elegant embassy building with foreign flags | stone cannon tower with a black cannon on top | small reinforced vault with a heavy iron door
+Row 2: brick factory with tall smokestacks | steel mill with glowing molten steel and chimneys | printing press workshop with paper stacks | victorian railway station with a steam train | tall brick tenement apartment block | tall clock tower with a big clock face
+Row 3: modern research laboratory with glass windows and antenna | small telegraph office with wires on poles | grand museum with columns and a banner | futuristic academy of science with a glass dome | glass vertical farm tower full of green plants | clean modern white hospital with red cross
+Row 4: power plant with cooling towers and steam | radar array with a large rotating dish | concrete military bunker half underground | airfield with a runway and a small plane | tank factory with a green tank at the door | missile silo with an open hatch and a missile
+Row 5: robot factory with robotic arms and blue lights | drone hub landing pad with small drones | glowing fusion reactor with blue plasma core | futuristic arcology megastructure tower | shield generator emitting a blue energy dome | sleek hyperloop station with a glowing tube
+Row 6: spaceport launch pad with a rocket ready to launch | glowing AI core supercomputer with cyan lights | holographic park with glowing hologram trees | sci-fi cloning vat lab with green glowing tubes | orbital cannon satellite dish pointed at the sky | mech bay hangar with a giant robot mech inside
+```
+
+## Sheet 8 – Agents, Modern Units & Tech → save as `Units.png`
+
+```
+A pixel art sprite sheet, square image, arranged in a perfectly uniform 6x6 grid of 36 equal square cells. Each cell contains exactly ONE isolated sprite, centered in its cell, all drawn at the same scale and filling about 80% of their cell, with even empty spacing between cells. No gridlines, no borders, no text, no labels, no numbers. Transparent background (if not possible: plain flat solid white background). Style: 32x32 retro 16-bit SNES pixel art, top-down 3/4 view, facing the viewer, clean 1px dark outline, soft light from top-left, no ground shadows, consistent style across all cells.
+
+Cells in order, left to right, top to bottom:
+Row 1: spy in a dark hooded cloak with a dagger | traitor villager with a sly grin holding a bag of stolen coins | masked assassin in black with twin knives | saboteur carrying a lit bomb | prisoner in striped clothes with shackles | informant whispering behind a hand
+Row 2: musketeer soldier with a musket and tricorn hat | rifleman soldier in green uniform with a rifle | grenadier soldier throwing a grenade | small yellow robot worker with a wrench | armored robot soldier with a laser gun | sleek humanoid android with glowing eyes
+Row 3: black iron cannon on wooden wheels | green military tank | small fighter jet plane | small quadcopter drone | giant bipedal combat mech | cyborg soldier with a glowing robotic arm
+Row 4: round black bomb with a lit fuse | bundle of red dynamite sticks | red and white missile | glowing blue science flask icon | metal gear cog | green microchip circuit
+Row 5: steel I-beam | black oil barrel | glowing battery cell | green radar screen | satellite with solar panels | security keycard
+Row 6: huge orange mushroom explosion | tall grey smoke plume | red laser beam | glowing blue energy shield bubble | crackling electric spark | yellow radiation hazard symbol glowing
+```
+
+---
+
+## How to slice
+1. Open `tools/slicer.html` in Chrome or Edge (double-click it).
+2. Pick the sheet in the dropdown → drop your generated image in.
+3. Check the preview: every sprite should be clean with its correct name.
+   - Background bits left over? Raise **tolerance**.
+   - Parts of the sprite missing? Lower tolerance.
+   - Neighbour sprites bleeding in? Raise **edge inset**.
+4. **Save into assets folder…** → choose `HEARTBORN_DIR_KEEP` (it creates the subfolder).

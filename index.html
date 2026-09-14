@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Heartborn</title>
+  <link rel="icon" href="assets/buildings/campfire.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Rubik:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/ui/style.css">
+</head>
+<body>
+  <!-- shown instantly, before any script has loaded -->
+  <div id="boot" style="position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(ellipse at center,#2a1838 0%,#0c0812 70%);color:#ffb347;font:700 42px 'Trebuchet MS',sans-serif;letter-spacing:6px;z-index:100">HEARTBORN</div>
+  <canvas id="game"></canvas>
+  <div id="ui"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

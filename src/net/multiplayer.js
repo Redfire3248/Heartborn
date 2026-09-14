@@ -1,0 +1,806 @@
+import {
+  ref, onValue, onChildAdded, onChildRemoved, push, set, update, remove, serverTimestamp,
+  onDisconnect, query, orderByChild, limitToLast, runTransaction,
+} from 'firebase/database';
+import { rtdb } from './firebase.js';
+import { profileFor, writeProfile, getProfile } from './save.js';
+import { EVENTS } from '../data/events.js';
+import { RAID_SHIELD_MS, ADULT_AGE } from '../core/constants.js';
+import { clamp } from '../core/rng.js';
+import { trySpot, DUST_SECONDS, spawnArmy, tributeCost, rally } from '../game/war.js';
+import { returnHome } from '../game/villagers.js';
+import { isTrained } from '../game/dynasty.js';
+import { isSpy, destroyBuildings, sufferStrike, hasMissiles, hasOrbital, MISSILE_COST } from '../game/intrigue.js';
+
+const RAID_COOLDOWN_MS = 2 * 3600 * 1000;
+const CHAT_COOLDOWN_MS = 1500;
+// Tests shrink real-time waits (travel, grace periods) with globalThis.HB_TIME_SCALE.
+const scale = () => globalThis.HB_TIME_SCALE ?? 1;
+const DEFENDER_GRACE = () => Math.max(3000, 45_000 * scale());     // an online defender gets first claim on the battle
+const STALE_BATTLE = () => Math.max(60_000, 10 * 60_000 * scale()); // a live battle abandoned this long is decided by stats
+
+/** Every village has a fixed place in the realm, derived from its owner's id (0..100 on each axis). */
+export function realmPos(uid) {
+  let h = 2166136261;
+  for (const ch of uid) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return { x: ((h >>> 0) % 1000) / 10, y: (((h >>> 10) >>> 0) % 1000) / 10 };
+}
+
+/** Travel time between two villages: armies 4–20 min, caravans a bit faster. */
+export function travelMs(fromUid, toUid, kind = 'army') {
+  const a = realmPos(fromUid), b = realmPos(toUid);
+  const d = Math.hypot(a.x - b.x, a.y - b.y);          // 0 .. ~141
+  const minutes = 4 + d * 0.115;
+  return Math.round(minutes * (kind === 'caravan' ? 0.6 : 1) * 60_000 * scale());
+}
+
+export const fmtMinutes = ms => {
+  const m = Math.max(1, Math.round(ms / 60000));
+  return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`;
+};
+
+/**
+ * Live multiplayer over the Realtime Database:
+ * presence, global chat, trade/gift/alliance offers, marching armies, admin commands and broadcasts.
+ *
+ * Offers use escrow: the sender pays up front; the recipient accepts or declines;
+ * the sender's client then settles (receives payment or a refund) from offersSent.
+ *
+ * Attacks (attacks/{defender}/{id}) march for a few real minutes. The defender's scouts warn
+ * them early. On arrival the defender — if online — claims the battle and fights it live in
+ * their world; otherwise the attacker's client decides it by stats. Each side applies its own
+ * results and marks itself settled; the record is deleted once both sides have settled.
+ */
+export class Multiplayer {
+  constructor(user, game, world = 'realm') {
+    this.user = user;
+    this.g = game;
+    this.uid = user.uid;
+    this.world = world;
+    this.w = `w/${world}/`;   // every multiplayer path lives inside its world
+    this.unsubs = [];
+    this.players = [];
+    this.inbox = [];
+    this.allies = new Set();
+    this.chat = [];
+    this.incoming = {};        // attacks on me
+    this.outgoing = {};        // my armies: id -> attack record (or null once deleted)
+    this.watching = new Map(); // attack id -> unsubscribe
+    this.warned = new Set();
+    this.sweeps = {};         // attack id -> scouting sweep timer
+    this.busy = new Set();
+    this.lastChatAt = 0;
+    this.startedAt = Date.now();
+    this.listeners = {};
+    game.mpThreats = [];
+  }
+
+  /** Players are known by their username, never their email. */
+  get name() { return this.g.state.owner.name || 'Chieftain'; }
+
+  on(name, fn) { (this.listeners[name] ||= []).push(fn); }
+  emit(name, data) { for (const fn of this.listeners[name] || []) fn(data); }
+
+  start() {
+    const me = ref(rtdb, `${this.w}presence/${this.uid}`);
+    this.unsubs.push(onValue(ref(rtdb, '.info/connected'), snap => {
+      if (!snap.val()) return;
+      onDisconnect(me).update({ online: false, lastSeen: serverTimestamp() });
+      set(me, this.presenceData(true));
+    }));
+    this.presenceTimer = setInterval(() => this.heartbeat(), 30_000);
+    this.warTimer = setInterval(() => this.warTick(), 1000);
+
+    this.unsubs.push(onValue(ref(rtdb, `${this.w}presence`), snap => {
+      const all = snap.val() || {};
+      this.players = Object.entries(all).map(([uid, p]) => ({ uid, ...p })).sort((a, b) => (b.online - a.online) || (b.pop - a.pop));
+      this.emit('players', this.players);
+    }));
+
+    const chatQ = query(ref(rtdb, `${this.w}chat`), orderByChild('ts'), limitToLast(60));
+    this.unsubs.push(onChildAdded(chatQ, snap => {
+      this.chat.push({ id: snap.key, ...snap.val() });
+      if (this.chat.length > 60) this.chat.shift();
+      this.emit('chat', this.chat);
+    }));
+    this.unsubs.push(onChildRemoved(chatQ, snap => {
+      this.chat = this.chat.filter(m => m.id !== snap.key);
+      this.emit('chat', this.chat);
+    }));
+
+    this.unsubs.push(onValue(ref(rtdb, `${this.w}offers/${this.uid}`), snap => this.handleInbox(snap.val() || {})));
+    this.unsubs.push(onValue(ref(rtdb, `${this.w}offersSent/${this.uid}`), snap => this.settleSent(snap.val() || {})));
+    this.unsubs.push(onValue(ref(rtdb, `${this.w}alliances/${this.uid}`), snap => {
+      this.allies = new Set(Object.keys(snap.val() || {}));
+      this.emit('players', this.players);
+    }));
+
+    // war
+    this.unsubs.push(onValue(ref(rtdb, `${this.w}attacks/${this.uid}`), snap => {
+      this.incoming = snap.val() || {};
+      this.warTick();
+    }));
+    this.unsubs.push(onValue(ref(rtdb, `${this.w}attacksSent/${this.uid}`), snap => this.trackOutgoing(snap.val() || {})));
+    this.unsubs.push(onValue(ref(rtdb, `${this.w}missions/${this.uid}`), snap => { this.incomingMissions = snap.val() || {}; this.applyMissions(); }));
+    this.unsubs.push(onValue(ref(rtdb, `${this.w}missionsSent/${this.uid}`), snap => { this.sentMissions = snap.val() || {}; }));
+    const offBattle = this.g.on('battleEnd', r => { if (r.kind === 'player') this.finishLiveBattle(r); });
+    this.unsubs.push(offBattle);
+
+    this.unsubs.push(onValue(ref(rtdb, 'announcements'), snap => {
+      const a = snap.val();
+      if (a?.text && (a.ts || 0) > (Number(localStorage.getItem('hb_last_announcement')) || 0)) {
+        localStorage.setItem('hb_last_announcement', String(a.ts));
+        this.emit('announcement', a);
+      }
+    }));
+    this.unsubs.push(onValue(ref(rtdb, 'globalEvent'), snap => {
+      const ev = snap.val();
+      if (!ev?.id || (ev.ts || 0) < this.startedAt) return;
+      const event = EVENTS.find(e => e.id === ev.id);
+      if (event) this.g.startEvent(event);
+    }));
+    this.unsubs.push(onChildAdded(ref(rtdb, `adminCommands/${this.uid}`), snap => {
+      this.applyAdminCommand(snap.val());
+      remove(snap.ref);
+    }));
+  }
+
+  stop() {
+    clearInterval(this.presenceTimer);
+    clearInterval(this.warTimer);
+    for (const u of this.unsubs) u();
+    for (const u of this.watching.values()) u();
+    this.unsubs = [];
+    this.watching.clear();
+    update(ref(rtdb, `${this.w}presence/${this.uid}`), { online: false, lastSeen: serverTimestamp() }).catch(() => {});
+  }
+
+  presenceData(online) {
+    const p = profileFor(this.user, this.g);
+    return {
+      online, name: p.name, villageName: p.villageName, pop: p.pop, karma: p.karma,
+      era: p.era, wealth: p.wealth, lastSeen: serverTimestamp(),
+    };
+  }
+
+  heartbeat() {
+    set(ref(rtdb, `${this.w}presence/${this.uid}`), this.presenceData(true)).catch(() => {});
+    writeProfile(this.user, this.g).catch(() => {});
+  }
+
+  // ---------------- chat ----------------
+  async sendChat(text) {
+    text = text.trim().slice(0, 200);
+    if (!text) return;
+    if (Date.now() - this.lastChatAt < CHAT_COOLDOWN_MS) throw new Error('Slow down!');
+    this.lastChatAt = Date.now();
+    await push(ref(rtdb, `${this.w}chat`), {
+      uid: this.uid, name: this.name,
+      village: this.g.state.owner.villageName, text, ts: serverTimestamp(),
+    });
+  }
+
+  // ---------------- offers ----------------
+  async sendOffer(to, type, give = {}, want = {}) {
+    if (to.uid === this.uid) throw new Error("That's you!");
+    if (type === 'trade' && !this.g.hasBuilding('market')) throw new Error('You need a Market to trade');
+    give = cleanRes(give); want = cleanRes(want);
+    if (!this.g.spend(give)) throw new Error('Not enough resources');
+    const id = push(ref(rtdb, `${this.w}offers/${to.uid}`)).key;
+    const offer = {
+      id, type, from: this.uid, fromName: this.name, fromVillage: this.g.state.owner.villageName,
+      to: to.uid, toName: to.name || '', toVillage: to.villageName || '', give, want, ts: Date.now(), status: 'pending',
+      deliverAt: Date.now() + travelMs(this.uid, to.uid, 'caravan'),
+    };
+    try {
+      await update(ref(rtdb), { [`${this.w}offers/${to.uid}/${id}`]: offer, [`${this.w}offersSent/${this.uid}/${id}`]: offer });
+    } catch (e) {
+      for (const [k, v] of Object.entries(give)) this.g.addResource(k, v);   // refund
+      throw e;
+    }
+    if (type === 'gift') this.g.addKarma(2);
+    this.g.log(`A ${type === 'alliance' ? 'messenger' : 'caravan'} sets out for ${to.villageName || 'their village'} — arrives in ${fmtMinutes(offer.deliverAt - offer.ts)}.`, 'event');
+  }
+
+  handleInbox(all) {
+    this.allOffers = Object.values(all);
+    this.refreshInbox();
+  }
+
+  /** Only caravans that have actually arrived show up. */
+  refreshInbox() {
+    const now = Date.now();
+    const arrived = (this.allOffers || []).filter(o => !o.deliverAt || o.deliverAt <= now).sort((a, b) => b.ts - a.ts);
+    if (arrived.length !== this.inbox.length) {
+      if (arrived.length > this.inbox.length) this.g.log('A caravan has arrived at the village gates.', 'event');
+      this.inbox = arrived;
+      this.emit('inbox', this.inbox);
+    }
+  }
+
+  async respond(offer, accept) {
+    const g = this.g;
+    const paths = {};
+    const status = accept ? 'accepted' : 'declined';
+    if (accept && offer.type === 'trade' && !g.spend(offer.want)) throw new Error('You cannot afford their request');
+    if (accept) {
+      for (const [k, v] of Object.entries(offer.give || {})) g.addResource(k, v);
+      if (offer.type === 'alliance') paths[`${this.w}alliances/${this.uid}/${offer.from}`] = true;
+      g.log(`Accepted ${offer.type} from ${offer.fromName}.`, 'good');
+    }
+    paths[`${this.w}offersSent/${offer.from}/${offer.id}/status`] = status;
+    paths[`${this.w}offers/${this.uid}/${offer.id}`] = null;
+    await update(ref(rtdb), paths);
+    g.emit('change');
+  }
+
+  settleSent(all) {
+    const g = this.g;
+    const done = (g.state.settledOffers ||= []);
+    for (const o of Object.values(all)) {
+      if (o.status === 'pending' || done.includes(o.id)) {
+        if (done.includes(o.id)) remove(ref(rtdb, `${this.w}offersSent/${this.uid}/${o.id}`));
+        continue;
+      }
+      done.push(o.id);
+      if (done.length > 100) done.shift();
+      if (o.status === 'accepted') {
+        if (o.type === 'trade') for (const [k, v] of Object.entries(o.want || {})) g.addResource(k, v);
+        if (o.type === 'alliance') set(ref(rtdb, `${this.w}alliances/${this.uid}/${o.to}`), true);
+        g.log(`${o.toName || 'A player'} accepted your ${o.type}.`, 'good');
+      } else if (o.status === 'declined') {
+        for (const [k, v] of Object.entries(o.give || {})) g.addResource(k, v);
+        g.log(`${o.toName || 'A player'} declined your ${o.type}. Refunded.`, 'info');
+      }
+      remove(ref(rtdb, `${this.w}offersSent/${this.uid}/${o.id}`));
+      g.emit('change');
+    }
+  }
+
+  async breakAlliance(uid) {
+    await update(ref(rtdb), { [`${this.w}alliances/${this.uid}/${uid}`]: null });
+  }
+
+  // ================================================================ war
+  availableWarriors() {
+    return this.g.state.villagers.filter(v => v.job === 'warrior' && v.armed && isTrained(v) && !v.away && v.age >= ADULT_AGE && v.hp > 30);
+  }
+
+  armies() {
+    return Object.values(this.outgoing).filter(Boolean);
+  }
+
+  raidCheck(target) {
+    const g = this.g;
+    const s = g.state;
+    if (!g.hasBuilding('barracks')) return 'You need Barracks to raise an army';
+    if (!this.availableWarriors().length) {
+      return this.g.state.villagers.some(v => v.job === 'warrior') ? 'Your warriors have no weapons — build a Craft Hut and assign a Smith' : 'Assign some healthy Warriors first';
+    }
+    if (this.allies.has(target.uid)) return 'You cannot attack an ally';
+    if (this.armies().some(a => a.to === target.uid)) return 'Your army is already marching on them';
+    const cooldown = RAID_COOLDOWN_MS * g.law.raidCooldown;
+    if (Date.now() - (s.lastRaidAt || 0) < cooldown) {
+      const m = Math.ceil((cooldown - (Date.now() - s.lastRaidAt)) / 60000);
+      return `Your people need time before another war (${m >= 60 ? Math.ceil(m / 60) + 'h' : m + 'm'})`;
+    }
+    return true;
+  }
+
+  async launchAttack(targetUid) {
+    const g = this.g;
+    const s = g.state;
+    const target = await getProfile(targetUid);
+    if (!target) throw new Error('Village not found');
+    const check = this.raidCheck({ ...target, uid: targetUid });
+    if (check !== true) throw new Error(check);
+    if ((target.shieldUntil || 0) > Date.now()) throw new Error(`${target.villageName} is protected by a shield`);
+
+    const warriors = this.availableWarriors();
+    const bombs = Math.min(Math.floor(s.resources.bombs || 0), warriors.length * 2);
+    s.resources.bombs -= bombs;
+    const power = Math.round(warriors.reduce((sum, v) => sum + 5 + v.skills.combat, 0) * (1 + g.combatBonus + (g.raidBonus || 0)) + Math.max(0, g.fateBonus) * 10 + bombs * 3);
+    const now = Date.now();
+    const arrivesAt = now + travelMs(this.uid, targetUid, 'army');
+    const id = push(ref(rtdb, `${this.w}attacks/${targetUid}`)).key;
+    const attack = {
+      id, from: this.uid, fromName: this.name, fromVillage: s.owner.villageName,
+      to: targetUid, toVillage: target.villageName, power, warriors: warriors.length, bombs, launchedAt: now, arrivesAt, status: 'marching',
+    };
+    await update(ref(rtdb), {
+      [`${this.w}attacks/${targetUid}/${id}`]: attack,
+      [`${this.w}attacksSent/${this.uid}/${id}`]: { id, to: targetUid, toVillage: target.villageName, arrivesAt, warriors: warriors.length },
+    });
+    for (const v of warriors) { v.away = { attackId: id, until: arrivesAt + (arrivesAt - now) + 30 * 60_000 }; v._task = null; }
+    s.lastRaidAt = now;
+    g.addKarma(-8);
+    g.log(`${warriors.length} warriors${bombs ? ` carrying ${bombs} bombs` : ''} march on ${target.villageName}. They arrive in ${fmtMinutes(arrivesAt - now)}.`, 'event');
+    g.emit('change');
+    return { arrivesAt, target };
+  }
+
+  trackOutgoing(sent) {
+    for (const [id, info] of Object.entries(sent)) {
+      if (this.watching.has(id)) continue;
+      const unsub = onValue(ref(rtdb, `${this.w}attacks/${info.to}/${id}`), snap => {
+        const a = snap.val();
+        this.outgoing[id] = a || { ...info, id, vanished: true };
+        if (a && (a.status === 'resolved' || a.status === 'bribed') && !a.attackerSettled) this.settleOutgoing(a);
+        if (!a) this.settleVanished(id, info);
+        this.emit('armies', this.armies());
+      }, () => { this.settleVanished(id, info); });
+      this.watching.set(id, unsub);
+    }
+    for (const id of [...this.watching.keys()]) {
+      if (!sent[id]) { this.watching.get(id)(); this.watching.delete(id); delete this.outgoing[id]; }
+    }
+    this.emit('armies', this.armies());
+  }
+
+  /** Runs every second: scout warnings, claiming battles, settling results. */
+  warTick() {
+    const g = this.g;
+    const now = Date.now();
+    this.resolveMissions();
+    this.refreshInbox();
+    this.arrivals();
+    const threats = [];
+
+    for (const a of Object.values(this.incoming)) {
+      if (a.status === 'marching') {
+        const remaining = (a.arrivesAt - now) / 1000;
+        if (!this.warned.has(a.id) && trySpot(g, remaining, (this.sweeps[a.id] ||= {}), now / 1000)) {
+          this.warned.add(a.id);
+          {
+            g.emit('scoutReport', { id: a.id, kind: 'player', name: `${a.fromVillage}'s army`, count: a.warriors, seconds: Math.max(0, (a.arrivesAt - now) / 1000), ref: a });
+            g.log(remaining <= DUST_SECONDS
+              ? `Dust on the horizon — ${a.fromVillage}'s army is at the gates! Nobody saw them coming.`
+              : `Scouts report: ${a.fromVillage} (${a.fromName}) marches on us with ${a.warriors} warriors!`, 'bad');
+            if (g.autoRally && !g.state.rallied) rally(g);
+          }
+        }
+        if (this.warned.has(a.id)) threats.push(a);
+        if (now >= a.arrivesAt) this.claimLiveBattle(a);
+      } else if (a.status === 'resolved' && !a.defenderSettled) {
+        this.applyIncomingResult(a);
+      } else if (a.status === 'bribed' && a.attackerSettled) {
+        remove(ref(rtdb, `${this.w}attacks/${this.uid}/${a.id}`)).catch(() => {});
+      }
+    }
+    g.mpThreats = threats;
+
+    // keep live battles we are fighting marked as alive, so the attacker never decides them by strength
+    for (const a of Object.values(this.incoming)) {
+      if (a.status === 'battle' && a.resolver === this.uid && this.g.state.battles?.[a.id] && now - (a.battleAt || 0) > 10_000) {
+        a.battleAt = now;
+        update(ref(rtdb, `${this.w}attacks/${this.uid}/${a.id}`), { battleAt: now }).catch(() => {});
+      }
+    }
+
+    for (const a of this.armies()) {
+      if (a.vanished) continue;
+      if ((a.status === 'marching' && now >= a.arrivesAt + DEFENDER_GRACE()) || isStale(a)) this.resolveByStats(a);
+    }
+  }
+
+  // ---- defender side
+  async claimLiveBattle(a) {
+    if (this.busy.has(a.id)) return;
+    this.busy.add(a.id);
+    try {
+      const tx = await runTransaction(ref(rtdb, `${this.w}attacks/${this.uid}/${a.id}`), cur => {
+        if (!cur || cur.status !== 'marching') return undefined;
+        return { ...cur, status: 'battle', resolver: this.uid, battleAt: Date.now() };
+      });
+      if (!tx.committed) return;
+      const count = clamp(a.warriors, 1, 12);
+      const scale = clamp(a.power / Math.max(1, a.warriors) / 8, 0.6, 2);
+      spawnArmy(this.g, { id: a.id, kind: 'player', name: `${a.fromVillage}'s army`, count, scale });
+    } catch (e) {
+      console.warn('claim battle failed', e);
+    } finally {
+      this.busy.delete(a.id);
+    }
+  }
+
+  async finishLiveBattle(r) {
+    const g = this.g;
+    const attackerWon = !r.defenderWon;
+    const path = ref(rtdb, `${this.w}attacks/${this.uid}/${r.id}`);
+    try {
+      const tx = await runTransaction(path, cur => {
+        if (!cur || cur.status !== 'battle' || cur.resolver !== this.uid) return undefined;
+        return { ...cur, status: 'resolved', defenderSettled: true, result: { attackerWon, loot: r.loot, attackerLosses: r.killed, by: 'battle' } };
+      });
+      if (!tx.committed) return;
+      const a = tx.snapshot.val();
+      this.markSettled(r.id);
+      if (attackerWon) {
+        if (a.bombs >= 4) destroyBuildings(g, Math.floor(a.bombs / 4), `${a.fromVillage}'s bombs destroyed the`);
+        g.state.shieldUntil = Date.now() + RAID_SHIELD_MS;
+        g.log(`${a.fromVillage} plundered us (${fmtRes(r.loot) || 'nothing'}). A 12h shield is raised.`, 'bad');
+      } else {
+        const inf = g.addResource('influence', 10 + r.killed * 2);
+        g.log(`We crushed ${a.fromVillage}'s army! ${r.killed} invaders fell. +${inf} influence`, 'good');
+        g.announce(`🛡 ${a.fromVillage}'s army is defeated!`);
+      }
+      if (a.attackerSettled) await remove(path);
+      writeProfile(this.user, g).catch(() => {});
+      g.emit('change');
+    } catch (e) {
+      console.warn('finish battle failed', e);
+    }
+  }
+
+  applyIncomingResult(a) {
+    const g = this.g;
+    const s = g.state;
+    const path = ref(rtdb, `${this.w}attacks/${this.uid}/${a.id}`);
+    if (!this.isSettled(a.id)) {
+      this.markSettled(a.id);
+      // a live battle we abandoned was decided by stats instead: clear the leftover invaders
+      s.creatures = s.creatures.filter(c => c.attackId !== a.id);
+      if (s.battles) delete s.battles[a.id];
+      const res = a.result || {};
+      if (res.attackerWon) {
+        const lost = {};
+        for (const [k, v] of Object.entries(res.loot || {})) {
+          const n = Math.min(v, Math.floor(s.resources[k] || 0));
+          s.resources[k] -= n;
+          lost[k] = n;
+        }
+        if (a.bombs >= 4) destroyBuildings(g, Math.floor(a.bombs / 4), `${a.fromVillage}'s bombs destroyed the`);
+        s.shieldUntil = Date.now() + RAID_SHIELD_MS;
+        g.log(`While you were away, ${a.fromVillage} attacked and took ${fmtRes(lost) || 'nothing'}. Shield raised for 12h.`, 'bad');
+        g.announce(`⚔ ${a.fromVillage} raided your village!`);
+      } else {
+        g.addResource('influence', 10);
+        g.log(`Your defenders repelled ${a.fromVillage}'s army! +10 influence`, 'good');
+      }
+      writeProfile(this.user, g).catch(() => {});
+      g.emit('change');
+    }
+    if (a.attackerSettled) remove(path).catch(() => {});
+    else update(path, { defenderSettled: true }).catch(() => {});
+  }
+
+  /** Pay the approaching army to turn around. */
+  async payTribute(a) {
+    const g = this.g;
+    const cost = tributeCost(g);
+    const path = ref(rtdb, `${this.w}attacks/${this.uid}/${a.id}`);
+    const tx = await runTransaction(path, cur => {
+      if (!cur || cur.status !== 'marching') return undefined;
+      return { ...cur, status: 'bribed', tribute: cost, defenderSettled: true };
+    });
+    if (!tx.committed) throw new Error('Too late — they are already here!');
+    g.spend(cost);
+    this.markSettled(a.id);
+    g.log(`Paid ${fmtRes(cost) || 'a token'} in tribute. ${a.fromVillage}'s army turns back.`, 'event');
+    g.emit('change');
+  }
+
+  // ---- attacker side
+  async resolveByStats(a) {
+    if (this.busy.has(a.id)) return;
+    this.busy.add(a.id);
+    const path = ref(rtdb, `${this.w}attacks/${a.to}/${a.id}`);
+    try {
+      const tx = await runTransaction(path, cur => {
+        if (!cur) return undefined;
+        if (cur.status !== 'marching' && !isStale(cur)) return undefined;
+        return { ...cur, status: 'resolving', resolver: this.uid, battleAt: Date.now() };
+      });
+      if (!tx.committed) return;
+      const target = await getProfile(a.to);
+      const defend = (target?.warriorPower || 0) + (target?.defense || 0) + (target?.pop || 0) * 0.5 + 4;
+      const attackerWon = a.power * (0.75 + Math.random() * 0.5) > defend * (0.75 + Math.random() * 0.5);
+      const loot = {};
+      if (attackerWon) {
+        for (const k of ['food', 'wood', 'stone', 'gold']) {
+          const n = Math.floor((target?.res?.[k] || 0) * 0.2);
+          if (n > 0) loot[k] = n;
+        }
+      }
+      const attackerLosses = attackerWon
+        ? Math.floor(a.warriors * Math.random() * 0.3)
+        : Math.ceil(a.warriors * (0.3 + Math.random() * 0.4));
+      await update(path, { status: 'resolved', result: { attackerWon, loot, attackerLosses, by: 'stats' } });
+    } catch (e) {
+      console.warn('resolve by stats failed', e);
+    } finally {
+      this.busy.delete(a.id);
+    }
+  }
+
+  settleOutgoing(a) {
+    const g = this.g;
+    const s = g.state;
+    const path = ref(rtdb, `${this.w}attacks/${a.to}/${a.id}`);
+    if (!this.isSettled(a.id)) {
+      this.markSettled(a.id);
+      const warriors = s.villagers.filter(v => v.away?.attackId === a.id);
+      const back = travelMs(this.uid, a.to, 'army');
+      const homeAt = Date.now() + back;
+      let cargo = {};
+      if (a.status === 'bribed') {
+        cargo = a.tribute || {};
+        g.log(`${a.toVillage} paid tribute (${fmtRes(cargo) || 'a pittance'}). The army marches home — ${fmtMinutes(back)}.`, 'good');
+      } else {
+        const res = a.result || {};
+        const losses = Math.min(warriors.length, res.attackerLosses || 0);
+        const fallen = [...warriors].sort(() => Math.random() - 0.5).slice(0, losses);
+        for (const v of fallen) g.killVillager(v, `fell in battle at ${a.toVillage}`);
+        if (res.attackerWon) {
+          cargo = res.loot || {};
+          s.stats.raidsWon = (s.stats.raidsWon || 0) + 1;
+          g.log(`Victory at ${a.toVillage}! ${losses} warriors lost. They carry home ${fmtRes(cargo) || 'nothing'} — ${fmtMinutes(back)}.`, 'good');
+          g.announce(`⚔ Victory over ${a.toVillage}!`);
+        } else {
+          s.stats.raidsLost = (s.stats.raidsLost || 0) + 1;
+          g.log(`Defeat at ${a.toVillage}. ${losses} warriors never came home.`, 'bad');
+          g.announce(`Your army was beaten at ${a.toVillage}`);
+        }
+        for (const v of warriors) if (!fallen.includes(v)) v.skills.combat = Math.min(10, v.skills.combat + 0.5);
+      }
+      for (const v of s.villagers) if (v.away?.attackId === a.id) v.away = { attackId: a.id, until: homeAt, returning: true };
+      (s.caravans ||= []).push({ id: a.id, at: homeAt, res: cargo, text: `Your army is home from ${a.toVillage}` });
+      g.emit('change');
+    }
+    const done = a.defenderSettled ? remove(path) : update(path, { attackerSettled: true });
+    done.catch(() => {}).finally(() => remove(ref(rtdb, `${this.w}attacksSent/${this.uid}/${a.id}`)).catch(() => {}));
+  }
+
+  settleVanished(id) {
+    const g = this.g;
+    const home = g.state.villagers.filter(v => v.away?.attackId === id);
+    if (home.length) {
+      for (const v of home) returnHome(g, v);
+      g.log('Your army returns home.', 'info');
+      g.emit('change');
+    }
+    remove(ref(rtdb, `${this.w}attacksSent/${this.uid}/${id}`)).catch(() => {});
+  }
+
+  /** Armies and loot coming home. */
+  arrivals() {
+    const g = this.g;
+    const list = g.state.caravans;
+    if (!list?.length) return;
+    const now = Date.now();
+    for (const c of list.filter(x => x.at <= now)) {
+      const got = Object.entries(c.res || {}).map(([k, v]) => `${g.addResource(k, v)} ${k}`).filter(x => !x.startsWith('0 ')).join(', ');
+      for (const v of g.state.villagers) if (v.away?.attackId === c.id || v.away?.missionId === c.id) returnHome(g, v);
+      g.log(`${c.text}${got ? ` with ${got}` : ''}.`, 'event');
+      g.emit('change');
+    }
+    g.state.caravans = list.filter(x => x.at > now);
+  }
+
+  // ================================================================ spies & missiles
+  /** Missions on the road (outbound), for the world panel and realm map. */
+  missions() {
+    return Object.values(this.sentMissions || {});
+  }
+
+  availableSpies() {
+    return this.g.state.villagers.filter(v => isSpy(v) && !v.away && v.hp > 30);
+  }
+
+  async launchMission(targetUid, mission) {
+    const g = this.g;
+    const s = g.state;
+    const target = await getProfile(targetUid);
+    if (!target) throw new Error('Village not found');
+    const isMissile = mission === 'missile' || mission === 'orbital';
+    let agent = null;
+    if (isMissile) {
+      if (mission === 'orbital' ? !hasOrbital(g) : !hasMissiles(g)) throw new Error(`You need a ${mission === 'orbital' ? 'Orbital Cannon' : 'Missile Silo'}`);
+      if (!g.spend(MISSILE_COST)) throw new Error(`Needs ${Object.entries(MISSILE_COST).map(([k, n]) => `${n} ${k}`).join(', ')}`);
+      g.addKarma(mission === 'orbital' ? -35 : -25);
+    } else {
+      agent = this.availableSpies().sort((a, b) => b.skills.stealth - a.skills.stealth)[0];
+      if (!agent) throw new Error('No trained spy at home — build a Spy Den and train one');
+      if (mission === 'sabotage' && !g.spend({ bombs: 1 })) throw new Error('Sabotage needs 1 bomb');
+    }
+    const now = Date.now();
+    const travel = travelMs(this.uid, targetUid, 'caravan') * (isMissile ? 0.2 : 1);
+    const arrivesAt = now + travel;
+    const id = push(ref(rtdb, `${this.w}missions/${targetUid}`)).key;
+    const record = {
+      id, kind: isMissile ? 'missile' : 'spy', mission, from: this.uid, fromName: this.name, fromVillage: s.owner.villageName,
+      to: targetUid, toVillage: target.villageName, stealth: agent ? Math.round(agent.skills.stealth * 10) / 10 : 0,
+      agent: agent?.name || null, launchedAt: now, arrivesAt, status: 'travelling',
+    };
+    await update(ref(rtdb), {
+      [`${this.w}missions/${targetUid}/${id}`]: record,
+      [`${this.w}missionsSent/${this.uid}/${id}`]: { id, to: targetUid, toVillage: target.villageName, mission, kind: record.kind, agent: record.agent, launchedAt: now, arrivesAt },
+    });
+    if (agent) { agent.away = { missionId: id, until: arrivesAt + travel + 30 * 60_000 }; agent._task = null; }
+    g.log(isMissile
+      ? `☢ ${mission === 'orbital' ? 'Orbital strike' : 'Missile'} launched at ${target.villageName}! Impact in ${fmtMinutes(travel)}.`
+      : `🕵 ${agent.name} slips away toward ${target.villageName} to ${mission}. Arrives in ${fmtMinutes(travel)}.`, 'event');
+    g.emit('change');
+    return { arrivesAt, target };
+  }
+
+  /** Attacker side: decide missions that have arrived. */
+  async resolveMissions() {
+    const now = Date.now();
+    for (const m of Object.values(this.sentMissions || {})) {
+      if (m.arrivesAt > now || this.busy.has(m.id)) continue;
+      this.busy.add(m.id);
+      try {
+        const path = ref(rtdb, `${this.w}missions/${m.to}/${m.id}`);
+        const target = await getProfile(m.to);
+        const tx = await runTransaction(path, cur => {
+          // with nothing cached locally the first call sees null: return null so the server value is retried
+          if (cur === null) return null;
+          if (cur.status !== 'travelling') return undefined;
+          const result = { success: false, caught: false };
+          if (cur.kind === 'missile') {
+            result.success = !target?.missileShield;
+          } else {
+            const chance = clamp(0.4 + cur.stealth * 0.06 + Math.min(0.2, (target?.leaks || 0) * 0.05) - (target?.counterIntel || 0.1), 0.05, 0.9);
+            result.success = Math.random() < chance;
+            result.caught = !result.success && Math.random() < 0.7;
+            if (result.success && cur.mission === 'steal') result.gold = Math.floor((target?.res?.gold || 0) * 0.25);
+            if (result.success && cur.mission === 'scout' && target) {
+              result.report = { pop: target.pop, warriors: target.warriors, power: target.warriorPower, defense: target.defense, gold: target.res?.gold, food: target.res?.food, era: target.era, officials: target.officials };
+            }
+          }
+          return { ...cur, status: 'resolved', result };
+        });
+        const done = tx.committed && tx.snapshot.val();
+        if (done?.status === 'resolved') this.applyOwnMission(done);
+        await remove(ref(rtdb, `${this.w}missionsSent/${this.uid}/${m.id}`));
+      } catch (e) {
+        console.warn('mission resolve failed', e);
+      } finally {
+        this.busy.delete(m.id);
+      }
+    }
+  }
+
+  applyOwnMission(m) {
+    const g = this.g;
+    const s = g.state;
+    const r = m.result || {};
+    const agent = s.villagers.find(v => v.away?.missionId === m.id);
+    if (m.kind === 'missile') {
+      g.log(r.success ? `☢ The strike on ${m.toVillage} hit its target.` : `Your missile was destroyed by ${m.toVillage}'s shield.`, r.success ? 'event' : 'bad');
+      return;
+    }
+    if (r.caught) {
+      if (agent) g.killVillager(agent, `was caught spying in ${m.toVillage} and executed`);
+      return;
+    }
+    if (r.success) {
+      if (m.mission === 'steal') g.addResource('gold', r.gold || 0);
+      if (m.mission === 'scout' && r.report) {
+        const x = r.report;
+        g.log(`🕵 Report on ${m.toVillage}: ${x.pop} people, ${x.warriors} warriors (power ${x.power}), defense ${x.defense}, ${x.gold} gold, ${x.food} food, ${x.officials} officials.`, 'event');
+      } else {
+        g.log(`🕵 Mission to ${m.toVillage} succeeded (${m.mission}${m.mission === 'steal' ? `: +${r.gold || 0} gold` : ''}).`, 'good');
+      }
+    } else {
+      g.log(`🕵 ${m.agent} failed the mission in ${m.toVillage} but escaped.`, 'bad');
+    }
+    if (agent) {
+      const back = travelMs(this.uid, m.to, 'caravan');
+      agent.away = { missionId: m.id, until: Date.now() + back, returning: true };
+      (s.caravans ||= []).push({ id: m.id, at: Date.now() + back, res: {}, text: `${agent.name} returns from ${m.toVillage}` });
+    }
+    g.emit('change');
+  }
+
+  /** Defender side: feel the effects of missions against us. */
+  applyMissions() {
+    const g = this.g;
+    const s = g.state;
+    for (const m of Object.values(this.incomingMissions || {})) {
+      if (m.status !== 'resolved' || this.isSettled(m.id)) continue;
+      this.markSettled(m.id);
+      const r = m.result || {};
+      const traced = s.court?.spymaster?.id || Math.random() < 0.3;
+      const who = traced ? m.fromVillage : 'an unknown enemy';
+      if (m.kind === 'missile') {
+        if (r.success) sufferStrike(g, m.fromVillage, m.mission === 'orbital');
+        else g.log(`A missile from ${m.fromVillage} was stopped by our shield.`, 'good');
+      } else if (r.caught) {
+        g.addResource('influence', 15);
+        g.log(`🕵 We caught a spy from ${m.fromVillage} (${m.mission})! +15 influence`, 'good');
+      } else if (r.success) {
+        switch (m.mission) {
+          case 'sabotage': destroyBuildings(g, 1, `Saboteurs sent by ${who} struck the`); break;
+          case 'steal': {
+            const n = Math.min(r.gold || 0, Math.floor(s.resources.gold));
+            s.resources.gold -= n;
+            if (n) g.log(`${n} gold was stolen from the treasury by agents of ${who}.`, 'bad');
+            break;
+          }
+          case 'incite': {
+            const v = s.villagers.filter(x => x.age >= 12 && !x.ruling && !x.robot && !x.traitor).sort((a, b) => a.happy - b.happy)[0];
+            if (v) v.traitor = true;   // silently
+            if (traced) g.log(`Our Spymaster suspects agents of ${m.fromVillage} are turning our people…`, 'bad');
+            break;
+          }
+          case 'assassinate': {
+            const court = Object.values(s.court || {}).map(c => s.villagers.find(v => v.id === c?.id)).filter(Boolean);
+            const heir = s.villagers.find(v => v.id === s.ruler?.heirId);
+            const victim = heir || court[0];
+            if (victim) g.killVillager(victim, `was assassinated by agents of ${who}`);
+            break;
+          }
+          case 'scout':
+            if (traced) g.log(`Spies from ${m.fromVillage} were seen counting our soldiers.`, 'event');
+            break;
+        }
+      }
+      remove(ref(rtdb, `${this.w}missions/${this.uid}/${m.id}`)).catch(() => {});
+      g.emit('change');
+    }
+  }
+
+  isSettled(id) { return (this.g.state.settledOffers || []).includes(id); }
+  markSettled(id) {
+    const done = (this.g.state.settledOffers ||= []);
+    if (!done.includes(id)) done.push(id);
+    if (done.length > 150) done.shift();
+  }
+
+  // ---------------- admin commands ----------------
+  applyAdminCommand(cmd) {
+    const g = this.g;
+    if (!cmd) return;
+    switch (cmd.type) {
+      case 'give':
+        for (const [k, v] of Object.entries(cmd.res || {})) g.addResource(k, Number(v) || 0);
+        g.log(`The Admin gifted you ${fmtRes(cmd.res)}.`, 'good');
+        break;
+      case 'shield':
+        g.state.shieldUntil = Date.now() + (Number(cmd.hours) || 24) * 3600000;
+        g.log(`The Admin granted you a ${cmd.hours}h shield.`, 'good');
+        break;
+      case 'karma':
+        g.state.karma = clamp(Number(cmd.value) || 0, -100, 100);
+        g.log(`The Admin set your karma to ${g.state.karma}.`, 'event');
+        break;
+      case 'event': {
+        const ev = EVENTS.find(e => e.id === cmd.id);
+        if (ev) g.startEvent(ev);
+        break;
+      }
+      case 'spawn':
+        g.spawnRaiders(cmd.creature, Number(cmd.count) || 1);
+        break;
+      case 'message':
+        g.announce(`📜 Admin: ${cmd.text}`);
+        g.log(`Admin: ${cmd.text}`, 'event');
+        break;
+      case 'reset':
+        this.emit('reset');
+        break;
+    }
+    g.emit('change');
+  }
+}
+
+/** A battle or stats resolution whose owner vanished mid-way. */
+function isStale(a) {
+  const age = Date.now() - (a.battleAt || 0);
+  return (a.status === 'battle' && age > STALE_BATTLE()) || (a.status === 'resolving' && age > 2 * 60_000);
+}
+
+function cleanRes(obj) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj || {})) {
+    const n = Math.floor(Number(v));
+    if (n > 0) out[k] = n;
+  }
+  return out;
+}
+
+export function fmtRes(obj) {
+  return Object.entries(obj || {}).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(', ');
+}
