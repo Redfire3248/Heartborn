@@ -3,6 +3,7 @@ import { clamp } from '../core/rng.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { assignJob } from './villagers.js';
 import { isTrained } from './dynasty.js';
+import { canDoJob } from './professions.js';
 
 /*
  * The Court: villagers you appoint to run the realm for you.
@@ -165,8 +166,8 @@ export function distribute(g, pool, targets) {
   }
   let moved = 0;
   for (const v of unplaced) {
-    const job = Object.keys(want).find(j => want[j] > 0);
-    if (!job) break;
+    const job = Object.keys(want).find(j => want[j] > 0 && canDoJob(v, j));   // only jobs in their trade
+    if (!job) continue;
     want[job]--;
     if (v.job !== job) { assignJob(g, v, job, true); moved++; }
   }
@@ -250,7 +251,7 @@ const RUN = {
     const warriors = s.villagers.filter(v => (v.job === 'warrior' || v.job === 'recruit') && !v.away && !v.prevJob);
     if (warriors.length < target) {
       // the Marshal only enlists people meant for war: the Soldier calling, trained fighters, or brave volunteers
-      const recruits = managed(g).filter(v => v.hp > 50 && (v.calling === 'soldier' || v.trained || v.traits.includes('brave')))
+      const recruits = managed(g).filter(v => v.hp > 50 && (v.calling === 'soldier' || v.trained || v.profession === 'warrior') && canDoJob(v, 'warrior'))
         .sort((a, b) => (b.skills.combat - a.skills.combat) || (b.traits.includes('brave') - a.traits.includes('brave')));
       for (const v of recruits.slice(0, target - warriors.length)) assignJob(g, v, isTrained(v) ? 'warrior' : 'recruit', true);
     } else if (warriors.length > target + 1) {

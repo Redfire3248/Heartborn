@@ -19,11 +19,13 @@ import { openRealmMap } from './realmMap.js';
 import { describeBuilding, effectBadges } from '../data/describe.js';
 import { Tutorial } from './tutorial.js';
 import { abilityOf, abilityCooldown, canUseAbility, useAbility } from '../game/abilities.js';
+import { canDoJob, isVersatile, professionLabel } from '../game/professions.js';
 import { hasOffice, employmentOf, setTarget, applyNow, applyPreset, moveWorkers, autoPick, bestForOffice, STAFFABLE, JOB_SKILL } from '../game/employment.js';
 import { empireOf, empirePower, empireTitle, empireAction, ACTIONS as EMPIRE_ACTIONS, PERSONALITIES, STATUS } from '../game/empire.js';
 import { openProfile, friendsPanel } from './social.js';
 import { installButton } from './screens.js';
 import { startItemDrag } from './itemDrag.js';
+import { pxIcon } from './pixelIcons.js';
 import { BUILD, LATEST_CHANGES, checkLatest } from '../core/version.js';
 
 const TOP_RES = ['food', 'wood', 'stone', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];
@@ -39,12 +41,12 @@ const MINI_COLORS = ['#1d4e89', '#3a9ad9', '#e3cd8c', '#5c9e3c', '#66a843', '#8a
 const MINI_SCALE = 4;   // minimap canvas pixels per tile
 
 const DOCK_GROUPS = [
-  { id: 'build', icon: 'items/hammer', tip: 'Build (B)', tabs: [['build', 'Build']] },
-  { id: 'people', icon: 'items/population', tip: 'People & Court (J)', tabs: [['jobs', '👥 People & Jobs'], ['court', '👑 Court']] },
-  { id: 'rule', icon: 'items/scroll', tip: 'Rule, Empire & Chronicle (K)', tabs: [['deeds', '📜 Laws'], ['empire', '👑 Empire'], ['log', '📖 Chronicle']] },
-  { id: 'realm', icon: 'buildings/castle', tip: 'Realm & Multiplayer (M)', tabs: [['world', '🌍 World'], ['ranks', '🏆 Rankings']], alias: ['map'], map: true },
+  { id: 'build', short: 'Build', icon: 'items/hammer', tip: 'Build (B)', tabs: [['build', 'Build']] },
+  { id: 'people', short: 'People', icon: 'items/population', tip: 'People & Court (J)', tabs: [['jobs', '👥 People & Jobs'], ['court', '👑 Court']] },
+  { id: 'rule', short: 'Rule', icon: 'items/scroll', tip: 'Rule, Empire & Chronicle (K)', tabs: [['deeds', '📜 Laws'], ['empire', '👑 Empire'], ['log', '📖 Chronicle']] },
+  { id: 'realm', short: 'World', icon: 'buildings/castle', tip: 'Realm & Multiplayer (M)', tabs: [['world', '🌍 World'], ['ranks', '🏆 Rankings']], alias: ['map'], map: true },
   null,
-  { id: 'settings', icon: 'items/save', tip: 'Save & Settings', tabs: [['settings', 'Settings']] },
+  { id: 'settings', short: 'Settings', icon: 'items/save', tip: 'Save & Settings', tabs: [['settings', 'Settings']] },
 ];
 const groupOf = id => DOCK_GROUPS.find(g => g?.tabs.some(t => t[0] === id));
 
@@ -117,7 +119,7 @@ export class HUD {
       const ids = grp.tabs.map(t => t[0]);
       const btn = h('button', {
         onclick: () => (ids.includes(this.panel) ? this.closePanel() : this.openPanel(this.groupTab[grp.id] || ids[0])),
-      }, icon(grp.icon, 34), h('span.tip', grp.tip));
+      }, icon(grp.icon, 34), h('span.dock-label', grp.short), h('span.tip', grp.tip));
       for (const id of [...ids, ...(grp.alias || [])]) this.els.dock[id] = btn;
       dock.append(btn);
     }
@@ -171,9 +173,11 @@ export class HUD {
       const { el, v, cap } = this.els.res[k];
       if (SHOW_WHEN[k]) el.hidden = !SHOW_WHEN[k](g);
       const val = Math.floor(s.resources[k] || 0);
-      v.textContent = fmt(val);
+      const vt = fmt(val);
+      if (v.textContent !== vt) v.textContent = vt;
       const c = g.caps[k];
-      cap.textContent = c ? `/${fmt(c)}` : '';
+      const ct = c ? `/${fmt(c)}` : '';
+      if (cap.textContent !== ct) cap.textContent = ct;
       el.classList.toggle('full', !!c && val >= c);
       const prev = this.prevRes[k];
       if (prev != null && val !== prev) {
@@ -183,16 +187,22 @@ export class HUD {
       }
       this.prevRes[k] = val;
     }
-    this.els.pop.textContent = s.villagers.length;
-    this.els.housing.textContent = `/${g.housing}`;
+    if (this.els.pop.textContent !== String(s.villagers.length)) this.els.pop.textContent = s.villagers.length;
+    if (this.els.housing.textContent !== `/${g.housing}`) this.els.housing.textContent = `/${g.housing}`;
     this.els.karmaDot.style.left = `${(s.karma + 100) / 2}%`;
-    this.els.karmaTitle.textContent = `${g.karmaTitle} (${Math.round(s.karma)})`;
-    this.els.era.textContent = ERAS[s.era].name;
+    const karmaText = `${g.karmaTitle} (${Math.round(s.karma)})`;
+    if (this.els.karmaTitle.textContent !== karmaText) this.els.karmaTitle.textContent = karmaText;
+    if (this.els.era.textContent !== ERAS[s.era].name) this.els.era.textContent = ERAS[s.era].name;
     const shieldH = Math.ceil(((s.shieldUntil || 0) - Date.now()) / 3600000);
-    this.els.shield.textContent = shieldH > 0 ? `🛡 ${shieldH}h` : '';
     const hour = Math.floor(g.hour);
-    this.els.day.textContent = `Day ${g.day + 1} · ${String(hour).padStart(2, '0')}:00 ${g.isNight ? '🌙' : '☀'}`;
-    this.els.season.textContent = `${g.season} · Year ${g.year}`;
+    // only touch the DOM when the text really changes (per-frame rewrites flicker on phones)
+    const shieldText = shieldH > 0 ? `${shieldH}h` : '';
+    if (this._shieldText !== shieldText) { this._shieldText = shieldText; this.els.shield.replaceChildren(...(shieldText ? [pxIcon('shield'), shieldText] : [])); }
+    const dayText = `Day ${g.day + 1} · ${String(hour).padStart(2, '0')}:00`;
+    const night = g.isNight;
+    if (this._dayText !== dayText || this._night !== night) { this._dayText = dayText; this._night = night; this.els.day.replaceChildren(`${dayText} `, pxIcon(night ? 'moon' : 'sun')); }
+    const seasonText = `${g.season} · Year ${g.year}`;
+    if (this.els.season.textContent !== seasonText) this.els.season.textContent = seasonText;
 
     this.updateInspector();
     this.updateThreats();
@@ -725,7 +735,7 @@ export class HUD {
       for (const v of [...g.state.villagers].sort((a, b) => b.age - a.age)) {
         const sel = v.away ? h('span.chip.bad', '⚔ At war') : v.office ? h('span.chip.good', `👑 ${OFFICES[v.office].name}`) : v.age >= ADULT_AGE
           ? h('select.input', { style: { width: '120px' }, onchange: e => assignJob(g, v, e.target.value) },
-            Object.entries(JOBS).map(([id, d]) => h('option', { value: id, selected: v.job === id }, d.label)))
+            Object.entries(JOBS).filter(([id]) => id === v.job || canDoJob(v, id)).map(([id, d]) => h('option', { value: id, selected: v.job === id }, d.label)))
           : h('span.faint', 'Child');
         body.append(h('div.player', { style: { cursor: 'pointer' }, onclick: e => { if (e.target.tagName !== 'SELECT' && e.target.tagName !== 'OPTION') { this.select({ kind: 'villager', ref: v }); this.follow = v; } } },
           h('img.avatar', { src: iconUrl(villagerSprite({ ...v, role: displayRole(v) })), style: { borderRadius: '8px' } }),
@@ -1165,9 +1175,9 @@ export class HUD {
         btn.disabled = true; status.textContent = 'Checking…';
         try {
           const r = await checkLatest();
-          status.textContent = r.isLatest ? '✓ Newest version' : `⚠ ${r.live.version} is out — reload to update`;
+          status.textContent = r.isLatest ? '✓ Newest version' : `New version ${r.live.version} is out — reload to update`;
           status.style.color = r.isLatest ? 'var(--good)' : 'var(--gold)';
-          if (!r.isLatest) { btn.textContent = '⟳ Reload now'; btn.onclick = () => location.reload(); }
+          if (!r.isLatest) { btn.textContent = 'Reload now'; btn.onclick = () => location.reload(); }
         } catch (e) { status.textContent = `Could not check (${e.message})`; }
         btn.disabled = false;
       },
@@ -1256,6 +1266,7 @@ export class HUD {
       v.office ? h('span.chip.good', OFFICES[v.office].name) : null,
       v.traits.includes('knighted') ? h('span.chip.good', '⚔ Knight') : isTrained(v) ? h('span.chip', 'Trained soldier') : null,
       v.calling ? h('span.chip', `Calling: ${CALLINGS[v.calling].label}`) : null,
+      v.age >= ADULT_AGE ? h(`span.chip${isVersatile(v) ? '.good' : ''}`, { title: isVersatile(v) ? 'Can work in any job' : 'Works in this trade (or gathers food). Only a Jack of all trades can switch.' }, `🧰 ${professionLabel(v)}`) : null,
     ].filter(Boolean);
 
     return [
@@ -1305,7 +1316,7 @@ export class HUD {
                 if (e.target.value === 'warrior' && v.job === 'recruit') this.hint(`${v.name} is not trained yet — sent to drill as a recruit.`, 2600);
                 this.updateInspector(true);
               },
-            }, Object.entries(JOBS).map(([id, d]) => h('option', { value: id, selected: v.job === id }, d.label + (id === 'warrior' && !isTrained(v) ? ' (needs training)' : ''))))),
+            }, Object.entries(JOBS).filter(([id]) => id === v.job || canDoJob(v, id)).map(([id, d]) => h('option', { value: id, selected: v.job === id }, d.label + (id === 'warrior' && !isTrained(v) ? ' (needs training)' : ''))))),
       v.job === 'warrior' ? h('div', v.armed ? h('span.chip.good', icon('items/sword', 16), 'Armed') : h('span.chip.bad', 'Unarmed — needs a weapon')) : null,
 
       (v.suspicion || v.exposed || v.jailed) ? h('div.law-cat', { style: { borderColor: v.exposed ? 'var(--bad)' : 'var(--line)' } },

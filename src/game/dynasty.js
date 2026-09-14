@@ -1,3 +1,4 @@
+import { professionFromCalling } from './professions.js';
 import { ADULT_AGE, TILE } from '../core/constants.js';
 import { clamp, chance, pick } from '../core/rng.js';
 import { CALLINGS, RULER_TYPES, RULER_TITLES, ITEMS, TOOL_FOR_JOB } from '../data/people.js';
@@ -117,6 +118,7 @@ export function onVillagerGone(g, v) {
 export function setCalling(g, v, calling) {
   if (!CALLINGS[calling]) return;
   v.calling = calling === 'none' ? null : calling;
+  professionFromCalling(v);   // the calling decides the trade they grow into
   g.emit('change');
 }
 

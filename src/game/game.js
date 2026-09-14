@@ -14,6 +14,7 @@ import { updateCourt } from './court.js';
 import { dailyTraitors, dailyMachines, updateBombDefense } from './intrigue.js';
 import { dailyEmpire } from './empire.js';
 import { updateEmployment } from './employment.js';
+import { ensureProfession, shareHousehold, canDoJob } from './professions.js';
 import { dailyPeople, ensureRuler, rulerEffects, carriedLuck } from './dynasty.js';
 import { LAW_CATEGORIES, NO_LAW_EFFECTS, DEFAULT_LAWS, LAW_COST, lawOption } from '../data/laws.js';
 
@@ -33,6 +34,8 @@ export class Game {
     this.offline = false;      // true while fast-forwarding offline progress
     this.recalc();
     ensureRuler(this);
+    // everyone gets a trade (older saves keep what they do today as their trade)
+    for (const v of state.villagers) ensureProfession(v);
   }
 
   // ---------- events ----------
@@ -162,7 +165,10 @@ export class Game {
     if (s.villagers.length < this.housing && chance(joinChance)) {
       const n = Math.min(this.housing - s.villagers.length, chance(0.35) ? 2 + Math.floor(Math.random() * 2) : 1);
       const v = this.addWanderer();
-      for (let i = 1; i < n; i++) this.addWanderer();
+      const family = [v];
+      for (let i = 1; i < n; i++) family.push(this.addWanderer());
+      shareHousehold(family);   // families who arrive together usually share a trade
+      for (const m of family) if (m.age >= ADULT_AGE && m.profession && canDoJob(m, m.profession)) m.job = m.profession === 'warrior' && !m.trained ? 'recruit' : m.profession;
       this.log(n > 1 ? `A family of ${n} wanderers has joined your people.` : `${v.name} the wanderer has joined your people.`, 'good');
     }
 
@@ -382,6 +388,10 @@ export class Game {
     v.x = c.x + (Math.random() - 0.5) * TILE * 4;
     v.y = c.y + (Math.random() - 0.5) * TILE * 4;
     v.job = opts.child ? 'idle' : 'gather';
+    if (!opts.child) {   // newcomers bring a trade and start working in it
+      const trade = ensureProfession(v);
+      v.job = trade === 'warrior' ? (v.trained ? 'warrior' : 'gather') : trade;
+    }
     this.state.villagers.push(v);
     this.puff(v, 'effects/spark', 8);
     return v;

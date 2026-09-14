@@ -385,6 +385,7 @@ export class Renderer {
     ctx.textAlign = 'center';
     ctx.lineJoin = 'round';
     for (const f of g.fx.floaters) {
+      if (/\p{Extended_Pictographic}/u.test(f.text)) f.text = f.text.replace(/\p{Extended_Pictographic}️?\s?/gu, '');   // no emojis on the map
       const x = (f.x * s + ox) / this.dpr, y = (f.y * s + oy) / this.dpr;
       ctx.globalAlpha = Math.min(1, f.life / f.max * 2);
       ctx.lineWidth = 3;

@@ -27,6 +27,7 @@ export const TRAITS = {
   scarred:     { label: 'Scarred',     good: false, earned: true, desc: 'Nearly died once. Tougher, but haunted (−10 happiness)' },
   wise:        { label: 'Wise',        good: true,  earned: true, desc: 'Decades of experience. A wise ruler brings good fortune' },
   knighted:    { label: 'Knight',      good: true,  earned: true, desc: 'Knighted by the ruler: +25% combat, never flees' },
+  versatile:   { label: 'Jack of all trades', good: true, earned: true, desc: 'Can work in any job. Everyone else sticks to their own trade' },
 };
 
 export const BIRTH_TRAITS = ['brave', 'strong', 'genius', 'clever', 'hardworking', 'nimble', 'kind', 'charismatic', 'devout', 'loyal', 'honest',

@@ -10,6 +10,7 @@ import { rollFate } from './fate.js';
 import { damageCreature } from './creatures.js';
 import { isTrained, has, onVillagerGone, addItem } from './dynasty.js';
 import { CALLINGS } from '../data/people.js';
+import { canDoJob, professionLabel, ensureProfession, inheritProfession, professionFromCalling } from './professions.js';
 
 export const JOBS = {
   idle:    { label: 'Idle',       icon: 'effects/emote_sleep', desc: 'Wanders, helps build, gathers when hungry' },
@@ -112,7 +113,9 @@ export function dailyVillagers(g) {
     if (wasChild && v.age >= ADULT_AGE) {
       const calling = CALLINGS[v.calling || 'none'];
       if (isTrained(v)) v.trained = true;
-      v.job = calling.job === 'warrior' && !v.trained ? 'recruit' : calling.job;
+      professionFromCalling(v);
+      const trade = ensureProfession(v);   // grown-ups start working in their household's trade
+      v.job = trade === 'warrior' && !v.trained ? 'recruit' : trade;
       if (v.calling) g.log(`${v.name} comes of age as a ${calling.label.toLowerCase()}.`, 'good');
     }
     // old age
@@ -182,6 +185,8 @@ function birth(g, mom, dad) {
   child.x = mom.x + 6; child.y = mom.y + 4;
   child.gen = Math.max(mom.gen || 1, dad.gen || 1) + 1;
   child.traits = [];
+  ensureProfession(mom); ensureProfession(dad);
+  inheritProfession(child, mom, dad);   // households pass their trade on
   const inherit = [...mom.traits, ...dad.traits].filter(t => t !== 'blessed' && t !== 'cursed');
   if (inherit.length && chance(0.5)) child.traits.push(pick(inherit));
   if (chance(0.15)) { const t = pick(BIRTH_TRAITS); if (!child.traits.includes(t)) child.traits.push(t); }
@@ -800,6 +805,8 @@ export const present = g => g.state.villagers.filter(v => !v.away);
 /** auto = ordered by the Court; otherwise it is the ruler's own order and the Steward leaves it alone. */
 export function assignJob(g, v, job, auto = false) {
   if (!JOBS[job] || v.age < ADULT_AGE || v.away || v.office || v.ruling || v.jailed) return false;
+  // people stick to their own trade; only a Jack of all trades can take any job
+  if (!canDoJob(v, job)) { g.lastJobError = `${v.name} is a ${professionLabel(v)} — only a Jack of all trades can switch trades`; return false; }
   if (job === 'warrior' && !isTrained(v)) {
     // only trained soldiers can be warriors: send them to drill instead
     if (!g.hasBuilding('training_ground') && !g.hasBuilding('barracks')) { g.lastJobError = `${v.name} is untrained — build a Training Ground to train recruits`; return false; }

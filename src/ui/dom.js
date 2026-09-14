@@ -1,4 +1,5 @@
 import { iconUrl, spriteAvailable } from '../core/assets.js';
+import { hasEmoji, stripEmoji, iconizeText } from './pixelIcons.js';
 
 /** Tiny hyperscript: h('div.card#id', { onclick }, children...) */
 export function h(sel, attrs = {}, ...children) {
@@ -12,22 +13,27 @@ export function h(sel, attrs = {}, ...children) {
     if (r[0] === '.') el.classList.add(r.slice(1));
     else if (r[0] === '#') el.id = r.slice(1);
   }
-  for (const [k, v] of Object.entries(attrs)) {
+  for (let [k, v] of Object.entries(attrs)) {
     if (v == null || v === false) continue;
+    if (typeof v === 'string' && (k === 'title' || k === 'placeholder' || k === 'label')) v = stripEmoji(v);   // tooltips can't show icons
     if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
     else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
     else if (k === 'html') el.innerHTML = v;
     else if (k in el && k !== 'list') el[k] = v;
     else el.setAttribute(k, v === true ? '' : v);
   }
-  append(el, children);
+  append(el, children, tagPart === 'option');
   return el;
 }
 
-function append(el, children) {
+function append(el, children, plain = false) {
   for (const c of children.flat(Infinity)) {
     if (c == null || c === false) continue;
-    el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    if (c instanceof Node) { el.append(c); continue; }
+    const s = String(c);
+    // no emojis anywhere: swap each for the game's own pixel icon (plain text where icons can't go)
+    if (hasEmoji(s)) { if (plain) el.append(document.createTextNode(stripEmoji(s))); else el.append(...iconizeText(s)); continue; }
+    el.append(document.createTextNode(s));
   }
 }
 
@@ -56,7 +62,7 @@ export function avatar(name = '?', size = 40) {
 
 export const RES_ICON = {
   food: 'items/icon_food', wood: 'items/icon_wood', stone: 'items/icon_stone', coal: 'items/icon_coal',
-  iron: 'items/icon_iron', weapons: 'items/sword', bombs: 'units/bomb', science: 'units/science', gold: 'items/icon_gold', gems: 'items/icon_gem', influence: 'items/icon_influence',
+  iron: 'items/icon_iron', weapons: 'items/sword', bombs: 'effects/explosion', science: 'effects/magic_orb', gold: 'items/icon_gold', gems: 'items/icon_gem', influence: 'items/icon_influence',
 };
 
 export function costChips(cost = {}, have = null) {

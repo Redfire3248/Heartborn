@@ -32,6 +32,8 @@ function freshGame({ era = 0, people = 12, resources = true } = {}) {
   if (resources) Object.assign(g.state.resources, rich());
   for (let i = 0; i < people; i++) g.addWanderer();
   for (const v of g.state.villagers) v.age = Math.max(v.age, 20);
+  // most tests are about other systems: let test villagers take any job (professions have their own test)
+  for (const v of g.state.villagers) if (!v.traits.includes('versatile')) v.traits.push('versatile');
   g.recalc();
   // caps would clamp our test riches: lift them
   for (const k of Object.keys(g.caps)) g.caps[k] = 1e9;
@@ -110,7 +112,8 @@ export async function run() {
     build(g, 'training_ground');
     assignJob(g, v, 'warrior');
     ok(v.job === 'recruit', 'untrained warrior order becomes Recruit', v.job);
-    for (let i = 0; i < 60 && v.job === 'recruit'; i++) g.simulate(10);
+    // keep the recruit healthy and fed so a random wolf or fever doesn't stall the drill
+    for (let i = 0; i < 120 && v.job === 'recruit'; i++) { v.hp = 100; v.sick = 0; v.hunger = 100; g.simulate(10); }
     ok(v.job === 'warrior' && isTrained(v), 'recruit trains into a warrior', `${v.job}, combat ${v.skills.combat.toFixed(1)}`);
     for (let i = 0; i < 10 && !v.armed; i++) g.simulate(3);
     ok(v.armed, 'warrior picks up a weapon from storage');
@@ -318,6 +321,32 @@ export async function run() {
       reached.push(ERAS[g.state.era].name);
     }
     ok(g.state.era === ERAS.length - 1, 'every era can be reached', reached.join(' → '));
+  });
+
+  // ------------------------------------------------------------ professions & households
+  await step('professions: fixed trades, jacks of all trades, households', async () => {
+    const P = await import('/src/game/professions.js');
+    const g = new Game(newState({ uid: 'p', name: 'P', villageName: 'Tradeton' }));
+    g.state.nextEventAt = Infinity;
+    for (let i = 0; i < 30; i++) g.addWanderer();
+    const all = g.state.villagers.filter(v => !v.ruling);
+    ok(all.every(v => P.PROFESSIONS[v.profession]), 'everyone has a trade');
+    const fixed = all.find(v => !P.isVersatile(v) && v.profession !== 'mine');
+    const other = fixed && fixed.profession === 'farm' ? 'chop' : 'farm';
+    ok(fixed && assignJob(g, fixed, other) === false, 'people cannot switch to another trade', fixed ? `${fixed.profession} → ${other}` : 'no fixed villager');
+    ok(fixed && assignJob(g, fixed, 'gather') === true, 'anyone can still gather food');
+    const jack = all[0];
+    if (!jack.traits.includes('versatile')) jack.traits.push('versatile');
+    ok(assignJob(g, jack, 'mine') && assignJob(g, jack, 'build'), 'a Jack of all trades can take any job');
+    // households: most children follow a parent's trade
+    let same = 0;
+    const mom = { profession: 'smith', traits: [] }, dad = { profession: 'smith', traits: [] };
+    for (let i = 0; i < 200; i++) { const child = { traits: [] }; P.inheritProfession(child, mom, dad); if (child.profession === 'smith') same++; }
+    ok(same > 120, 'children usually take their household’s trade', `${same}/200 became smiths`);
+    const family = [0, 1, 2, 3].map(() => ({ traits: [], job: 'idle' }));
+    let shared = 0;
+    for (let i = 0; i < 50; i++) { family.forEach(f => { delete f.profession; }); P.shareHousehold(family); shared += family.filter(f => f.profession === family[0].profession).length - 1; }
+    ok(shared > 50 * 3 * 0.5, 'families who arrive together usually share a trade', `${shared}/150`);
   });
 
   // ------------------------------------------------------------ building abilities

@@ -1,6 +1,7 @@
 import { JOBS, assignJob } from './villagers.js';
 import { managed, distribute } from './court.js';
 import { ADULT_AGE } from '../core/constants.js';
+import { canDoJob } from './professions.js';
 
 /*
  * Employment Office: set a target number of workers for each job and the clerks keep it that way,
@@ -78,7 +79,7 @@ export function moveWorkers(g, job, n) {
   } else {
     const counts = {};
     for (const v of adults) counts[v.job] = (counts[v.job] || 0) + 1;
-    const donors = adults.filter(v => v.job !== job && v.job !== 'warrior' && v.job !== 'recruit' && !v.prevJob)
+    const donors = adults.filter(v => v.job !== job && v.job !== 'warrior' && v.job !== 'recruit' && !v.prevJob && canDoJob(v, job))
       .sort((a, b) => rank(a.job) - rank(b.job) || (counts[b.job] || 0) - (counts[a.job] || 0));
     for (const v of donors) {
       if (moved >= n) break;
@@ -124,7 +125,7 @@ export function bestForOffice(g, key) {
 /** Auto pick: move the single best available person into a job. Returns them, or null. */
 export function autoPick(g, job) {
   const candidates = g.state.villagers.filter(v => v.age >= ADULT_AGE && !v.away && !v.office && !v.ruling && !v.jailed && !v.prevJob
-    && v.job !== job && v.job !== 'warrior' && v.job !== 'recruit');
+    && v.job !== job && v.job !== 'warrior' && v.job !== 'recruit' && canDoJob(v, job));
   const best = candidates.sort((a, b) => fitness(b, job) - fitness(a, job))[0];
   if (!best || !assignJob(g, best, job, activeTargets(g))) return null;
   if (activeTargets(g)) setTarget(g, job, (employmentOf(g).targets[job] || 0) + 1);

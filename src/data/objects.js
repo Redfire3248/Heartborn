@@ -88,6 +88,8 @@ export function villagerSprite(v) {
   if (v.robot) return v.job === 'warrior' ? 'units/robot_soldier' : 'units/robot_worker';
   if (v.jailed) return 'units/prisoner';
   if (v.exposed) return 'units/traitor';
+  // knights always look like knights, whatever work they are doing
+  if (v.traits?.includes('knighted') && v.age >= 12 && !v.ruling) return peopleSprites ? `people/warrior_${v.sex === 'f' ? 'f' : 'm'}` : 'characters/warrior';
   if (v.role === 'warrior' && spriteEra >= 4) return spriteEra >= 6 ? 'units/cyborg' : spriteEra >= 5 ? 'units/rifleman' : 'units/musketeer';
   if (peopleSprites) { const p = professionSprite(v); if (p) return p; }
   if (v.age < 12) return 'characters/child';

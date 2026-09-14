@@ -1,6 +1,16 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Trades, households & pixel icons',
+    changes: [
+      'Everyone has a trade; only a Jack of all trades can switch jobs',
+      'Children usually follow their household’s trade; families arrive sharing one',
+      'Knights always wear their armour; gatherers are no longer drafted into the army',
+      'All emojis replaced with the game’s own pixel icons',
+      'Phones: no more flickering text, and a labelled bottom bar',
+    ],
+  },
+  {
     title: 'Quality of life',
     changes: [
       'Employment Office: set job targets and plans (Balanced, Food, Industry, Builders); clerks keep hundreds of people in the right jobs',
