@@ -1,7 +1,7 @@
 import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo } from './dom.js';
 import { iconUrl } from '../core/assets.js';
 import { TILE, ADULT_AGE, MAP_W, MAP_H, RESOURCES, DAY_LENGTH } from '../core/constants.js';
-import { BUILDINGS, ERAS, CATEGORIES } from '../data/buildings.js';
+import { BUILDINGS, ERAS, CATEGORIES, sizeOf } from '../data/buildings.js';
 import { OFFICES, officeUnlocked, officialOf, appoint, dismiss, setOfficeOption } from '../game/court.js';
 import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
 import { TRAITS } from '../data/traits.js';
@@ -356,7 +356,7 @@ export class HUD {
       // bring the buildings back and take the refund again (if you still have it)
       let n = 0;
       for (const snap of a.buildings) {
-        const size = BUILDINGS[snap.type].size;
+        const size = sizeOf(snap);
         let free = true;
         for (let y = 0; y < size && free; y++) for (let x = 0; x < size; x++) if (g.buildingAt(snap.tx + x, snap.ty + y)) { free = false; break; }
         if (!free) continue;
@@ -386,7 +386,7 @@ export class HUD {
   buildingsInBox(a, b) {
     const x0 = Math.min(a.tx, b.tx), x1 = Math.max(a.tx, b.tx), y0 = Math.min(a.ty, b.ty), y1 = Math.max(a.ty, b.ty);
     return this.game.state.buildings.filter(bd => {
-      const s = BUILDINGS[bd.type].size;
+      const s = sizeOf(bd);
       return bd.tx <= x1 && bd.tx + s - 1 >= x0 && bd.ty <= y1 && bd.ty + s - 1 >= y0;
     });
   }
@@ -1815,7 +1815,7 @@ export class HUD {
     ctx.fillStyle = 'rgba(28,70,26,0.55)';
     for (const o of g.state.objects) if (o.t.startsWith('tree_') && o.t !== 'tree_stump') ctx.fillRect(o.x + 0.2, o.y + 0.2, 0.6, 0.6);
     ctx.fillStyle = '#ffae3d';
-    for (const b of g.state.buildings) { const s = BUILDINGS[b.type].size; ctx.fillRect(b.tx, b.ty, s, s); }
+    for (const b of g.state.buildings) { const s = sizeOf(b); ctx.fillRect(b.tx, b.ty, s, s); }
     ctx.fillStyle = '#ffffff';
     for (const v of g.state.villagers) if (!v.away) ctx.fillRect(Math.floor(v.x / TILE), Math.floor(v.y / TILE), 1, 1);
     ctx.fillStyle = '#ff3b3b';

@@ -81,6 +81,29 @@ export async function run() {
     ok(g.housing > 100 && g.defense > 100, 'building effects add up (housing, defense)', `housing ${g.housing}, defense ${g.defense}`);
   });
 
+  await step('bigger homes take more tiles, old saves keep their size', async () => {
+    const g = freshGame({ era: ERAS.length - 1, people: 6 });
+    const sizes = ['house', 'tenement', 'arcology'].map(t => build(g, t).size);
+    ok(sizes[0] === 2 && sizes[1] === 3 && sizes[2] === 4, 'house 2, tenement 3, arcology 4', sizes.join(','));
+    const b = g.state.buildings.find(x => x.type === 'arcology');
+    ok(g.buildingAt(b.tx + 3, b.ty + 3) === b, 'arcology covers its far corner tile');
+    const saved = deserialize(serialize(g.state));
+    for (const x of saved.buildings) if (x.type === 'house') delete x.size;
+    const g2 = new Game(saved);
+    ok(g2.state.buildings.find(x => x.type === 'house').size === 1, 'old 1-tile houses migrate as size 1');
+  });
+
+  await step('the same choice does not always give the same result', async () => {
+    const texts = new Set();
+    for (let i = 0; i < 40; i++) {
+      const g = freshGame({ era: 2, people: 10 });
+      const ev = EVENTS.find(e => !e.choices[0].cost) || EVENTS[0];
+      g.startEvent(ev);
+      texts.add(g.chooseEvent(0)?.text);
+    }
+    ok(texts.size > 1, 'repeated choice gives varied outcomes', `${texts.size} distinct`);
+  });
+
   await step('each building has a sprite image', async () => {
     const missing = [];
     for (const type of Object.keys(BUILDINGS)) {

@@ -28,7 +28,7 @@ export const BUILDINGS = {
   granary:      { name: 'Granary',      era: 1, size: 2, cost: { wood: 35 },            work: 22, storageFood: 300, desc: '+300 food storage. Food spoils less.' },
 
   // ---- Town ----
-  house:       { name: 'House',       era: 2, size: 1, cost: { wood: 40, stone: 20 },           work: 30, housing: 10, desc: 'Family home for 10.' },
+  house:       { name: 'House',       era: 2, size: 2, cost: { wood: 40, stone: 20 },           work: 30, housing: 10, desc: 'Family home for 10.' },
   blacksmith:  { name: 'Blacksmith',  era: 2, size: 2, cost: { wood: 30, stone: 30, iron: 10 },  work: 34, bonus: { chop: 0.2, mine: 0.25 }, combat: 0.1, workplace: 'smith', slots: 2, recipe: { cost: { iron: 1, coal: 1, wood: 1 }, out: 2 }, desc: 'Smiths forge iron weapons here. Also better tools for everyone.' },
   market:      { name: 'Market',      era: 2, size: 2, cost: { wood: 50, stone: 20 },           work: 30, gold: 2, trade: true, desc: 'Earns gold daily. Unlocks player trading.' },
   tavern:      { name: 'Tavern',      era: 2, size: 2, cost: { wood: 60, stone: 20 },           work: 34, happy: 15, desc: 'Big happiness boost. Wanderers visit more.' },
@@ -109,7 +109,7 @@ export const BUILDINGS = {
   steel_mill:       { name: 'Steel Mill',        era: 4, size: 2, cost: { stone: 120, coal: 60 },            work: 60, daily: { iron: 8 }, desc: '+8 iron every day.' },
   printing_press:   { name: 'Printing Press',    era: 3, size: 1, cost: { wood: 60, stone: 40, iron: 10 },   work: 40, daily: { science: 4 }, influence: 2, desc: 'Books spread ideas: +4 science a day.' },
   railway_station:  { name: 'Railway Station',   era: 4, size: 2, cost: { stone: 120, iron: 100 },           work: 70, speed: 0.3, join: 0.08, desc: 'Everyone moves 30% faster and newcomers arrive by train.' },
-  tenement:         { name: 'Tenement',          era: 4, size: 2, cost: { stone: 140, wood: 60 },            work: 60, housing: 30, happy: -3, desc: 'Cramped housing for 30.' },
+  tenement:         { name: 'Tenement',          era: 4, size: 3, cost: { stone: 140, wood: 60 },            work: 60, housing: 30, happy: -3, desc: 'Cramped housing for 30.' },
   clock_tower:      { name: 'Clock Tower',       era: 4, size: 1, cost: { stone: 100, iron: 20 },            work: 50, work_bonus: 0.1, happy: 6, desc: 'Ordered days: everyone works 10% faster.' },
 
   // ---- Science
@@ -132,7 +132,7 @@ export const BUILDINGS = {
   robot_factory:    { name: 'Robot Factory',     era: 6, size: 2, cost: { iron: 300, science: 500 },         work: 150, robots: 4, desc: 'Builds robot workers (up to 4 per factory). Robots never eat or sleep.' },
   drone_hub:        { name: 'Drone Hub',         era: 6, size: 1, cost: { iron: 150, science: 300 },         work: 90, spot: 0.3, defense: 25, counterIntel: 0.15, desc: 'Drones patrol the skies: spot everything, shoot down spies.' },
   fusion_reactor:   { name: 'Fusion Reactor',    era: 6, size: 2, cost: { iron: 400, science: 800 },         work: 200, work_bonus: 0.4, storage: 800, desc: 'Limitless energy: +40% work, +800 storage.' },
-  arcology:         { name: 'Arcology',          era: 6, size: 3, cost: { stone: 500, iron: 300, science: 400 }, work: 220, housing: 80, happy: 10, desc: 'A city in a single tower. Houses 80.' },
+  arcology:         { name: 'Arcology',          era: 6, size: 4, cost: { stone: 500, iron: 300, science: 400 }, work: 220, housing: 80, happy: 10, desc: 'A city in a single tower. Houses 80.' },
   shield_generator: { name: 'Shield Generator',  era: 6, size: 2, cost: { iron: 350, science: 900, gems: 20 }, work: 220, defense: 100, missileShield: true, desc: 'An energy dome: blocks missiles and most raiders.' },
   hyperloop:        { name: 'Hyperloop Station', era: 6, size: 2, cost: { iron: 300, science: 400 },         work: 160, speed: 0.6, desc: 'Travel at incredible speed: +60% movement.' },
 
@@ -154,6 +154,11 @@ export const BUILDINGS = {
 };
 
 export const BUILDING_ORDER = Object.keys(BUILDINGS);
+
+// Bigger homes take more room. Buildings placed before a size change keep their old footprint.
+export const OLD_SIZES = { house: 1, tenement: 2, arcology: 3 };
+/** Footprint of a placed building (tiles per side). */
+export const sizeOf = b => b.size || BUILDINGS[b.type].size;
 
 // Build menu groups
 export const CATEGORIES = [

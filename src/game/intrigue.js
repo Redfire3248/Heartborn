@@ -1,6 +1,6 @@
 import { ADULT_AGE, DAY_LENGTH, TILE } from '../core/constants.js';
 import { clamp, chance, pick } from '../core/rng.js';
-import { BUILDINGS } from '../data/buildings.js';
+import { BUILDINGS, sizeOf } from '../data/buildings.js';
 import { CREATURES } from '../data/objects.js';
 import { has, onVillagerGone } from './dynasty.js';
 
@@ -121,7 +121,7 @@ export function punishTraitor(g, v, how) {
 export function damageBuilding(g, b, prefix = 'Sabotage at the') {
   const def = BUILDINGS[b.type];
   if (!def) return;
-  if (def.size >= 3 || chance(0.4)) {
+  if (sizeOf(b) >= 3 || chance(0.4)) {
     b.built = false;
     b.progress = 0.35;   // needs rebuilding
     g.log(`${prefix} ${def.name}! It must be repaired.`, 'bad');

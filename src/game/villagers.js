@@ -5,7 +5,7 @@ import {
 import { clamp, pick, chance } from '../core/rng.js';
 import { MALE_NAMES, FEMALE_NAMES, BIRTH_TRAITS } from '../data/traits.js';
 import { OBJECTS, CREATURES } from '../data/objects.js';
-import { BUILDINGS } from '../data/buildings.js';
+import { BUILDINGS, sizeOf } from '../data/buildings.js';
 import { rollFate } from './fate.js';
 import { damageCreature } from './creatures.js';
 import { isTrained, has, onVillagerGone, addItem } from './dynasty.js';
@@ -762,7 +762,7 @@ function besideObject(o) {
 
 /** A walkable spot along the front edge of a building. */
 function standAt(g, b, inside = false) {
-  const size = BUILDINGS[b.type].size;
+  const size = sizeOf(b);
   if (inside) {
     return { x: (b.tx + Math.random() * size) * TILE, y: (b.ty + 0.3 + Math.random() * (size - 0.3)) * TILE };
   }

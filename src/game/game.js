@@ -3,7 +3,7 @@ import {
 } from '../core/constants.js';
 import { clamp, chance, pick, weighted } from '../core/rng.js';
 import { World, T, makeCreature } from './world.js';
-import { BUILDINGS, ERAS } from '../data/buildings.js';
+import { BUILDINGS, ERAS, sizeOf, OLD_SIZES } from '../data/buildings.js';
 import { OBJECTS, CREATURES, setSpriteEra } from '../data/objects.js';
 import { EVENTS } from '../data/events.js';
 import { updateVillager, makeVillager, dailyVillagers, killVillager } from './villagers.js';
@@ -36,6 +36,8 @@ export class Game {
     ensureRuler(this);
     // everyone gets a trade (older saves keep what they do today as their trade)
     for (const v of state.villagers) ensureProfession(v);
+    // older saves: buildings keep the footprint they were built with
+    for (const b of state.buildings) if (!b.size) b.size = OLD_SIZES[b.type] ?? BUILDINGS[b.type]?.size ?? 1;
   }
 
   // ---------- events ----------
@@ -303,12 +305,12 @@ export class Game {
   builtBuildings() { return this.state.buildings.filter(b => b.built); }
   hasBuilding(type) { return this.state.buildings.some(b => b.type === type && b.built); }
   buildingCenter(b) {
-    const size = BUILDINGS[b.type].size;
+    const size = sizeOf(b);
     return { x: (b.tx + size / 2) * TILE, y: (b.ty + size / 2) * TILE };
   }
   buildingAt(tx, ty) {
     return this.state.buildings.find(b => {
-      const size = BUILDINGS[b.type].size;
+      const size = sizeOf(b);
       return tx >= b.tx && ty >= b.ty && tx < b.tx + size && ty < b.ty + size;
     }) || null;
   }
@@ -336,7 +338,7 @@ export class Game {
       const o = this.world.objectAt(tx + x, ty + y);
       if (o) this.world.removeObject(this.state.objects, o);
     }
-    const b = { id: `b${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`, type, tx, ty, built: false, progress: 0 };
+    const b = { id: `b${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`, type, tx, ty, size: def.size, built: false, progress: 0 };
     this.state.buildings.push(b);
     this.puff(this.buildingCenter(b), 'effects/dust', 6);
     this.emit('change');
@@ -464,7 +466,10 @@ export class Game {
     if (choice.needsVictim && !this.state.villagers.length) return { error: 'No one to sacrifice' };
     this.addKarma(choice.karma || 0);
     const ctx = new FateContext(this, null, null, 'event');
-    const text = choice.apply(ctx) || '';
+    let text = choice.apply(ctx) || '';
+    // the same choice doesn't always end the same way: a twist of fate, tipped by luck and how kind the choice was
+    const twist = eventTwist(this, choice);
+    if (twist) text = `${text} ${twist}`;
     this.state.stats.events = (this.state.stats.events || 0) + 1;
     this.log(`${event.title}: ${text}`, choice.karma < 0 ? 'bad' : 'event');
     this.pendingEvent = null;
@@ -561,4 +566,34 @@ export class Game {
 
   // re-exported helpers for other modules
   killVillager(v, reason) { killVillager(this, v, reason); }
+}
+
+// ---------- twists of fate: events never play out exactly the same way twice ----------
+const GOOD_TWISTS = [
+  g => `By luck, a hidden stash turns up: +${g.addResource('gold', 5 + Math.floor(Math.random() * 15 + g.state.era * 5))} gold.`,
+  g => `The people take heart (+6 happiness).`, // applied below
+  g => { const v = g.addWanderer(); return `Word spreads — ${v.name} arrives to join you.`; },
+  g => `Travellers leave a gift: +${g.addResource('food', 10 + Math.floor(Math.random() * 20))} food.`,
+  g => `The gods smile: +${g.addResource('influence', 5 + Math.floor(Math.random() * 10))} influence.`,
+  g => { g.state.modifiers.push({ id: 'good_omen', fate: 0.15, until: g.state.time + DAY_LENGTH }); return 'A good omen follows (+15% luck today).'; },
+];
+const BAD_TWISTS = [
+  g => `But rats get into the stores: −${Math.abs(g.addResource('food', -Math.floor(g.state.resources.food * 0.1)))} food.`,
+  g => `The people grumble about it (−5 happiness).`,
+  g => { const v = g.state.villagers.find(x => !x.ruling && x.hp > 40); if (!v) return ''; v.hp -= 25; return `${v.name} is hurt in the commotion.`; },
+  g => `A thief takes advantage: −${Math.abs(g.addResource('gold', -Math.floor(g.state.resources.gold * 0.12)))} gold.`,
+  g => { g.state.modifiers.push({ id: 'bad_omen', fate: -0.15, until: g.state.time + DAY_LENGTH }); return 'A crow circles overhead (−15% luck today).'; },
+];
+
+function eventTwist(g, choice) {
+  if (Math.random() > 0.45) return '';
+  const goodChance = clamp(0.5 + g.fateBonus * 0.4 + (choice.karma || 0) * 0.04, 0.15, 0.85);
+  const good = Math.random() < goodChance;
+  const list = good ? GOOD_TWISTS : BAD_TWISTS;
+  const i = Math.floor(Math.random() * list.length);
+  const text = list[i](g);
+  if (good && i === 1) for (const v of g.state.villagers) v.happy = clamp(v.happy + 6, 0, 100);
+  if (!good && i === 1) for (const v of g.state.villagers) v.happy = clamp(v.happy - 5, 0, 100);
+  g.recalc();
+  return text;
 }

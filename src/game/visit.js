@@ -1,7 +1,7 @@
 import { DAY_LENGTH, SAVE_VERSION, TILE } from '../core/constants.js';
 import { World, populateWorld } from './world.js';
 import { Game } from './game.js';
-import { BUILDINGS } from '../data/buildings.js';
+import { BUILDINGS, sizeOf } from '../data/buildings.js';
 import { DEFAULT_LAWS } from '../data/laws.js';
 
 /** Compact public snapshot of a village so other players can come and look at it. */
@@ -30,7 +30,7 @@ export function makeVisitGame(profile) {
     .filter(b => BUILDINGS[b.type]);
   const covered = new Set();
   for (const b of buildings) {
-    const size = BUILDINGS[b.type].size;
+    const size = sizeOf(b);
     for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) covered.add(`${b.tx + x},${b.ty + y}`);
   }
 

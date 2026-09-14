@@ -32,7 +32,25 @@ let version = 0;
 /** Bumps whenever a late sprite replaces a placeholder, so cached drawings (terrain) can refresh. */
 export const spriteVersion = () => version;
 
-const url = (key, attempt) => `${import.meta.env.BASE_URL}assets/${key}.png${attempt ? `?r=${attempt}` : ''}`;
+/**
+ * Phones, data-saver and low-memory devices get the 128px art set (half the download, a quarter of the memory).
+ * Override with localStorage 'hb-art' = 'hi' | 'lo'.
+ */
+function pickArtSet() {
+  let pref = null;
+  try { pref = localStorage.getItem('hb-art'); } catch {}
+  if (pref === 'hi' || pref === 'lo') return pref;
+  const phone = matchMedia?.('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820;
+  const saveData = navigator.connection?.saveData;
+  const lowMem = navigator.deviceMemory && navigator.deviceMemory <= 4;
+  return phone || saveData || lowMem ? 'lo' : 'hi';
+}
+export const ART_SET = pickArtSet();
+export function setArtSet(set) {
+  try { localStorage.setItem('hb-art', set); } catch {}
+}
+
+const url = (key, attempt) => `${import.meta.env.BASE_URL}${ART_SET === 'lo' ? 'assets-lo' : 'assets'}/${key}.png${attempt ? `?r=${attempt}` : ''}`;
 function fetchImage(key, attempt = 0) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -83,7 +101,7 @@ export async function loadAssets(onProgress) {
   const first = wanted.filter(PRIORITY), rest = wanted.filter(k => !PRIORITY(k));
   let done = 0;
   await download(first, () => onProgress?.(++done / first.length), 16);
-  restReady = download(rest, null, 10).then(() => { version++; });   // redraw cached terrain/icons once all art is in
+  restReady = download(rest, null, ART_SET === 'lo' ? 6 : 10).then(() => { version++; });   // redraw cached terrain/icons once all art is in
 }
 
 function retryLater(key, delay = 4000) {

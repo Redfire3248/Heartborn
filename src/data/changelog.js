@@ -1,6 +1,16 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Solid pixel coastlines, lighter phones, bigger homes',
+    changes: [
+      'Terrain borders are solid stepped pixel edges with a dark outline (no more circles or specks)',
+      'Phones download half-size art (1.5 MB instead of 3.1 MB) and draw fewer pixels per frame',
+      'Phone flicker: no blur layers, and the screen no longer blanks when the address bar moves',
+      'Bigger homes take more land: House 2×2, Tenement 3×3, Arcology 4×4 (old homes keep their size)',
+      'Event choices are no longer fixed: the same choice can turn out better or worse, luck and karma tip it',
+    ],
+  },
+  {
     title: 'Notifications, sound, undo & safety',
     changes: [
       'Notification bell: every important event, click to jump to where it happened',

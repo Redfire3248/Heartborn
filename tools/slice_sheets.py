@@ -122,6 +122,11 @@ def slice_sheet(key, sheet, path, cols=6, rows=6):
         # 256-colour palette PNG: ~70% smaller files, visually identical for pixel art (faster loading)
         small = out.convert("RGBA").quantize(colors=256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
         small.save(folder / f"{name}.png", optimize=True)
+        # half-size copy for phones and data saver (public/assets-lo)
+        lo_dir = ROOT / "public" / "assets-lo" / folder.name
+        lo_dir.mkdir(parents=True, exist_ok=True)
+        lo = out.resize((SIZE // 2, SIZE // 2), Image.BOX if name.startswith("tile_") else Image.NEAREST)
+        lo.quantize(colors=256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(lo_dir / f"{name}.png", optimize=True)
 
     print(f"{key}: {len(sheet['names'])} sprites -> {folder.relative_to(ROOT)}")
 

@@ -2,7 +2,7 @@ import { TILE } from '../core/constants.js';
 import { drawSprite } from '../core/assets.js';
 import { TerrainPainter } from './terrain.js';
 import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
-import { BUILDINGS } from '../data/buildings.js';
+import { BUILDINGS, sizeOf } from '../data/buildings.js';
 import { displayRole, toolFor } from '../game/villagers.js';
 import { maxHp } from '../game/creatures.js';
 
@@ -21,18 +21,33 @@ export class Renderer {
     this.weather = [];
     this.terrain = new TerrainPainter();
     this.resize();
-    window.addEventListener('resize', () => this.resize());
+    // phones fire resize constantly while the address bar slides; resizing a canvas wipes it, which flickers.
+    // Coalesce into one resize per frame, and only when the pixel size really changed.
+    let queued = false;
+    const onResize = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => { queued = false; this.resize(); });
+    };
+    window.addEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('resize', onResize);
   }
 
   resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // phones have 3x screens: drawing that many pixels every frame is slow and hot, and looks no better on pixel art
+    const phone = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820;
+    const dpr = Math.min(window.devicePixelRatio || 1, phone ? 1.5 : 2);
+    const cssW = window.innerWidth, cssH = window.innerHeight;
+    const w = Math.floor(cssW * dpr), h = Math.floor(cssH * dpr);
     this.dpr = dpr;
-    this.canvas.width = Math.floor(window.innerWidth * dpr);
-    this.canvas.height = Math.floor(window.innerHeight * dpr);
-    this.canvas.style.width = window.innerWidth + 'px';
-    this.canvas.style.height = window.innerHeight + 'px';
-    this.light.width = this.canvas.width;
-    this.light.height = this.canvas.height;
+    if (this.canvas.width === w && this.canvas.height === h) return;
+    this.canvas.width = w;
+    this.canvas.height = h;
+    this.canvas.style.width = cssW + 'px';
+    this.canvas.style.height = cssH + 'px';
+    this.light.width = w;
+    this.light.height = h;
+    this.lastGame && this.render(this.lastGame, 0);   // repaint right away so no blank frame shows
   }
 
   get scale() { return this.camera.zoom * this.dpr; }
@@ -52,6 +67,7 @@ export class Renderer {
 
   render(g, dt) {
     this.time += dt;
+    this.lastGame = g;
     const { ctx, canvas } = this;
     const s = this.scale;
     const W = canvas.width, H = canvas.height;
@@ -84,7 +100,7 @@ export class Renderer {
       if (inView(x, y)) items.push({ y, draw: () => this.drawObject(o, x, y) });
     }
     for (const b of g.state.buildings) {
-      const size = BUILDINGS[b.type].size;
+      const size = sizeOf(b);
       const x = (b.tx + size / 2) * TILE, y = (b.ty + size) * TILE - 2;
       if (inView(x, y)) items.push({ y, draw: () => this.drawBuilding(g, b, x, y) });
     }
@@ -154,13 +170,13 @@ export class Renderer {
   drawBuilding(g, b, x, y) {
     const { ctx } = this;
     const def = BUILDINGS[b.type];
-    const size = def.size * TILE * 1.12;
+    const size = sizeOf(b) * TILE * 1.12;
     // a thin contact shadow hugging the base (a big oval made buildings look like they float)
     if (b.type !== 'farm') {
       const { ctx } = this;
       ctx.fillStyle = 'rgba(0,0,0,0.16)';
       ctx.beginPath();
-      ctx.ellipse(x, y - 2, def.size * TILE * 0.46, TILE * 0.12, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, y - 2, sizeOf(b) * TILE * 0.46, TILE * 0.12, 0, 0, Math.PI * 2);
       ctx.fill();
     }
     if (!b.built) {
@@ -261,7 +277,7 @@ export class Renderer {
       ctx.strokeRect(x0 * TILE + 0.5, y0 * TILE + 0.5, (x1 - x0 + 1) * TILE - 1, (y1 - y0 + 1) * TILE - 1);
       ctx.setLineDash([]);
       for (const b of gh.demolish) {
-        const s = BUILDINGS[b.type].size;
+        const s = sizeOf(b);
         ctx.fillStyle = 'rgba(255,50,40,0.35)';
         ctx.strokeStyle = '#ff6a5a';
         ctx.fillRect(b.tx * TILE, b.ty * TILE, s * TILE, s * TILE);
@@ -426,7 +442,7 @@ export function selectionPos(g, sel) {
   const r = sel.ref;
   if (sel.kind === 'villager' || sel.kind === 'creature') return { x: r.x, y: r.y - 1, r: TILE * 0.4 };
   if (sel.kind === 'building') {
-    const size = BUILDINGS[r.type].size;
+    const size = sizeOf(r);
     return { x: (r.tx + size / 2) * TILE, y: (r.ty + size) * TILE - 4, r: size * TILE * 0.55 };
   }
   if (sel.kind === 'object') return { x: r.x * TILE + TILE / 2, y: r.y * TILE + TILE * 0.9, r: TILE * 0.4 };

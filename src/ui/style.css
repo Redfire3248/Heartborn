@@ -815,12 +815,12 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 
 /* phones: no live blur behind panels (it flickers over the moving game on mobile GPUs) */
 @media (max-width: 760px), (hover: none) {
-  .card, .toast, .gc-menu, .gc, .modal, .side, .inspector, .minimap, .tutorial { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  .modal-bg { background: rgba(8, 5, 12, .78); }
   .card { background: linear-gradient(180deg, #2c2138, #1b1426) !important; }
   .toast { background: #1b1426 !important; }
   .logo h1 { animation: none !important; filter: drop-shadow(0 3px 0 #3a1408) !important; }
   .announce { animation-duration: 3s; }
-  canvas#game { transform: translateZ(0); }
 }
 
 /* save problem banner */

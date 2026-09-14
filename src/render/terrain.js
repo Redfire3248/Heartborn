@@ -109,64 +109,143 @@ export class TerrainPainter {
     return c;
   }
 
-  /** Paint tiles [tx0,tx1)×[ty0,ty1) at p pixels per tile into a new canvas. */
+  /**
+   * Paint tiles [tx0,tx1)×[ty0,ty1) at p pixels per tile into a new canvas.
+   * Borders are ragged pixel fringes: every tile is split into 8×8 "pixels", and pixels just outside
+   * a higher terrain join it depending on distance plus noise — a dithered, hand-pixelled edge.
+   */
   paint(tx0, ty0, tx1, ty1, p) {
+    const W = tx1 - tx0, H = ty1 - ty0;
     const canvas = document.createElement('canvas');
-    canvas.width = (tx1 - tx0) * p;
-    canvas.height = (ty1 - ty0) * p;
+    canvas.width = W * p;
+    canvas.height = H * p;
     const ctx = canvas.getContext('2d');
     const pattern = key => ctx.createPattern(this.tileCanvas(key, p), 'repeat');
 
-    // which layers appear here (with a margin, since neighbours spill in)
-    const layer = new Map();
-    for (let ty = ty0 - 1; ty <= ty1; ty++) for (let tx = tx0 - 1; tx <= tx1; tx++) layer.set(`${tx},${ty}`, LAYER_OF[this.key(tx, ty)] ?? 0);
-    const present = [...new Set(layer.values())].sort((a, b) => a - b);
+    // layer of every tile (with a one-tile margin, since neighbours spill in)
+    const MW = W + 2;
+    const layerAt = new Int8Array(MW * (H + 2));
+    const present = new Set();
+    for (let ty = -1; ty <= H; ty++) for (let tx = -1; tx <= W; tx++) {
+      const l = LAYER_OF[this.key(tx0 + tx, ty0 + ty)] ?? 0;
+      layerAt[(ty + 1) * MW + tx + 1] = l;
+      if (tx >= 0 && ty >= 0 && tx < W && ty < H) present.add(l);
+      else if (tx >= -1 && ty >= -1) present.add(l);
+    }
+    const L_at = (tx, ty) => layerAt[(ty + 1) * MW + tx + 1];
+    const layers = [...present].sort((a, b) => a - b);
 
-    // lowest layer fills everything
-    ctx.fillStyle = pattern(LAYERS[present[0]][0]);
+    ctx.fillStyle = pattern(LAYERS[layers[0]][0]);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    for (const L of present.slice(1)) {
-      // each tile at or above this layer: a slightly rounded core, and on every side that faces
-      // lower ground a trail of small circles that shrink as they spill outward
-      ctx.beginPath();
-      const circle = (cx, cy, r) => { ctx.moveTo(cx + r, cy); ctx.arc(cx, cy, r, 0, Math.PI * 2); };
-      for (let ty = ty0 - 1; ty <= ty1; ty++) for (let tx = tx0 - 1; tx <= tx1; tx++) {
-        if (layer.get(`${tx},${ty}`) < L) continue;
-        const x = (tx - tx0) * p, y = (ty - ty0) * p;
-        ctx.rect(x - 0.5, y - 0.5, p + 1, p + 1);
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          if ((layer.get(`${tx + dx},${ty + dy}`) ?? 0) >= L) continue;
-          const n = 9;
-          for (let i = 0; i < n; i++) {
-            const along = (i + 0.2 + hash(tx, ty, 40 + i * 4 + dx * 2 + dy) * 0.6) / n;   // position along the edge
-            const out = Math.pow(hash(tx, ty, 90 + i * 4 + dx * 3 + dy * 5), 1.8) * 0.42;    // how far it trails
-            const r = p * Math.max(0.035, 0.22 * (1 - out / 0.5) * (0.65 + 0.35 * hash(tx, ty, 140 + i)));
-            const ex = dx ? (dx > 0 ? 1 + out : -out) : along;
-            const ey = dy ? (dy > 0 ? 1 + out : -out) : along;
-            circle(x + ex * p, y + ey * p, r);
+    // fringe "pixels" per tile: 4 screen pixels each in detailed chunks, matching the tile art's pixel size
+    const B = p >= 48 ? 16 : 8;
+    const MWB = W * B, MHB = H * B;
+    const mask = document.createElement('canvas');
+    mask.width = MWB; mask.height = MHB;
+    const mctx = mask.getContext('2d');
+    const rim = document.createElement('canvas');
+    rim.width = MWB; rim.height = MHB;
+    const rctx = rim.getContext('2d');
+    const layerCanvas = document.createElement('canvas');
+    layerCanvas.width = canvas.width; layerCanvas.height = canvas.height;
+    const lctx = layerCanvas.getContext('2d');
+    const bits = new Uint8Array(MWB * MHB);
+    const edgeTile = new Uint8Array(W * H);
+    const noiseScale = 4 / B;   // same world-size noise at any resolution
+
+    // build a fringe mask for everything at or above layer L; `reach` widens it (for shallow water)
+    const buildMask = (L, reach, withRim) => {
+      bits.fill(0);
+      edgeTile.fill(0);
+      let any = false;
+      for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
+        const row0 = ty * B * MWB;
+        if (L_at(tx, ty) >= L) {
+          any = true;
+          for (let by = 0; by < B; by++) bits.fill(1, row0 + by * MWB + tx * B, row0 + by * MWB + tx * B + B);
+          continue;
+        }
+        // neighbours at or above L (only edge tiles need per-pixel work)
+        const nb = [];
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && L_at(tx + dx, ty + dy) >= L) nb.push(dx, dy);
+        if (!nb.length) continue;
+        any = true;
+        edgeTile[ty * W + tx] = 1;
+        for (let by = 0; by < B; by++) for (let bx = 0; bx < B; bx++) {
+          const u = (bx + 0.5) / B, v = (by + 0.5) / B;
+          let dist = 9;
+          for (let i = 0; i < nb.length; i += 2) {
+            const dx = nb[i], dy = nb[i + 1];
+            const ex = dx < 0 ? u : dx > 0 ? 1 - u : 0;
+            const ey = dy < 0 ? v : dy > 0 ? 1 - v : 0;
+            const dd = Math.max(ex, ey) * 0.55 + Math.hypot(ex, ey) * 0.45;   // squarish, not round
+            if (dd < dist) dist = dd;
           }
-          // a few tiny stray dots further out complete the trail
-          for (let i = 0; i < 3; i++) {
-            const along = hash(tx, ty, 200 + i * 7 + dx + dy * 3);
-            const out = 0.4 + hash(tx, ty, 230 + i * 5 + dx * 2 + dy) * 0.25;
-            const ex = dx ? (dx > 0 ? 1 + out : -out) : along, ey = dy ? (dy > 0 ? 1 + out : -out) : along;
-            circle(x + ex * p, y + ey * p, p * (0.025 + 0.03 * hash(tx, ty, 260 + i)));
+          const wx = (tx0 + tx) * B + bx, wy = (ty0 + ty) * B + by;
+          const n = vnoise(wx * noiseScale * 0.09, wy * noiseScale * 0.09, L * 13) * 0.7 + vnoise(wx * noiseScale * 0.3, wy * noiseScale * 0.3, L * 7) * 0.3;
+          if (dist < 0.08 + reach + 0.22 * n) bits[row0 + by * MWB + tx * B + bx] = 1;
+        }
+      }
+      if (!any) return false;
+
+      // tidy the edge: no lone specks, no one-pixel holes (those read as dirt/noise)
+      for (let pass = 0; pass < 3; pass++) {
+        for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
+          if (!edgeTile[ty * W + tx]) continue;
+          for (let y = ty * B; y < (ty + 1) * B; y++) for (let x = tx * B; x < (tx + 1) * B; x++) {
+            const i = y * MWB + x;
+            const n = (x > 0 ? bits[i - 1] : 1) + (x < MWB - 1 ? bits[i + 1] : 1) + (y > 0 ? bits[i - MWB] : 1) + (y < MHB - 1 ? bits[i + MWB] : 1);
+            if (bits[i] && n <= 1) bits[i] = 0;
+            else if (!bits[i] && n >= 3) bits[i] = 1;
           }
         }
       }
-      // shallow water glow where land meets water: a soft rim drawn just before the first land layer
-      if (L === WATER_LAYERS) {
-        ctx.save();
-        ctx.shadowColor = 'rgba(200,250,255,0.55)';
-        ctx.shadowBlur = p * 0.6;
-        ctx.fillStyle = 'rgba(160,230,245,0.5)';
-        ctx.fill('nonzero');
-        ctx.restore();
+
+      const img = mctx.createImageData(MWB, MHB), d = img.data;
+      const rimImg = withRim ? rctx.createImageData(MWB, MHB) : null, rd = rimImg?.data;
+      for (let i = 0; i < bits.length; i++) {
+        if (!bits[i]) continue;
+        d[i * 4 + 3] = 255;
+        if (!rd) continue;
+        const x = i % MWB, y = (i / MWB) | 0;
+        // rim = on-pixels touching an off pixel (outer edge of this terrain)
+        if ((x > 0 && !bits[i - 1]) || (x < MWB - 1 && !bits[i + 1]) || (y > 0 && !bits[i - MWB]) || (y < MHB - 1 && !bits[i + MWB])) rd[i * 4 + 3] = 255;
       }
-      ctx.fillStyle = pattern(LAYERS[L][0]);
-      ctx.fill('nonzero');
-      // other keys sharing this layer (flowers on grass) are painted as plain tiles
+      mctx.putImageData(img, 0, 0);
+      if (rimImg) rctx.putImageData(rimImg, 0, 0);
+      return true;
+    };
+
+    // paint a fill through a mask canvas (pixel-sharp)
+    const paintMasked = (fill, m = mask) => {
+      lctx.globalCompositeOperation = 'source-over';
+      lctx.clearRect(0, 0, layerCanvas.width, layerCanvas.height);
+      lctx.fillStyle = fill;
+      lctx.fillRect(0, 0, layerCanvas.width, layerCanvas.height);
+      lctx.globalCompositeOperation = 'destination-in';
+      lctx.imageSmoothingEnabled = false;
+      lctx.drawImage(m, 0, 0, layerCanvas.width, layerCanvas.height);
+      ctx.drawImage(layerCanvas, 0, 0);
+    };
+
+    for (const L of layers.slice(1)) {
+      // shallow water: a paler dithered band where the first land meets the sea
+      if (L === WATER_LAYERS && buildMask(L, 0.3, false)) {
+        ctx.globalAlpha = 0.35;
+        paintMasked('#9fe3ee');
+        ctx.globalAlpha = 1;
+      }
+      const land = L >= WATER_LAYERS;
+      if (!buildMask(L, 0, land)) continue;
+      paintMasked(pattern(LAYERS[L][0]));
+      // a darker one-pixel rim gives land a crisp hand-pixelled outline
+      if (land) {
+        ctx.globalAlpha = 0.38;
+        paintMasked('#1a0f08', rim);
+        ctx.globalAlpha = 1;
+      }
+      // other keys sharing this layer (flowers on grass) keep their own texture inside their tiles
       for (const other of LAYERS[L].slice(1)) {
         const fill = pattern(other);
         for (let ty = ty0; ty < ty1; ty++) for (let tx = tx0; tx < tx1; tx++) {
@@ -178,4 +257,11 @@ export class TerrainPainter {
     }
     return canvas;
   }
+}
+
+function vnoise(x, y, seed) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash(xi, yi, seed), b = hash(xi + 1, yi, seed), c = hash(xi, yi + 1, seed), d = hash(xi + 1, yi + 1, seed);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 }
