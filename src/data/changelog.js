@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'People of every profession',
+    changes: [
+      'New sprites for every job, as a man and a woman: gatherer, woodcutter, miner, farmer, fisher, hunter, builder, smith, spy, recruit, warrior, scout, explorer',
+      'Court officials, elders and children have their own looks too',
+      'Only soldiers answer the call to arms; the Marshal no longer drafts farmers',
+      'Offline progress switched off',
+    ],
+  },
+  {
     title: 'Rejoin, world map, better building menu',
     changes: [
       'Rejoin World button when you come back after closing the game',

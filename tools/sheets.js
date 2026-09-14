@@ -68,7 +68,7 @@ window.SHEETS = {
     ]
   },
   people: {
-    title: "Sheet 9 - People: every profession, man and woman",
+    title: "Sheet 9 - People (every profession, man and woman)",
     folder: "people",
     mode: "sprite",
     names: [
