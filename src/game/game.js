@@ -12,6 +12,7 @@ import { FateContext } from './fate.js';
 import { updateWar, maybeScheduleWarband } from './war.js';
 import { updateCourt } from './court.js';
 import { dailyTraitors, dailyMachines, updateBombDefense } from './intrigue.js';
+import { dailyEmpire } from './empire.js';
 import { dailyPeople, ensureRuler, rulerEffects, carriedLuck } from './dynasty.js';
 import { LAW_CATEGORIES, NO_LAW_EFFECTS, DEFAULT_LAWS, LAW_COST, lawOption } from '../data/laws.js';
 
@@ -78,7 +79,11 @@ export class Game {
     updateBombDefense(this, dt);
 
     if (!this.offline && !this.pendingEvent && s.time >= s.nextEventAt) this.triggerRandomEvent();
-    s.modifiers = s.modifiers.filter(m => m.until > s.time);
+    if (s.modifiers.length) {
+      const before = s.modifiers.length;
+      s.modifiers = s.modifiers.filter(m => m.until > s.time);
+      if (s.modifiers.length !== before) this.recalc();   // an effect wore off
+    }
   }
 
   /** Fast-forward offline progress (no events, no effects). Returns a summary. */
@@ -107,6 +112,7 @@ export class Game {
     dailyPeople(this);
     dailyTraitors(this);
     dailyMachines(this);
+    dailyEmpire(this);
 
     // regrowth
     for (const o of [...s.objects]) {
@@ -122,6 +128,7 @@ export class Game {
     // daily income from buildings
     for (const b of this.builtBuildings()) {
       const def = BUILDINGS[b.type];
+      if (b.idleUntil > s.time) continue;   // e.g. a pasture whose cattle were sold
       if (def.gold) this.addResource('gold', Math.round(def.gold * (b.type === 'market' ? this.law.marketMult : 1) * this.goldMult));
       for (const [res, n] of Object.entries(def.daily || {})) this.addResource(res, n);
       if (def.influence) this.addResource('influence', def.influence);
@@ -211,6 +218,14 @@ export class Game {
     join += ruler.join || 0;
     lawful ||= !!ruler.lawful;
     if (ruler.build) bonus.build = (bonus.build || 0) + ruler.build;
+    // temporary effects from abilities, events and the empire
+    const mod = key => (this.state.modifiers || []).reduce((n, m) => n + (m[key] || 0), 0);
+    workBonus += mod('work');
+    happy += mod('happy');
+    defense += mod('defense');
+    combat += mod('combat');
+    spot += mod('spot');
+    health += mod('health');
     this.workBonus = workBonus;
     this.housing = housing;
     this.caps = Object.fromEntries(CAPPED.map(k => [k, k === 'weapons' || k === 'bombs' ? 40 + weaponStorage + Math.floor(storage / 10) : storage + (k === 'food' ? foodStorage : 0)]));

@@ -313,6 +313,58 @@ export async function run() {
     ok(g.state.era === ERAS.length - 1, 'every era can be reached', reached.join(' → '));
   });
 
+  // ------------------------------------------------------------ building abilities
+  await step('every building ability works and recharges', async () => {
+    const A = await import('/src/game/abilities.js');
+    const g = freshGame({ era: ERAS.length - 1, people: 25 });
+    g.offline = false;
+    const failed = [];
+    const topUp = () => Object.assign(g.state.resources, rich(), { bombs: 100, weapons: 100, science: 9000, influence: 5000 });
+    for (const type of Object.keys(A.ABILITIES)) {
+      if (!BUILDINGS[type]) { failed.push(`${type}: not a building`); continue; }
+      topUp();
+      const b = { id: `ab_${type}`, type, tx: 2, ty: 2, built: true, progress: 1 };
+      g.state.buildings.push(b);
+      g.spawnRaiders('bandit', 2);
+      g.state.villagers.slice(0, 4).forEach(v => { v.job = 'warrior'; });
+      try {
+        const r = A.useAbility(g, b);
+        if (r.error && !/No enemies|Nothing is under|homes|full|surplus|lend|Nobody|No warriors/.test(r.error)) failed.push(`${type}: ${r.error}`);
+        else if (!r.error && A.canUseAbility(g, b) === true) failed.push(`${type}: no cooldown`);
+      } catch (e) { failed.push(`${type} threw ${e.message}`); }
+      g.pendingEvent = null;
+    }
+    ok(!failed.length, `all ${Object.keys(A.ABILITIES).length} building abilities`, failed.join('; '));
+    ok(Object.keys(BUILDINGS).filter(t => A.ABILITIES[t]).length >= 80, 'most buildings have their own ability', `${Object.keys(A.ABILITIES).length} of ${Object.keys(BUILDINGS).length}`);
+  });
+
+  // ------------------------------------------------------------ empire
+  await step('empire: kingdoms, diplomacy, war, vassals, provinces, events', async () => {
+    const E = await import('/src/game/empire.js');
+    const g = freshGame({ era: 3, people: 30 });
+    g.offline = false;
+    for (let d = 0; d < 20; d++) { E.dailyEmpire(g); g.pendingEvent = null; }
+    const e = E.empireOf(g);
+    ok(e.kingdoms.length >= 2, 'neighbouring kingdoms are discovered', `${e.kingdoms.length} kingdoms`);
+    const failed = [];
+    for (let i = 0; i < E.EMPIRE_EVENT_COUNT; i++) { try { Object.assign(g.state.resources, rich()); E.empireEvent(g, i); g.pendingEvent = null; } catch (err) { failed.push(`event ${i}: ${err.message}`); } }
+    ok(!failed.length, `all ${E.EMPIRE_EVENT_COUNT} empire events run`, failed.join('; '));
+    const k = e.kingdoms[0];
+    for (const act of ['envoy', 'trade', 'spy']) { Object.assign(g.state.resources, rich()); const r = E.empireAction(g, k.id, act); if (r.error && k.status !== 'war') failed.push(`${act}: ${r.error}`); }
+    g.state.villagers.slice(0, 15).forEach(v => { v.job = 'warrior'; v.trained = true; v.skills.combat = 6; v.armed = true; });
+    g.recalc();
+    Object.assign(g.state.resources, rich());
+    if (k.status !== 'war') E.empireAction(g, k.id, 'war');
+    k.strength = 5;
+    for (let d = 0; d < 20 && k.status === 'war'; d++) { E.dailyEmpire(g); g.pendingEvent = null; k.strength = 5; }
+    ok(k.status === 'vassal', 'winning a war makes a vassal', k.status);
+    Object.assign(g.state.resources, rich());
+    E.empireAction(g, k.id, 'annex');
+    ok(k.status === 'province', 'vassals can be annexed into provinces', k.status);
+    ok(E.empireTitle(g) !== 'Tribe', 'ruling other realms raises your title', E.empireTitle(g));
+    ok(!failed.length, 'diplomacy actions work', failed.join('; '));
+  });
+
   // ------------------------------------------------------------ saving
   await step('save → load keeps everything', async () => {
     const g = freshGame({ era: 3, people: 10 });
@@ -358,7 +410,17 @@ export async function run() {
     hud.closePanel();
     ok(!failed.length, `all ${Object.keys(hud.els.dock).length} dock panels and their tabs open`, failed.join('; '));
 
-    const campfire = g.state.buildings[0] || build(g, 'campfire');
+    document.querySelectorAll('.modal-bg').forEach(m => m.remove());
+    const campfire = g.state.buildings.find(b => b.type === 'campfire' && b.built) || build(g, 'campfire');
+    campfire.abilityAt = null;
+    g.state.resources.food = Math.max(g.state.resources.food, 50);
+    hud.select({ kind: 'building', ref: campfire });
+    await sleep(100);
+    const abilityBtn = hud.inspector?.querySelector('.ability .btn.primary');
+    abilityBtn?.click();
+    await sleep(100);
+    ok(abilityBtn && campfire.abilityAt != null, 'ability button in the building card works');
+    hud.select(null);
     for (const sel of [{ kind: 'villager', ref: g.state.villagers[0] }, { kind: 'building', ref: campfire }, { kind: 'object', ref: g.state.objects[0] }, { kind: 'creature', ref: g.state.creatures[0] }]) {
       if (!sel.ref) continue;
       try { hud.select(sel); await sleep(80); if (!hud.inspector?.children.length) failed.push(`${sel.kind} inspector empty`); } catch (e) { failed.push(`${sel.kind}: ${e.message}`); }

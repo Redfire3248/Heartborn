@@ -1,4 +1,5 @@
 import { loadAssets } from './core/assets.js';
+import { setupPWA } from './core/pwa.js';
 import { AUTOSAVE_SECONDS, OFFLINE_CAP_SECONDS, TILE, DAY_LENGTH } from './core/constants.js';
 import { Input } from './core/input.js';
 import { Renderer } from './render/renderer.js';
@@ -8,13 +9,14 @@ import { makeVisitGame, visitCenter } from './game/visit.js';
 import { getProfile } from './net/save.js';
 import { signInWithGoogle, signInWithEmail, createAccount, resetPassword, signOut, onAuth, isAdmin } from './net/firebase.js';
 import { loadSave, writeSave, writeProfile, writePrivate, getBan, clearLocalSave, getUsername, claimUsername, setWorld, currentWorld, setSlot, listSlots, deleteSlot } from './net/save.js';
-import { ensureProfile, updateProfileStats, getWorld, SOLO_WORLD } from './net/social.js';
+import { ensureProfile, updateProfileStats, getWorld, leaveOrCloseWorld, SOLO_WORLD } from './net/social.js';
 import { worldPicker, lobbyScreen, slotPicker } from './ui/social.js';
 import { Multiplayer } from './net/multiplayer.js';
 import { HUD } from './ui/hud.js';
 import { AdminConsole } from './ui/adminConsole.js';
 import { loadingScreen, loginScreen, nameVillage, chooseUsername, bannedScreen, offlineSummary, extinctScreen } from './ui/screens.js';
 
+setupPWA();
 const canvas = document.getElementById('game');
 const renderer = new Renderer(canvas);
 
@@ -37,8 +39,11 @@ boot();
 async function boot() {
   document.getElementById('boot')?.remove();
   const loading = loadingScreen();
-  await loadAssets(p => loading.progress(p * 0.9, 'Loading sprites…'));
-  await document.fonts?.ready;
+  // fonts never hold up the game for more than a moment
+  await Promise.all([
+    loadAssets(p => loading.progress(p * 0.9, 'Loading sprites…')),
+    Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 700))]),
+  ]);
   loading.progress(1, 'Waking the world…');
   startDemo();
   requestAnimationFrame(loop);
@@ -100,32 +105,46 @@ async function enterGame(user) {
   }
   writePrivate(user).catch(e => console.warn('private profile', e));
 
-  if (!app.username) app.username = await chooseUsername(name => claimUsername(user.uid, name));
+  if (!app.username) {
+    const name = await chooseUsername(n => claimUsername(user.uid, n), { onBack: () => location.reload() });
+    if (!name) return;
+    app.username = name;
+  }
   ensureProfile(user.uid, app.username).catch(e => console.warn('profile', e));
-
-  // pick a world: the shared Realm, a solo world, or a private world with friends
   document.querySelectorAll('.screen.login, .vignette, .footer-note').forEach(e => e.remove());
-  let choice;
-  for (;;) {
-    choice = await worldPicker({ user, username: app.username });
-    app.world = choice.world === 'realm' || choice.world === SOLO_WORLD ? { wid: choice.world, name: choice.name } : (await getWorld(choice.world)) || { wid: choice.world, name: choice.name };
-    // private worlds wait in a lobby until the host starts them
-    if (app.world.status === 'lobby' && (await lobbyScreen({ user, username: app.username, world: app.world })) === 'leave') continue;
-    break;
+
+  // Menu steps, each with a Back button: world → (lobby) → civilization → (name it)
+  let step = 'world', choice = null, picked = null, state = null;
+  while (step !== 'play') {
+    if (step === 'world') {
+      // a solo world, or a private world with friends (worlds are temporary; civilizations are saved)
+      choice = await worldPicker({ user, username: app.username });
+      if (choice.back) { location.reload(); return; }
+      app.world = choice.world === SOLO_WORLD ? { wid: choice.world, name: choice.name } : (await getWorld(choice.world)) || { wid: choice.world, name: choice.name };
+      step = app.world.status === 'lobby' ? 'lobby' : 'slot';
+    } else if (step === 'lobby') {
+      const r = await lobbyScreen({ user, username: app.username, world: app.world });
+      if (r === 'leave') { await leaveOrCloseWorld(user.uid, app.world).catch(() => {}); step = 'world'; } else step = 'slot';
+    } else if (step === 'slot') {
+      setWorld(choice.world);
+      picked = await slotPicker({ user, worldName: app.world.name, listSlots, deleteSlot });
+      if (picked.back) {
+        if (choice.world !== SOLO_WORLD) await leaveOrCloseWorld(user.uid, app.world).catch(() => {});
+        step = 'world';
+        continue;
+      }
+      setSlot(picked.slot);
+      app.slot = picked.slot;
+      state = picked.isNew ? null : await loadSave(user.uid);
+      step = state ? 'play' : 'name';
+    } else if (step === 'name') {
+      const villageName = await nameVillage(`${app.username}'s Hearth`, { onBack: true });
+      if (villageName === null) { step = 'slot'; continue; }
+      state = newState({ uid: user.uid, name: app.username, villageName });
+      step = 'play';
+    }
   }
-  setWorld(choice.world);
-
-  // choose which civilization to bring into this world
-  const picked = await slotPicker({ user, worldName: app.world.name, listSlots, deleteSlot });
-  setSlot(picked.slot);
-  app.slot = picked.slot;
-
-  let state = picked.isNew ? null : await loadSave(user.uid);
   let summary = null;
-  if (!state) {
-    const villageName = await nameVillage(`${app.username}'s Hearth`);
-    state = newState({ uid: user.uid, name: app.username, villageName });
-  }
   state.owner.uid = user.uid;
   state.owner.name = app.username;
 
@@ -163,7 +182,7 @@ function startGame(user, game, { online = true } = {}) {
     onSave: () => save(true),
     onSignOut: async () => { await save(true).catch(() => {}); app.mp?.stop(); await signOut(); location.reload(); },
     onRestart: () => restart(),
-    world: app.world || { wid: currentWorld(), name: 'The Realm' },
+    world: app.world || { wid: currentWorld(), name: 'World' },
     username: app.username,
     onSwitchWorld: async () => { await save(true).catch(() => {}); app.mp?.stop(); location.reload(); },
     onVisit: uid => visitRealm(uid),

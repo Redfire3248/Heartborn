@@ -141,7 +141,7 @@
     "worldCodes": {
       "$code": {
         ".read": "auth != null",
-        ".write": "auth != null && !data.exists() && root.child('worlds').child(newData.val()).child('owner').val() === auth.uid"
+        ".write": "auth != null && ((!data.exists() && root.child('worlds').child(newData.val()).child('owner').val() === auth.uid) || (!newData.exists() && root.child('worlds').child(data.val()).child('owner').val() === auth.uid))"
       }
     },
     "lobby": {

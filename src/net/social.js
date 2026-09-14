@@ -9,7 +9,6 @@ import { rtdb, db } from './firebase.js';
  * friends/{uid}/{other}          'out' (I asked) | 'in' (they asked) | 'friend'
  * worlds/{wid}                   { name, owner, ownerName, code, createdAt }
  * worldMembers/{wid}/{uid}       true
- * userWorlds/{uid}/{wid}         { name, joinedAt }
  * worldInvites/{uid}/{wid}       { name, from, fromName, ts }
  * worldCodes/{CODE}              wid
  */
@@ -18,7 +17,7 @@ export const PUBLIC_WORLD = 'realm';
 export const SOLO_WORLD = 'solo';
 
 export function worldLabel(w) {
-  if (!w || w === PUBLIC_WORLD) return 'The Realm';
+  if (!w || w === PUBLIC_WORLD) return 'World';
   if (w === SOLO_WORLD) return 'Solo World';
   return typeof w === 'string' ? 'Private World' : w.name;
 }
@@ -85,7 +84,6 @@ export async function createWorld(me, meName, name) {
   await set(ref(rtdb, `worlds/${wid}`), { name, owner: me, ownerName: meName, code, createdAt: Date.now(), status: 'lobby' });
   await update(ref(rtdb), {
     [`worldMembers/${wid}/${me}`]: true,
-    [`userWorlds/${me}/${wid}`]: { name, joinedAt: Date.now() },
     [`worldCodes/${code}`]: wid,
   });
   return { wid, name, code, owner: me, status: 'lobby' };
@@ -94,10 +92,6 @@ export async function createWorld(me, meName, name) {
 export async function getWorld(wid) {
   const snap = await get(ref(rtdb, `worlds/${wid}`));
   return snap.exists() ? { wid, ...snap.val() } : null;
-}
-
-export function watchMyWorlds(uid, cb) {
-  return onValue(ref(rtdb, `userWorlds/${uid}`), snap => cb(Object.entries(snap.val() || {}).map(([wid, w]) => ({ wid, ...w }))));
 }
 
 export function watchInvites(uid, cb) {
@@ -111,7 +105,6 @@ export async function inviteToWorld(world, me, meName, friendUid) {
 export async function joinWorld(me, wid, name) {
   await update(ref(rtdb), {
     [`worldMembers/${wid}/${me}`]: true,
-    [`userWorlds/${me}/${wid}`]: { name, joinedAt: Date.now() },
     [`worldInvites/${me}/${wid}`]: null,
   });
 }
@@ -129,8 +122,19 @@ export async function declineInvite(me, wid) {
   await remove(ref(rtdb, `worldInvites/${me}/${wid}`));
 }
 
+/** Leaving a world: the host closes it for good (worlds aren't kept); anyone else just leaves. */
+export async function leaveOrCloseWorld(me, world) {
+  if (!world?.wid || world.wid === SOLO_WORLD || world.wid === PUBLIC_WORLD) return;
+  if (world.owner === me) {
+    await update(ref(rtdb), { [`worldCodes/${world.code}`]: null, [`worldMembers/${world.wid}/${me}`]: null });
+    await remove(ref(rtdb, `worlds/${world.wid}`));
+  } else {
+    await leaveWorld(me, world.wid);
+  }
+}
+
 export async function leaveWorld(me, wid) {
-  await update(ref(rtdb), { [`worldMembers/${wid}/${me}`]: null, [`userWorlds/${me}/${wid}`]: null });
+  await update(ref(rtdb), { [`worldMembers/${wid}/${me}`]: null });
 }
 
 export function watchWorld(wid, cb) {

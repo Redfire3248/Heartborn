@@ -20,7 +20,9 @@ export function worldPicker({ user, username }) {
     const root = h('div.screen.world-picker',
       h('div.card.wp',
         h('div.wp-head', icon('buildings/castle', 40),
-          h('div', h('h2', 'Choose your world'), h('div.faint', `Ruling as ${username} · each world is its own village`))),
+          h('div', h('h2', 'Choose your world'), h('div.faint', `Ruling as ${username} · your civilizations come with you to any world`)),
+          h('div.spacer'),
+          h('button.btn.sm.ghost.back-btn', { onclick: () => { for (const u of unsubs) u(); root.remove(); resolve({ back: true }); } }, '← Back')),
         h('div.wp-body', h('div.col', body, err), side)));
     ui().append(root);
 
@@ -31,18 +33,13 @@ export function worldPicker({ user, username }) {
     };
     const tryAction = async fn => { err.textContent = ''; try { await fn(); } catch (e) { err.textContent = e.message; } };
 
-    let worlds = [];
     let invites = [];
     const render = () => {
       body.replaceChildren(...[
-        h('button.wp-card.public', { onclick: () => choose(social.PUBLIC_WORLD, 'The Realm') },
-          icon('items/alliance', 44),
-          h('div', h('div.wp-title', '🌍 The Realm'), h('div.faint', 'The shared world. Everyone plays here: trade, ally and wage war with players from everywhere.')),
-          h('span.btn.sm.primary', 'Join')),
-        h('button.wp-card', { onclick: () => choose(social.SOLO_WORLD, 'Solo World') },
+        h('button.wp-card.public', { onclick: () => choose(social.SOLO_WORLD, 'Solo World') },
           icon('buildings/campfire', 44),
-          h('div', h('div.wp-title', '🏕 Solo World'), h('div.faint', 'Just you. No raids, no chat — build at your own pace. Still saved to the cloud.')),
-          h('span.btn.sm', 'Play')),
+          h('div', h('div.wp-title', '🏕 Solo World'), h('div.faint', 'Just you. No raids, no chat — build at your own pace.')),
+          h('span.btn.sm.primary', 'Play')),
         invites.length ? h('h3', 'Invitations') : null,
         ...invites.map(inv => h('div.wp-card.invite',
           icon('items/scroll', 36),
@@ -50,12 +47,8 @@ export function worldPicker({ user, username }) {
           h('div.row',
             h('button.btn.sm.ghost', { onclick: () => tryAction(() => social.declineInvite(user.uid, inv.wid)) }, 'Decline'),
             h('button.btn.sm.good', { onclick: () => tryAction(async () => { await social.joinWorld(user.uid, inv.wid, inv.name); choose(inv.wid, inv.name); }) }, 'Join')))),
-        h('h3', 'Your private worlds'),
-        worlds.length ? null : h('div.faint', 'None yet. Create one and invite your friends, or join with a code.'),
-        ...worlds.map(w => h('button.wp-card', { onclick: () => choose(w.wid, w.name) },
-          icon('buildings/fortress', 40),
-          h('div', h('div.wp-title', `🛡 ${w.name}`), h('div.faint', `Joined ${timeAgo(w.joinedAt)}`)),
-          h('span.btn.sm', 'Enter'))),
+        h('h3', 'Play with friends'),
+        h('div.faint', 'Create a world and invite friends, or join one with its code. Worlds last while you play in them — your civilizations are what gets saved.'),
         actions,
       ].filter(Boolean));
     };
@@ -79,8 +72,12 @@ export function worldPicker({ user, username }) {
     }
 
     const actions = createAndJoin();
-    unsubs.push(social.watchMyWorlds(user.uid, list => { worlds = list; render(); }));
-    unsubs.push(social.watchInvites(user.uid, list => { invites = list; render(); }));
+    // only show invitations to worlds that still exist
+    unsubs.push(social.watchInvites(user.uid, async list => {
+      const alive = await Promise.all(list.map(async inv => ((await social.getWorld(inv.wid).catch(() => null)) ? inv : (social.declineInvite(user.uid, inv.wid).catch(() => {}), null))));
+      invites = alive.filter(Boolean);
+      render();
+    }));
     friendsPanel(side, { user, username });
     render();
   });
@@ -141,7 +138,10 @@ export function lobbyScreen({ user, username, world }) {
       render();
     }));
     unsubs.push(social.watchLobby(world.wid, l => { inLobby = l; render(); }));
-    unsubs.push(social.watchWorld(world.wid, w => { if (w?.status === 'started') done('start'); }));
+    unsubs.push(social.watchWorld(world.wid, w => {
+      if (!w) done('leave');                       // the host closed the world
+      else if (w.status === 'started') done('start');
+    }));
     unsubs.push(friendsPanel(side, { user, username, world }));
     startBtn.onclick = async () => { startBtn.disabled = true; await social.startWorld(world.wid); };
 
@@ -163,7 +163,9 @@ export function slotPicker({ user, worldName, listSlots, deleteSlot }) {
     const root = h('div.screen.world-picker',
       h('div.card.wp', { style: { width: 'min(900px, 95vw)' } },
         h('div.wp-head', icon('characters/king', 40),
-          h('div', h('h2', 'Choose your civilization'), h('div.faint', `Entering ${worldName}. Your civilizations are the same in every world.`))),
+          h('div', h('h2', 'Choose your civilization'), h('div.faint', `Entering ${worldName}. Your civilizations are the same in every world.`)),
+          h('div.spacer'),
+          h('button.btn.sm.ghost.back-btn', { onclick: () => { root.remove(); resolve({ back: true }); } }, '← Back')),
         h('div', { style: { padding: '18px 20px' } }, grid)));
     document.getElementById('ui').append(root);
 

@@ -4,7 +4,7 @@ import {
   onAuthStateChanged, signOut as fbSignOut,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail,
 } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFirestore, connectFirestoreEmulator, doc, getDoc } from 'firebase/firestore';
 import { getDatabase, connectDatabaseEmulator } from 'firebase/database';
 import { connectAuthEmulator, initializeAuth, inMemoryPersistence, browserPopupRedirectResolver } from 'firebase/auth';
 import { firebaseConfig } from './config.js';
@@ -56,7 +56,6 @@ export const onAuth = cb => onAuthStateChanged(auth, cb);
 export async function isAdmin(user) {
   if (!user?.uid) return false;
   try {
-    const { doc, getDoc } = await import('firebase/firestore');
     return (await getDoc(doc(db, 'admins', user.uid))).exists();
   } catch { return false; }
 }

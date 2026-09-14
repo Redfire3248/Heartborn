@@ -1,6 +1,6 @@
 import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo } from './dom.js';
 import { iconUrl } from '../core/assets.js';
-import { TILE, ADULT_AGE, MAP_W, MAP_H, RESOURCES } from '../core/constants.js';
+import { TILE, ADULT_AGE, MAP_W, MAP_H, RESOURCES, DAY_LENGTH } from '../core/constants.js';
 import { BUILDINGS, ERAS, CATEGORIES } from '../data/buildings.js';
 import { OFFICES, officeUnlocked, officialOf, appoint, dismiss, setOfficeOption } from '../game/court.js';
 import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
@@ -18,7 +18,10 @@ import { fmtRes, travelMs, fmtMinutes, realmPos } from '../net/multiplayer.js';
 import { openRealmMap } from './realmMap.js';
 import { describeBuilding } from '../data/describe.js';
 import { Tutorial } from './tutorial.js';
+import { abilityOf, abilityCooldown, canUseAbility, useAbility } from '../game/abilities.js';
+import { empireOf, empirePower, empireTitle, empireAction, ACTIONS as EMPIRE_ACTIONS, PERSONALITIES, STATUS } from '../game/empire.js';
 import { openProfile, friendsPanel } from './social.js';
+import { installButton } from './screens.js';
 
 const TOP_RES = ['food', 'wood', 'stone', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];
 // bombs and science only appear once they matter
@@ -35,7 +38,7 @@ const MINI_SCALE = 4;   // minimap canvas pixels per tile
 const DOCK_GROUPS = [
   { id: 'build', icon: 'items/hammer', tip: 'Build (B)', tabs: [['build', 'Build']] },
   { id: 'people', icon: 'items/population', tip: 'People & Court (J)', tabs: [['jobs', '👥 People & Jobs'], ['court', '👑 Court']] },
-  { id: 'rule', icon: 'items/scroll', tip: 'Rule & Chronicle (K)', tabs: [['deeds', '📜 Laws & Powers'], ['log', '📖 Chronicle']] },
+  { id: 'rule', icon: 'items/scroll', tip: 'Rule, Empire & Chronicle (K)', tabs: [['deeds', '📜 Laws'], ['empire', '👑 Empire'], ['log', '📖 Chronicle']] },
   { id: 'realm', icon: 'buildings/castle', tip: 'Realm & Multiplayer (M)', tabs: [['world', '🌍 World'], ['ranks', '🏆 Rankings']], alias: ['map'], map: true },
   null,
   { id: 'settings', icon: 'items/save', tip: 'Save & Settings', tabs: [['settings', 'Settings']] },
@@ -405,7 +408,7 @@ export class HUD {
     if (!this.panelEl) return;
     const scroll = this.panelEl.querySelector('.side-body')?.scrollTop || 0;
     const fn = {
-      build: () => this.buildPanel(), jobs: () => this.jobsPanel(), court: () => this.courtPanel(), deeds: () => this.deedsPanel(), log: () => this.logPanel(),
+      build: () => this.buildPanel(), jobs: () => this.jobsPanel(), court: () => this.courtPanel(), deeds: () => this.deedsPanel(), log: () => this.logPanel(), empire: () => this.empirePanel(),
       world: () => this.worldPanel(), ranks: () => this.ranksPanel(), settings: () => this.settingsPanel(),
     }[this.panel];
     if (!fn) return;
@@ -589,6 +592,58 @@ export class HUD {
     return [this.head('characters/king', 'Court', `${Object.keys(OFFICES).filter(k => officialOf(g, k)).length} of ${Object.keys(OFFICES).length} offices filled`), body];
   }
 
+  empirePanel() {
+    const g = this.game;
+    const e = empireOf(g);
+    const power = empirePower(g);
+    const body = h('div.side-body');
+    const ruled = e.kingdoms.filter(k => k.status === 'vassal' || k.status === 'province').length;
+    body.append(h('div.empire-hero',
+      h('div.empire-title', empireTitle(g)),
+      h('div.faint', `${g.state.owner.villageName} · ${ruled} realm${ruled === 1 ? '' : 's'} under your rule`),
+      h('div.row', { style: { justifyContent: 'center', flexWrap: 'wrap' } },
+        h('span.chip', `⚔ Army strength ${power}`),
+        e.siege ? h('span.chip.good', `🏗 ${e.siege} siege engine${e.siege > 1 ? 's' : ''}`) : null,
+        e.colonies ? h('span.chip.good', `🚀 ${e.colonies} space colon${e.colonies > 1 ? 'ies' : 'y'}`) : null)));
+
+    if (!e.kingdoms.length) {
+      body.append(h('div.muted', g.state.era < 1 && g.state.villagers.length < 8
+        ? 'Your tribe is too small for other kingdoms to notice. Grow to 8 people or reach the Village era.'
+        : 'Your scouts are searching for neighbouring kingdoms. New realms are discovered as you grow.'));
+    }
+    for (const k of e.kingdoms) {
+      const st = STATUS[k.status];
+      const pers = PERSONALITIES[k.personality];
+      const odds = power / Math.max(1, power + k.strength);
+      const actions = Object.entries(EMPIRE_ACTIONS).filter(([, a]) => a.when(k));
+      body.append(h(`div.kingdom.${k.status}`,
+        h('div.row', { style: { gap: '10px' } },
+          h('div.kingdom-crest', pers.icon),
+          h('div', { style: { flex: 1, minWidth: 0 } },
+            h('div.kingdom-name', k.name),
+            h('div.faint', `${k.ruler} · ${pers.label}`)),
+          h('span.chip', { style: { color: st.color, borderColor: st.color } }, st.label)),
+        h('div.kingdom-stats',
+          h('div', h('span.faint', 'Strength'), h('b', { style: { color: k.strength > power ? 'var(--bad)' : 'var(--good)' } }, k.strength)),
+          h('div', h('span.faint', 'Wealth'), h('b', k.wealth)),
+          h('div', h('span.faint', 'Relations'), h('b', { style: { color: k.attitude >= 0 ? 'var(--good)' : 'var(--bad)' } }, Math.round(k.attitude)))),
+        k.status === 'war' ? h('div.col', { style: { gap: '4px' } },
+          h('div.row', h('span.faint', 'War'), h('div.spacer'), h('span.faint', `${Math.round(odds * 100)}% odds each day`)),
+          h('div.warbar', h('i', { style: { left: `${(k.warScore + 100) / 2}%` } }))) : null,
+        (k.status === 'vassal' || k.status === 'province') ? h('div.row', h('span.faint', 'Unrest'), bar((k.unrest || 0) / 100, (k.unrest || 0) > 60 ? '#ff5a4a' : '#ffcf5a')) : null,
+        h('div.kingdom-actions', actions.map(([id, a]) => h(`button.btn.sm${id === 'war' ? '.danger' : ''}`, {
+          title: `${a.desc}${Object.keys(a.cost).length ? ` · costs ${Object.entries(a.cost).map(([r, n]) => `${n} ${r}`).join(', ')}` : ''}`,
+          disabled: !g.canAfford(a.cost),
+          onclick: () => { const r = empireAction(g, k.id, id); if (r.error) this.hint(r.error, 1600); else this.toast({ text: r.text, kind: 'event' }); this.refreshPanel(); },
+        }, `${a.icon} ${a.label}`)))));
+    }
+    if (e.history.length) {
+      body.append(h('h3', 'Chronicle of the Empire'));
+      for (const x of e.history.slice(0, 12)) body.append(h(`div.log-entry.${x.kind}`, h('span.faint', `Day ${x.day} · `), x.text));
+    }
+    return [this.head('items/crown_leader', 'Empire', 'Neighbouring kingdoms: trade, ally, spy or conquer'), body];
+  }
+
   deedsPanel() {
     const g = this.game;
     this.deedsTab ??= 'laws';
@@ -663,25 +718,23 @@ export class HUD {
     const pending = mp ? mp.inbox.filter(o => o.status === 'pending' || o.status === 'seen').length : 0;
     this.friendsUnsub?.();
     this.friendsUnsub = null;
-    const tabs = h('div.tabs', [['players', 'Villages'], ['chat', 'Chat'], ['offers', `Offers${pending ? ` (${pending})` : ''}`], ['friends', 'Friends']].map(([id, label]) =>
+    if (!mp) this.worldTab = 'friends';   // solo: friends & profiles still work
+    const tabList = mp ? [['players', 'Villages'], ['chat', 'Chat'], ['offers', `Offers${pending ? ` (${pending})` : ''}`], ['friends', 'Friends']] : [['friends', 'Friends']];
+    const tabs = h('div.tabs', tabList.map(([id, label]) =>
       h(`button${this.worldTab === id ? '.on' : ''}`, { onclick: () => { this.worldTab = id; this.refreshPanel(); } }, label)));
     const body = h('div.side-body');
     const w = this.world || {};
     const isPrivate = w.wid && w.wid !== 'realm' && w.wid !== 'solo';
     body.append(h('div.law-cat',
-      h('div.row', icon(w.wid === 'solo' ? 'buildings/campfire' : isPrivate ? 'buildings/fortress' : 'items/alliance', 28),
-        h('div', h('b', w.name || 'The Realm'), h('div.faint', w.wid === 'solo' ? 'Solo world — only you live here' : isPrivate ? `Private world${w.owner === this.user.uid ? ' · you own it' : ''}` : 'The shared public world'))),
-      isPrivate && w.code ? h('div.row', h('span.faint', 'Invite code'), h('span.chip', { style: { fontFamily: 'var(--num)', letterSpacing: '3px', userSelect: 'text' } }, w.code), h('span.faint', 'or invite friends in the Friends tab')) : null,
+      h('div.row', icon(w.wid === 'solo' ? 'buildings/campfire' : 'buildings/fortress', 28),
+        h('div', h('b', w.name || 'World'), h('div.faint', w.wid === 'solo' ? 'Solo world — only you live here' : `World with friends${w.owner === this.user.uid ? ' · you host it' : ''}`))),
+      isPrivate && w.code ? h('div.row', { style: { flexWrap: 'wrap' } }, h('span.faint', 'Invite code'), h('span.chip', { style: { fontFamily: 'var(--num)', letterSpacing: '3px', userSelect: 'text' } }, w.code), h('span.faint', 'or invite friends in the Friends tab')) : null,
       h('button.btn.sm', { onclick: () => this.onSwitchWorld?.() }, '🌍 Switch world')));
     if (this.worldTab === 'friends') {
       const holder = h('div.col');
       body.append(holder);
       this.friendsUnsub = friendsPanel(holder, { user: this.user, username: this.username, world: isPrivate ? w : null });
       return [this.head('items/alliance', 'World', 'Friends & invites'), tabs, body];
-    }
-    if (!mp) {
-      body.append(h('div.muted', 'Multiplayer is off in a solo world. Switch to The Realm or a private world to play with others.'));
-      return [this.head('items/alliance', 'World'), body];
     }
 
     if (this.worldTab === 'players') {
@@ -873,7 +926,8 @@ export class HUD {
         h('button.btn.sm', { onclick: this.onSignOut }, 'Sign out')),
       h('div.row', { style: { flexWrap: 'wrap' } },
         h('button.btn.sm', { onclick: () => this.showProfile({ uid: this.user.uid, name: this.username }) }, '👤 My profile'),
-        h('button.btn.sm', { onclick: () => { this.tutorial.restart(); this.closePanel(); } }, '🎓 Restart tutorial')));
+        h('button.btn.sm', { onclick: () => { this.tutorial.restart(); this.closePanel(); } }, '🎓 Restart tutorial'),
+        installButton()));
     return [this.head('items/save', 'Save & Settings'), body];
   }
 
@@ -901,7 +955,7 @@ export class HUD {
     // don't rebuild under the mouse: a rebuild between press and release swallows clicks
     if (!force && (this.inspector.matches(':hover') || (this.inspector.contains(document.activeElement) && document.activeElement.tagName === 'SELECT'))) return;
     const content = this[`inspect_${sel.kind}`](sel.ref);
-    this.inspector.replaceChildren(h('button.btn.icon.ghost.close', { onclick: () => this.select(null) }, '✕'), ...content);
+    this.inspector.replaceChildren(h('button.btn.icon.ghost.close', { onclick: () => this.select(null) }, '✕'), ...content.filter(x => x != null && x !== false));
   }
 
   inspect_villager(v) {
@@ -1004,6 +1058,31 @@ export class HUD {
     ];
   }
 
+  /** The building's special action: button, cost and recharge timer. */
+  abilityCard(b) {
+    const g = this.game;
+    const a = abilityOf(b.type);
+    if (!a) return null;
+    const left = abilityCooldown(g, b);
+    const ok = canUseAbility(g, b);
+    const label = left > 0 ? `Ready in ${Math.ceil(left / DAY_LENGTH * 24)}h` : ok === true ? `${a.icon} ${a.name}` : ok;
+    return h('div.ability',
+      h('div.ability-head', h('span.ability-icon', a.icon), h('div', h('div.ability-name', a.name), h('div.faint', `Recharges every ${a.cooldown} day${a.cooldown > 1 ? 's' : ''}`))),
+      h('div.ability-desc', a.desc),
+      h('div.row', { style: { flexWrap: 'wrap' } },
+        a.cost ? costChips(a.cost, g.state.resources) : null,
+        h('div.spacer'),
+        h('button.btn.sm.primary', {
+          disabled: ok !== true,
+          onclick: () => {
+            const r = useAbility(g, b);
+            if (r.error) { this.hint(r.error, 1800); return; }
+            this.toast({ text: `${a.icon} ${a.name}: ${r.text}`, kind: 'event' });
+            this.updateInspector(true);
+          },
+        }, label)));
+  }
+
   inspect_building(b) {
     const g = this.game;
     const def = BUILDINGS[b.type];
@@ -1018,7 +1097,8 @@ export class HUD {
       !b.built ? bar(b.progress, '#ffd76a') : null,
       h('div.muted', def.desc),
       def.slots ? h('span.chip', `👷 ${workers}/${def.slots} working now`) : null,
-      h('ul.effects', describeBuilding(b.type).map(e => h(`li${e.good ? '' : '.warn'}`, h('span', e.icon), e.text))),
+      this.abilityCard(b),
+      h('ul.effects', describeBuilding(b.type).filter(e => !e.text.startsWith('Ability')).map(e => h(`li${e.good ? '' : '.warn'}`, h('span', e.icon), e.text))),
       h('div.row', h('div.spacer'),
         h('button.btn.sm.danger', { onclick: async () => {
           if (await confirmModal(`Demolish ${def.name}?`, `You get back ${b.built ? '40%' : '80%'} of its cost.`, { okLabel: 'Demolish', okClass: 'danger' })) { g.demolish(b); this.select(null); }

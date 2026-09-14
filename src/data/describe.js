@@ -1,5 +1,6 @@
 import { BUILDINGS, ERAS } from './buildings.js';
 import { OFFICES } from '../game/court.js';
+import { ABILITIES } from '../game/abilities.js';
 
 const pct = n => `${n > 0 ? '+' : ''}${Math.round(n * 100)}%`;
 const WORKPLACE = {
@@ -21,6 +22,8 @@ export function describeBuilding(type) {
   const out = [];
   const add = (icon, text, good = true) => out.push({ icon, text, good });
 
+  const ability = ABILITIES[type];
+  if (ability) add(ability.icon, `Ability — ${ability.name}: ${ability.desc}`);
   if (d.housing) add('🏠', `Houses ${d.housing} people`);
   if (d.storage) add('📦', `+${d.storage} storage for every resource`);
   if (d.storageFood) add('🌾', `+${d.storageFood} food storage`);

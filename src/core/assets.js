@@ -1,4 +1,7 @@
 import '../../tools/sheets.js';
+import SPRITE_FILES from 'virtual:sprite-list';
+
+const AVAILABLE = new Set(SPRITE_FILES);
 
 // Loads every sprite listed in tools/sheets.js from /assets/<folder>/<name>.png.
 // Missing files get a generated placeholder so the game always runs.
@@ -17,13 +20,26 @@ export function allSpriteKeys() {
   return keys;
 }
 
+/** Sprite entry; the visible-pixel box is measured the first time it is needed, not at load. */
+function entry(img) {
+  let box = null;
+  return { img, get box() { return (box ||= opaqueBox(img)); } };
+}
+
 export async function loadAssets(onProgress) {
   const keys = allSpriteKeys();
   let done = 0;
   await Promise.all(keys.map(key => new Promise(resolve => {
+    if (!AVAILABLE.has(key)) {   // sheet not sliced yet: placeholder, no network request
+      const c = placeholder(key);
+      images.set(key, entry(c));
+      finish();
+      return;
+    }
     const img = new Image();
-    img.onload = () => { images.set(key, { img, box: opaqueBox(img) }); finish(); };
-    img.onerror = () => { const c = placeholder(key); images.set(key, { img: c, box: opaqueBox(c) }); finish(); };
+    img.decoding = 'async';
+    img.onload = () => { images.set(key, entry(img)); finish(); };
+    img.onerror = () => { images.set(key, entry(placeholder(key))); finish(); };
     img.src = `${import.meta.env.BASE_URL}assets/${key}.png`;
     function finish() { done++; onProgress?.(done / keys.length); resolve(); }
   })));

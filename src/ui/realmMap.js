@@ -20,7 +20,7 @@ export function openRealmMap({ hud, onVisit }) {
   const m = modal([
     h('div.row',
       icon('buildings/castle', 30),
-      h('div', h('h2', 'The Realm'), h('div.faint', 'Every civilization has its own land. Distance decides how long armies and caravans travel.')),
+      h('div', h('h2', 'World Map'), h('div.faint', 'Every civilization has its own land. Distance decides how long armies and caravans travel.')),
       h('div.spacer'),
       h('button.btn.icon.ghost', { onclick: () => close() }, '✕')),
     h('div.realm-body', map, side),

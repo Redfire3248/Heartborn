@@ -1,13 +1,32 @@
 import { h, icon, avatar, GOOGLE_SVG, modal, fmt } from './dom.js';
 import { friendlyAuthError } from '../net/firebase.js';
+import { installApp, canInstall, onInstallChange } from '../core/pwa.js';
 
 const ui = () => document.getElementById('ui');
+
+/** "Install app" button: only visible when the browser allows installing. */
+export function installButton(cls = 'button.btn.sm.install-btn') {
+  const btn = h(cls, { onclick: async () => {
+    const r = await installApp();
+    if (r === 'ios') {
+      const m = modal([
+        h('h2', 'Install Heartborn'),
+        h('div.muted', 'On iPhone or iPad: tap the Share button (the square with an arrow) at the bottom of Safari, then choose “Add to Home Screen”.'),
+        h('button.btn.primary', { onclick: () => m.close() }, 'Got it'),
+      ]);
+    }
+  } }, h('img', { src: 'icons/icon-32.png', width: 18, height: 18, alt: '', style: { imageRendering: 'pixelated', borderRadius: '4px' } }), 'Install app');
+  const sync = () => { btn.hidden = !canInstall(); };
+  sync();
+  onInstallChange(sync);
+  return btn;
+}
 
 export function loadingScreen() {
   const fill = h('i');
   const text = h('div.muted', 'Kindling the fire…');
   const el = h('div.screen.loading',
-    h('div.logo', h('h1', 'HEARTBORN')),
+    h('div.logo', h('img.logo-mark', { src: 'icons/icon-192.png', alt: '' }), h('h1', 'HEARTBORN')),
     h('div.load-bar', fill),
     text);
   ui().append(el);
@@ -27,9 +46,11 @@ export function loginScreen({ user, onSignIn, onEmailSignIn, onCreateAccount, on
   const card = h('div.card.login-card');
   const root = h('div.screen.login',
     h('div.logo',
+      h('img.logo-mark', { src: 'icons/icon-192.png', alt: '' }),
       h('h1', 'HEARTBORN'),
       h('div.tagline', 'Three humans. One fire. Every choice builds a civilization.')),
-    card);
+    card,
+    installButton('button.btn.install-btn'));
   const footer = h('div.footer-note', 'A shared world of civilizations · Your realm is saved to the cloud');
   ui().append(vignette, root, footer);
   let mode = 'signin';   // signin | create
@@ -101,7 +122,9 @@ export function loginScreen({ user, onSignIn, onEmailSignIn, onCreateAccount, on
 }
 
 /** First-time players pick a unique username. `claim(name)` reserves it or throws. */
-export function chooseUsername(claim) {
+const backBtn = onclick => h('button.btn.sm.ghost.back-btn', { onclick }, '← Back');
+
+export function chooseUsername(claim, { onBack } = {}) {
   return new Promise(resolve => {
     const input = h('input.input', { maxLength: 16, placeholder: 'e.g. Ironfist', autocomplete: 'off' });
     const err = h('div.error-text');
@@ -118,28 +141,31 @@ export function chooseUsername(claim) {
     btn.onclick = go;
     input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
     const m = modal([
+      onBack ? backBtn(() => { m.close(); resolve(null); onBack(); }) : null,
       h('div', { style: { textAlign: 'center' } }, icon('items/crown_leader', 64)),
       h('h2', { style: { textAlign: 'center' } }, 'What shall they call you?'),
       h('div.muted', { style: { textAlign: 'center' } }, 'Your ruler name is how every other player will know you. 3–16 letters, numbers or _.'),
       h('div.field', h('label', 'Username'), input),
       err, btn,
-    ]);
+    ].filter(Boolean));
     setTimeout(() => input.focus(), 50);
   });
 }
 
-export function nameVillage(defaultName) {
+/** Resolves with the village name, or null when Back is pressed (only offered with onBack). */
+export function nameVillage(defaultName, { onBack = false } = {}) {
   return new Promise(resolve => {
     const input = h('input.input', { value: defaultName, maxLength: 24, placeholder: 'Village name' });
     const go = () => { const v = input.value.trim(); if (v) { m.close(); resolve(v); } };
     input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
     const m = modal([
+      onBack ? backBtn(() => { m.close(); resolve(null); }) : null,
       h('div', { style: { textAlign: 'center' } }, icon('characters/man', 64), icon('characters/woman', 64), icon('characters/man', 64)),
       h('h2', { style: { textAlign: 'center' } }, 'A New Beginning'),
       h('div.muted', { style: { textAlign: 'center' } }, 'Three ordinary humans wake beside a cold hearth. No tools. No shelter. Just each other — and you.'),
       h('div.field', h('label', 'Name your village'), input),
       h('button.btn.primary', { onclick: go, style: { padding: '12px' } }, 'Light the first fire'),
-    ]);
+    ].filter(Boolean));
     setTimeout(() => input.select(), 50);
   });
 }
