@@ -7,7 +7,8 @@ import { Game } from './game/game.js';
 import { newState } from './game/state.js';
 import { makeVisitGame, visitCenter } from './game/visit.js';
 import { getProfile } from './net/save.js';
-import { signInWithGoogle, signInWithEmail, createAccount, resetPassword, signOut, onAuth, isAdmin } from './net/firebase.js';
+import { signInWithGoogle, signInWithEmail, createAccount, resetPassword, signOut, onAuth, adminStatus } from './net/firebase.js';
+import { h, modal } from './ui/dom.js';
 import { loadSave, writeSave, writeProfile, writePrivate, getBan, clearLocalSave, getUsername, claimUsername, setWorld, currentWorld, setSlot, listSlots, deleteSlot } from './net/save.js';
 import { ensureProfile, updateProfileStats, getWorld, leaveOrCloseWorld, SOLO_WORLD } from './net/social.js';
 import { worldPicker, lobbyScreen, slotPicker } from './ui/social.js';
@@ -190,8 +191,10 @@ function startGame(user, game, { online = true } = {}) {
   });
   app.console = null;
   const hud = app.hud;
-  isAdmin(user).then(admin => {
-    if (!admin || app.hud !== hud) return;
+  app.adminStatus = 'checking';
+  adminStatus(user).then(status => {
+    app.adminStatus = status;
+    if (status !== 'admin' || app.hud !== hud) return;
     hud.isAdmin = true;
     app.console = new AdminConsole({ game, mp: app.mp, user });
   });
@@ -266,9 +269,28 @@ async function save(force = false) {
 
 // F2 opens the admin command line (admins only)
 window.addEventListener('keydown', e => {
-  if (e.key !== 'F2' || !app.console) return;
+  if (e.key !== 'F2' || !app.game) return;
   e.preventDefault();
-  app.console.toggle();
+  if (app.console) { app.console.toggle(); return; }
+  if (document.querySelector('.admin-help')) return;
+  // not an admin (yet): say exactly why, and show the UID to add in Firebase
+  const uid = app.user?.uid || '';
+  const why = {
+    checking: 'Still checking your admin rights — try again in a second.',
+    'not-listed': 'Your account is not listed as an admin yet.',
+    rules: 'Firebase refused the check: the new Firestore rules are not published yet.',
+    error: 'Could not reach Firebase to check your admin rights.',
+  }[app.adminStatus] || 'Your account is not an admin.';
+  const copy = h('button.btn.sm', { onclick: () => { navigator.clipboard?.writeText(uid); copy.textContent = 'Copied!'; } }, 'Copy UID');
+  const m = modal([
+    h('h2', 'Admin panel locked'),
+    h('div.muted', why),
+    h('div.law-cat',
+      h('div.faint', 'Your UID'),
+      h('div.row', h('code', { style: { userSelect: 'text', wordBreak: 'break-all', fontSize: '13px' } }, uid), h('div.spacer'), copy)),
+    h('div.faint', { html: '<b>To unlock:</b><br>1. Firebase → <b>Firestore</b> → collection <b>admins</b> → add a document whose <b>Document ID</b> is the UID above (add any field, e.g. admin = true).<br>2. Firebase → <b>Realtime Database</b> → add <b>admins</b> → <b>UID</b> → <b>true</b>.<br>3. Publish both rules files (firestore.rules and database.rules.json).<br>4. Reload the game and press F2.' }),
+    h('button.btn.primary', { onclick: () => m.close() }, 'OK'),
+  ], { cls: 'admin-help', onClose: () => {} });
 });
 
 document.addEventListener('visibilitychange', () => {

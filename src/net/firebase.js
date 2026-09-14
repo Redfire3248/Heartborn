@@ -54,10 +54,17 @@ export const onAuth = cb => onAuthStateChanged(auth, cb);
 
 /** Admin if the database lists this UID under admins/ (the security rules check the same list). */
 export async function isAdmin(user) {
-  if (!user?.uid) return false;
+  return (await adminStatus(user)) === 'admin';
+}
+
+/** 'admin' | 'not-listed' (no admins/{uid} doc) | 'rules' (Firestore rules not published) | 'error' */
+export async function adminStatus(user) {
+  if (!user?.uid) return 'error';
   try {
-    return (await getDoc(doc(db, 'admins', user.uid))).exists();
-  } catch { return false; }
+    return (await getDoc(doc(db, 'admins', user.uid))).exists() ? 'admin' : 'not-listed';
+  } catch (e) {
+    return e?.code === 'permission-denied' ? 'rules' : 'error';
+  }
 }
 
 export function friendlyAuthError(e) {
