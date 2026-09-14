@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { execSync } from 'node:child_process';
 
 // Lets the Google sign-in popup report back to the page without
 // "Cross-Origin-Opener-Policy would block the window.closed call" errors.
@@ -52,9 +53,30 @@ function iconSaver() {
   };
 }
 
+// Build stamp: shown in Settings, the title screen and the admin `version` command, and written to
+// dist/version.json so anyone can check which deploy is live.
+const pad = n => String(n).padStart(2, '0');
+const now = new Date();
+let commit = 'dev';
+try { commit = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { /* not a git checkout */ }
+const BUILD = {
+  version: `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`,
+  commit,
+  builtAt: now.toISOString(),
+};
+
+function versionFile() {
+  return {
+    name: 'version-file',
+    apply: 'build',
+    generateBundle() { this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify(BUILD, null, 2) }); },
+  };
+}
+
 export default defineConfig({
   base: './',   // relative paths so the build works on GitHub Pages sub-folders too
-  plugins: [spriteList(), iconSaver()],
+  define: { __BUILD__: JSON.stringify(BUILD) },
+  plugins: [spriteList(), iconSaver(), versionFile()],
   server: { port: 5173, open: false, headers },
   preview: { port: 5173, headers },
   build: { outDir: 'dist', assetsInlineLimit: 0, chunkSizeWarningLimit: 1500 },

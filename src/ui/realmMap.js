@@ -20,7 +20,7 @@ export function openRealmMap({ hud, onVisit }) {
   const m = modal([
     h('div.row',
       icon('buildings/castle', 30),
-      h('div', h('h2', 'World Map'), h('div.faint', 'Every civilization has its own land. Distance decides how long armies and caravans travel.')),
+      h('div', h('h2', 'World Map'), h('div.faint', 'Every player’s island, joined by land bridges. Distance decides how long armies and caravans travel.')),
       h('div.spacer'),
       h('button.btn.icon.ghost', { onclick: () => close() }, '✕')),
     h('div.realm-body', map, side),
@@ -74,10 +74,12 @@ export function openRealmMap({ hud, onVisit }) {
     const sel = list.find(p => p.uid === selected) || list.find(p => p.uid === me);
     map.replaceChildren();
 
-    // route line to the selected realm
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 100 100');
     svg.setAttribute('preserveAspectRatio', 'none');
+    drawIslands(svg, list, me);
+
+    // route line to the selected realm
     if (sel && sel.uid !== me) {
       const to = realmPos(sel.uid);
       const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -154,4 +156,80 @@ export function openRealmMap({ hud, onVisit }) {
   tick();
   timer = setInterval(tick, 1000);
   return { close };
+}
+
+// ------------------------------------------------------------------ islands & bridges
+
+const NS = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
+const seeded = uid => { let s = 2166136261; for (const ch of uid) s = Math.imul(s ^ ch.charCodeAt(0), 16777619); return () => ((s = Math.imul(s ^ (s >>> 15), 2246822507) >>> 0) / 4294967296); };
+
+/** A wobbly closed island outline around (cx, cy). */
+function islandPath(cx, cy, r, rand, points = 14) {
+  const pts = [];
+  for (let i = 0; i < points; i++) {
+    const a = (i / points) * Math.PI * 2;
+    const rr = r * (0.72 + rand() * 0.45);
+    pts.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr]);
+  }
+  // smooth with quadratic curves through midpoints
+  const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+  let d = `M ${mid(pts[points - 1], pts[0]).join(' ')}`;
+  for (let i = 0; i < points; i++) { const p = pts[i], q = pts[(i + 1) % points]; d += ` Q ${p.join(' ')} ${mid(p, q).join(' ')}`; }
+  return `${d} Z`;
+}
+
+/** Every civilization's island, connected to its nearest neighbours by land bridges (a spanning tree + a few extra links). */
+function drawIslands(svg, list, me) {
+  const nodes = list.map(p => ({ p, pos: realmPos(p.uid), r: 3.2 + Math.min(4.2, Math.sqrt(p.pop || 3) * 0.55) }));
+
+  // bridges: Prim's minimum spanning tree so every island is reachable, plus each island's second-nearest link
+  const links = new Set();
+  const dist = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.y - b.pos.y);
+  if (nodes.length > 1) {
+    const inTree = new Set([0]);
+    while (inTree.size < nodes.length) {
+      let best = null;
+      for (const i of inTree) for (let j = 0; j < nodes.length; j++) {
+        if (inTree.has(j)) continue;
+        const d = dist(nodes[i], nodes[j]);
+        if (!best || d < best.d) best = { i, j, d };
+      }
+      inTree.add(best.j);
+      links.add([best.i, best.j].sort((a, b) => a - b).join('-'));
+    }
+    nodes.forEach((n, i) => {
+      const near = nodes.map((m, j) => [j, dist(n, m)]).filter(([j]) => j !== i).sort((a, b) => a[1] - b[1]);
+      if (near[1] && near[1][1] < 35) links.add([i, near[1][0]].sort((a, b) => a - b).join('-'));
+    });
+  }
+  const bridges = el('g', {});
+  for (const key of links) {
+    const [a, b] = key.split('-').map(Number);
+    const A = nodes[a].pos, B = nodes[b].pos;
+    // a gentle curve so bridges look like natural land spits
+    const mx = (A.x + B.x) / 2 + (A.y - B.y) * 0.12, my = (A.y + B.y) / 2 + (B.x - A.x) * 0.12;
+    const d = `M ${A.x} ${A.y} Q ${mx} ${my} ${B.x} ${B.y}`;
+    bridges.append(el('path', { d, fill: 'none', stroke: 'rgba(8,24,40,.45)', 'stroke-width': 3.2, 'stroke-linecap': 'round' }));
+    bridges.append(el('path', { d, fill: 'none', stroke: '#d9c28a', 'stroke-width': 2.2, 'stroke-linecap': 'round' }));
+    bridges.append(el('path', { d, fill: 'none', stroke: '#7fae4f', 'stroke-width': 1.1, 'stroke-linecap': 'round', opacity: 0.9 }));
+    bridges.append(el('path', { d, fill: 'none', stroke: '#6a4a2a', 'stroke-width': 0.35, 'stroke-dasharray': '0.6 1.4', opacity: 0.7 }));
+  }
+  svg.append(bridges);
+
+  for (const n of nodes) {
+    const rand = seeded(n.p.uid);
+    const { x, y } = n.pos;
+    const g = el('g', {});
+    g.append(el('path', { d: islandPath(x, y, n.r + 1.6, seeded(n.p.uid)), fill: 'rgba(140,220,235,.28)' }));        // shallow water
+    g.append(el('path', { d: islandPath(x, y, n.r + 0.6, seeded(n.p.uid)), fill: '#e3cd8c' }));                      // beach
+    g.append(el('path', { d: islandPath(x, y, n.r, seeded(n.p.uid)), fill: n.p.uid === me ? '#6fb34a' : '#5c9e3c' })); // grass
+    // a couple of hills / forest spots from the island's own seed
+    for (let i = 0; i < 3; i++) {
+      const a = rand() * Math.PI * 2, d = rand() * n.r * 0.5;
+      g.append(el('circle', { cx: x + Math.cos(a) * d, cy: y + Math.sin(a) * d, r: n.r * (0.18 + rand() * 0.14), fill: rand() > 0.5 ? '#3f7a2e' : '#8a8f96', opacity: 0.8 }));
+    }
+    if (n.p.uid === me) g.append(el('path', { d: islandPath(x, y, n.r + 0.6, seeded(n.p.uid)), fill: 'none', stroke: '#ffcf5a', 'stroke-width': 0.45 }));
+    svg.append(g);
+  }
 }

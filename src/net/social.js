@@ -165,6 +165,10 @@ export async function kickMember(wid, uid) {
   await update(ref(rtdb), { [`worldMembers/${wid}/${uid}`]: null });
 }
 
+export async function isMember(wid, uid) {
+  try { return (await get(ref(rtdb, `worldMembers/${wid}/${uid}`))).exists(); } catch { return false; }
+}
+
 export async function worldMemberCount(wid) {
   return Object.keys((await get(ref(rtdb, `worldMembers/${wid}`))).val() || {}).length;
 }

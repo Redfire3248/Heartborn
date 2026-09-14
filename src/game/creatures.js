@@ -43,10 +43,21 @@ export function updateCreature(g, c, dt) {
   if (def.hostile) {
     // wild predators guard a territory; raiders march on the village
     c.hx ??= c.x; c.hy ??= c.y;
-    const aggro = c.raid ? TILE * (g.isNight ? 18 : 14) : TILE * (g.isNight ? 5 : 3);
+    // hungry predators sometimes leave their den to hunt villagers — more often at night
+    if (!c.raid && !c.hunting && Math.random() < dt * (g.isNight ? 0.004 : 0.0015)) {
+      c.hunting = s.time + DAY_LENGTH * 0.5;
+      if (!g.offline) g.log(`A hungry ${c.t.replace('_', ' ')} is hunting near the village!`, 'bad');
+    }
+    if (c.hunting && s.time > c.hunting) c.hunting = null;
+    const hunter = c.raid || c.hunting;
+    const aggro = hunter ? TILE * (g.isNight ? 18 : 14) : TILE * (g.isNight ? 9 : 6);
     let target = nearestVillager(g, c, aggro);
-    if (target && !c.raid && Math.hypot(target.x - c.hx, target.y - c.hy) > TILE * 9) target = null;
-    if (!target && !c.raid && Math.hypot(c.x - c.hx, c.y - c.hy) > TILE * 6) {
+    if (target && !hunter && Math.hypot(target.x - c.hx, target.y - c.hy) > TILE * 16) target = null;
+    if (!target && c.hunting) {   // prowl toward the village
+      const cen = g.center;
+      if (Math.hypot(cen.x - c.x, cen.y - c.y) > TILE * 3) { step(g, c, cen.x, cen.y, def.speed * 0.7 * dt, def); return; }
+    }
+    if (!target && !hunter && Math.hypot(c.x - c.hx, c.y - c.hy) > TILE * 6) {
       step(g, c, c.hx, c.hy, def.speed * 0.5 * dt, def);
       return;
     }
@@ -71,6 +82,7 @@ export function updateCreature(g, c, dt) {
           if (target.hp <= 0) {
             killVillager(g, target, `was slain by ${/^[aeiou]/.test(c.t) ? 'an' : 'a'} ${c.t.replace('_', ' ')}`);
             if (c.raid && Math.random() < 0.5) c.fleeing = true;   // sated, it retreats
+            if (c.hunting) { c.hunting = null; c.hx = c.x; c.hy = c.y; }   // fed: it settles here for now
           }
         }
       }

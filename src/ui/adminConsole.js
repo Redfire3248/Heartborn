@@ -5,6 +5,12 @@ import { ERAS } from '../data/buildings.js';
 import { LAW_CATEGORIES } from '../data/laws.js';
 import { DAY_LENGTH, RESOURCES } from '../core/constants.js';
 import * as api from '../net/admin.js';
+import { BUILDINGS as BUILDING_DEFS } from '../data/buildings.js';
+import { BUILD, checkLatest } from '../core/version.js';
+import { CHANGELOG } from '../data/changelog.js';
+import { empireOf, empirePower, empireTitle, empireEvent, dailyEmpire } from '../game/empire.js';
+
+const BUILDINGS = BUILDING_DEFS;
 
 const HISTORY_KEY = 'hb_admin_history';
 
@@ -22,7 +28,8 @@ const ARG_SPECS = {
   shield: ['player', 'number'], msg: ['player', 'text'], broadcast: ['text'], event: ['event', 'target'],
   spawn: ['creature', 'number', 'target'], warband: ['number', 'number'], ban: ['player', 'text'], unban: ['player'],
   reset: ['player', ['confirm']], chat: [['15', 'clear', 'del']], skip: ['number'], era: [['up', '0', '1', '2', '3']],
-  villager: ['number'],
+  villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
+  build: ['building', 'number'], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], 'number'],
 };
 
 export class AdminConsole {
@@ -148,6 +155,7 @@ export class AdminConsole {
       case 'player': return [me, ...players];
       case 'target': return [me, { value: 'all', label: 'all', detail: 'every online player' }, ...players];
       case 'res': return RESOURCES.map(r => ({ value: r, label: r, detail: 'resource' }));
+      case 'building': return Object.entries(BUILDINGS).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${ERAS[d.era].name}` }));
       case 'creature': return Object.entries(CREATURES).map(([k, d]) => ({ value: k, label: k, detail: d.hostile ? `hostile · ${d.hp} hp` : 'animal' }));
       case 'event': return [{ value: 'list', label: 'list', detail: 'show all events' }, ...EVENTS.map(ev => ({ value: ev.id, label: ev.id, detail: ev.title }))];
       default: return [];
@@ -484,6 +492,142 @@ const COMMANDS = {
       for (let i = 0; i < count; i++) this.game.addWanderer();
       this.game.emit('change');
       this.print(`✓ ${count} villager(s) joined`, 'ok');
+    },
+  },
+
+  // ---------------- version & site
+  version: {
+    usage: 'version', desc: 'This build vs the newest deploy on the live site',
+    async run() {
+      this.print(`running  ${BUILD.version}  (commit ${BUILD.commit}, built ${new Date(BUILD.builtAt).toLocaleString()})`);
+      try {
+        const { live, isLatest } = await checkLatest();
+        this.print(`live     ${live.version}  (commit ${live.commit}, built ${new Date(live.builtAt).toLocaleString()})`);
+        this.print(isLatest ? '✓ you are running the newest version' : '⚠ a newer version is live — reload the page (Ctrl+Shift+R)', isLatest ? 'ok' : 'warn');
+      } catch (e) { this.print(`could not reach the live site: ${e.message}`, 'warn'); }
+    },
+  },
+  changelog: {
+    usage: 'changelog [n]', desc: 'What changed in recent updates',
+    run([n = '3']) {
+      for (const entry of CHANGELOG.slice(0, Number(n) || 3)) {
+        this.print(`■ ${entry.title}`, 'accent');
+        for (const c of entry.changes) this.print(`   • ${c}`);
+      }
+    },
+  },
+  reload: { usage: 'reload', desc: 'Save and reload the page (gets the newest version)', async run() { this.print('reloading…', 'dim'); location.reload(); } },
+
+  // ---------------- your village
+  rich: {
+    usage: 'rich [n]', desc: 'Fill every resource of your village',
+    run([n = '5000']) {
+      const v = Number(n) || 5000;
+      for (const k of RESOURCES) this.game.state.resources[k] = Math.max(this.game.state.resources[k] || 0, v);
+      this.game.emit('change');
+      this.print(`✓ every resource ≥ ${v} (storage caps still apply to food, wood, stone…)`, 'ok');
+    },
+  },
+  heal: {
+    usage: 'heal', desc: 'Heal and cure every villager, feed everyone',
+    run() {
+      for (const v of this.game.state.villagers) { v.hp = 100; v.sick = 0; v.hunger = 100; v.happy = Math.max(v.happy, 70); }
+      this.print(`✓ ${this.game.state.villagers.length} villagers healed`, 'ok');
+    },
+  },
+  clearmobs: {
+    usage: 'clearmobs', desc: 'Remove every hostile creature near your village',
+    run() {
+      const before = this.game.state.creatures.length;
+      this.game.state.creatures = this.game.state.creatures.filter(c => !CREATURES[c.t]?.hostile);
+      this.game.state.battles = {};
+      this.print(`✓ removed ${before - this.game.state.creatures.length} hostiles`, 'ok');
+    },
+  },
+  build: {
+    usage: 'build <type> [count]', desc: 'Instantly build near the village centre',
+    run([type, count = '1']) {
+      if (!BUILDINGS[type]) throw new Error(`unknown building (try: ${Object.keys(BUILDINGS).slice(0, 8).join(', ')}…)`);
+      const g = this.game;
+      let made = 0;
+      for (let i = 0; i < Math.min(20, Number(count) || 1); i++) {
+        for (const [k, v] of Object.entries(BUILDINGS[type].cost)) g.state.resources[k] = Math.max(g.state.resources[k] || 0, v);
+        const era = g.state.era;
+        g.state.era = Math.max(era, BUILDINGS[type].era);
+        const spot = g.findBuildSpot(type);
+        const r = spot && g.placeBuilding(type, spot.tx, spot.ty);
+        g.state.era = era;
+        if (!r?.ok) break;
+        g.finishBuilding(r.building);
+        made++;
+      }
+      g.emit('change');
+      this.print(made ? `✓ built ${made} ${BUILDINGS[type].name}` : '✗ no free space', made ? 'ok' : 'err');
+    },
+  },
+  abilities: {
+    usage: 'abilities', desc: 'Recharge every building ability now',
+    run() {
+      let n = 0;
+      for (const b of this.game.state.buildings) if (b.abilityAt != null) { b.abilityAt = null; n++; }
+      this.print(`✓ ${n} abilities recharged`, 'ok');
+    },
+  },
+  time: {
+    usage: 'time <hour 0-23>', desc: 'Set the time of day',
+    run([hour]) {
+      const hr = Number(hour);
+      if (Number.isNaN(hr)) throw new Error('usage: time 12');
+      const s = this.game.state;
+      s.time = Math.floor(s.time / DAY_LENGTH) * DAY_LENGTH + (Math.max(0, Math.min(23.9, hr)) / 24) * DAY_LENGTH;
+      this.print(`✓ it is now ${hr}:00`, 'ok');
+    },
+  },
+  tutorial: { usage: 'tutorial', desc: 'Restart the tutorial', run() { this.game.state.tutorial = { step: 0, done: false }; this.print('✓ tutorial restarted', 'ok'); } },
+  stats: {
+    usage: 'stats', desc: 'Village numbers at a glance',
+    run() {
+      const g = this.game, s = g.state;
+      this.print(JSON.stringify({
+        day: g.day + 1, era: ERAS[s.era].name, population: s.villagers.length, housing: g.housing, warriors: s.villagers.filter(v => v.job === 'warrior').length,
+        buildings: s.buildings.length, defense: Math.round(g.defense), luck: Number(g.fateBonus.toFixed(2)), karma: Math.round(s.karma),
+        army: empirePower(g), title: empireTitle(g), effects: s.modifiers.map(m => m.id),
+      }, null, 2));
+    },
+  },
+
+  // ---------------- empire
+  empire: {
+    usage: 'empire list | event [n] | discover | war <n> | win <n> | peace <n>', desc: 'Inspect and control neighbouring kingdoms',
+    run([sub = 'list', arg]) {
+      const g = this.game;
+      const e = empireOf(g);
+      const pick = () => { const k = e.kingdoms[Number(arg) - 1]; if (!k) throw new Error(`no kingdom #${arg} (empire list)`); return k; };
+      if (sub === 'list') {
+        this.table(e.kingdoms.map((k, i) => ({ '#': i + 1, name: k.name, ruler: k.ruler, type: k.personality, status: k.status, strength: k.strength, relations: Math.round(k.attitude) })), ['#', 'name', 'ruler', 'type', 'status', 'strength', 'relations']);
+        this.print(`your army ${empirePower(g)} · title ${empireTitle(g)}`, 'dim');
+      } else if (sub === 'discover') {
+        const before = e.kingdoms.length;
+        for (let i = 0; i < 20 && e.kingdoms.length === before; i++) { g.state.villagers.length >= 8 || g.addWanderer(); dailyEmpire(g); g.pendingEvent = null; }
+        this.print(e.kingdoms.length > before ? `✓ discovered ${e.kingdoms.at(-1).name}` : '✗ no new kingdom (limit reached?)', 'ok');
+      } else if (sub === 'event') {
+        empireEvent(g, arg != null ? Number(arg) : null);
+        this.print(`✓ empire event fired: ${e.history[0]?.text || '(nothing happened)'}`, 'ok');
+      } else if (sub === 'war') { const k = pick(); k.status = 'war'; k.warScore = 0; this.print(`✓ at war with ${k.name}`, 'ok'); }
+      else if (sub === 'win') { const k = pick(); k.status = 'war'; k.warScore = 99; k.strength = 1; dailyEmpire(g); g.pendingEvent = null; this.print(`✓ ${k.name} is now: ${k.status}`, 'ok'); }
+      else if (sub === 'peace') { const k = pick(); k.status = 'neutral'; k.warScore = 0; k.attitude = 20; this.print(`✓ peace with ${k.name}`, 'ok'); }
+      else throw new Error(COMMANDS.empire.usage);
+      g.emit('change');
+    },
+  },
+
+  // ---------------- worlds
+  world: {
+    usage: 'world', desc: 'Which world you are in, its code and members',
+    run() {
+      const w = this.game.world && this.mp ? this.mp.world : null;
+      this.print(`world id ${this.mp?.worldId || 'solo'} · ${this.mp ? `${this.mp.players.length} villages, ${this.mp.players.filter(p => p.online).length} online` : 'solo (no multiplayer)'}`);
+      if (w) this.print(JSON.stringify(w));
     },
   },
 };

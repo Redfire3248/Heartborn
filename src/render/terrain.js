@@ -127,20 +127,32 @@ export class TerrainPainter {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     for (const L of present.slice(1)) {
-      // blob per tile at or above this layer: a rounded square grown by a random amount
+      // each tile at or above this layer: a slightly rounded core, and on every side that faces
+      // lower ground a trail of small circles that shrink as they spill outward
       ctx.beginPath();
+      const circle = (cx, cy, r) => { ctx.moveTo(cx + r, cy); ctx.arc(cx, cy, r, 0, Math.PI * 2); };
       for (let ty = ty0 - 1; ty <= ty1; ty++) for (let tx = tx0 - 1; tx <= tx1; tx++) {
         if (layer.get(`${tx},${ty}`) < L) continue;
-        const grow = p * (0.1 + 0.22 * hash(tx, ty, 11));
-        const x = (tx - tx0) * p - grow, y = (ty - ty0) * p - grow, size = p + grow * 2;
-        ctx.roundRect(x, y, size, size, size * 0.42);
-        // a couple of extra lumps along the edge make long borders less regular
-        for (let i = 0; i < 2; i++) {
-          const a = hash(tx, ty, 20 + i) * Math.PI * 2;
-          const r = p * (0.18 + 0.12 * hash(tx, ty, 30 + i));
-          const cx = (tx - tx0 + 0.5) * p + Math.cos(a) * p * 0.55, cy = (ty - ty0 + 0.5) * p + Math.sin(a) * p * 0.55;
-          ctx.moveTo(cx + r, cy);
-          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        const x = (tx - tx0) * p, y = (ty - ty0) * p;
+        ctx.rect(x - 0.5, y - 0.5, p + 1, p + 1);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          if ((layer.get(`${tx + dx},${ty + dy}`) ?? 0) >= L) continue;
+          const n = 9;
+          for (let i = 0; i < n; i++) {
+            const along = (i + 0.2 + hash(tx, ty, 40 + i * 4 + dx * 2 + dy) * 0.6) / n;   // position along the edge
+            const out = Math.pow(hash(tx, ty, 90 + i * 4 + dx * 3 + dy * 5), 1.8) * 0.42;    // how far it trails
+            const r = p * Math.max(0.035, 0.22 * (1 - out / 0.5) * (0.65 + 0.35 * hash(tx, ty, 140 + i)));
+            const ex = dx ? (dx > 0 ? 1 + out : -out) : along;
+            const ey = dy ? (dy > 0 ? 1 + out : -out) : along;
+            circle(x + ex * p, y + ey * p, r);
+          }
+          // a few tiny stray dots further out complete the trail
+          for (let i = 0; i < 3; i++) {
+            const along = hash(tx, ty, 200 + i * 7 + dx + dy * 3);
+            const out = 0.4 + hash(tx, ty, 230 + i * 5 + dx * 2 + dy) * 0.25;
+            const ex = dx ? (dx > 0 ? 1 + out : -out) : along, ey = dy ? (dy > 0 ? 1 + out : -out) : along;
+            circle(x + ex * p, y + ey * p, p * (0.025 + 0.03 * hash(tx, ty, 260 + i)));
+          }
         }
       }
       // shallow water glow where land meets water: a soft rim drawn just before the first land layer

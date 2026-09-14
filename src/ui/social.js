@@ -11,7 +11,7 @@ const ui = () => document.getElementById('ui');
 // ------------------------------------------------------------------ world picker
 
 /** Resolves with { world, name } once the player picks where to play. */
-export function worldPicker({ user, username }) {
+export function worldPicker({ user, username, lastWorld = null }) {
   return new Promise(resolve => {
     const unsubs = [];
     const body = h('div.wp-grid');
@@ -34,8 +34,20 @@ export function worldPicker({ user, username }) {
     const tryAction = async fn => { err.textContent = ''; try { await fn(); } catch (e) { err.textContent = e.message; } };
 
     let invites = [];
+    let rejoin = null;   // the world you were in when the game closed, if it is still running
+    if (lastWorld) {
+      social.getWorld(lastWorld.wid).then(async w => {
+        if (!w || !(await social.isMember(lastWorld.wid, user.uid))) return;
+        rejoin = { ...lastWorld, name: w.name, status: w.status, players: await social.worldMemberCount(lastWorld.wid).catch(() => 0) };
+        render();
+      }).catch(() => {});
+    }
     const render = () => {
       body.replaceChildren(...[
+        rejoin ? h('button.wp-card.rejoin', { onclick: () => { for (const u of unsubs) u(); root.remove(); resolve({ world: rejoin.wid, name: rejoin.name, rejoin: true, slot: rejoin.slot }); } },
+          icon('buildings/fortress', 44),
+          h('div', h('div.wp-title', `🔁 Rejoin ${rejoin.name}`), h('div.faint', `You left this world ${timeAgo(rejoin.at)} · ${rejoin.players} player${rejoin.players === 1 ? '' : 's'} · ${rejoin.status === 'lobby' ? 'still in the lobby' : 'still running'}`)),
+          h('span.btn.sm.good', 'Rejoin')) : null,
         h('button.wp-card.public', { onclick: () => choose(social.SOLO_WORLD, 'Solo World') },
           icon('buildings/campfire', 44),
           h('div', h('div.wp-title', '🏕 Solo World'), h('div.faint', 'Just you. No raids, no chat — build at your own pace.')),

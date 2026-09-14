@@ -119,13 +119,20 @@ async function enterGame(user) {
   while (step !== 'play') {
     if (step === 'world') {
       // a solo world, or a private world with friends (worlds are temporary; civilizations are saved)
-      choice = await worldPicker({ user, username: app.username });
+      choice = await worldPicker({ user, username: app.username, lastWorld: lastWorld(user.uid) });
       if (choice.back) { location.reload(); return; }
       app.world = choice.world === SOLO_WORLD ? { wid: choice.world, name: choice.name } : (await getWorld(choice.world)) || { wid: choice.world, name: choice.name };
       step = app.world.status === 'lobby' ? 'lobby' : 'slot';
+      if (choice.rejoin && step === 'slot') {   // straight back in with the same civilization
+        setWorld(choice.world);
+        setSlot(choice.slot);
+        app.slot = choice.slot;
+        state = await loadSave(user.uid);
+        step = state ? 'play' : 'slot';
+      }
     } else if (step === 'lobby') {
       const r = await lobbyScreen({ user, username: app.username, world: app.world });
-      if (r === 'leave') { await leaveOrCloseWorld(user.uid, app.world).catch(() => {}); step = 'world'; } else step = 'slot';
+      if (r === 'leave') { forgetWorld(); await leaveOrCloseWorld(user.uid, app.world).catch(() => {}); step = 'world'; } else step = 'slot';
     } else if (step === 'slot') {
       setWorld(choice.world);
       picked = await slotPicker({ user, worldName: app.world.name, listSlots, deleteSlot });
@@ -153,8 +160,21 @@ async function enterGame(user) {
   const away = Math.min(OFFLINE_CAP_SECONDS, (Date.now() - (state.updatedAt || Date.now())) / 1000);
   if (away > 120 && state.villagers.length) summary = game.simulate(away);
 
+  if (choice.world !== SOLO_WORLD) rememberWorld(user.uid, { wid: choice.world, name: app.world.name, slot: app.slot });
+  else forgetWorld();
   startGame(user, game, { online: choice.world !== SOLO_WORLD });
   if (summary) offlineSummary(summary);
+}
+
+// The world you were last playing, so closing the tab by accident never locks you out.
+const LAST_WORLD_KEY = 'hb_last_world';
+function rememberWorld(uid, w) { try { localStorage.setItem(LAST_WORLD_KEY, JSON.stringify({ uid, ...w, at: Date.now() })); } catch { /* private mode */ } }
+function forgetWorld() { try { localStorage.removeItem(LAST_WORLD_KEY); } catch { /* ignore */ } }
+function lastWorld(uid) {
+  try {
+    const w = JSON.parse(localStorage.getItem(LAST_WORLD_KEY));
+    return w && w.uid === uid && Date.now() - w.at < 7 * 24 * 3600 * 1000 ? w : null;
+  } catch { return null; }
 }
 
 function startGame(user, game, { online = true } = {}) {
@@ -181,11 +201,11 @@ function startGame(user, game, { online = true } = {}) {
   app.hud = new HUD({
     game, renderer, input: app.input, mp: app.mp, user, isAdmin: false,
     onSave: () => save(true),
-    onSignOut: async () => { await save(true).catch(() => {}); app.mp?.stop(); await signOut(); location.reload(); },
+    onSignOut: async () => { await save(true).catch(() => {}); forgetWorld(); app.mp?.stop(); await signOut(); location.reload(); },
     onRestart: () => restart(),
     world: app.world || { wid: currentWorld(), name: 'World' },
     username: app.username,
-    onSwitchWorld: async () => { await save(true).catch(() => {}); app.mp?.stop(); location.reload(); },
+    onSwitchWorld: async () => { await save(true).catch(() => {}); forgetWorld(); app.mp?.stop(); location.reload(); },
     onVisit: uid => visitRealm(uid),
     onReturnHome: () => returnHome(),
   });
