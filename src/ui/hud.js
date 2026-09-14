@@ -1138,7 +1138,7 @@ export class HUD {
       h('h3', 'Controls'),
       h('div.keys',
         ...[['Drag / WASD', 'Move camera'], ['Scroll / Q E', 'Zoom'], ['Right-click / Esc', 'Cancel'], ['B J K M', 'Build · People · Rule · World'],
-          ['X', 'Demolish tool'], ['R', 'Build the last building again'], ['/', 'Search buildings'], ['H', 'Jump home'], ...(this.isAdmin ? [['F2', 'Admin console']] : [])]
+          ['X', 'Demolish tool'], ['R', 'Build the last building again'], ['/', 'Search buildings'], ['H', 'Jump home']]
           .map(([k, d]) => h('div.key-row', h('kbd', k), h('span.faint', d)))),
       h('h3', 'Version'),
       this.versionRow(),
