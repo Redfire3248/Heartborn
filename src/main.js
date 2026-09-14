@@ -1,6 +1,6 @@
 import { loadAssets } from './core/assets.js';
 import { setupPWA } from './core/pwa.js';
-import { AUTOSAVE_SECONDS, OFFLINE_CAP_SECONDS, TILE, DAY_LENGTH } from './core/constants.js';
+import { AUTOSAVE_SECONDS, OFFLINE_CAP_SECONDS, OFFLINE_PROGRESS, TILE, DAY_LENGTH } from './core/constants.js';
 import { Input } from './core/input.js';
 import { Renderer } from './render/renderer.js';
 import { Game } from './game/game.js';
@@ -152,13 +152,15 @@ async function enterGame(user) {
       step = 'play';
     }
   }
-  let summary = null;
   state.owner.uid = user.uid;
   state.owner.name = app.username;
 
   const game = new Game(state);
-  const away = Math.min(OFFLINE_CAP_SECONDS, (Date.now() - (state.updatedAt || Date.now())) / 1000);
-  if (away > 120 && state.villagers.length) summary = game.simulate(away);
+  let summary = null;
+  if (OFFLINE_PROGRESS) {   // wired out for now (see constants.js)
+    const away = Math.min(OFFLINE_CAP_SECONDS, (Date.now() - (state.updatedAt || Date.now())) / 1000);
+    if (away > 120 && state.villagers.length) summary = game.simulate(away);
+  }
 
   if (choice.world !== SOLO_WORLD) rememberWorld(user.uid, { wid: choice.world, name: app.world.name, slot: app.slot });
   else forgetWorld();

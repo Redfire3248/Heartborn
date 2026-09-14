@@ -26,6 +26,9 @@ export const RESOURCES = ['food', 'wood', 'stone', 'coal', 'iron', 'weapons', 'b
 // Saving / multiplayer
 export const AUTOSAVE_SECONDS = 30;
 export const OFFLINE_CAP_SECONDS = 60 * 60 * 4;   // at most 4h of offline progress
+// Offline progress (villages growing and gathering while you are away, then a "While you were away" summary).
+// Switched off: villages stay exactly as you left them. Set to true to turn it back on.
+export const OFFLINE_PROGRESS = false;
 export const NEW_PLAYER_SHIELD_MS = 3 * 24 * 3600 * 1000;
 export const RAID_SHIELD_MS = 12 * 3600 * 1000;
 export const SAVE_VERSION = 1;
