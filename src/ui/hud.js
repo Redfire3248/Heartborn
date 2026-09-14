@@ -22,6 +22,7 @@ import { abilityOf, abilityCooldown, canUseAbility, useAbility } from '../game/a
 import { empireOf, empirePower, empireTitle, empireAction, ACTIONS as EMPIRE_ACTIONS, PERSONALITIES, STATUS } from '../game/empire.js';
 import { openProfile, friendsPanel } from './social.js';
 import { installButton } from './screens.js';
+import { BUILD, LATEST_CHANGES, checkLatest } from '../core/version.js';
 
 const TOP_RES = ['food', 'wood', 'stone', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];
 // bombs and science only appear once they matter
@@ -927,8 +928,31 @@ export class HUD {
       h('div.row', { style: { flexWrap: 'wrap' } },
         h('button.btn.sm', { onclick: () => this.showProfile({ uid: this.user.uid, name: this.username }) }, '👤 My profile'),
         h('button.btn.sm', { onclick: () => { this.tutorial.restart(); this.closePanel(); } }, '🎓 Restart tutorial'),
-        installButton()));
+        installButton()),
+      h('h3', 'Version'),
+      this.versionRow());
     return [this.head('items/save', 'Save & Settings'), body];
+  }
+
+  /** Build number + a button that asks the live site whether a newer version is out. */
+  versionRow() {
+    const status = h('span.faint', '');
+    const btn = h('button.btn.sm', {
+      onclick: async () => {
+        btn.disabled = true; status.textContent = 'Checking…';
+        try {
+          const r = await checkLatest();
+          status.textContent = r.isLatest ? '✓ Newest version' : `⚠ ${r.live.version} is out — reload to update`;
+          status.style.color = r.isLatest ? 'var(--good)' : 'var(--gold)';
+          if (!r.isLatest) { btn.textContent = '⟳ Reload now'; btn.onclick = () => location.reload(); }
+        } catch (e) { status.textContent = `Could not check (${e.message})`; }
+        btn.disabled = false;
+      },
+    }, 'Check for updates');
+    return h('div.col', { style: { gap: '6px' } },
+      h('div.row', { style: { flexWrap: 'wrap' } }, h('span.chip', `v${BUILD.version}`), h('span.chip', `#${BUILD.commit}`), btn),
+      status,
+      h('div.faint', `Latest: ${LATEST_CHANGES.title} — ${LATEST_CHANGES.changes.join(' · ')}`));
   }
 
   updateBadges() {

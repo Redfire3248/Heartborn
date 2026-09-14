@@ -755,7 +755,7 @@ export class Multiplayer {
     if (!cmd) return;
     switch (cmd.type) {
       case 'give':
-        for (const [k, v] of Object.entries(cmd.res || {})) g.addResource(k, Number(v) || 0);
+        for (const [k, v] of Object.entries(cmd.res || {})) g.state.resources[k] = Math.max(0, (g.state.resources[k] || 0) + (Number(v) || 0));   // admin gifts ignore storage limits
         g.log(`The Admin gifted you ${fmtRes(cmd.res)}.`, 'good');
         break;
       case 'shield':

@@ -274,7 +274,8 @@ export class Game {
     if (n < 0) { r[res] = Math.max(0, r[res] + n); return n; }
     const cap = this.caps[res];
     const before = r[res];
-    r[res] = cap ? Math.min(cap, r[res] + n) : r[res] + n;
+    // storage stops growth at the cap, but never takes away what is already above it (admin gifts)
+    r[res] = cap ? Math.max(before, Math.min(cap, r[res] + n)) : r[res] + n;
     return Math.floor(r[res] - before);
   }
   canAfford(cost = {}) { return Object.entries(cost).every(([k, v]) => this.state.resources[k] >= v); }

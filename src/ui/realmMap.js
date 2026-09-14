@@ -74,10 +74,10 @@ export function openRealmMap({ hud, onVisit }) {
     const sel = list.find(p => p.uid === selected) || list.find(p => p.uid === me);
     map.replaceChildren();
 
+    map.append(worldCanvas(list));
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 100 100');
     svg.setAttribute('preserveAspectRatio', 'none');
-    drawIslands(svg, list, me);
 
     // route line to the selected realm
     if (sel && sel.uid !== me) {
@@ -114,7 +114,7 @@ export function openRealmMap({ hud, onVisit }) {
         style: { left: `${pos.x}%`, top: `${pos.y}%` },
         onclick: () => { selected = p.uid; tick(); },
       },
-      avatar(p.name || '?', p.uid === me ? 34 : 28),
+      h('span.pin-dot'),
       h('span.pin-name', p.online ? h('b.dot-on') : null, p.villageName || 'Unknown')));
     }
 

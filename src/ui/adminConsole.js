@@ -67,7 +67,6 @@ export class AdminConsole {
     this.status = h('div.gc-status');
     this.el = h('div.gc.hidden',
       h('div.gc-head',
-        h('div.gc-dots', h('i'), h('i'), h('i')),
         h('div.gc-title', 'HEARTBORN', h('span', ' // admin')),
         this.status,
         h('button.gc-close', { onclick: () => this.toggle(), title: 'Close (F2)' }, '✕')),
@@ -181,7 +180,7 @@ export class AdminConsole {
 
     if (parts.length === 1) {
       items = Object.entries(COMMANDS)
-        .filter(([name]) => q && name.startsWith(q) && name !== q)
+        .filter(([name]) => name.startsWith(q) && name !== q)
         .map(([name, c]) => ({ value: name, label: name, detail: c.desc }));
       if (q && !items.length && !cmd) hint = 'unknown command — try "help"';
       if (cmd) hint = cmd.usage;
@@ -194,7 +193,7 @@ export class AdminConsole {
         .filter(o => o.value.toLowerCase() !== q && (o.value.toLowerCase().startsWith(q) || o.label.toLowerCase().includes(q)));
     }
 
-    this.suggestions = items.slice(0, 8);
+    this.suggestions = items;   // every match; the menu scrolls
     this.sugIndex = Math.min(this.sugIndex, Math.max(0, this.suggestions.length - 1));
     this.hint.textContent = hint;
     this.renderMenu();
@@ -203,7 +202,7 @@ export class AdminConsole {
   renderMenu() {
     const items = this.suggestions;
     this.menu.classList.toggle('hidden', !items.length);
-    this.menu.replaceChildren(...items.map((o, i) => h(`div.gc-item${i === this.sugIndex ? '.on' : ''}`, {
+    this.menu.replaceChildren(h('div.gc-count', `${items.length} option${items.length === 1 ? '' : 's'} · ↑↓ to browse · Tab to complete`), ...items.map((o, i) => h(`div.gc-item${i === this.sugIndex ? '.on' : ''}`, {
       onmousedown: e => { e.preventDefault(); this.sugIndex = i; this.accept(); },
     }, h('span.gc-item-label', o.online ? h('b.dot-on') : null, o.label), h('span.gc-item-detail', o.detail))));
     this.menu.querySelector('.gc-item.on')?.scrollIntoView({ block: 'nearest' });
@@ -334,7 +333,8 @@ const COMMANDS = {
         res[pairs[i]] = Number(pairs[i + 1]) || 0;
       }
       if (!Object.keys(res).length) throw new Error('usage: give me gold 100 wood 50');
-      if (p.me) { for (const [k, v] of Object.entries(res)) this.game.addResource(k, v); this.game.emit('change'); }
+      // admin gifts ignore storage limits
+      if (p.me) { for (const [k, v] of Object.entries(res)) this.game.state.resources[k] = Math.max(0, (this.game.state.resources[k] || 0) + v); this.game.emit('change'); }
       else await api.sendCommand(p.uid, { type: 'give', res });
       this.print(`✓ gave ${Object.entries(res).map(([k, v]) => `${v} ${k}`).join(', ')} to ${p.villageName}`, 'ok');
     },
@@ -525,7 +525,7 @@ const COMMANDS = {
       const v = Number(n) || 5000;
       for (const k of RESOURCES) this.game.state.resources[k] = Math.max(this.game.state.resources[k] || 0, v);
       this.game.emit('change');
-      this.print(`✓ every resource ≥ ${v} (storage caps still apply to food, wood, stone…)`, 'ok');
+      this.print(`✓ every resource ≥ ${v}`, 'ok');
     },
   },
   heal: {

@@ -1,6 +1,7 @@
 import { h, icon, avatar, GOOGLE_SVG, modal, fmt } from './dom.js';
 import { friendlyAuthError } from '../net/firebase.js';
 import { installApp, canInstall, onInstallChange } from '../core/pwa.js';
+import { BUILD } from '../core/version.js';
 
 const ui = () => document.getElementById('ui');
 
@@ -51,7 +52,7 @@ export function loginScreen({ user, onSignIn, onEmailSignIn, onCreateAccount, on
       h('div.tagline', 'Three humans. One fire. Every choice builds a civilization.')),
     card,
     installButton('button.btn.install-btn'));
-  const footer = h('div.footer-note', 'A shared world of civilizations · Your realm is saved to the cloud');
+  const footer = h('div.footer-note', `A shared world of civilizations · Your realm is saved to the cloud · v${BUILD.version}`);
   ui().append(vignette, root, footer);
   let mode = 'signin';   // signin | create
 
