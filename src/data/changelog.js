@@ -1,6 +1,18 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Notifications, sound, undo & safety',
+    changes: [
+      'Notification bell: every important event, click to jump to where it happened',
+      'Sound effects and calm music (volume sliders in Settings)',
+      'Undo (Ctrl+Z) for building and demolishing',
+      'Village graphs in the Chronicle: people, food, gold, happiness, wood, warriors',
+      'Chat safety: swear filter, mute and report players',
+      'Save banner when cloud saving fails (your village stays safe on the device)',
+      'Faster with huge villages; smaller updates; automatic error reports for the admin',
+    ],
+  },
+  {
     title: 'Trades, households & pixel icons',
     changes: [
       'Everyone has a trade; only a Jack of all trades can switch jobs',

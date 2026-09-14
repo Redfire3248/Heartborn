@@ -4,7 +4,7 @@ import { Game } from '/src/game/game.js';
 import { newState, serialize, deserialize } from '/src/game/state.js';
 import { BUILDINGS, ERAS } from '/src/data/buildings.js';
 import { describeBuilding } from '/src/data/describe.js';
-import { JOBS, assignJob } from '/src/game/villagers.js';
+import { JOBS, assignJob, killVillager } from '/src/game/villagers.js';
 import { OFFICES, appoint, officeUnlocked, setOfficeOption, dismiss } from '/src/game/court.js';
 import { LAW_CATEGORIES } from '/src/data/laws.js';
 import { DEEDS, runDeed, sacrificeVillager, exileVillager, smiteCreature } from '/src/game/deeds.js';
@@ -489,6 +489,58 @@ export async function run() {
       for (const cmd of cmds) { try { await con.run(cmd); } catch (e) { bad.push(`${cmd}: ${e.message}`); } }
       ok(!bad.length, `admin console commands (${cmds.length})`, bad.join('; '));
     }
+  });
+
+  await step('quality of life: undo, notifications, graphs, chat safety, sound, save banner', async () => {
+    const app = window.__hb.app;
+    const hud = app.hud, g = app.game;
+    if (!hud) { ok(false, 'a game must be running for QoL tests'); return; }
+    g.state.era = Math.max(g.state.era, 1);
+    g.recalc();
+    Object.assign(g.state.resources, { wood: 2000, stone: 2000 });
+    const tents = () => g.state.buildings.filter(b => b.type === 'tent').length;
+    const wood0 = g.state.resources.wood, n0 = tents();
+    hud.startBuild('tent');
+    let placedAt = null;
+    for (let r = 4; r < 30 && !placedAt; r++) {
+      const tx = Math.floor(g.center.x / TILE) + r, ty = Math.floor(g.center.y / TILE) - r;
+      if (g.canPlace('tent', tx, ty).ok && g.canPlace('tent', tx + 1, ty).ok) placedAt = { tx, ty };
+    }
+    hud.onPlaceStart(placedAt.tx, placedAt.ty); hud.onPlaceMove(placedAt.tx + 1, placedAt.ty); hud.onPlaceEnd(placedAt.tx + 1, placedAt.ty, false); hud.cancelBuild();
+    const placed = tents() - n0;
+    hud.undo();
+    ok(placed > 0 && tents() === n0 && g.state.resources.wood === wood0, 'undo removes placed buildings with a full refund', `placed ${placed}`);
+    const b = g.state.buildings.find(x => x.type === 'tent') || build(g, 'tent');
+    const count = g.state.buildings.length;
+    await hud.demolishMany([b]);
+    hud.undo();
+    ok(g.state.buildings.length === count, 'undo brings demolished buildings back');
+
+    const v = g.addWanderer();
+    killVillager(g, v, 'was lost in a test');
+    hud.updateBell();
+    hud.toggleNotifications();
+    const entry = document.querySelector('.notif.has-pos');
+    ok(!!entry, 'notifications list important events with a location');
+    entry?.click();
+    ok(!document.querySelector('.notif-panel'), 'clicking a notification jumps there and closes the list');
+
+    for (let d = 0; d < 3; d++) g.newDay();
+    hud.openPanel('log');
+    await sleep(150);
+    ok(document.querySelectorAll('.graph').length === 6, 'Chronicle shows village graphs', `${document.querySelectorAll('.graph').length} graphs`);
+    hud.closePanel();
+
+    const { cleanText } = await import('/src/net/chatSafety.js');
+    ok(cleanText('what the fuuuck, sh1t happens, hello') === 'what the ******, **** happens, hello', 'chat filter hides swear words, even disguised', cleanText('what the fuuuck, sh1t happens, hello'));
+    const S = await import('/src/core/sound.js');
+    let soundOk = true;
+    try { for (const s of ['click', 'build', 'complete', 'birth', 'death', 'danger', 'boom', 'undo', 'notify']) S.play(s); } catch { soundOk = false; }
+    ok(soundOk, 'every sound effect plays without errors');
+    hud.setSaveProblem('Cloud save failed (test)');
+    const bannerShown = !!document.querySelector('.save-banner');
+    hud.setSaveProblem(null);
+    ok(bannerShown && !document.querySelector('.save-banner'), 'save problems show a banner that clears after a good save');
   });
 
   await step('tutorial advances and can be skipped', async () => {

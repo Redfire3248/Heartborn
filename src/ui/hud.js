@@ -26,6 +26,8 @@ import { openProfile, friendsPanel } from './social.js';
 import { installButton } from './screens.js';
 import { startItemDrag } from './itemDrag.js';
 import { pxIcon } from './pixelIcons.js';
+import { play, soundSettings, setVolume } from '../core/sound.js';
+import { cleanText, mutedPlayers, setMuted, reportMessage } from '../net/chatSafety.js';
 import { BUILD, LATEST_CHANGES, checkLatest } from '../core/version.js';
 
 const TOP_RES = ['food', 'wood', 'stone', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];
@@ -107,7 +109,9 @@ export class HUD {
     this.els.day = h('div.day', 'Day 1');
     this.els.season = h('div.season', 'Spring · Year 1');
     const clockCard = h('div.card', h('div.clock', this.els.day, this.els.season));
-    this.root.append(h('div.topbar', resCard), h('div.statusbar', karmaCard, clockCard));
+    this.els.bellCount = h('span.bell-count', { hidden: true }, '0');
+    const bell = h('button.card.bell', { title: 'Notifications', onclick: () => this.toggleNotifications() }, pxIcon('bell'), this.els.bellCount);
+    this.root.append(h('div.topbar', resCard), h('div.statusbar', bell, karmaCard, clockCard));
 
     // dock
     const dock = h('div.card.dock');
@@ -219,6 +223,7 @@ export class HUD {
     if (k === 'v') { this.openMap(); return; }
     if (k === 'escape' && this.visiting) { this.onReturnHome(); return; }
     if (k === 'escape') { if (this.demolishMode) this.toggleDemolish(false); else if (this.buildType) this.cancelBuild(); else if (this.game.selected) this.select(null); else this.closePanel(); }
+    else if (k === 'z' && (e.ctrlKey || e.metaKey)) { e.preventDefault?.(); this.undo(); }
     else if (k === 'x') this.toggleDemolish();
     else if (k === 'r' && this.lastBuild) { if (this.game.canAfford(BUILDINGS[this.lastBuild].cost)) this.startBuild(this.lastBuild); else this.hint(`Not enough resources for another ${BUILDINGS[this.lastBuild].name}`, 1500); }
     else if (k === '/') { e.preventDefault?.(); this.buildSearchFocused = true; if (this.panel === 'build') this.panelEl?.querySelector('.build-search')?.focus(); else this.openPanel('build'); }
@@ -248,6 +253,8 @@ export class HUD {
       if (!gh) return;
       const res = g.placeBuilding(this.buildType, gh.tx, gh.ty);
       if (!res.ok) { this.hint(res.why, 1800); return; }
+      this.pushUndo({ kind: 'place', buildings: [res.building] });
+      play('build');
       // walls and gates stay in placement mode so you can draw lines of them
       if (!shift && !this.buildType.startsWith('wall') && !this.buildType.startsWith('gate')) this.cancelBuild();
       return;
@@ -322,6 +329,49 @@ export class HUD {
     return { spots, valid, affordable };
   }
 
+  // ---- undo (Ctrl+Z): the last placement or demolish
+  pushUndo(action) {
+    this.undoStack ||= [];
+    this.undoStack.push({ ...action, at: Date.now() });
+    if (this.undoStack.length > 20) this.undoStack.shift();
+  }
+
+  undo() {
+    const g = this.game;
+    const a = this.undoStack?.pop();
+    if (!a) { this.hint('Nothing to undo', 1200); return false; }
+    if (a.kind === 'place') {
+      // remove what was placed; unfinished buildings give their full cost back
+      let n = 0;
+      for (const b of a.buildings) {
+        if (!g.state.buildings.includes(b)) continue;
+        const refund = b.built ? 0.4 : 1;
+        for (const [k, v] of Object.entries(BUILDINGS[b.type].cost)) g.state.resources[k] += Math.floor(v * refund);
+        g.state.buildings = g.state.buildings.filter(x => x !== b);
+        n++;
+      }
+      g.recalc();
+      this.hint(`Undid placing ${n} building${n === 1 ? '' : 's'}`, 1500);
+    } else if (a.kind === 'demolish') {
+      // bring the buildings back and take the refund again (if you still have it)
+      let n = 0;
+      for (const snap of a.buildings) {
+        const size = BUILDINGS[snap.type].size;
+        let free = true;
+        for (let y = 0; y < size && free; y++) for (let x = 0; x < size; x++) if (g.buildingAt(snap.tx + x, snap.ty + y)) { free = false; break; }
+        if (!free) continue;
+        g.state.buildings.push({ ...snap });
+        n++;
+      }
+      for (const [k, v] of Object.entries(a.refund || {})) g.state.resources[k] = Math.max(0, g.state.resources[k] - v);
+      g.recalc();
+      this.hint(`Restored ${n} building${n === 1 ? '' : 's'}`, 1500);
+    }
+    play('undo');
+    g.emit('change');
+    return true;
+  }
+
   // ---- demolish tool (X): click a building or drag a box over many
   toggleDemolish(on = !this.demolishMode) {
     if (on) { this.cancelBuild(); this.select(null); }
@@ -366,7 +416,12 @@ export class HUD {
     const summary = Object.entries(names).map(([n, c]) => `${c}× ${n}`).join(', ');
     const ok = list.length === 1 || await confirmModal(`Demolish ${list.length} buildings?`, `${summary}. You get back 40% of their cost (80% if unfinished).`, { okLabel: 'Demolish', okClass: 'danger' });
     if (!ok) return;
+    const before = { ...this.game.state.resources };
+    const removed = list.filter(b => this.game.state.buildings.includes(b)).map(b => ({ ...b }));
     for (const b of list) if (this.game.state.buildings.includes(b)) this.game.demolish(b);
+    const refund = Object.fromEntries(Object.keys(before).map(k => [k, this.game.state.resources[k] - before[k]]).filter(([, v]) => v > 0));
+    this.pushUndo({ kind: 'demolish', buildings: removed, refund });
+    play('demolish');
     if (this.game.selected?.kind === 'building' && !this.game.state.buildings.includes(this.game.selected.ref)) this.select(null);
     this.hint(`Demolished ${list.length} building${list.length === 1 ? '' : 's'}`, 1600);
   }
@@ -424,10 +479,13 @@ export class HUD {
       return;
     }
     let placed = 0;
+    const made = [];
     for (const sp of spots) {
       if (!this.game.canAfford(BUILDINGS[type].cost)) break;
-      if (this.game.placeBuilding(type, sp.tx, sp.ty).ok) placed++;
+      const r = this.game.placeBuilding(type, sp.tx, sp.ty);
+      if (r.ok) { placed++; made.push(r.building); }
     }
+    if (made.length) { this.pushUndo({ kind: 'place', buildings: made }); play('build'); }
     const multi = (d.plan?.spots.length || 0) > 1;
     if (!placed) this.hint('Not enough resources', 1800);
     else if (multi) this.hint(`Placed ${placed} × ${BUILDINGS[type].name}${placed < spots.length ? ` — ran out of resources for ${spots.length - placed}` : ''}`, 2500);
@@ -597,6 +655,7 @@ export class HUD {
     search.addEventListener('blur', () => { this.buildSearchFocused = false; });
     const tools = h('div.build-tools',
       h(`button.btn.sm${this.demolishMode ? '.danger' : ''}`, { title: 'Click or drag a box over buildings to remove them (X)', onclick: () => { this.toggleDemolish(); this.refreshPanel(); } }, this.demolishMode ? '🗑 Demolishing… (X)' : '🗑 Demolish (X)'),
+      this.undoStack?.length ? h('button.btn.sm', { title: 'Undo the last build or demolish (Ctrl+Z)', onclick: () => { this.undo(); this.refreshPanel(); } }, pxIcon('undo'), 'Undo') : null,
       this.lastBuild && BUILDINGS[this.lastBuild] ? h('button.btn.sm', { title: 'Build it again (R)', onclick: () => this.startBuild(this.lastBuild) }, icon(`buildings/${this.lastBuild}`, 18), `Again (R)`) : null);
     return [this.head('items/hammer', 'Build', `${ERAS[g.state.era].name} era`), tabs, h('div.build-search-row', search, tools), body];
   }
@@ -932,9 +991,29 @@ export class HUD {
       h('span.chip', icon('nature/tree_oak', 16), `${s.stats.treesCut || 0} trees cut`),
       h('span.chip', icon('items/war', 16), `${s.stats.raidsWon || 0}W / ${s.stats.raidsLost || 0}L raids`),
       h('span.chip', icon('items/population', 16), `peak ${s.stats.maxPop || 0}`)));
+    body.append(this.statsGraphs());
+    body.append(h('h3', 'Story'));
     body.append(h('div.log', [...s.log].reverse().map(e =>
-      h(`div.log-entry.${e.kind}`, h('span.d', `Day ${e.day}`), h('span', e.text)))));
+      h(`div.log-entry.${e.kind}${e.pos ? '.has-pos' : ''}`, { onclick: () => this.jumpTo(e.pos), title: e.pos ? 'Show me where' : '' }, h('span.d', `Day ${e.day}`), h('span', e.text)))));
     return [this.head('items/scroll', 'Chronicle', s.owner.villageName), body];
+  }
+
+  /** Small line graphs of the village over the last days. */
+  statsGraphs() {
+    const hist = this.game.state.history || [];
+    if (hist.length < 2) return h('div.faint', 'Graphs of your village appear after a couple of days.');
+    const graph = (key, label, color) => {
+      const vals = hist.map(d => d[key] || 0);
+      const max = Math.max(1, ...vals), min = Math.min(...vals, 0);
+      const W = 120, H = 34;
+      const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * W},${H - ((v - min) / (max - min || 1)) * (H - 2) - 1}`).join(' ');
+      const svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.8" vector-effect="non-scaling-stroke"/></svg>`;
+      const last = vals[vals.length - 1], first = vals[0];
+      return h('div.graph', h('div.graph-head', h('span', label), h('b', fmt(last)), h(`span.${last >= first ? 'up' : 'down'}`, `${last >= first ? '+' : ''}${fmt(last - first)}`)), h('div.graph-line', { html: svg }));
+    };
+    return h('div.col', { style: { gap: '6px' } },
+      h('h3', `Last ${hist.length} days`),
+      h('div.graphs', graph('pop', 'People', '#7fc8ff'), graph('food', 'Food', '#7ee06a'), graph('gold', 'Gold', '#ffcf5a'), graph('happy', 'Happiness', '#ff9fd4'), graph('wood', 'Wood', '#c08a4a'), graph('army', 'Warriors', '#ff6b5b')));
   }
 
   // ---- multiplayer
@@ -1007,10 +1086,29 @@ export class HUD {
       }
     } else if (this.worldTab === 'chat') {
       const list = h('div.chat');
+      const muted = mutedPlayers();
+      let hidden = 0;
       for (const m of mp.chat) {
-        list.append(h(`div.msg${m.uid === this.user.uid ? '.me' : ''}`,
+        if (muted.has(m.uid)) { hidden++; continue; }
+        const mine = m.uid === this.user.uid;
+        list.append(h(`div.msg${mine ? '.me' : ''}`,
           h('span', { style: { cursor: 'pointer' }, onclick: () => this.showProfile({ uid: m.uid, name: m.name, villageName: m.village }) }, avatar(m.name, 28)),
-          h('div', h('div.who', m.name, ' ', h('span', `· ${m.village || ''}`)), h('div', m.text))));
+          h('div', { style: { flex: 1, minWidth: 0 } },
+            h('div.who', m.name, ' ', h('span', `· ${m.village || ''}`)),
+            h('div', cleanText(m.text))),
+          mine ? null : h('div.msg-actions',
+            h('button.btn.icon.ghost', { title: `Mute ${m.name}`, onclick: () => { setMuted(m.uid, true); this.hint(`${m.name} is muted`, 1500); this.refreshPanel(); } }, pxIcon('mute')),
+            h('button.btn.icon.ghost', {
+              title: 'Report this message',
+              onclick: async () => {
+                if (!(await confirmModal(`Report ${m.name}?`, `“${cleanText(m.text)}” will be sent to the admins to review.`, { okLabel: 'Report', okClass: 'danger' }))) return;
+                try { await reportMessage(m); this.hint('Thanks — the admins will review it', 1800); } catch (e) { this.hint(e.message, 2000); }
+              },
+            }, pxIcon('flag')))));
+      }
+      if (hidden || muted.size) {
+        list.append(h('div.faint', { style: { textAlign: 'center', fontSize: '12px' } }, `${hidden} message${hidden === 1 ? '' : 's'} from muted players hidden · `,
+          h('button.link', { onclick: () => { for (const id of mutedPlayers()) setMuted(id, false); this.refreshPanel(); } }, 'Unmute everyone')));
       }
       const input = h('input.input', { placeholder: 'Say something to the world…', maxLength: 200 });
       const send = async () => {
@@ -1154,10 +1252,12 @@ export class HUD {
         item('🎓', 'Restart tutorial', () => { this.tutorial.restart(); this.closePanel(); }),
         install,
         item('🚪', 'Sign out', this.onSignOut)),
+      h('h3', 'Sound'),
+      this.soundSliders(),
       h('h3', 'Controls'),
       h('div.keys',
         ...[['Drag / WASD', 'Move camera'], ['Scroll / Q E', 'Zoom'], ['Right-click / Esc', 'Cancel'], ['B J K M', 'Build · People · Rule · World'],
-          ['X', 'Demolish tool'], ['R', 'Build the last building again'], ['/', 'Search buildings'], ['H', 'Jump home']]
+          ['X', 'Demolish tool'], ['Ctrl+Z', 'Undo last build or demolish'], ['R', 'Build the last building again'], ['/', 'Search buildings'], ['H', 'Jump home']]
           .map(([k, d]) => h('div.key-row', h('kbd', k), h('span.faint', d)))),
       h('h3', 'Version'),
       this.versionRow(),
@@ -1165,6 +1265,13 @@ export class HUD {
     // the install entry gets the same look as the other rows
     install.replaceChildren(h('span.set-icon', '📲'), h('span', 'Install app'), h('span.set-arrow', '›'));
     return [this.head('items/save', 'Save & Settings'), body];
+  }
+
+  soundSliders() {
+    const cur = soundSettings();
+    const slider = (kind, label) => h('label.slider-row', h('span', label),
+      h('input', { type: 'range', min: 0, max: 100, value: Math.round(cur[kind] * 100), oninput: e => setVolume(kind, e.target.value / 100), onchange: () => play('coin') }));
+    return h('div.col', { style: { gap: '4px' } }, slider('master', 'Master'), slider('sfx', 'Effects'), slider('music', 'Music'));
   }
 
   /** Build number + a button that asks the live site whether a newer version is out. */
@@ -1435,10 +1542,60 @@ export class HUD {
   }
 
   // ------------------------------------------------------------ feedback
+  // ---- notifications: important happenings, click to jump there
+  notifications() {
+    return this.game.state.log.filter(e => ['event', 'bad', 'death', 'birth', 'good'].includes(e.kind)).slice(-60).reverse();
+  }
+
+  updateBell() {
+    const seen = this.game.state.notifSeen || 0;
+    const unread = this.game.state.log.filter(e => e.t > seen && ['event', 'bad', 'death'].includes(e.kind)).length;
+    if (this._unread === unread) return;
+    this._unread = unread;
+    this.els.bellCount.textContent = unread > 99 ? '99+' : String(unread);
+    this.els.bellCount.hidden = !unread;
+  }
+
+  jumpTo(pos) {
+    if (!pos) return;
+    this.follow = null;
+    this.input.panTo(pos.x, pos.y);
+  }
+
+  toggleNotifications() {
+    if (this.notifEl) { this.notifEl.remove(); this.notifEl = null; return; }
+    const g = this.game;
+    g.state.notifSeen = Date.now();
+    this._unread = null;
+    this.updateBell();
+    const list = this.notifications();
+    const filters = [['all', 'All'], ['bad', 'Danger'], ['death', 'Deaths'], ['birth', 'Births'], ['good', 'Built']];
+    this.notifFilter ??= 'all';
+    const body = h('div.notif-list');
+    const render = () => {
+      const shown = list.filter(e => this.notifFilter === 'all' || e.kind === this.notifFilter);
+      body.replaceChildren(...(shown.length ? shown.map(e => h(`button.notif.${e.kind}${e.pos ? '.has-pos' : ''}`, {
+        onclick: () => { if (e.pos) { this.jumpTo(e.pos); this.toggleNotifications(); } },
+        title: e.pos ? 'Show me where' : '',
+      }, h('span.notif-dot'), h('span.notif-text', e.text), h('span.notif-day', `Day ${e.day}`), e.pos ? pxIcon('pin') : null))
+        : [h('div.faint', { style: { padding: '12px' } }, 'Nothing here yet.')]));
+    };
+    const tabs = h('div.notif-tabs', filters.map(([id, label]) => h(`button${this.notifFilter === id ? '.on' : ''}`, { onclick: e => { this.notifFilter = id; for (const b of tabs.children) b.classList.toggle('on', b === e.currentTarget); render(); } }, label)));
+    render();
+    this.notifEl = h('div.card.notif-panel',
+      h('div.row', h('b', 'Notifications'), h('div.spacer'), h('button.btn.icon.ghost', { onclick: () => this.toggleNotifications() }, '✕')),
+      tabs, body);
+    this.root.append(this.notifEl);
+  }
+
   toast(entry) {
-    if (this.panel === 'log') this.refreshPanel();
+    if (this.panel === 'log') this.requestRefresh();
+    this.updateBell();
+    // sounds for what just happened
+    const sound = { birth: 'birth', death: 'death', bad: 'danger', good: /completed/.test(entry.text) ? 'complete' : null, event: /Ability|—/.test(entry.text) ? 'ability' : 'notify' }[entry.kind];
+    if (sound) play(sound);
     if (!['event', 'bad', 'death'].includes(entry.kind)) return;
-    const el = h(`div.toast.${entry.kind || 'info'}`, entry.text);
+    const el = h(`div.toast.${entry.kind || 'info'}${entry.pos ? '.has-pos' : ''}`, { onclick: () => this.jumpTo(entry.pos) }, entry.text);
     this.els.feed.append(el);
     while (this.els.feed.children.length > 6) this.els.feed.firstChild.remove();
     setTimeout(() => el.classList.add('out'), 6000);
@@ -1446,6 +1603,16 @@ export class HUD {
   }
 
   float(text) { if (text) this.toast({ text, kind: 'event' }); }
+
+  /** A banner that stays while cloud saving is failing (null clears it). */
+  setSaveProblem(text) {
+    if (!text) { this.saveBanner?.remove(); this.saveBanner = null; return; }
+    if (this.saveBanner?.dataset.text === text) return;
+    this.saveBanner?.remove();
+    this.saveBanner = h('div.save-banner', { 'data-text': text }, pxIcon('warning'), h('span', text),
+      h('button.btn.sm', { onclick: () => this.onSave?.().then(() => this.hint('Saved to the cloud', 1500)).catch(() => {}) }, 'Retry'));
+    this.root.append(this.saveBanner);
+  }
 
   announce(text) {
     const el = h('div.announce', h('div', text));

@@ -79,7 +79,11 @@ export default defineConfig({
   plugins: [spriteList(), iconSaver(), versionFile()],
   server: { port: 5173, open: false, headers },
   preview: { port: 5173, headers },
-  build: { outDir: 'dist', assetsInlineLimit: 0, chunkSizeWarningLimit: 1500 },
+  build: {
+    outDir: 'dist', assetsInlineLimit: 0, chunkSizeWarningLimit: 1500,
+    // Firebase (most of the download) goes in its own file: it rarely changes, so browsers keep it cached across game updates
+    rollupOptions: { output: { manualChunks: id => (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase') ? 'firebase' : undefined) } },
+  },
   // pre-bundle Firebase when the dev server starts instead of on the first page load
   optimizeDeps: { include: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/database'] },
 });

@@ -13,6 +13,8 @@ import { ITEMS, CALLINGS } from '../data/people.js';
 import { TRAITS } from '../data/traits.js';
 import { JOBS, assignJob } from '../game/villagers.js';
 import { addItem } from '../game/dynasty.js';
+import { recentErrors, clearErrors } from '../net/errors.js';
+import { recentReports, clearReports } from '../net/chatSafety.js';
 
 const BUILDINGS = BUILDING_DEFS;
 
@@ -32,6 +34,7 @@ const ARG_SPECS = {
   shield: ['player', 'number'], msg: ['player', 'text'], broadcast: ['text'], event: ['event', 'target'],
   spawn: ['creature', 'number', 'target'], warband: ['number', 'number'], ban: ['player', 'text'], unban: ['player'],
   reset: ['player', ['confirm']], chat: [['15', 'clear', 'del']], skip: ['number'], era: [['up', '0', '1', '2', '3']],
+  errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
   item: ['item', 'number', 'villager'], person: ['number', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
   build: ['building', 'number'], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], 'number'],
@@ -569,6 +572,30 @@ const COMMANDS = {
       for (const v of people) addItem(v, key, n);
       g.emit('change');
       this.print(`✓ ${n} × ${ITEMS[key].label} → ${people.length === 1 ? people[0].name : `${people.length} villagers`}`, 'ok');
+    },
+  },
+
+  errors: {
+    usage: 'errors [n] | errors clear', desc: 'Crash reports sent from players’ devices',
+    async run([arg]) {
+      if (arg === 'clear') { await clearErrors(); this.print('✓ error reports cleared', 'ok'); return; }
+      const list = await recentErrors(Number(arg) || 15);
+      if (!list.length) { this.print('No error reports. Everything is running smoothly.', 'ok'); return; }
+      for (const e of list) {
+        this.print(`[${new Date(e.ts).toLocaleString()}] v${e.version} · ${e.where} · ${e.uid?.slice(0, 6)}…`, 'warn');
+        this.print(`   ${e.message}`);
+        if (e.stack) this.print(`   ${e.stack.split('\n')[1]?.trim() || ''}`, 'dim');
+      }
+    },
+  },
+  reports: {
+    usage: 'reports [n] | reports clear', desc: 'Chat messages players reported',
+    async run([arg]) {
+      if (arg === 'clear') { await clearReports(); this.print('✓ reports cleared', 'ok'); return; }
+      const list = await recentReports(Number(arg) || 15);
+      if (!list.length) { this.print('No reports.', 'ok'); return; }
+      this.table(list.map(r => ({ when: new Date(r.ts).toLocaleString(), player: r.targetName, message: r.text, reason: r.reason })), ['when', 'player', 'message', 'reason']);
+      this.print('Ban with: ban <player> <reason>', 'dim');
     },
   },
 

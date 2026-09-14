@@ -1,6 +1,9 @@
 import { loadAssets, spriteAvailable, allAssetsReady } from './core/assets.js';
 import { setPeopleSprites } from './data/objects.js';
 import { setupPWA } from './core/pwa.js';
+import { setupErrorReporting, reportError } from './net/errors.js';
+import { BUILD } from './core/version.js';
+import { setupSound } from './core/sound.js';
 import { AUTOSAVE_SECONDS, OFFLINE_CAP_SECONDS, OFFLINE_PROGRESS, TILE, DAY_LENGTH } from './core/constants.js';
 import { Input } from './core/input.js';
 import { Renderer } from './render/renderer.js';
@@ -19,6 +22,8 @@ import { AdminConsole } from './ui/adminConsole.js';
 import { loadingScreen, loginScreen, nameVillage, chooseUsername, bannedScreen, offlineSummary, extinctScreen } from './ui/screens.js';
 
 setupPWA();
+setupErrorReporting(BUILD);
+setupSound();
 const canvas = document.getElementById('game');
 const renderer = new Renderer(canvas);
 
@@ -286,7 +291,16 @@ async function save(force = false) {
       dynasty: s.ruler?.dynasty || '',
     };
     updateProfileStats(user.uid, app.bestStats);
-    if (app.hud) app.hud.lastSavedAt = Date.now();
+    if (app.hud) { app.hud.lastSavedAt = Date.now(); app.hud.setSaveProblem(null); }
+  } catch (e) {
+    // the village is already stored on this device (writeSave does that first): say what went wrong and retry soon
+    const denied = e?.code === 'permission-denied' || /permission/i.test(e?.message || '');
+    app.hud?.setSaveProblem(denied
+      ? 'Cloud save blocked: the Firebase rules are not published (run rules.bat). Your village is safe on this device.'
+      : `Cloud save failed (${e?.message || 'offline'}). Your village is safe on this device — retrying.`);
+    app.saveTimer = AUTOSAVE_SECONDS - 15;   // try again in 15 seconds
+    reportError(e, 'save');
+    throw e;
   } finally {
     app.saving = false;
   }
@@ -348,7 +362,7 @@ function loop(now) {
     app.saveTimer += dt;
     if (app.saveTimer >= AUTOSAVE_SECONDS) {
       app.saveTimer = 0;
-      save().catch(e => console.warn('autosave failed', e));
+      save().catch(() => {});   // save() reports problems on screen and keeps a local backup
     }
   } else if (app.demo) {
     app.demo.update(dt);

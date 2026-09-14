@@ -22,6 +22,8 @@ export const STEPS = [
   { title: 'Appoint a Steward', text: 'Open the Court (C). Choose a villager as Steward: from then on they assign jobs for you, so you can focus on big decisions.', dock: 'court', done: g => !!g.state.court?.steward?.id },
   { title: 'Rule with laws', text: 'Open Rule the Realm (K). Laws decide what your civilization becomes. Pick one when you have the influence for it.', dock: 'deeds', done: (g, hud) => hud.panel === 'deeds' },
   { title: 'Prepare for danger', text: 'Monsters and armies will come. Build a Craft Hut (weapons) and a Training Ground (only trained people can be warriors).', dock: 'build', done: g => has(g, 'craft_hut') && has(g, 'training_ground') },
+  { title: 'Buildings have powers', text: 'Click a finished building. Most have a special ability — like the Campfire’s Tell Stories. Try one! Every villager also has a trade: only a Jack of all trades can switch jobs.', done: g => g.state.buildings.some(b => b.abilityAt != null) },
+  { title: 'Stay informed', text: 'The bell at the top right lists everything important. Click a notification to jump straight to where it happened.', done: g => !!g.state.notifSeen },
   { title: 'The wider world', text: 'Open the Realm Map (V) to see other civilizations, their distance, and to visit, trade, march on or spy on them.', dock: 'map', done: (g, hud) => hud.seenMap },
   { title: 'Your realm awaits', text: 'That’s the basics! Grow your people, raise heirs, choose laws and build your way through the ages. The Chronicle (L) records your history.', next: true, last: true },
 ];

@@ -91,7 +91,7 @@ export function killVillager(g, v, reason) {
     g.world.addObject(s.objects, { id: `o${Date.now().toString(36)}g`, t: 'grave', x: tx, y: ty, charges: 0, name: v.name });
   }
   g.puff(v, 'effects/ghost_wisp', 4);
-  g.log(`${v.name} ${reason}. (age ${Math.floor(v.age)})`, 'death');
+  g.log(`${v.name} ${reason}. (age ${Math.floor(v.age)})`, 'death', v);
   onVillagerGone(g, v);
   for (const x of s.villagers) x.happy = clamp(x.happy - 4, 0, 100);
   if (g.selected?.kind === 'villager' && g.selected.ref === v) g.selected = null;
@@ -194,7 +194,7 @@ function birth(g, mom, dad) {
   s.stats.births = (s.stats.births || 0) + 1;
   g.puff(child, 'effects/spark', 8);
   g.float(child.x, child.y - TILE, 'A baby is born!', '#ffb3de');
-  g.log(`${mom.name} and ${dad.name} welcomed baby ${child.name}.`, 'birth');
+  g.log(`${mom.name} and ${dad.name} welcomed baby ${child.name}.`, 'birth', child);
   g.emit('change');
 }
 

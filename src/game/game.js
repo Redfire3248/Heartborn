@@ -145,6 +145,11 @@ export class Game {
     if (this.law.goldPerPop) this.addResource('gold', Math.floor(s.villagers.length * this.law.goldPerPop));
     if (this.law.karma) this.addKarma(this.law.karma);
 
+    // daily numbers for the Stats graphs (last 120 days)
+    s.history ||= [];
+    s.history.push({ day: this.day, pop: s.villagers.length, food: Math.floor(s.resources.food), wood: Math.floor(s.resources.wood), stone: Math.floor(s.resources.stone), gold: Math.floor(s.resources.gold), happy: Math.round(s.villagers.reduce((n, v) => n + v.happy, 0) / Math.max(1, s.villagers.length)), army: s.villagers.filter(v => v.job === 'warrior').length });
+    if (s.history.length > 120) s.history.splice(0, s.history.length - 120);
+
     // food spoils a little without a granary
     if (!this.hasBuilding('granary') && s.resources.food > 40) s.resources.food = Math.floor(s.resources.food * 0.97);
 
@@ -346,7 +351,7 @@ export class Game {
     const c = this.buildingCenter(b);
     this.puff(c, 'effects/spark', 12);
     this.float(c.x, c.y - TILE, `${def.name} built!`, '#ffd76a');
-    this.log(`${def.name} completed.`, 'good');
+    this.log(`${def.name} completed.`, 'good', c);
     if (b.type === 'castle') this.crownRuler();
     this.checkEra();
     this.emit('change');
@@ -432,7 +437,7 @@ export class Game {
       this.spawnCreature(type, base.x + (Math.random() - 0.5) * TILE * 2, base.y + (Math.random() - 0.5) * TILE * 2, { raid: true, born: this.state.time });
     }
     const def = CREATURES[type];
-    if (!this.offline && def.hostile) this.log(`${n > 1 ? n + ' ' : 'A '}${type.replace('_', ' ')}${n > 1 ? 's' : ''} approach${n > 1 ? '' : 'es'} the village!`, 'bad');
+    if (!this.offline && def.hostile) this.log(`${n > 1 ? n + ' ' : 'A '}${type.replace('_', ' ')}${n > 1 ? 's' : ''} approach${n > 1 ? '' : 'es'} the village!`, 'bad', base);
   }
 
   // ---------- story events ----------
@@ -522,8 +527,10 @@ export class Game {
   }
 
   // ---------- feedback ----------
-  log(text, kind = 'info') {
+  /** pos: where it happened (world units), so notifications can jump the camera there. */
+  log(text, kind = 'info', pos = null) {
     const entry = { text, kind, day: this.day + 1, t: Date.now() };
+    if (pos && Number.isFinite(pos.x)) entry.pos = { x: Math.round(pos.x), y: Math.round(pos.y) };
     this.state.log.push(entry);
     if (this.state.log.length > 120) this.state.log.splice(0, this.state.log.length - 120);
     if (!this.offline) this.emit('log', entry);

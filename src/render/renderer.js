@@ -193,6 +193,11 @@ export class Renderer {
     }
     const role = displayRole(v);
     const key = villagerSprite({ ...v, role });
+    // zoomed far out (or a huge village): just the figure — shadows, tools, bars and emotes are too small to see
+    if (this.camera.zoom < 1.1 || (g.state.villagers.length > 250 && this.camera.zoom < 1.8)) {
+      drawSprite(ctx, key, v.x, v.y, size, { flip: v._flip, offsetY });
+      return;
+    }
     this.shadow(v.x, v.y, size * 0.8);
     const tint = v._hurtFlash > 0 ? '#ff2020' : v.sick ? '#4fbf3f' : null;
     drawSprite(ctx, key, v.x, v.y, size, { flip: v._flip, offsetY, rot, squash, tint });

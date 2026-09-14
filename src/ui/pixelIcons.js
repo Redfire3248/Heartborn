@@ -86,6 +86,11 @@ const I = {
   dragon: ['..kk......', '.krrk.kk..', 'krkrrkrrk.', 'krrrrrrrk.', '.kkrrrrrrk', '...krrrkrk', '..krkrrk.k', '..krkkrk..', '.krk..krk.', '.kk....kk.'],
   cloud: ['..........', '...kkkk...', '..kwwwwk..', '.kwwwwwwkk', 'kwwwwwwwwk', 'kwwwwwwwwk', '.kkkkkkkk.', '..........', '..........', '..........'],
   arrow: ['..........', '....k.....', '....kk....', 'kkkkkGk...', 'kGGGGGGk..', 'kkkkkGk...', '....kk....', '....k.....', '..........', '..........'],
+  bell: ['....kk....', '...kggk...', '..kggggk..', '..kgyggk..', '.kggyyggk.', '.kggggggk.', '.kggggggk.', 'kggggggggk', 'kkkkkkkkkk', '....kk....'],
+  speaker: ['....k.....', '...kk..k..', 'kkkwk...k.', 'kwwwk.k.k.', 'kwwwk.k.k.', 'kwwwk.k.k.', 'kkkwk...k.', '...kk..k..', '....k.....', '..........'],
+  mute: ['....k.....', '...kk.....', 'kkkwk.....', 'kwwwk.r..r', 'kwwwk..rr.', 'kwwwk..rr.', 'kkkwk.r..r', '...kk.....', '....k.....', '..........'],
+  undo: ['..........', '..k.......', '.kGk......', 'kGGkkkkk..', 'kGGGGGGGk.', '.kGkkkkGGk', '..k....kGk', '.......kGk', '...kkkkGGk', '...kGGGGk.'],
+  flag: ['kk........', 'kkkkkkkk..', 'kkrrrrrrk.', 'kkrrrrrrrk', 'kkrrrrrrk.', 'kkkkkkkk..', 'kk........', 'kk........', 'kk........', 'kk........'],
   dot: ['..........', '..........', '...kkkk...', '..kggggk..', '..kggggk..', '..kggggk..', '..kggggk..', '...kkkk...', '..........', '..........'],
 };
 

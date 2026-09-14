@@ -1,3 +1,4 @@
+import { cleanText } from './chatSafety.js';
 import {
   ref, onValue, onChildAdded, onChildRemoved, push, set, update, remove, serverTimestamp,
   onDisconnect, query, orderByChild, limitToLast, runTransaction,
@@ -159,7 +160,7 @@ export class Multiplayer {
     const p = profileFor(this.user, this.g);
     return {
       online, name: p.name, villageName: p.villageName, pop: p.pop, karma: p.karma,
-      era: p.era, wealth: p.wealth, lastSeen: serverTimestamp(),
+      era: p.era, wealth: p.wealth, seed: p.seed, lastSeen: serverTimestamp(),   // seed: the World Map draws their real island
     };
   }
 
@@ -170,7 +171,7 @@ export class Multiplayer {
 
   // ---------------- chat ----------------
   async sendChat(text) {
-    text = text.trim().slice(0, 200);
+    text = cleanText(text.trim().slice(0, 200));   // swear words never leave your device
     if (!text) return;
     if (Date.now() - this.lastChatAt < CHAT_COOLDOWN_MS) throw new Error('Slow down!');
     this.lastChatAt = Date.now();
