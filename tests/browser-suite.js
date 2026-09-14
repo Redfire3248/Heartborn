@@ -169,9 +169,13 @@ export async function run() {
       for (const [opt, choices] of Object.entries(OFFICES[key].options || {})) setOfficeOption(g, key, opt, choices[1][0]);
     }
     ok(!failed.length, 'all 6 offices can be filled', failed.join('; '));
+    const soldiers = g.state.villagers.filter(x => !x.office && !x.ruling).slice(0, 4);
+    soldiers.forEach(x => { x.calling = 'soldier'; });
     g.state.resources.food = 10;
     g.simulate(90 * 2);
     ok(g.state.villagers.some(x => x.job === 'warrior' || x.job === 'recruit'), 'Marshal raises an army');
+    ok(g.state.villagers.filter(x => (x.job === 'warrior' || x.job === 'recruit')).every(x => x.calling === 'soldier' || x.trained || x.traits.includes('brave')),
+      'Marshal only enlists soldiers, trained fighters or brave volunteers');
     ok(g.state.villagers.filter(x => ['farm', 'gather', 'fish'].includes(x.job)).length >= 2, 'Steward sends people to find food');
     ok(g.state.buildings.length > 8, 'Master Builder orders new buildings', `${g.state.buildings.length} buildings`);
     dismiss(g, 'steward');
@@ -248,8 +252,11 @@ export async function run() {
     for (let i = 0; i < 70 && !g.state.battles?.wt; i++) g.step(1);
     ok(!!reported, 'scouts report the incoming army');
     ok(!!g.state.battles?.wt, 'army arrives and a battle starts');
+    const farmer = vs[6];
+    assignJob(g, farmer, 'gather'); farmer.trained = false; farmer.calling = null;
     rally(g);
     ok(!!g.state.rallied, 'militia rallies');
+    ok(farmer.job === 'gather', 'calling the militia leaves non-soldiers at their jobs', farmer.job);
     for (let i = 0; i < 600 && g.state.battles?.wt; i++) g.step(0.5);
     ok(!g.state.battles?.wt, 'battle ends', g.state.log.slice(-2).map(l => l.text).join(' | '));
     standDown(g);

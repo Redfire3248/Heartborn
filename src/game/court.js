@@ -247,7 +247,8 @@ const RUN = {
     const target = Math.max(1, Math.round(pop * Number(c.army || 0.2)));
     const warriors = s.villagers.filter(v => (v.job === 'warrior' || v.job === 'recruit') && !v.away && !v.prevJob);
     if (warriors.length < target) {
-      const recruits = managed(g).filter(v => v.hp > 50)
+      // the Marshal only enlists people meant for war: the Soldier calling, trained fighters, or brave volunteers
+      const recruits = managed(g).filter(v => v.hp > 50 && (v.calling === 'soldier' || v.trained || v.traits.includes('brave')))
         .sort((a, b) => (b.skills.combat - a.skills.combat) || (b.traits.includes('brave') - a.traits.includes('brave')));
       for (const v of recruits.slice(0, target - warriors.length)) assignJob(g, v, isTrained(v) ? 'warrior' : 'recruit', true);
     } else if (warriors.length > target + 1) {

@@ -67,6 +67,19 @@ window.SHEETS = {
       "big_explosion", "smoke_plume", "laser_beam", "energy_shield", "electric_spark", "radiation"
     ]
   },
+  people: {
+    title: "Sheet 9 - People: every profession, man and woman",
+    folder: "people",
+    mode: "sprite",
+    names: [
+      "gatherer_m", "gatherer_f", "woodcutter_m", "woodcutter_f", "miner_m", "miner_f",
+      "farmer_m", "farmer_f", "fisher_m", "fisher_f", "hunter_m", "hunter_f",
+      "builder_m", "builder_f", "smith_m", "smith_f", "spy_m", "spy_f",
+      "recruit_m", "recruit_f", "warrior_m", "warrior_f", "scout_m", "scout_f",
+      "explorer_m", "explorer_f", "priest_m", "priest_f", "merchant_m", "merchant_f",
+      "noble_m", "noble_f", "elder_m", "elder_f", "child_m", "child_f"
+    ]
+  },
   nature: {
     title: "Sheet 3 - Tiles & Nature",
     folder: "nature",

@@ -125,11 +125,16 @@ export function spawnArmy(g, { id, kind, name, count, scale }) {
 }
 
 /** Every able adult picks up a weapon. */
+/** Someone whose occupation is fighting. */
+export const isSoldier = v => v.calling === 'soldier' || v.trained || v.job === 'recruit' || v.job === 'warrior';
+
 export function rally(g) {
   const s = g.state;
   let n = 0;
   for (const v of s.villagers) {
     if (v.away || v.office || v.ruling || v.age < ADULT_AGE || v.hp < 30 || v.job === 'warrior' || v.job === 'scout') continue;
+    // only soldiers answer the call: the Soldier calling, trained fighters and recruits — farmers keep farming
+    if (!isSoldier(v)) continue;
     v.prevJob = v.job;
     v.job = 'warrior';
     v._task = null;

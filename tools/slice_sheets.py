@@ -28,6 +28,7 @@ DEFAULT_FILES = {
     "buildings2": ["Buildings2.png"],
     "buildings3": ["Buildings3.png"],
     "units": ["Units.png"],
+    "people": ["People.png"],
     "nature": ["Tiles.png", "Nature.png"],
     "items": ["Items.png", "Tools.png", "Icons.png"],
     "effects": ["Effects.png", "Weather.png"],

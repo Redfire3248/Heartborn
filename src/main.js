@@ -1,4 +1,5 @@
-import { loadAssets } from './core/assets.js';
+import { loadAssets, spriteAvailable } from './core/assets.js';
+import { setPeopleSprites } from './data/objects.js';
 import { setupPWA } from './core/pwa.js';
 import { AUTOSAVE_SECONDS, OFFLINE_CAP_SECONDS, OFFLINE_PROGRESS, TILE, DAY_LENGTH } from './core/constants.js';
 import { Input } from './core/input.js';
@@ -45,6 +46,7 @@ async function boot() {
     loadAssets(p => loading.progress(p * 0.9, 'Loading sprites…')),
     Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 700))]),
   ]);
+  setPeopleSprites(spriteAvailable('people/farmer_m'));   // profession sprites once the People sheet is sliced
   loading.progress(1, 'Waking the world…');
   startDemo();
   requestAnimationFrame(loop);

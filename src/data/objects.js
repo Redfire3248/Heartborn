@@ -65,12 +65,32 @@ export const WARBAND_NAMES = ['The Red Hand', 'Ashfang Raiders', 'The Iron Wolve
 let spriteEra = 0;
 export const setSpriteEra = era => { spriteEra = era; };
 
+// Profession sprites with a man and a woman each (sheet "people"). Switched on once that sheet is sliced.
+let peopleSprites = false;
+export const setPeopleSprites = on => { peopleSprites = !!on; };
+const JOB_PROFESSION = {
+  gather: 'gatherer', chop: 'woodcutter', mine: 'miner', farm: 'farmer', fish: 'fisher', hunt: 'hunter', build: 'builder',
+  smith: 'smith', spy: 'spy', recruit: 'recruit', warrior: 'warrior', scout: 'scout', explore: 'explorer',
+};
+const OFFICE_PROFESSION = { steward: 'noble', master_builder: 'builder', marshal: 'warrior', spymaster: 'spy', treasurer: 'merchant', high_priest: 'priest' };
+
+function professionSprite(v) {
+  const sx = v.sex === 'f' ? 'f' : 'm';
+  if (v.age < 12) return `people/child_${sx}`;
+  if (v.ruling) return null;                                  // kings and queens keep their royal sprites
+  const prof = v.office ? OFFICE_PROFESSION[v.office] : JOB_PROFESSION[v.job];
+  if (prof) return `people/${prof}_${sx}`;
+  if (v.age >= 55) return `people/elder_${sx}`;
+  return null;
+}
+
 export function villagerSprite(v) {
   if (v.robot) return v.job === 'warrior' ? 'units/robot_soldier' : 'units/robot_worker';
   if (v.jailed) return 'units/prisoner';
   if (v.exposed) return 'units/traitor';
-  if (v.age < 12) return 'characters/child';
   if (v.role === 'warrior' && spriteEra >= 4) return spriteEra >= 6 ? 'units/cyborg' : spriteEra >= 5 ? 'units/rifleman' : 'units/musketeer';
+  if (peopleSprites) { const p = professionSprite(v); if (p) return p; }
+  if (v.age < 12) return 'characters/child';
   if (v.job === 'spy' && (v.skills?.stealth || 0) >= 3) return 'units/spy';
   if (v.role && ROLE_SPRITES[v.role]) return ROLE_SPRITES[v.role];
   if (v.age >= 55) return 'characters/elder';

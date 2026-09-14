@@ -1,6 +1,6 @@
 # HEARTBORN – Sprite Sheet Prompts
 
-8 sheets × 36 sprites = **288 assets**. Every sheet is a **6×6 grid**, generated as a **square image (1024×1024)**.
+9 sheets × 36 sprites = **324 assets**. Every sheet is a **6×6 grid**, generated as a **square image (1024×1024)**.
 Slice with `tools/slicer.html` → outputs 32×32 PNGs named automatically.
 
 **Rules for every generation**
@@ -123,6 +123,22 @@ Row 3: black iron cannon on wooden wheels | green military tank | small fighter 
 Row 4: round black bomb with a lit fuse | bundle of red dynamite sticks | red and white missile | glowing blue science flask icon | metal gear cog | green microchip circuit
 Row 5: steel I-beam | black oil barrel | glowing battery cell | green radar screen | satellite with solar panels | security keycard
 Row 6: huge orange mushroom explosion | tall grey smoke plume | red laser beam | glowing blue energy shield bubble | crackling electric spark | yellow radiation hazard symbol glowing
+```
+
+## Sheet 9 – People: every profession, man and woman → save as `People.png`
+
+Each profession is a pair: the **man on the left, the woman on the right**. Same size, same pose and the same outfit colours for both, so they clearly belong together.
+
+```
+A pixel art sprite sheet, square image, arranged in a perfectly uniform 6x6 grid of 36 equal square cells. Each cell contains exactly ONE isolated full-body character, centered in its cell, all characters drawn at exactly the same scale and height, filling about 80% of their cell, with even empty spacing between cells. No gridlines, no borders, no text, no labels, no numbers. Transparent background (if not possible: plain flat solid white background). Style: 32x32 retro 16-bit SNES pixel art, top-down 3/4 view, standing and facing the viewer, clean 1px dark outline, limited warm earthy medieval palette, soft light from top-left, no ground shadows, consistent style across all cells. Every profession appears twice side by side: first a MAN, then a WOMAN wearing the same outfit colors and holding the same tool. Adult characters have simple readable faces and clear silhouettes; each profession must be recognisable from its tool and clothing alone.
+
+Cells in order, left to right, top to bottom:
+Row 1: man gatherer with a woven basket of red berries | woman gatherer with a woven basket of red berries | man woodcutter in a plaid shirt carrying an axe | woman woodcutter in a plaid shirt carrying an axe | man miner with a helmet candle and pickaxe | woman miner with a helmet candle and pickaxe
+Row 2: man farmer with a straw hat and hoe | woman farmer with a straw hat and hoe | man fisher with a fishing rod and a fish | woman fisher with a fishing rod and a fish | man hunter in a fur cloak with a bow | woman hunter in a fur cloak with a bow
+Row 3: man builder with a tool belt and hammer carrying a plank | woman builder with a tool belt and hammer carrying a plank | man blacksmith in a leather apron with a hammer | woman blacksmith in a leather apron with a hammer | man spy in a dark hooded cloak with a dagger | woman spy in a dark hooded cloak with a dagger
+Row 4: man recruit in a plain padded tunic holding a wooden practice sword | woman recruit in a plain padded tunic holding a wooden practice sword | man warrior in leather armor with a sword and round shield | woman warrior in leather armor with a sword and round shield | man scout with a green hood and a spyglass | woman scout with a green hood and a spyglass
+Row 5: man explorer with a backpack, map and walking staff | woman explorer with a backpack, map and walking staff | man priest in a white robe with gold trim holding a book | woman priestess in a white robe with gold trim holding a book | man merchant with a purple hood and a coin pouch | woman merchant with a purple hood and a coin pouch
+Row 6: man noble steward in a fine blue coat holding a scroll | woman noble steward in a fine blue dress holding a scroll | old grey-bearded elder man with a walking stick | old grey-haired elder woman with a shawl and walking stick | small boy child in a tiny tunic | small girl child in a tiny dress
 ```
 
 ---
