@@ -143,17 +143,33 @@ export async function getUsername(uid) {
   } catch { return null; }
 }
 
-/** Reserve a unique username (case-insensitive) for this account. */
+/**
+ * The identity of a name: case, underscores and lookalike characters don't count,
+ * so "RedFire", "red_fire" and "R3dF1re" are all the same name.
+ */
+const LOOKALIKE = { 0: 'o', 1: 'i', l: 'i', 3: 'e', 4: 'a', 5: 's', 7: 't', 8: 'b' };
+export const usernameKey = name => name.trim().toLowerCase().replace(/_/g, '').replace(/[0134578l]/g, c => LOOKALIKE[c]);
+
+/** Reserve a unique username for this account (see usernameKey), releasing the account's previous name. */
 export async function claimUsername(uid, name) {
   name = name.trim();
   if (!USERNAME_RE.test(name)) throw new Error('3–16 letters, numbers or _');
-  const key = name.toLowerCase();
+  const key = usernameKey(name);
+  if (key.length < 3) throw new Error('Use at least 3 letters or numbers');
+  const legacyKey = name.toLowerCase();   // names claimed before lookalike checks were stored this way
   await runTransaction(db, async tx => {
     const ref = doc(db, 'usernames', key);
-    const snap = await tx.get(ref);
-    if (snap.exists() && snap.data().uid !== uid) throw new Error('That username is taken');
+    const legacyRef = doc(db, 'usernames', legacyKey);
+    const privRef = doc(db, 'private', uid);
+    const [snap, legacy, priv] = await Promise.all([tx.get(ref), tx.get(legacyRef), tx.get(privRef)]);
+    for (const s of [snap, legacy]) if (s.exists() && s.data().uid !== uid) throw new Error('That username is taken (or one that looks just like it)');
+    // free the name this account used before, so nobody can hoard names
+    const old = priv.exists() ? priv.data().username : null;
+    const oldRefs = old ? [...new Set([usernameKey(old), old.toLowerCase()])].filter(k => k !== key && k !== legacyKey).map(k => doc(db, 'usernames', k)) : [];
+    const oldSnaps = await Promise.all(oldRefs.map(r => tx.get(r)));   // every read before any write
+    oldSnaps.forEach((o, i) => { if (o.exists() && o.data().uid === uid) tx.delete(oldRefs[i]); });
     tx.set(ref, { uid, name });
-    tx.set(doc(db, 'private', uid), { username: name }, { merge: true });
+    tx.set(privRef, { username: name }, { merge: true });
   });
   return name;
 }

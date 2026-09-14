@@ -1,6 +1,7 @@
 import { ref, get, set, update, remove, onValue, push, serverTimestamp, onDisconnect } from 'firebase/database';
 import { doc, getDoc } from 'firebase/firestore';
 import { rtdb, db } from './firebase.js';
+import { usernameKey } from './save.js';
 
 /*
  * Profiles, friends and worlds (all in the Realtime Database).
@@ -41,8 +42,11 @@ export async function getPublicProfile(uid) {
 }
 
 export async function findUserByName(name) {
-  const snap = await getDoc(doc(db, 'usernames', name.trim().toLowerCase()));
-  return snap.exists() ? snap.data() : null;   // { uid, name }
+  for (const key of new Set([usernameKey(name), name.trim().toLowerCase()])) {
+    const snap = await getDoc(doc(db, 'usernames', key));
+    if (snap.exists()) return snap.data();   // { uid, name }
+  }
+  return null;
 }
 
 // ------------------------------------------------------------------ friends

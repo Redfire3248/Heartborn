@@ -8,6 +8,8 @@ export const CHANGELOG = [
       'Phone flicker: no blur layers, and the screen no longer blanks when the address bar moves',
       'Bigger homes take more land: House 2×2, Tenement 3×3, Arcology 4×4 (old homes keep their size)',
       'Event choices are no longer fixed: the same choice can turn out better or worse, luck and karma tip it',
+      'No two players can share a name, including lookalikes (RedFire / red_fire / R3dF1re); renaming frees your old name',
+      'Admin console: the suggestion list only opens once you type (Tab or Down on an empty line to browse)',
     ],
   },
   {

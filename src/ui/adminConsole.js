@@ -121,13 +121,17 @@ export class AdminConsole {
       this.run(line).catch(err => this.print(err.message, 'err'));
     } else if (e.key === 'Tab') {
       e.preventDefault();
+      if (!this.input.value.trim() && !menuOpen) { this.sugIndex = 0; this.refreshSuggestions(true); return; }
       this.accept();
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
       const dir = e.key === 'ArrowUp' ? -1 : 1;
-      if (menuOpen && this.input.value.trim()) {
+      if (menuOpen) {
         this.sugIndex = (this.sugIndex + dir + this.suggestions.length) % this.suggestions.length;
         this.renderMenu();
+      } else if (dir > 0 && !this.input.value.trim() && this.hIndex >= this.history.length) {
+        this.sugIndex = 0;
+        this.refreshSuggestions(true);   // ↓ on an empty line browses every command
       } else {
         this.hIndex = Math.max(0, Math.min(this.history.length, this.hIndex + dir));
         this.input.value = this.history[this.hIndex] || '';
@@ -189,14 +193,16 @@ export class AdminConsole {
     return spec[argIndex];
   }
 
-  refreshSuggestions() {
-    const { parts, current, cmdName, argIndex } = this.context();
+  refreshSuggestions(browse = false) {
+    const { value, parts, current, cmdName, argIndex } = this.context();
     const q = current.toLowerCase();
     let items = [];
     let hint = '';
     const cmd = COMMANDS[cmdName];
 
-    if (parts.length === 1) {
+    if (!value.trim() && !browse) {
+      // nothing typed: no menu until the player types (or asks with Tab / ↓)
+    } else if (parts.length === 1) {
       items = Object.entries(COMMANDS)
         .filter(([name]) => name.startsWith(q) && name !== q)
         .map(([name, c]) => ({ value: name, label: name, detail: c.desc }));
