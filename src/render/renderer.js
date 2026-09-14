@@ -245,6 +245,25 @@ export class Renderer {
     const gh = this.ghost;
     if (!gh) return;
     const { ctx } = this;
+    if (gh.demolish) {
+      // demolish box and every building inside it, in red
+      const { x0, y0, x1, y1 } = gh.box;
+      ctx.fillStyle = 'rgba(255,60,50,0.10)';
+      ctx.strokeStyle = 'rgba(255,120,110,0.9)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.fillRect(x0 * TILE, y0 * TILE, (x1 - x0 + 1) * TILE, (y1 - y0 + 1) * TILE);
+      ctx.strokeRect(x0 * TILE + 0.5, y0 * TILE + 0.5, (x1 - x0 + 1) * TILE - 1, (y1 - y0 + 1) * TILE - 1);
+      ctx.setLineDash([]);
+      for (const b of gh.demolish) {
+        const s = BUILDINGS[b.type].size;
+        ctx.fillStyle = 'rgba(255,50,40,0.35)';
+        ctx.strokeStyle = '#ff6a5a';
+        ctx.fillRect(b.tx * TILE, b.ty * TILE, s * TILE, s * TILE);
+        ctx.strokeRect(b.tx * TILE + 0.5, b.ty * TILE + 0.5, s * TILE - 1, s * TILE - 1);
+      }
+      return;
+    }
     const def = BUILDINGS[gh.type];
     if (gh.spots) {
       // build grid around the area, then every planned spot

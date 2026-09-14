@@ -8,7 +8,7 @@ import { TRAITS } from '../data/traits.js';
 import { JOBS, assignJob, displayRole } from '../game/villagers.js';
 import { DEEDS, runDeed, sacrificeVillager, exileVillager, smiteCreature } from '../game/deeds.js';
 import { maxHp } from '../game/creatures.js';
-import { rulerOf, rulerTypeOf, rulerTitle, setHeir, setCalling, encourage, ENCOURAGE, inventory, equipment, isTrained, crown } from '../game/dynasty.js';
+import { rulerOf, rulerTypeOf, rulerTitle, setHeir, setCalling, encourage, ENCOURAGE, inventory, equipment, isTrained, crown, addItem, takeItem } from '../game/dynasty.js';
 import { CALLINGS, RULER_TYPES, ITEMS } from '../data/people.js';
 import { accuse, punishTraitor, throwBomb, counterIntel, isSpy, hasMissiles, hasOrbital, MISSILE_COST } from '../game/intrigue.js';
 import { LAW_CATEGORIES, DEFAULT_LAWS, LAW_COST, describeEffects } from '../data/laws.js';
@@ -19,9 +19,11 @@ import { openRealmMap } from './realmMap.js';
 import { describeBuilding, effectBadges } from '../data/describe.js';
 import { Tutorial } from './tutorial.js';
 import { abilityOf, abilityCooldown, canUseAbility, useAbility } from '../game/abilities.js';
+import { hasOffice, employmentOf, setTarget, applyNow, applyPreset, moveWorkers, autoPick, bestForOffice, STAFFABLE, JOB_SKILL } from '../game/employment.js';
 import { empireOf, empirePower, empireTitle, empireAction, ACTIONS as EMPIRE_ACTIONS, PERSONALITIES, STATUS } from '../game/empire.js';
 import { openProfile, friendsPanel } from './social.js';
 import { installButton } from './screens.js';
+import { startItemDrag } from './itemDrag.js';
 import { BUILD, LATEST_CHANGES, checkLatest } from '../core/version.js';
 
 const TOP_RES = ['food', 'wood', 'stone', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];
@@ -62,7 +64,7 @@ export class HUD {
     game.on('log', e => this.toast(e));
     game.on('announce', t => this.announce(t));
     game.on('event', ev => this.showEvent(ev));
-    game.on('change', () => this.refreshPanel());
+    game.on('change', () => this.requestRefresh());
     game.on('scoutReport', r => this.showScoutReport(r));
     if (mp) {
       mp.on('chat', () => this.panel === 'world' && this.worldTab === 'chat' && this.refreshPanel());
@@ -197,7 +199,10 @@ export class HUD {
     const k = e.key.toLowerCase();
     if (k === 'v') { this.openMap(); return; }
     if (k === 'escape' && this.visiting) { this.onReturnHome(); return; }
-    if (k === 'escape') { if (this.buildType) this.cancelBuild(); else if (this.game.selected) this.select(null); else this.closePanel(); }
+    if (k === 'escape') { if (this.demolishMode) this.toggleDemolish(false); else if (this.buildType) this.cancelBuild(); else if (this.game.selected) this.select(null); else this.closePanel(); }
+    else if (k === 'x') this.toggleDemolish();
+    else if (k === 'r' && this.lastBuild) { if (this.game.canAfford(BUILDINGS[this.lastBuild].cost)) this.startBuild(this.lastBuild); else this.hint(`Not enough resources for another ${BUILDINGS[this.lastBuild].name}`, 1500); }
+    else if (k === '/') { e.preventDefault?.(); this.buildSearchFocused = true; if (this.panel === 'build') this.panelEl?.querySelector('.build-search')?.focus(); else this.openPanel('build'); }
     else if (k === 'b') this.togglePanel('build');
     else if (k === 'j') this.togglePanel('jobs');
     else if (k === 'c') this.togglePanel('court');
@@ -298,7 +303,57 @@ export class HUD {
     return { spots, valid, affordable };
   }
 
+  // ---- demolish tool (X): click a building or drag a box over many
+  toggleDemolish(on = !this.demolishMode) {
+    if (on) { this.cancelBuild(); this.select(null); }
+    this.demolishMode = on;
+    this.demolishDrag = null;
+    this.renderer.ghost = null;
+    this.planTip?.remove();
+    if (on) this.hint('🗑 Demolish — click a building or drag a box over many · X / Esc / right-click to stop');
+    else this.hintEl?.remove();
+  }
+
+  buildingsInBox(a, b) {
+    const x0 = Math.min(a.tx, b.tx), x1 = Math.max(a.tx, b.tx), y0 = Math.min(a.ty, b.ty), y1 = Math.max(a.ty, b.ty);
+    return this.game.state.buildings.filter(bd => {
+      const s = BUILDINGS[bd.type].size;
+      return bd.tx <= x1 && bd.tx + s - 1 >= x0 && bd.ty <= y1 && bd.ty + s - 1 >= y0;
+    });
+  }
+
+  demolishPreview(tx, ty) {
+    const d = this.demolishDrag;
+    const list = this.buildingsInBox(d.start, { tx, ty });
+    d.list = list;
+    this.renderer.ghost = { demolish: list, box: { x0: Math.min(d.start.tx, tx), y0: Math.min(d.start.ty, ty), x1: Math.max(d.start.tx, tx), y1: Math.max(d.start.ty, ty) } };
+    this.planTip?.remove();
+    if (list.length) {
+      this.planTip = h('div.plan-tip', h('b', `🗑 ${list.length} building${list.length === 1 ? '' : 's'}`), costChips(this.refundOf(list), this.game.state.resources), h('span.faint', 'back'));
+      this.root.append(this.planTip);
+    }
+  }
+
+  refundOf(list) {
+    const total = {};
+    for (const b of list) for (const [k, v] of Object.entries(BUILDINGS[b.type].cost)) total[k] = (total[k] || 0) + Math.floor(v * (b.built ? 0.4 : 0.8));
+    return total;
+  }
+
+  async demolishMany(list) {
+    if (!list.length) return;
+    const names = {};
+    for (const b of list) names[BUILDINGS[b.type].name] = (names[BUILDINGS[b.type].name] || 0) + 1;
+    const summary = Object.entries(names).map(([n, c]) => `${c}× ${n}`).join(', ');
+    const ok = list.length === 1 || await confirmModal(`Demolish ${list.length} buildings?`, `${summary}. You get back 40% of their cost (80% if unfinished).`, { okLabel: 'Demolish', okClass: 'danger' });
+    if (!ok) return;
+    for (const b of list) if (this.game.state.buildings.includes(b)) this.game.demolish(b);
+    if (this.game.selected?.kind === 'building' && !this.game.state.buildings.includes(this.game.selected.ref)) this.select(null);
+    this.hint(`Demolished ${list.length} building${list.length === 1 ? '' : 's'}`, 1600);
+  }
+
   onPlaceStart(tx, ty) {
+    if (this.demolishMode) { this.demolishDrag = { start: { tx, ty } }; this.demolishPreview(tx, ty); return; }
     if (!this.buildType) return;
     const start = this.anchorOf(this.buildType, tx, ty);
     this.placeDrag = { start };
@@ -306,6 +361,7 @@ export class HUD {
   }
 
   onPlaceMove(tx, ty) {
+    if (this.demolishMode) { if (this.demolishDrag) this.demolishPreview(tx, ty); return; }
     const d = this.placeDrag;
     if (!d || !this.buildType) return;
     const type = this.buildType;
@@ -327,6 +383,14 @@ export class HUD {
   }
 
   onPlaceEnd(tx, ty, shift) {
+    if (this.demolishMode) {
+      const dd = this.demolishDrag;
+      this.demolishDrag = null;
+      this.planTip?.remove();
+      this.renderer.ghost = null;
+      if (dd) { if (!dd.list) this.demolishPreview(tx, ty); this.renderer.ghost = null; this.demolishMany(dd.list || []); }
+      return;
+    }
     const d = this.placeDrag;
     this.placeDrag = null;
     this.planTip?.remove();
@@ -354,7 +418,9 @@ export class HUD {
   }
 
   startBuild(type) {
+    if (this.demolishMode) this.toggleDemolish(false);
     this.buildType = type;
+    this.lastBuild = type;
     this.select(null);
     this.hint(`Placing ${BUILDINGS[type].name} — click to build · drag to fill an area · Right-click/Esc to cancel`);
   }
@@ -383,6 +449,16 @@ export class HUD {
   togglePanel(id) { if (this.panel === id) this.closePanel(); else this.openPanel(id); }
 
   openPanel(id) {
+    // switching tabs inside the same dock group keeps the panel: no slide-in animation replay
+    if (this.panelEl && this.panel && groupOf(this.panel) && groupOf(this.panel) === groupOf(id)) {
+      this.friendsUnsub?.();
+      this.friendsUnsub = null;
+      this.panel = id;
+      this.els.dock[id]?.classList.add('on');
+      this.panelEl.querySelector('.side-body')?.scrollTo?.(0, 0);
+      this.refreshPanel();
+      return;
+    }
     this.closePanel();
     this.panel = id;
     this.els.dock[id]?.classList.add('on');
@@ -422,9 +498,25 @@ export class HUD {
         grp.tabs.map(([id, label]) => h(`button${id === this.panel ? '.on' : ''}`, { onclick: () => this.openPanel(id) }, label)),
         grp.map ? h('button', { onclick: () => this.openMap() }, '🗺 Realm Map') : null));
     }
-    this.panelEl.replaceChildren(...content.filter(Boolean));
-    const body = this.panelEl.querySelector('.side-body');
+    // rebuilt buttons under the pointer would replay their hover fade: no transitions for one frame
+    const panel = this.panelEl;
+    panel.classList.add('instant');
+    panel.replaceChildren(...content.filter(Boolean));
+    const body = panel.querySelector('.side-body');
     if (body) body.scrollTop = scroll;
+    requestAnimationFrame(() => requestAnimationFrame(() => panel.classList.remove('instant')));
+  }
+
+  /** Game-driven refresh: waits while the pointer is over the panel, so buttons don't flicker mid-click. */
+  requestRefresh() {
+    if (!this.panelEl) return;
+    if (!this.panelEl.matches(':hover')) { this.refreshPanel(); return; }
+    if (this.pendingRefresh) return;
+    this.pendingRefresh = true;
+    const panel = this.panelEl;
+    const run = () => { panel.removeEventListener('pointerleave', run); clearTimeout(timer); this.pendingRefresh = false; if (this.panelEl === panel) this.refreshPanel(); };
+    const timer = setTimeout(run, 1500);   // never wait too long
+    panel.addEventListener('pointerleave', run);
   }
 
   /** cheap refresh for panels whose numbers change constantly */
@@ -484,7 +576,10 @@ export class HUD {
     if (this.buildSearchFocused) setTimeout(() => { search.focus(); search.setSelectionRange(search.value.length, search.value.length); }, 0);
     search.addEventListener('focus', () => { this.buildSearchFocused = true; });
     search.addEventListener('blur', () => { this.buildSearchFocused = false; });
-    return [this.head('items/hammer', 'Build', `${ERAS[g.state.era].name} era`), tabs, h('div.build-search-row', search), body];
+    const tools = h('div.build-tools',
+      h(`button.btn.sm${this.demolishMode ? '.danger' : ''}`, { title: 'Click or drag a box over buildings to remove them (X)', onclick: () => { this.toggleDemolish(); this.refreshPanel(); } }, this.demolishMode ? '🗑 Demolishing… (X)' : '🗑 Demolish (X)'),
+      this.lastBuild && BUILDINGS[this.lastBuild] ? h('button.btn.sm', { title: 'Build it again (R)', onclick: () => this.startBuild(this.lastBuild) }, icon(`buildings/${this.lastBuild}`, 18), `Again (R)`) : null);
+    return [this.head('items/hammer', 'Build', `${ERAS[g.state.era].name} era`), tabs, h('div.build-search-row', search, tools), body];
   }
 
   /** What is still missing to reach an era: a checklist with progress. */
@@ -547,6 +642,27 @@ export class HUD {
     }
   }
 
+  /** Employment Office controls at the top of the jobs list (or a hint to build one). */
+  employmentCard() {
+    const g = this.game;
+    if (!hasOffice(g)) {
+      return h('div.law-cat.office-card',
+        h('div.row', icon('buildings/employment_office', 34), h('div', h('b', 'Employment Office'), h('div.faint', 'Build one (Village era) to set job targets: its clerks keep hundreds of people in the right jobs for you.'))));
+    }
+    const e = employmentOf(g);
+    const total = Object.values(e.targets).reduce((a, b) => a + b, 0);
+    const preset = (id, label) => h('button.btn.sm', { onclick: () => { const n = applyPreset(g, id); this.hint(`${label}: ${n} people changed jobs`, 1800); this.refreshPanel(); } }, label);
+    return h('div.law-cat.office-card.active',
+      h('div.row', icon('buildings/employment_office', 34),
+        h('div', { style: { flex: 1 } }, h('b', '📋 Employment Office'), h('div.faint', total ? `Targets for ${total} workers · everyone else gathers food` : 'No targets yet — type numbers in the boxes or pick a plan')),
+        h('label.toggle', h('input', { type: 'checkbox', checked: e.on, onchange: ev => { e.on = ev.target.checked; if (e.on) applyNow(g); this.refreshPanel(); } }), h('span', e.on ? 'On' : 'Off'))),
+      h('div.row', { style: { flexWrap: 'wrap', gap: '5px' } },
+        preset('balanced', '⚖ Balanced'), preset('food', '🍖 Food'), preset('industry', '⛏ Industry'), preset('builders', '🔨 Builders'), preset('clear', '✕ Clear')),
+      h('div.row',
+        h('button.btn.sm.primary', { onclick: () => { const n = applyNow(g); this.hint(`${n} people changed jobs`, 1500); this.refreshPanel(); } }, 'Apply now'),
+        h('span.faint', 'People you ordered by hand keep their jobs')));
+  }
+
   jobsPanel() {
     const g = this.game;
     this.jobsTab ??= 'jobs';
@@ -570,19 +686,31 @@ export class HUD {
         ? h('div.law.active', h('div', h('b', `Steward ${steward.name} manages jobs`), h('div.faint', `${manual} villager${manual === 1 ? '' : 's'} follow your personal orders instead.`)),
           manual ? h('button.btn.sm', { onclick: () => { for (const v of adults) v.manual = false; g._courtTimers = {}; g.emit('change'); } }, 'Hand all to Steward') : null)
         : h('div.faint', 'Tip: appoint a Steward in the Court (C) and jobs will be assigned for you.'));
+      body.append(this.employmentCard());
+      const office = hasOffice(g);
+      const targets = employmentOf(g).targets;
+      const step = e => (e.ctrlKey || e.metaKey ? 100 : e.shiftKey ? 10 : 1);
+      body.append(h('div.faint.job-help', 'Click − / + for 1 · Shift-click for 10 · Ctrl-click for 100 · ⭐ picks the best person for the job'));
       for (const [job, def] of Object.entries(JOBS)) {
         if (job === 'idle') continue;
         const workers = adults.filter(v => v.job === job);
+        const target = h('input.input.job-target', {
+          type: 'number', min: 0, placeholder: 'auto', value: targets[job] ?? '', title: 'Target: the office keeps this many people in this job',
+          onchange: e => { setTarget(g, job, e.target.value); applyNow(g); this.refreshPanel(); },
+        });
         body.append(h('div.job-row',
           icon(def.icon, 36),
           h('div', h('div', { style: { fontWeight: 700 } }, def.label), h('div.faint', def.desc)),
-          h('div.stepper',
-            h('button', { title: 'Remove one', onclick: () => { const v = workers[workers.length - 1]; if (v) assignJob(g, v, 'idle'); } }, '−'),
-            h('span.count', workers.length),
-            h('button', { title: 'Add an idle villager', onclick: () => {
-              const v = adults.find(x => x.job === 'idle') || adults.find(x => x.job === 'gather' && job !== 'gather');
-              if (v) assignJob(g, v, job); else this.hint('No idle villagers available', 1500);
-            } }, '+'))));
+          h('div.job-controls',
+            h('div.stepper',
+              h('button', { title: 'Remove (Shift ×10, Ctrl ×100)', onclick: e => { const n = moveWorkers(g, job, -step(e)); if (!n) this.hint(`Nobody works as ${def.label}`, 1200); } }, '−'),
+              h('span.count', workers.length),
+              h('button', { title: 'Add (Shift ×10, Ctrl ×100)', onclick: e => { const n = moveWorkers(g, job, step(e)); if (!n) this.hint(g.lastJobError || 'Nobody available', 1500); } }, '+')),
+            h('button.btn.sm.auto-pick', {
+              title: `Auto pick: move the most skilled person into ${def.label}`,
+              onclick: () => { const v = autoPick(g, job); this.hint(v ? `⭐ ${v.name} (${JOB_SKILL[job] || 'skill'} ${Math.floor(v.skills[JOB_SKILL[job]] || 0)}) is now a ${def.label}` : 'Nobody available', 1800); },
+            }, '⭐'),
+            office && STAFFABLE.includes(job) ? target : null)));
       }
     } else {
       for (const v of [...g.state.villagers].sort((a, b) => b.age - a.age)) {
@@ -656,7 +784,15 @@ export class HUD {
           },
         }, h('option', { value: '' }, '— Appoint a villager —'),
         adults.filter(v => !v.office).map(v => h('option', { value: v.id }, `${v.name} (${Math.floor(v.age)}${v.traits.length ? ', ' + v.traits.map(t => TRAITS[t]?.label).join(', ') : ''})`)));
-        card.append(pick);
+        card.append(h('div.row', pick, h('button.btn.sm.primary', {
+          title: 'Auto pick: appoint the best person for this office',
+          onclick: () => {
+            const v = bestForOffice(g, key);
+            if (!v) { this.hint('Nobody can serve right now', 1500); return; }
+            const r = appoint(g, key, v);
+            this.hint(r.error || `⭐ ${v.name} appointed ${OFFICES[key].name}`, 1800);
+          },
+        }, '⭐ Auto pick')));
       }
       body.append(card);
     }
@@ -982,25 +1118,33 @@ export class HUD {
         this.refreshPanel();
       },
     }, '☁ Save now');
+    const item = (ic, label, onclick) => h('button.set-item', { onclick }, h('span.set-icon', ic), h('span', label), h('span.set-arrow', '›'));
+    const danger = h('details.set-danger',
+      h('summary', 'Danger zone'),
+      h('div.faint', 'Abandoning deletes this village forever and three new humans start over.'),
+      h('button.btn.danger.sm', { onclick: async () => { if (await confirmModal('Abandon village?', 'Your village will be lost forever and three new humans will start over.', { okLabel: 'Abandon', okClass: 'danger' })) this.onRestart(); } }, 'Abandon village'));
+    const install = installButton('button.set-item');
     body.append(
-      h('div.user-pill', avatar(g.state.owner.name, 38),
-        h('div', h('div', { style: { fontWeight: 700 } }, g.state.owner.name), h('div.faint', g.state.owner.villageName))),
-      h('div.row', saveBtn, h('span.faint', this.lastSavedAt ? `Last saved ${timeAgo(this.lastSavedAt)}` : 'Autosaves every 30s')),
+      h('div.set-card',
+        h('div.user-pill', avatar(g.state.owner.name, 38),
+          h('div', h('div', { style: { fontWeight: 700 } }, g.state.owner.name), h('div.faint', `${g.state.owner.villageName} · founded ${new Date(g.state.createdAt).toLocaleDateString()}`))),
+        h('div.row', saveBtn, h('span.faint', this.lastSavedAt ? `Last saved ${timeAgo(this.lastSavedAt)}` : 'Autosaves every 30s'))),
+      h('div.set-list',
+        item('👤', 'My profile', () => this.showProfile({ uid: this.user.uid, name: this.username })),
+        item('🌍', 'Switch world', () => this.onSwitchWorld?.()),
+        item('🎓', 'Restart tutorial', () => { this.tutorial.restart(); this.closePanel(); }),
+        install,
+        item('🚪', 'Sign out', this.onSignOut)),
       h('h3', 'Controls'),
-      h('div.faint', { html: 'Drag / WASD — move camera<br>Scroll / Q E — zoom<br>Click — select · Right-click — cancel<br>B build · J people · K rule · L chronicle · M world · H home' + (this.isAdmin ? '<br>F2 — admin console' : '') + '' }),
-      h('h3', 'Village'),
-      h('div.faint', `${g.state.owner.villageName} · founded ${new Date(g.state.createdAt).toLocaleDateString()} · seed ${g.state.seed}`),
-      h('div.row',
-        h('button.btn.danger.sm', { onclick: async () => { if (await confirmModal('Abandon village?', 'Your village will be lost forever and three new humans will start over.', { okLabel: 'Abandon', okClass: 'danger' })) this.onRestart(); } }, 'Abandon village'),
-        h('div.spacer'),
-        h('button.btn.sm', { onclick: () => this.onSwitchWorld?.() }, '🌍 Switch world'),
-        h('button.btn.sm', { onclick: this.onSignOut }, 'Sign out')),
-      h('div.row', { style: { flexWrap: 'wrap' } },
-        h('button.btn.sm', { onclick: () => this.showProfile({ uid: this.user.uid, name: this.username }) }, '👤 My profile'),
-        h('button.btn.sm', { onclick: () => { this.tutorial.restart(); this.closePanel(); } }, '🎓 Restart tutorial'),
-        installButton()),
+      h('div.keys',
+        ...[['Drag / WASD', 'Move camera'], ['Scroll / Q E', 'Zoom'], ['Right-click / Esc', 'Cancel'], ['B J K M', 'Build · People · Rule · World'],
+          ['X', 'Demolish tool'], ['R', 'Build the last building again'], ['/', 'Search buildings'], ['H', 'Jump home'], ...(this.isAdmin ? [['F2', 'Admin console']] : [])]
+          .map(([k, d]) => h('div.key-row', h('kbd', k), h('span.faint', d)))),
       h('h3', 'Version'),
-      this.versionRow());
+      this.versionRow(),
+      danger);
+    // the install entry gets the same look as the other rows
+    install.replaceChildren(h('span.set-icon', '📲'), h('span', 'Install app'), h('span.set-arrow', '›'));
     return [this.head('items/save', 'Save & Settings'), body];
   }
 
@@ -1052,6 +1196,33 @@ export class HUD {
     this.inspector.replaceChildren(h('button.btn.icon.ghost.close', { onclick: () => this.select(null) }, '✕'), ...content.filter(x => x != null && x !== false));
   }
 
+  /** Pick an item out of a villager's pack and hand it to someone else on the map. */
+  dragItem(e, from, key, count) {
+    const g = this.game;
+    startItemDrag(e, {
+      iconKey: ITEMS[key]?.icon || 'items/relic',
+      count,
+      findTarget: (sx, sy) => {
+        if (document.elementFromPoint(sx, sy)?.closest('#ui > *:not(.drag-keychain)')) return null;   // over a panel, not the map
+        const w = this.renderer.screenToWorld(sx, sy);
+        let best = null, bd = TILE * 0.9;
+        for (const v of g.state.villagers) {
+          if (v === from || v.away) continue;
+          const d = Math.hypot(v.x - w.x, v.y - TILE * 0.4 - w.y);
+          if (d < bd) { bd = d; best = v; }
+        }
+        return best;
+      },
+      onDrop: to => {
+        if (!takeItem(from, key)) return;
+        addItem(to, key, 1);
+        g.float(to.x, to.y - TILE, `+1 ${ITEMS[key]?.label || key}`, '#ffd76a');
+        g.log(`${from.name} gave ${to.name} a ${ITEMS[key]?.label || key}.`, 'info');
+        this.updateInspector(true);
+      },
+    });
+  }
+
   inspect_villager(v) {
     const g = this.game;
     const role = displayRole(v);
@@ -1099,7 +1270,10 @@ export class HUD {
       h('div.inv', slot('Tool', eq.tool), slot('Weapon', eq.weapon), slot('Armor', eq.armor),
         h('div.inv-slot', { title: 'Wages earned from work' }, h('b', { style: { color: 'var(--gold)', fontSize: '16px' } }, inv.coins), h('span', 'Coins'))),
       h('div.traits', Object.keys(inv.pack).length
-        ? Object.entries(inv.pack).map(([k, n]) => h('span.chip', { title: ITEMS[k]?.desc || '' }, icon(ITEMS[k]?.icon || 'items/relic', 16), `${ITEMS[k]?.label || k} ×${n}`))
+        ? Object.entries(inv.pack).map(([k, n]) => h('span.chip.pack-item', {
+          title: `${ITEMS[k]?.desc || ''}${ITEMS[k]?.desc ? ' · ' : ''}Drag onto another villager to give it`,
+          onpointerdown: e => this.dragItem(e, v, k, n),
+        }, icon(ITEMS[k]?.icon || 'items/relic', 16), `${ITEMS[k]?.label || k} ×${n}`))
         : h('span.faint', 'Pack is empty')),
       v.kills ? h('div.faint', `⚔ ${v.kills} foes defeated`) : null,
 
@@ -1194,6 +1368,10 @@ export class HUD {
       this.abilityCard(b),
       h('ul.effects', describeBuilding(b.type).filter(e => !e.text.startsWith('Ability')).map(e => h(`li${e.good ? '' : '.warn'}`, h('span', e.icon), e.text))),
       h('div.row', h('div.spacer'),
+        (() => {
+          const same = g.state.buildings.filter(x => x.type === b.type);
+          return same.length > 1 ? h('button.btn.sm.ghost', { title: `Demolish every ${def.name}`, onclick: () => this.demolishMany(same) }, `🗑 All ${same.length}`) : null;
+        })(),
         h('button.btn.sm.danger', { onclick: async () => {
           if (await confirmModal(`Demolish ${def.name}?`, `You get back ${b.built ? '40%' : '80%'} of its cost.`, { okLabel: 'Demolish', okClass: 'danger' })) { g.demolish(b); this.select(null); }
         } }, 'Demolish')),

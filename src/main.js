@@ -1,4 +1,4 @@
-import { loadAssets, spriteAvailable } from './core/assets.js';
+import { loadAssets, spriteAvailable, allAssetsReady } from './core/assets.js';
 import { setPeopleSprites } from './data/objects.js';
 import { setupPWA } from './core/pwa.js';
 import { AUTOSAVE_SECONDS, OFFLINE_CAP_SECONDS, OFFLINE_PROGRESS, TILE, DAY_LENGTH } from './core/constants.js';
@@ -101,6 +101,7 @@ function showTitle() {
 
 async function enterGame(user) {
   if (!user) throw new Error('Please sign in first');
+  await allAssetsReady();   // usually finished already: the rest of the art loads while you are on the title screen
   const ban = await getBan(user.uid);
   if (ban) {
     bannedScreen(ban, async () => { await signOut(); location.reload(); });
@@ -192,11 +193,11 @@ function startGame(user, game, { online = true } = {}) {
     app.input = new Input(canvas, renderer, {
       onHover: (tx, ty) => app.hud?.onHover(tx, ty),
       onClick: (w, tx, ty) => { if (!app.visit) app.hud?.onClick(w, tx, ty, app.input.keys.has('shift')); },
-      isPlacing: () => !app.visit && !!app.hud?.buildType,
+      isPlacing: () => !app.visit && (!!app.hud?.buildType || !!app.hud?.demolishMode),
       onPlaceStart: (tx, ty) => app.hud?.onPlaceStart(tx, ty),
       onPlaceMove: (tx, ty) => app.hud?.onPlaceMove(tx, ty),
       onPlaceEnd: (tx, ty) => app.hud?.onPlaceEnd(tx, ty, app.input.keys.has('shift')),
-      onRightClick: () => { if (app.hud?.buildType) app.hud.cancelBuild(); else app.hud?.select(null); },
+      onRightClick: () => { if (app.hud?.demolishMode) app.hud.toggleDemolish(false); else if (app.hud?.buildType) app.hud.cancelBuild(); else app.hud?.select(null); },
       onKey: e => app.hud?.onKey(e),
     });
   }

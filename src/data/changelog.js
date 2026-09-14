@@ -1,6 +1,21 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Quality of life',
+    changes: [
+      'Employment Office: set job targets and plans (Balanced, Food, Industry, Builders); clerks keep hundreds of people in the right jobs',
+      'Jobs: Shift-click ±10, Ctrl-click ±100, ⭐ auto-picks the most skilled person; Court offices have ⭐ Auto pick too',
+      'Drag items between villagers — they swing on a keychain under your cursor',
+      'Much faster loading: sprites are 4× smaller and the title appears before all art has loaded',
+      'Admin: person (spawn villagers with any stats), item (give items)',
+      'Demolish tool (X): click a building or drag a box to remove many at once',
+      '“🗑 All” button removes every building of a type',
+      'R builds your last building again, / searches buildings',
+      'Settings tidied into one list; Abandon village moved into a Danger zone',
+      'Buttons no longer flicker or fade while the game updates',
+    ],
+  },
+  {
     title: 'People of every profession',
     changes: [
       'New sprites for every job, as a man and a woman: gatherer, woodcutter, miner, farmer, fisher, hunter, builder, smith, spy, recruit, warrior, scout, explorer',

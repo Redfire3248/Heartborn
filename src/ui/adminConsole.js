@@ -9,6 +9,10 @@ import { BUILDINGS as BUILDING_DEFS } from '../data/buildings.js';
 import { BUILD, checkLatest } from '../core/version.js';
 import { CHANGELOG } from '../data/changelog.js';
 import { empireOf, empirePower, empireTitle, empireEvent, dailyEmpire } from '../game/empire.js';
+import { ITEMS, CALLINGS } from '../data/people.js';
+import { TRAITS } from '../data/traits.js';
+import { JOBS, assignJob } from '../game/villagers.js';
+import { addItem } from '../game/dynasty.js';
 
 const BUILDINGS = BUILDING_DEFS;
 
@@ -29,6 +33,7 @@ const ARG_SPECS = {
   spawn: ['creature', 'number', 'target'], warband: ['number', 'number'], ban: ['player', 'text'], unban: ['player'],
   reset: ['player', ['confirm']], chat: [['15', 'clear', 'del']], skip: ['number'], era: [['up', '0', '1', '2', '3']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
+  item: ['item', 'number', 'villager'], person: ['number', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
   build: ['building', 'number'], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], 'number'],
 };
 
@@ -154,6 +159,16 @@ export class AdminConsole {
       case 'player': return [me, ...players];
       case 'target': return [me, { value: 'all', label: 'all', detail: 'every online player' }, ...players];
       case 'res': return [{ value: '*', label: '*', detail: 'every resource' }, ...RESOURCES.map(r => ({ value: r, label: r, detail: 'resource' }))];
+      case 'item': return [{ value: 'list', label: 'list', detail: 'show every item' }, ...Object.entries(ITEMS).map(([k, i]) => ({ value: k, label: k, detail: i.label }))];
+      case 'villager': return [{ value: 'selected', label: 'selected', detail: 'the villager you clicked' }, { value: 'all', label: 'all', detail: 'everyone' },
+        ...this.game.state.villagers.slice(0, 200).map(v => ({ value: v.name, label: v.name, detail: `${v.job} · ${Math.floor(v.age)}` }))];
+      case 'personopt': return [
+        ...['name=', 'sex=m', 'sex=f', 'age=25', 'skills=10', 'trained', 'hp=100', 'happy=100'].map(o => ({ value: o, label: o, detail: 'option' })),
+        ...Object.keys(JOBS).map(j => ({ value: `job=${j}`, label: `job=${j}`, detail: JOBS[j].label })),
+        ...['combat', 'build', 'mine', 'chop', 'farm', 'craft', 'stealth'].map(s => ({ value: `${s}=10`, label: `${s}=10`, detail: 'skill' })),
+        ...Object.keys(CALLINGS).map(c => ({ value: `calling=${c}`, label: `calling=${c}`, detail: 'calling' })),
+        ...Object.keys(TRAITS).map(t => ({ value: `traits=${t}`, label: `traits=${t}`, detail: TRAITS[t].label })),
+      ];
       case 'building': return Object.entries(BUILDINGS).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${ERAS[d.era].name}` }));
       case 'creature': return Object.entries(CREATURES).map(([k, d]) => ({ value: k, label: k, detail: d.hostile ? `hostile · ${d.hp} hp` : 'animal' }));
       case 'event': return [{ value: 'list', label: 'list', detail: 'show all events' }, ...EVENTS.map(ev => ({ value: ev.id, label: ev.id, detail: ev.title }))];
@@ -499,6 +514,59 @@ const COMMANDS = {
       this.game.recalc();
       this.game.emit('change');
       this.print(`✓ ${count} villager(s) joined`, 'ok');
+    },
+  },
+
+  person: {
+    usage: 'person [count] [name=Ada] [sex=m|f] [age=30] [job=mine] [skills=8] [combat=10 …] [traits=brave,strong] [calling=soldier] [trained] [hp=100]',
+    desc: 'Spawn villagers with the stats you choose',
+    run(args) {
+      const g = this.game;
+      const count = /^\d+$/.test(args[0] || '') ? Math.max(1, Number(args.shift())) : 1;
+      const opts = {};
+      for (const a of args) {
+        const [k, ...rest] = a.split('=');
+        opts[k.toLowerCase()] = rest.length ? rest.join('=') : true;
+      }
+      const made = [];
+      for (let i = 0; i < count; i++) {
+        const v = g.addWanderer({ child: opts.age != null && Number(opts.age) < 12 });
+        if (opts.name) v.name = count > 1 ? `${opts.name} ${i + 1}` : String(opts.name);
+        if (opts.sex === 'm' || opts.sex === 'f') v.sex = opts.sex;
+        if (opts.age != null) v.age = Math.max(0, Number(opts.age) || 0);
+        if (opts.skills != null) for (const s of Object.keys(v.skills)) v.skills[s] = Number(opts.skills) || 0;
+        for (const s of Object.keys(v.skills)) if (opts[s] != null) v.skills[s] = Number(opts[s]) || 0;
+        if (opts.traits) v.traits = String(opts.traits).split(',').filter(t => TRAITS[t]);
+        if (opts.calling && CALLINGS[opts.calling]) v.calling = opts.calling;
+        if (opts.trained) v.trained = true;
+        if (opts.hp != null) v.hp = Math.max(1, Math.min(100, Number(opts.hp) || 100));
+        if (opts.happy != null) v.happy = Math.max(0, Math.min(100, Number(opts.happy) || 0));
+        if (opts.job && JOBS[opts.job]) assignJob(g, v, opts.job, true);   // not a "personal order": the Steward/office may still move them
+        made.push(v);
+      }
+      const bad = Object.keys(opts).filter(k => !['name', 'sex', 'age', 'skills', 'traits', 'calling', 'trained', 'hp', 'happy', 'job'].includes(k) && !(k in made[0].skills));
+      g.recalc();
+      g.emit('change');
+      this.print(`✓ spawned ${made.length}: ${made.slice(0, 5).map(v => `${v.name} (${v.sex}, ${Math.floor(v.age)}, ${v.job})`).join(', ')}${made.length > 5 ? '…' : ''}`, 'ok');
+      if (bad.length) this.print(`ignored unknown options: ${bad.join(', ')} — skills are ${Object.keys(made[0].skills).join(', ')}; traits: ${Object.keys(TRAITS).join(', ')}`, 'warn');
+    },
+  },
+  item: {
+    usage: 'item <item> [count] [villager name | all | selected]', desc: 'Drop items into villagers’ packs',
+    run([key, count = '1', ...who]) {
+      const g = this.game;
+      if (!key || key === 'list') { this.table(Object.entries(ITEMS).map(([k, i]) => ({ item: k, name: i.label, does: i.desc || i.slot || '' })), ['item', 'name', 'does']); return; }
+      if (!ITEMS[key]) throw new Error(`unknown item (item list): ${Object.keys(ITEMS).join(', ')}`);
+      const n = Math.max(1, Math.floor(Number(count) || 1));
+      const target = who.join(' ').toLowerCase() || 'selected';
+      let people;
+      if (target === 'all') people = g.state.villagers;
+      else if (target === 'selected') people = g.selected?.kind === 'villager' ? [g.selected.ref] : [];
+      else people = g.state.villagers.filter(v => v.name.toLowerCase() === target || v.name.toLowerCase().startsWith(target)).slice(0, 1);
+      if (!people.length) throw new Error(target === 'selected' ? 'click a villager first, or name one: item potion 3 Ada' : `no villager called "${target}"`);
+      for (const v of people) addItem(v, key, n);
+      g.emit('change');
+      this.print(`✓ ${n} × ${ITEMS[key].label} → ${people.length === 1 ? people[0].name : `${people.length} villagers`}`, 'ok');
     },
   },
 

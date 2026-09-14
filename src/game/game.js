@@ -13,6 +13,7 @@ import { updateWar, maybeScheduleWarband } from './war.js';
 import { updateCourt } from './court.js';
 import { dailyTraitors, dailyMachines, updateBombDefense } from './intrigue.js';
 import { dailyEmpire } from './empire.js';
+import { updateEmployment } from './employment.js';
 import { dailyPeople, ensureRuler, rulerEffects, carriedLuck } from './dynasty.js';
 import { LAW_CATEGORIES, NO_LAW_EFFECTS, DEFAULT_LAWS, LAW_COST, lawOption } from '../data/laws.js';
 
@@ -76,6 +77,7 @@ export class Game {
     for (const c of [...s.creatures]) updateCreature(this, c, dt);
     updateWar(this, dt);
     updateCourt(this, dt);
+    updateEmployment(this, dt);
     updateBombDefense(this, dt);
 
     if (!this.offline && !this.pendingEvent && s.time >= s.nextEventAt) this.triggerRandomEvent();

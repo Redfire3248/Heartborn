@@ -79,6 +79,7 @@ export const BUILDINGS = {
   workshop:        { name: 'Workshop',         era: 0, size: 1, cost: { wood: 20 },                         work: 14, storage: 60, bonus: { build: 0.15 }, desc: 'Tools and benches: builders work 15% faster, +60 storage.' },
 
   // ---- Civic
+  employment_office: { name: 'Employment Office', era: 1, size: 2, cost: { wood: 50, stone: 20 },            work: 26, desc: 'Clerks keep the jobs you want staffed: set a target for each job and they move people for you.' },
   town_hall:       { name: 'Town Hall',        era: 1, size: 2, cost: { wood: 60, stone: 40 },              work: 36, influence: 2, happy: 4, desc: 'Seat of the Court. +2 influence a day. Unlocks the Treasurer.' },
   courthouse:      { name: 'Courthouse',       era: 2, size: 2, cost: { stone: 70, gold: 10 },              work: 36, karma: 0.2, happy: 3, lawful: true, desc: 'Justice for all: greedy villagers stop stealing, karma slowly rises.' },
   jail:            { name: 'Jail',             era: 2, size: 1, cost: { stone: 40, iron: 5 },               work: 22, defense: 2, lawful: true, desc: 'Thieves think twice: no more stolen gold.' },
@@ -165,7 +166,7 @@ const CAT = {
   food: 'farm windmill fishing_hut harbor orchard pasture hunters_lodge apiary bakery brewery',
   industry: 'lumber_mill mine_entrance blacksmith quarry charcoal_kiln smelter carpenter',
   military: 'barracks watchtower wall_wood gate_wood wall_stone gate_stone craft_hut weaponsmith armory training_ground guard_post siege_workshop stone_tower fortress',
-  civic: 'well market tavern stable healer_hut school town_hall courthouse jail inn bathhouse hospital bank prison embassy secret_vault tenement clock_tower railway_station museum hospital_modern holo_park cloning_vat arcology',
+  civic: 'employment_office well market tavern stable healer_hut school town_hall courthouse jail inn bathhouse hospital bank prison embassy secret_vault tenement clock_tower railway_station museum hospital_modern holo_park cloning_vat arcology',
   intrigue: 'spy_den powder_mill cannon_tower missile_silo radar_array drone_hub shield_generator orbital_cannon bunker airfield tank_factory mech_bay',
   science: 'printing_press research_lab telegraph_office academy_of_science ai_core',
   industry2: 'factory steel_mill power_plant fusion_reactor robot_factory vertical_farm hyperloop spaceport',

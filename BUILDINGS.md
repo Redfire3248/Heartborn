@@ -1,6 +1,6 @@
 # Heartborn – Building Guide
 
-All 105 buildings, generated from the game data (`node tools/building_guide.mjs`).
+All 106 buildings, generated from the game data (`node tools/building_guide.mjs`).
 Every building also explains itself in the game: in the Build menu and when you click it.
 
 ## Primitive era
@@ -69,6 +69,7 @@ Every building also explains itself in the game: in the Build menu and when you 
 | Building | Size | Cost | What it does |
 |---|---|---|---|
 | **Well** | 1×1 | 20 stone | Clean water: fewer sicknesses, happier villagers.<br>💧 Ability — Draw Clean Water: Scrub the village with clean water: cures most sickness.<br>😊 +5 happiness for everyone<br>❤ Fewer sicknesses (health +0.5)<br>🏛 Required to reach the Town era |
+| **Employment Office** | 2×2 | 50 wood, 20 stone | Clerks keep the jobs you want staffed: set a target for each job and they move people for you.<br>📋 Ability — Job Fair: Everyone without personal orders is re-hired to match your job targets right now, and the most skilled person gets each post. |
 | **Town Hall** | 2×2 | 60 wood, 40 stone | Seat of the Court. +2 influence a day. Unlocks the Treasurer.<br>💰 Ability — Collect Taxes: Collect gold from every villager. People grumble.<br>☀ +2 influence every day<br>😊 +4 happiness for everyone<br>👑 Unlocks the Treasurer office |
 | **Inn** | 1×1 | 40 wood, 10 stone | Travellers rest here and often decide to stay.<br>🛏 Ability — Welcome Travellers: Advertise free rooms: wanderers arrive — one might be a thief.<br>🏠 Houses 2 people<br>😊 +5 happiness for everyone<br>🚶 More wanderers join your people |
 

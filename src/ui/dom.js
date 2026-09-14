@@ -32,9 +32,10 @@ function append(el, children) {
 }
 
 export function icon(key, size = 24, cls = 'sprite') {
-  const img = h('img', { src: iconUrl(key), width: size, height: size, className: cls, alt: '', draggable: false });
-  // if the sprite wasn't loaded yet (placeholder), try the real file once it's ready
-  if (img.src.startsWith('data:') && spriteAvailable(key)) {
+  const loaded = iconUrl(key);
+  const img = h('img', { src: loaded || '', width: size, height: size, className: cls, alt: '', draggable: false });
+  // sprite not loaded yet (or only a placeholder): point straight at the real file
+  if ((!loaded || loaded.startsWith('data:')) && spriteAvailable(key)) {
     img.onerror = () => { img.onerror = null; img.src = iconUrl(key); };
     img.src = `${import.meta.env.BASE_URL}assets/${key}.png`;
   }

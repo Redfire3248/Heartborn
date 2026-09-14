@@ -150,13 +150,13 @@ export function updateCourt(g, dt) {
 }
 
 /** Adults the court may reassign: not officials, not away, not given manual orders. */
-function managed(g, { keepWarriors = true, keepScouts = true } = {}) {
+export function managed(g, { keepWarriors = true, keepScouts = true } = {}) {
   return g.state.villagers.filter(v => v.age >= ADULT_AGE && !v.away && !v.office && !v.ruling && !v.manual && v.hp > 0 && v.job !== 'recruit'
     && !(keepWarriors && v.job === 'warrior') && !(keepScouts && v.job === 'scout') && !v.prevJob);
 }
 
 /** Give each job its target count, moving as few people as possible. */
-function distribute(g, pool, targets) {
+export function distribute(g, pool, targets) {
   const want = { ...targets };
   const unplaced = [];
   for (const v of pool) {
@@ -181,6 +181,8 @@ const RUN = {
   steward(g, c) {
     const s = g.state;
     if (s.rallied) return;
+    // the Employment Office's job targets take priority over the Steward's own plan
+    if (g.hasBuilding('employment_office') && s.employment?.on && Object.values(s.employment.targets || {}).some(n => n > 0)) return;
     const pool = managed(g);
     if (!pool.length) return;
     const pop = s.villagers.length;

@@ -51,26 +51,39 @@ async function loadOne(key) {
   return null;
 }
 
-export async function loadAssets(onProgress) {
-  const keys = allSpriteKeys();
-  let done = 0;
-  const finish = () => { done++; onProgress?.(done / keys.length); };
-  const queue = keys.filter(key => {
-    if (AVAILABLE.has(key)) return true;
-    images.set(key, entry(placeholder(key)));   // sheet not sliced yet: no network request
-    finish();
-    return false;
-  });
+// What the title screen needs: ground, trees, a few people and homes. Everything else loads behind it.
+const PRIORITY = key => key.startsWith('nature/') || /^(characters\/(man|woman|child|elder)|buildings\/(tent|stockpile|campfire|castle)|items\/(scroll|war)|people\/)/.test(key);
+
+let restReady = Promise.resolve();
+/** Resolves once every sprite (not just the title-screen ones) has loaded. */
+export const allAssetsReady = () => restReady;
+
+async function download(keys, onEach, workers) {
+  const queue = [...keys];
   // a limited number of downloads at once is faster and far more reliable than hundreds together
   const worker = async () => {
     for (let key = queue.shift(); key; key = queue.shift()) {
       const img = await loadOne(key);
       images.set(key, entry(img || placeholder(key)));
       if (!img) retryLater(key);
-      finish();
+      onEach?.();
     }
   };
-  await Promise.all(Array.from({ length: 12 }, worker));
+  await Promise.all(Array.from({ length: workers }, worker));
+}
+
+/** Loads the title-screen sprites (awaited), then keeps loading the rest in the background. */
+export async function loadAssets(onProgress) {
+  const keys = allSpriteKeys();
+  const wanted = keys.filter(key => {
+    if (AVAILABLE.has(key)) return true;
+    images.set(key, entry(placeholder(key)));   // sheet not sliced yet: no network request
+    return false;
+  });
+  const first = wanted.filter(PRIORITY), rest = wanted.filter(k => !PRIORITY(k));
+  let done = 0;
+  await download(first, () => onProgress?.(++done / first.length), 16);
+  restReady = download(rest, null, 10).then(() => { version++; });   // redraw cached terrain/icons once all art is in
 }
 
 function retryLater(key, delay = 4000) {

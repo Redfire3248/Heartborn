@@ -4,6 +4,7 @@ import { BUILDINGS } from '../data/buildings.js';
 import { CREATURES } from '../data/objects.js';
 import { killVillager } from './villagers.js';
 import { blast, damageBuilding } from './intrigue.js';
+import { applyNow } from './employment.js';
 
 /*
  * Building abilities: every important building has its own action with a cooldown.
@@ -144,6 +145,16 @@ export const ABILITIES = {
     use(g) {
       if (lucky(g, 0.5)) { buff(g, 'invention', { work: 0.2 }, 2); g.addResource('science', 5); return 'A clever new tool! +20% work for 2 days, +5 science.'; }
       g.addResource('wood', -10); return 'The invention exploded in a cloud of sawdust. −10 wood.';
+    },
+  },
+  employment_office: {
+    name: 'Job Fair', icon: '📋', cooldown: 1,
+    desc: 'Everyone without personal orders is re-hired to match your job targets right now, and the most skilled person gets each post.',
+    use(g) {
+      for (const v of g.state.villagers) v.manual = false;
+      const moved = applyNow(g);
+      cheer(g, 3);
+      return moved ? `${moved} people changed jobs to match your targets.` : 'Everyone already works where you want them. (+3 happiness)';
     },
   },
   town_hall: {
