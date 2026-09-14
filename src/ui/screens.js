@@ -47,7 +47,6 @@ export function loginScreen({ user, onSignIn, onEmailSignIn, onCreateAccount, on
   const card = h('div.card.login-card');
   const root = h('div.screen.login',
     h('div.logo',
-      h('img.logo-mark', { src: 'icons/icon-192.png', alt: '' }),
       h('h1', 'HEARTBORN'),
       h('div.tagline', 'Three humans. One fire. Every choice builds a civilization.')),
     card,
