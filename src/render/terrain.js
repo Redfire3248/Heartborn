@@ -1,5 +1,5 @@
 import { TILE } from '../core/constants.js';
-import { sprite } from '../core/assets.js';
+import { sprite, spriteVersion } from '../core/assets.js';
 import { TILES } from '../game/world.js';
 
 /*
@@ -43,13 +43,15 @@ export class TerrainPainter {
   reset(world) {
     this.world = world;
     this.version = world.version;
+    this.sprites = spriteVersion();
+    this.patterns.clear();
     this.chunks.clear();
     this.overview = this.paint(0, 0, world.w, world.h, OVERVIEW_PPT);
   }
 
   /** Draw visible terrain in world coordinates. pxPerTile = on-screen device pixels per tile. */
   draw(ctx, world, view, pxPerTile) {
-    if (world !== this.world || world.version !== this.version) this.reset(world);
+    if (world !== this.world || world.version !== this.version || spriteVersion() !== this.sprites) this.reset(world);
     ctx.save();
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(this.overview, 0, 0, world.w * TILE, world.h * TILE);

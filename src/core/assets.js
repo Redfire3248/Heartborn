@@ -26,23 +26,61 @@ function entry(img) {
   return { img, get box() { return (box ||= opaqueBox(img)); } };
 }
 
+export const spriteAvailable = key => AVAILABLE.has(key);
+
+let version = 0;
+/** Bumps whenever a late sprite replaces a placeholder, so cached drawings (terrain) can refresh. */
+export const spriteVersion = () => version;
+
+const url = (key, attempt) => `${import.meta.env.BASE_URL}assets/${key}.png${attempt ? `?r=${attempt}` : ''}`;
+function fetchImage(key, attempt = 0) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url(key, attempt);
+  });
+}
+
+/** Try a few times: one flaky request must never leave a letter placeholder in the game. */
+async function loadOne(key) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { return await fetchImage(key, attempt); } catch { await new Promise(r => setTimeout(r, 300 * (attempt + 1))); }
+  }
+  return null;
+}
+
 export async function loadAssets(onProgress) {
   const keys = allSpriteKeys();
   let done = 0;
-  await Promise.all(keys.map(key => new Promise(resolve => {
-    if (!AVAILABLE.has(key)) {   // sheet not sliced yet: placeholder, no network request
-      const c = placeholder(key);
-      images.set(key, entry(c));
+  const finish = () => { done++; onProgress?.(done / keys.length); };
+  const queue = keys.filter(key => {
+    if (AVAILABLE.has(key)) return true;
+    images.set(key, entry(placeholder(key)));   // sheet not sliced yet: no network request
+    finish();
+    return false;
+  });
+  // a limited number of downloads at once is faster and far more reliable than hundreds together
+  const worker = async () => {
+    for (let key = queue.shift(); key; key = queue.shift()) {
+      const img = await loadOne(key);
+      images.set(key, entry(img || placeholder(key)));
+      if (!img) retryLater(key);
       finish();
-      return;
     }
-    const img = new Image();
-    img.decoding = 'async';
-    img.onload = () => { images.set(key, entry(img)); finish(); };
-    img.onerror = () => { images.set(key, entry(placeholder(key))); finish(); };
-    img.src = `${import.meta.env.BASE_URL}assets/${key}.png`;
-    function finish() { done++; onProgress?.(done / keys.length); resolve(); }
-  })));
+  };
+  await Promise.all(Array.from({ length: 12 }, worker));
+}
+
+function retryLater(key, delay = 4000) {
+  setTimeout(async () => {
+    const img = await loadOne(key);
+    if (!img) { retryLater(key, Math.min(delay * 2, 60000)); return; }
+    images.set(key, entry(img));
+    for (const id of [...tinted.keys()]) if (id.startsWith(key)) tinted.delete(id);
+    version++;
+  }, delay);
 }
 
 export function sprite(key) {

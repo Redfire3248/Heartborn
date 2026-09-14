@@ -1,4 +1,4 @@
-import { iconUrl } from '../core/assets.js';
+import { iconUrl, spriteAvailable } from '../core/assets.js';
 
 /** Tiny hyperscript: h('div.card#id', { onclick }, children...) */
 export function h(sel, attrs = {}, ...children) {
@@ -32,7 +32,13 @@ function append(el, children) {
 }
 
 export function icon(key, size = 24, cls = 'sprite') {
-  return h('img', { src: iconUrl(key), width: size, height: size, className: cls, alt: '', draggable: false });
+  const img = h('img', { src: iconUrl(key), width: size, height: size, className: cls, alt: '', draggable: false });
+  // if the sprite wasn't loaded yet (placeholder), try the real file once it's ready
+  if (img.src.startsWith('data:') && spriteAvailable(key)) {
+    img.onerror = () => { img.onerror = null; img.src = iconUrl(key); };
+    img.src = `${import.meta.env.BASE_URL}assets/${key}.png`;
+  }
+  return img;
 }
 
 const AVATAR_COLORS = ['#e0622b', '#c9453b', '#8f3bd1', '#3b6fd1', '#2f9e8f', '#4f9a3a', '#b8862b', '#d14b8f'];

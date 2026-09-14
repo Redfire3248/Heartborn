@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { readdirSync, existsSync } from 'node:fs';
+import { readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Lets the Google sign-in popup report back to the page without
@@ -30,9 +30,31 @@ function spriteList() {
   };
 }
 
+/** Dev only: POST /__save-icon {name, data} writes a generated PNG into public/icons (see tools/logo.js). */
+function iconSaver() {
+  return {
+    name: 'icon-saver',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-icon', (req, res) => {
+        let body = '';
+        req.on('data', c => { body += c; });
+        req.on('end', () => {
+          try {
+            const { name, data } = JSON.parse(body);
+            if (!/^[a-z0-9-]+$/.test(name)) throw new Error('bad name');
+            writeFileSync(join(process.cwd(), 'public', 'icons', `${name}.png`), Buffer.from(data, 'base64'));
+            res.end('ok');
+          } catch (e) { res.statusCode = 400; res.end(String(e.message)); }
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig({
   base: './',   // relative paths so the build works on GitHub Pages sub-folders too
-  plugins: [spriteList()],
+  plugins: [spriteList(), iconSaver()],
   server: { port: 5173, open: false, headers },
   preview: { port: 5173, headers },
   build: { outDir: 'dist', assetsInlineLimit: 0, chunkSizeWarningLimit: 1500 },

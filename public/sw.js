@@ -1,7 +1,7 @@
 // Heartborn service worker: makes the game installable and opens it instantly after the first visit.
 // Files are served from the cache at once and refreshed in the background.
 // The page itself is fetched fresh when online, so updates arrive right away.
-const CACHE = 'heartborn-v1';
+const CACHE = 'heartborn-v2';
 
 self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => {
@@ -25,7 +25,8 @@ self.addEventListener('fetch', e => {
     const fresh = fetch(req).then(res => {
       if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
       return res;
-    }).catch(() => hit);
-    return hit || fresh;
+    });
+    if (hit) { fresh.catch(() => {}); return hit; }
+    return fresh;   // a failed download reports a real error so the game retries it
   }));
 });
