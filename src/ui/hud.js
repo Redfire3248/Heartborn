@@ -53,8 +53,8 @@ const DOCK_GROUPS = [
 const groupOf = id => DOCK_GROUPS.find(g => g?.tabs.some(t => t[0] === id));
 
 export class HUD {
-  constructor({ game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld }) {
-    Object.assign(this, { game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld });
+  constructor({ game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu }) {
+    Object.assign(this, { game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu });
     this.root = document.getElementById('ui');
     this.panel = null;
     this.buildType = null;
@@ -140,15 +140,14 @@ export class HUD {
       this.input.panTo(((e.clientX - r.left) / r.width) * MAP_W * TILE, ((e.clientY - r.top) / r.height) * MAP_H * TILE);
     });
     this.root.append(h('div.card.minimap', this.mini));
-    // jump back to your village (or come home from visiting another realm)
+    // back to the main screen (saves first); while visiting, back takes you home first
     this.root.append(h('button.card.home-btn', {
-      title: 'Home (H)',
+      title: 'Back to the main screen',
       onclick: () => {
         if (this.visiting) { this.onReturnHome(); return; }
-        this.follow = null;
-        this.input.panTo(this.game.center.x, this.game.center.y);
+        this.onBackToMenu?.();
       },
-    }, h('span', '🏠'), h('span.home-label', 'Home')));
+    }, h('span.back-arrow', '‹'), h('span.home-label', 'Back')));
     this.drawMinimapBase();
 
     this.els.threats = h('div.threats');

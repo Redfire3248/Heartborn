@@ -10,6 +10,7 @@ export const CHANGELOG = [
       'Event choices are no longer fixed: the same choice can turn out better or worse, luck and karma tip it',
       'No two players can share a name, including lookalikes (RedFire / red_fire / R3dF1re); renaming frees your old name',
       'Admin console: the suggestion list only opens once you type (Tab or Down on an empty line to browse)',
+      'Home button replaced by Back: saves and takes you to the main screen (Rejoin World stays available)',
     ],
   },
   {

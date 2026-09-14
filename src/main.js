@@ -215,6 +215,8 @@ function startGame(user, game, { online = true } = {}) {
     onRestart: () => restart(),
     world: app.world || { wid: currentWorld(), name: 'World' },
     username: app.username,
+    // keeps the world remembered, so the main screen offers Rejoin World
+    onBackToMenu: async () => { await save(true).catch(() => {}); app.mp?.stop(); location.reload(); },
     onSwitchWorld: async () => { await save(true).catch(() => {}); forgetWorld(); app.mp?.stop(); location.reload(); },
     onVisit: uid => visitRealm(uid),
     onReturnHome: () => returnHome(),
