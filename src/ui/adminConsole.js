@@ -153,7 +153,7 @@ export class AdminConsole {
     switch (kind) {
       case 'player': return [me, ...players];
       case 'target': return [me, { value: 'all', label: 'all', detail: 'every online player' }, ...players];
-      case 'res': return RESOURCES.map(r => ({ value: r, label: r, detail: 'resource' }));
+      case 'res': return [{ value: '*', label: '*', detail: 'every resource' }, ...RESOURCES.map(r => ({ value: r, label: r, detail: 'resource' }))];
       case 'building': return Object.entries(BUILDINGS).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${ERAS[d.era].name}` }));
       case 'creature': return Object.entries(CREATURES).map(([k, d]) => ({ value: k, label: k, detail: d.hostile ? `hostile · ${d.hp} hp` : 'animal' }));
       case 'event': return [{ value: 'list', label: 'list', detail: 'show all events' }, ...EVENTS.map(ev => ({ value: ev.id, label: ev.id, detail: ev.title }))];
@@ -324,10 +324,16 @@ const COMMANDS = {
     },
   },
   give: {
-    usage: 'give <player|me> <res> <n> [<res> <n>…]', desc: 'Give resources',
+    usage: 'give <player|me> <res|*> <n> [<res> <n>…]', desc: 'Give resources (* = every resource)',
     async run([who, ...pairs]) {
       const p = await this.resolve(who);
       const res = {};
+      if (pairs[0] === '*' || pairs[0] === 'all') {   // give me * 200000 → every resource
+        const n = Number(pairs[1]);
+        if (Number.isNaN(n)) throw new Error('usage: give me * 200000');
+        for (const r of RESOURCES) res[r] = n;
+        pairs = [];
+      }
       for (let i = 0; i < pairs.length; i += 2) {
         if (!RESOURCES.includes(pairs[i])) throw new Error(`unknown resource "${pairs[i]}" (${RESOURCES.join(', ')})`);
         res[pairs[i]] = Number(pairs[i + 1]) || 0;
@@ -488,8 +494,9 @@ const COMMANDS = {
   villager: {
     usage: 'villager [n]', desc: 'Add villagers to your village',
     run([n = '1']) {
-      const count = Math.min(20, Number(n) || 1);
+      const count = Math.max(1, Math.floor(Number(n) || 1));
       for (let i = 0; i < count; i++) this.game.addWanderer();
+      this.game.recalc();
       this.game.emit('change');
       this.print(`✓ ${count} villager(s) joined`, 'ok');
     },

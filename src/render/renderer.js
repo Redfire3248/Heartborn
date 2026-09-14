@@ -155,7 +155,14 @@ export class Renderer {
     const { ctx } = this;
     const def = BUILDINGS[b.type];
     const size = def.size * TILE * 1.12;
-    if (b.type !== 'farm') this.shadow(x, y, size);
+    // a thin contact shadow hugging the base (a big oval made buildings look like they float)
+    if (b.type !== 'farm') {
+      const { ctx } = this;
+      ctx.fillStyle = 'rgba(0,0,0,0.16)';
+      ctx.beginPath();
+      ctx.ellipse(x, y - 2, def.size * TILE * 0.46, TILE * 0.12, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
     if (!b.built) {
       drawSprite(ctx, `buildings/${b.type}`, x, y, size, { alpha: 0.22 });
       drawSprite(ctx, 'buildings/construction', x, y, Math.max(TILE, size * 0.8));

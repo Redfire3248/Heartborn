@@ -694,3 +694,42 @@ ul.effects li.warn { color: #ffb4a8; }
 
 .gc-menu { max-height: min(340px, 45vh); }
 .gc-count { position: sticky; top: -6px; margin: -6px -6px 4px; padding: 5px 16px; font-size: 11px; color: rgba(255, 207, 138, .7); background: rgba(28, 20, 40, .95); border-bottom: 1px solid rgba(255, 255, 255, .08); }
+
+/* world map: dark sea, real terrain, small markers */
+.realm-map { background: #05080d !important; }
+.realm-map::before { display: none; }
+.realm-terrain { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.realm-pin { gap: 3px; }
+.pin-dot { width: 10px; height: 10px; border-radius: 50%; background: #fff3d6; border: 2px solid #1a1020; box-shadow: 0 0 0 2px rgba(255, 255, 255, .25); }
+.realm-pin.me .pin-dot { background: var(--gold); box-shadow: 0 0 0 3px rgba(255, 207, 90, .45), 0 0 12px rgba(255, 207, 90, .8); }
+.realm-pin.sel .pin-dot { background: var(--ember); box-shadow: 0 0 0 3px rgba(255, 138, 61, .5); }
+.realm-pin .pin-name { font-size: 10.5px; background: rgba(0, 0, 0, .6); }
+
+/* build menu: search + compact cards with effect badges */
+.build-search-row { padding: 8px 14px 0; }
+.build-search { width: 100%; }
+.bgrid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.bcard { grid-template-columns: 64px 1fr; align-items: center; padding: 8px; }
+.bcard .thumb { width: 64px; height: 64px; position: relative; }
+.bcard .thumb img { width: 58px; height: 58px; }
+.bcount { position: absolute; right: -4px; bottom: -4px; min-width: 22px; padding: 0 5px; border-radius: 99px; background: var(--panel-3); border: 1px solid var(--line-hi); font-family: var(--num); font-size: 11px; text-align: center; }
+.bcard-main { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.bcard .name { font-size: 15px; }
+.badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.badge-fx { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px 1px 4px; border-radius: 7px; background: rgba(126, 224, 106, .1); border: 1px solid rgba(126, 224, 106, .22); font-family: var(--num); font-size: 11.5px; color: #cfeec4; cursor: help; white-space: nowrap; }
+.badge-fx i { font-style: normal; font-size: 13px; }
+.badge-fx.warn { background: rgba(255, 107, 91, .1); border-color: rgba(255, 107, 91, .3); color: #ffc2b8; }
+.bcard.cant:not(.locked) .thumb { filter: saturate(.5) brightness(.8); }
+.bcard .lock { top: 6px; right: 8px; }
+@media (min-width: 1300px) { .side { width: 460px; } }
+
+/* unlock checklist */
+.unlock { padding: 10px 12px; border-radius: 12px; background: rgba(0, 0, 0, .25); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.unlock.next { border-color: rgba(255, 207, 90, .45); background: linear-gradient(90deg, rgba(255, 207, 90, .08), rgba(0, 0, 0, .25)); }
+.unlock-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.unlock-items { display: flex; flex-direction: column; gap: 4px; }
+.unlock-item { display: grid; grid-template-columns: 18px 24px 1fr; align-items: center; gap: 6px; font-family: var(--num); font-size: 13px; }
+.unlock-item .bar { grid-column: 3; height: 6px; }
+.unlock-check { color: var(--faint); font-weight: 700; text-align: center; }
+.unlock-item.done { color: var(--good); }
+.unlock-item.done .unlock-check { color: var(--good); }

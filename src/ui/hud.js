@@ -16,7 +16,7 @@ import { rally, standDown, tributeCost, payWarbandTribute, scoutSummary } from '
 import { leaderboard } from '../net/save.js';
 import { fmtRes, travelMs, fmtMinutes, realmPos } from '../net/multiplayer.js';
 import { openRealmMap } from './realmMap.js';
-import { describeBuilding } from '../data/describe.js';
+import { describeBuilding, effectBadges } from '../data/describe.js';
 import { Tutorial } from './tutorial.js';
 import { abilityOf, abilityCooldown, canUseAbility, useAbility } from '../game/abilities.js';
 import { empireOf, empirePower, empireTitle, empireAction, ACTIONS as EMPIRE_ACTIONS, PERSONALITIES, STATUS } from '../game/empire.js';
@@ -429,51 +429,121 @@ export class HUD {
 
   /** cheap refresh for panels whose numbers change constantly */
   softRefresh() {
-    const key = JSON.stringify([this.panel, this.game.state.resources, this.game.state.villagers.length, this.buildTab, this.buildType,
-      this.game.state.villagers.map(v => v.job).join(), this.game.state.era, this.game.state.laws, this.deedsTab]);
-    if (key === this.softKey) return;
-    this.softKey = key;
+    const s = this.game.state;
+    // structure: things that change what the panel shows → rebuild
+    const key = JSON.stringify([this.panel, s.villagers.length, this.buildTab, this.buildType, s.buildings.length,
+      s.villagers.map(v => v.job).join(), s.era, s.laws, this.deedsTab]);
+    const resKey = JSON.stringify(Object.values(s.resources).map(v => Math.floor(v)));
+    if (key !== this.softKey) {
+      this.softKey = key; this.resKey = resKey;
+      this.refreshPanel();
+      return;
+    }
+    if (resKey === this.resKey) return;
+    this.resKey = resKey;
+    // only numbers changed: never rebuild under the player's pointer
+    if (this.panel === 'build') { this.updateBuildAffordability(); return; }
+    const now = performance.now();
+    if (this.panelEl?.matches(':hover') || now - (this.lastResRefresh || 0) < 1000) return;
+    this.lastResRefresh = now;
     this.refreshPanel();
   }
 
   buildPanel() {
     const g = this.game;
     this.buildTab ??= 0;
+    this.buildQuery ??= '';
     const tabs = h('div.tabs', ERAS.map((era, i) =>
       h(`button${this.buildTab === i ? '.on' : ''}${i > g.state.era ? '.locked' : ''}`, { onclick: () => { this.buildTab = i; this.refreshPanel(); } },
         i > g.state.era ? `🔒 ${era.name}` : era.name)));
+
+    const search = h('input.input.build-search', { type: 'search', placeholder: '🔍 Search all buildings… (e.g. food, defense, gold)', value: this.buildQuery });
     const body = h('div.side-body');
-    const era = ERAS[this.buildTab];
-    if (this.buildTab > g.state.era) {
-      const needs = [`${era.pop} population`, ...era.requires.map(t => BUILDINGS[t].name)];
-      body.append(h('div.chip', `Unlock: ${needs.join(' + ')}`));
+    const fill = () => {
+      const q = this.buildQuery.trim().toLowerCase();
+      body.replaceChildren();
+      if (q) {
+        // search every era by name, description and what it does
+        const hits = Object.entries(BUILDINGS).filter(([type, d]) => `${d.name} ${d.desc} ${d.cat} ${describeBuilding(type).map(e => e.text).join(' ')}`.toLowerCase().includes(q));
+        body.append(h('div.faint', `${hits.length} building${hits.length === 1 ? '' : 's'} match “${this.buildQuery.trim()}”`));
+        body.append(h('div.bgrid', hits.map(([type, def]) => this.buildCard(type, def))));
+        return;
+      }
+      if (this.buildTab > g.state.era) body.append(this.unlockChecklist(this.buildTab));
+      const inEra = Object.entries(BUILDINGS).filter(([, d]) => d.era === this.buildTab);
+      for (const [cat, catName] of CATEGORIES) {
+        const list = inEra.filter(([, d]) => d.cat === cat);
+        if (!list.length) continue;
+        body.append(h('h3', { style: { marginTop: '6px' } }, catName));
+        body.append(h('div.bgrid', list.map(([type, def]) => this.buildCard(type, def))));
+      }
+    };
+    search.addEventListener('input', () => { this.buildQuery = search.value; fill(); });
+    fill();
+    // keep typing focus when the panel is rebuilt
+    if (this.buildSearchFocused) setTimeout(() => { search.focus(); search.setSelectionRange(search.value.length, search.value.length); }, 0);
+    search.addEventListener('focus', () => { this.buildSearchFocused = true; });
+    search.addEventListener('blur', () => { this.buildSearchFocused = false; });
+    return [this.head('items/hammer', 'Build', `${ERAS[g.state.era].name} era`), tabs, h('div.build-search-row', search), body];
+  }
+
+  /** What is still missing to reach an era: a checklist with progress. */
+  unlockChecklist(eraIndex) {
+    const g = this.game;
+    const era = ERAS[eraIndex];
+    const s = g.state;
+    const rows = [];
+    // earlier eras must come first
+    for (let e = g.state.era + 1; e <= eraIndex; e++) {
+      const E = ERAS[e];
+      const items = [
+        { done: s.villagers.length >= E.pop, icon: '👥', text: `Population ${Math.min(s.villagers.length, E.pop)} / ${E.pop}`, frac: s.villagers.length / E.pop },
+        ...E.requires.map(t => ({ done: g.hasBuilding(t), icon: null, type: t, text: BUILDINGS[t].name + (s.buildings.some(b => b.type === t && !b.built) ? ' (building…)' : '') })),
+        E.science ? { done: s.resources.science >= E.science, icon: '🔬', text: `Science ${Math.floor(Math.min(s.resources.science, E.science))} / ${E.science}`, frac: s.resources.science / E.science } : null,
+      ].filter(Boolean);
+      const left = items.filter(i => !i.done).length;
+      rows.push(h(`div.unlock${e === g.state.era + 1 ? '.next' : ''}`,
+        h('div.unlock-head', h('b', `🔓 ${E.name} era`), h('span.faint', left ? `${left} thing${left === 1 ? '' : 's'} left` : 'Ready — it unlocks at dawn')),
+        h('div.unlock-items', items.map(i => h(`div.unlock-item${i.done ? '.done' : ''}`,
+          h('span.unlock-check', i.done ? '✓' : '○'),
+          i.type ? icon(`buildings/${i.type}`, 22) : h('span', i.icon),
+          h('span', i.text),
+          i.frac != null && !i.done ? bar(Math.min(1, i.frac), '#ffcf5a') : null)))));
     }
-    const inEra = Object.entries(BUILDINGS).filter(([, d]) => d.era === this.buildTab);
-    for (const [cat, catName] of CATEGORIES) {
-      const list = inEra.filter(([, d]) => d.cat === cat);
-      if (!list.length) continue;
-      body.append(h('h3', { style: { marginTop: '6px' } }, catName));
-      for (const [type, def] of list) body.append(this.buildCard(type, def));
-    }
-    return [this.head('items/hammer', 'Build', `${ERAS[g.state.era].name} era`), tabs, body];
+    return h('div.col', { style: { gap: '8px' } }, rows);
   }
 
   buildCard(type, def) {
     const g = this.game;
-    {
-      const locked = def.era > g.state.era;
-      const afford = g.canAfford(def.cost);
-      const count = g.state.buildings.filter(b => b.type === type).length;
-      return h(`div.bcard${locked ? '.locked' : ''}${this.buildType === type ? '.sel' : ''}`, {
-        onclick: () => { if (locked) return; if (!afford) { this.hint('Not enough resources', 1500); return; } this.startBuild(type); },
+    const locked = def.era > g.state.era;
+    const afford = g.canAfford(def.cost);
+    const count = g.state.buildings.filter(b => b.type === type).length;
+    return h(`div.bcard${locked ? '.locked' : ''}${afford ? '' : '.cant'}${this.buildType === type ? '.sel' : ''}`, {
+      'data-type': type,
+      title: `${def.name} — ${def.desc}`,
+      onclick: () => {
+        if (locked) { this.hint(`Unlocks in the ${ERAS[def.era].name} era`, 1500); return; }
+        if (!g.canAfford(def.cost)) { this.hint('Not enough resources', 1500); return; }
+        this.startBuild(type);
       },
-      h('div.thumb', icon(`buildings/${type}`, 56)),
-      h('div',
-        h('div.row', h('span.name', def.name), count ? h('span.tag', `×${count}`) : null, h('div.spacer'), h('span.faint', `${def.size}×${def.size}`)),
-        h('div.desc', def.desc),
-        h('ul.effects', describeBuilding(type).map(e => h(`li${e.good ? '' : '.warn'}`, h('span', e.icon), e.text))),
-        h('div.costs', costChips(def.cost, g.state.resources))),
-      locked ? h('span.lock', `🔒 ${ERAS[def.era].name}`) : null);
+    },
+    h('div.thumb', icon(`buildings/${type}`, 56), count ? h('span.bcount', `×${count}`) : null),
+    h('div.bcard-main',
+      h('div.name', def.name),
+      h('div.badges', effectBadges(type).map(b => h(`span.badge-fx${b.good ? '' : '.warn'}`, { title: b.tip }, h('i', b.icon), b.label === '' ? null : b.label))),
+      h('div.costs', costChips(def.cost, g.state.resources))),
+    locked ? h('span.lock', `🔒 ${ERAS[def.era].name}`) : null);
+  }
+
+  /** Resources changed but nothing else: just update which cards are affordable (no rebuild, clicks stay reliable). */
+  updateBuildAffordability() {
+    const g = this.game;
+    for (const card of this.panelEl?.querySelectorAll('.bcard[data-type]') || []) {
+      const def = BUILDINGS[card.dataset.type];
+      const afford = g.canAfford(def.cost);
+      card.classList.toggle('cant', !afford);
+      const costs = card.querySelector('.costs');
+      if (costs) costs.replaceChildren(...[].concat(costChips(def.cost, g.state.resources)).filter(Boolean));
     }
   }
 

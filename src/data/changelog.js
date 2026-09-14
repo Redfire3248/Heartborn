@@ -1,12 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
-    title: 'Rejoin, world map, safer villages',
+    title: 'Rejoin, world map, better building menu',
     changes: [
       'Rejoin World button when you come back after closing the game',
-      'World map shows every player’s island, joined by land bridges',
+      'World map: dark sea, real terrain islands for every player, joined by land bridges',
+      'Build menu: search, effect badges, unlock checklist; no more glitches while resources change',
+      'Terrain edges trail off in small circles; buildings no longer look like they float',
       'Hostile animals now hunt villagers',
-      'Version number in Settings and the title screen; admin commands: version, changelog and many more',
+      'Admin: version, changelog, give me * N, unlimited villager, build, rich, heal, empire and more; full autocomplete lists',
     ],
   },
   {
