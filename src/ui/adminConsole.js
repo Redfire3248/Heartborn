@@ -588,7 +588,7 @@ const COMMANDS = {
           if (val != null) v.body = { ...v.body, [k]: val === '*' ? 10 : Math.max(1, Number(val) || 5) };
         }
         if (opts.versatile || opts.trade === '*') v.traits = [...new Set([...v.traits, 'versatile'])];
-        if (opts.trade && JOBS[opts.trade]) v.profession = opts.trade;
+        if (opts.trade && JOBS[opts.trade]) { v.profession = opts.trade; if (!opts.job) assignJob(g, v, opts.trade, true); }   // a new trade means new work (and a new look)
         const job = opts.job === '*' || (everyJob && !opts.job) ? cycle(jobKeys, i) : opts.job;
         if (job && JOBS[job]) { if (!opts.trade && !opts.versatile && !v.traits.includes('versatile')) v.profession = job === 'recruit' ? 'warrior' : job; assignJob(g, v, job, true); }   // not a "personal order": the Steward/office may still move them
         made.push(v);

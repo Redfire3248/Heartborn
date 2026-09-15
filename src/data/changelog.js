@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'What people hold and wear',
+    changes: [
+      'Fixed: your avatar always showed a sword. People now hold the weapon or tool they really have: a spear from the armoury until a smithy forges swords, their own tool, or nothing',
+      'People wear the clothes of their trade: change someone\'s trade and their look changes with it (soldiers, spies and wizards still look like their job; a Jack of all trades dresses for the job at hand)',
+      'Admin: person trade=farm also puts them to work in that trade',
+    ],
+  },
+  {
     title: 'Items on the ground',
     changes: [
       'Drag an item out of a villager\'s pack and drop it on open ground: it lies there with a shadow and a count',

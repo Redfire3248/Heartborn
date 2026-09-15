@@ -14,7 +14,7 @@ import { BUILDINGS, sizeOf } from '../data/buildings.js';
 import { rollFate } from './fate.js';
 import { damageCreature } from './creatures.js';
 import { isTrained, has, onVillagerGone, addItem } from './dynasty.js';
-import { CALLINGS } from '../data/people.js';
+import { CALLINGS, ITEMS } from '../data/people.js';
 import { canDoJob, professionLabel, ensureProfession, inheritProfession, professionFromCalling, TRADE_TOOL, grantTradeSkill } from './professions.js';
 
 export const JOBS = {
@@ -70,10 +70,10 @@ export function displayRole(v) {
   return role && (v.skills[v.job] || 0) >= 3 ? role : null;
 }
 
-export function toolFor(v) {
+export function toolFor(v, g = null) {
   const t = v._task;
   if (!t || t.phase !== 'work') return null;
-  if (t.type === 'fight' || t.type === 'explore') return weaponOf(v);
+  if (t.type === 'fight' || t.type === 'explore') return weaponOf(v, g);
   if (t.type === 'train') return null;   // recruits drill with the wooden practice sword they already carry
   const need = TASK_TOOL[t.type];
   if (need && !v.inv?.pack?.[need]) return null;   // no tool of their own: bare hands
@@ -88,13 +88,23 @@ export const hasToolFor = (v, taskType) => !TASK_TOOL[taskType] || !!v.inv?.pack
 const IMPROVISED = { chop: 'items/axe', mine: 'items/pickaxe', build: 'items/hammer', farm: 'items/hoe', hunt: 'items/bow', fish: 'items/spear', smith: 'items/hammer' };
 
 /** The weapon a villager really has: a forged weapon, one from their pack, or an improvised tool. */
-export function weaponOf(v) {
-  if (v.armed) return 'items/sword';
+export function weaponOf(v, g = null) {
   const pack = v.inv?.pack || {};
   if (pack.sword) return 'items/sword';
   if (pack.spear) return 'items/spear';
+  // armoury gear: a sword only once a smithy forges iron, a spear before that (same as the Weapon slot)
+  if (v.armed) return g && (g.hasBuilding('blacksmith') || g.hasBuilding('weaponsmith')) ? 'items/sword' : 'items/spear';
   const tool = TRADE_TOOL[v.profession];
   return tool && pack[tool] ? IMPROVISED[v.profession] || null : null;
+}
+
+/** What someone walking around (your avatar) holds: their weapon, else the tool they own, else nothing. */
+export function heldItem(g, v) {
+  const w = weaponOf(v, g);
+  if (w) return w;
+  const pack = v.inv?.pack || {};
+  const key = [TRADE_TOOL[v.profession], ...Object.keys(pack).filter(k => ITEMS[k]?.slot === 'tool')].find(k => k && pack[k]);
+  return key ? ITEMS[key].icon : null;
 }
 
 export function gainSkill(g, v, skill, silent = false) {

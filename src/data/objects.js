@@ -79,7 +79,10 @@ function professionSprite(v) {
   const sx = v.sex === 'f' ? 'f' : 'm';
   if (v.age < 12) return `people/child_${sx}`;
   if (v.ruling) return null;                                  // kings and queens keep their royal sprites
-  let prof = v.office ? OFFICE_PROFESSION[v.office] : JOB_PROFESSION[v.job];
+  // soldiers, spies and wizards look like what they are doing; everyone else wears the clothes of their trade,
+  // so changing someone's trade changes their look (a Jack of all trades dresses for the job at hand)
+  const byJob = FIGHTING_JOBS.has(v.job) || v.job === 'mage' || (v.traits?.includes('versatile') && v.job !== 'idle');
+  let prof = v.office ? OFFICE_PROFESSION[v.office] : (byJob ? JOB_PROFESSION[v.job] : JOB_PROFESSION[v.profession] || JOB_PROFESSION[v.job]);
   // a warrior with no weapon handed out yet has nothing to carry: they look like a recruit
   if (prof === 'warrior' && !v.office && !v.armed) prof = 'recruit';
   if (prof) return `people/${prof}_${sx}`;

@@ -4,7 +4,7 @@ import { BOATS, fleetOf } from '../game/sailing.js';
 import { TerrainPainter } from './terrain.js';
 import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
 import { BUILDINGS, sizeOf, buildingSprite } from '../data/buildings.js';
-import { displayRole, toolFor, carryIcon, weaponOf } from '../game/villagers.js';
+import { displayRole, toolFor, carryIcon, heldItem } from '../game/villagers.js';
 import { speedMult, bodyWorkMult, bodyStat } from '../game/body.js';
 import { maxHp } from '../game/creatures.js';
 import { FIND_KINDS } from '../game/finds.js';
@@ -320,7 +320,7 @@ export class Renderer {
     const tint = v._hurtFlash > 0 ? '#ff2020' : v.sick ? '#4fbf3f' : null;
     drawSprite(ctx, key, v.x, v.y, size, { flip: v._flip, offsetY, rot, squash, tint });
 
-    const tool = hero ? (hero.swing > 0 || v._walking ? weaponOf(v) || toolFor(v) || 'items/sword' : null) : working ? toolFor(v) : null;
+    const tool = hero ? (hero.swing > 0 || v._walking ? heldItem(g, v) : null) : working ? toolFor(v, g) : null;
     if (tool) {
       const swing = hero ? (hero.swing > 0 ? 1 - hero.swing / 0.22 * 2 : Math.sin(t * stepRate) * 0.2) : Math.sin(t * swingRate);
       const dir = v._flip ? -1 : 1;
