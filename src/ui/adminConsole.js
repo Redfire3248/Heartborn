@@ -1,4 +1,6 @@
-import { h, icon } from './dom.js';
+import { h, icon, RES_ICON } from './dom.js';
+import { buildingSprite } from '../data/buildings.js';
+import { villagerSprite } from '../data/objects.js';
 import { CATALOG, RARITY, makeGear, takeGear, equip, rpgOf } from '../game/rpg.js';
 import { gearIconKey } from '../render/gearArt.js';
 import { heroOf } from '../game/hero.js';
@@ -25,6 +27,15 @@ import { recentErrors, clearErrors } from '../net/errors.js';
 import { recentReports, clearReports } from '../net/chatSafety.js';
 
 const BUILDINGS = BUILDING_DEFS;
+
+// a picture for each command in the suggestion list
+const COMMAND_ICONS = {
+  players: 'items/population', info: 'items/scroll', give: 'items/icon_gold', karma: 'items/karma_good', shield: 'items/shield_protect', msg: 'items/chat', broadcast: 'items/chat',
+  event: 'items/dice_fate', spawn: 'characters/wolf', warband: 'items/war', ban: 'effects/skull_curse', unban: 'items/alliance', reset: 'effects/explosion', chat: 'items/chat',
+  skip: 'items/star_rank', era: 'items/crown_leader', errors: 'effects/emote_alert', reports: 'effects/emote_angry', villager: 'items/population', changelog: 'items/scroll',
+  rich: 'items/icon_gold', time: 'items/star_rank', item: 'items/relic', drop: 'items/relic', gear: 'gear/sword_legendary', missile: 'units/missile', nuke: 'units/missile',
+  person: 'items/baby', build: 'buildings/campfire', empire: 'items/crown_leader', version: 'items/star_rank', heal: 'effects/plus_heal',
+};
 
 const HISTORY_KEY = 'hb_admin_history';
 
@@ -175,22 +186,22 @@ export class AdminConsole {
     switch (kind) {
       case 'player': return [me, star('every player'), ...players];
       case 'target': return [me, star('every village'), { value: 'all', label: 'all', detail: 'every online player' }, ...players];
-      case 'res': return [{ value: '*', label: '*', detail: 'every resource' }, ...RESOURCES.map(r => ({ value: r, label: r, detail: 'resource' }))];
+      case 'res': return [{ value: '*', label: '*', detail: 'every resource' }, ...RESOURCES.map(r => ({ value: r, label: r, detail: 'resource', icon: RES_ICON[r] }))];
       case 'item': return [star('every item'), { value: 'list', label: 'list', detail: 'show every item' }, ...Object.entries(ITEMS).map(([k, i]) => ({ value: k, label: k, detail: i.label, icon: i.icon }))];
       case 'gear': return [star('one of everything'), ...Object.keys(CATALOG).map(slot => ({ value: slot, label: slot, detail: `every ${slot}` })),
         ...Object.entries(CATALOG).flatMap(([slot, list]) => Object.entries(list).filter(([, d]) => d.icon !== null && !d.noLoot).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${slot}`, icon: gearIconKey({ base: k, slot, icon: d.icon }) })))];
       case 'villager': return [{ value: 'selected', label: 'selected', detail: 'the villager you clicked' }, star('everyone'), { value: 'all', label: 'all', detail: 'everyone' },
-        ...this.game.state.villagers.slice(0, 200).map(v => ({ value: v.name, label: v.name, detail: `${v.job} · ${Math.floor(v.age)}` }))];
+        ...this.game.state.villagers.slice(0, 200).map(v => ({ value: v.name, label: v.name, detail: `${v.job} · ${Math.floor(v.age)}`, icon: villagerSprite(v) }))];
       case 'personopt': return [
         ...['name=', 'sex=m', 'sex=f', 'sex=*', 'age=25', 'skills=10', 'skills=*', 'trained', 'versatile', 'hp=100', 'hp=*', 'happy=*', 'job=*', 'traits=*', 'traits=all', 'traits=knighted', 'traits=good', 'calling=*', 'trade=*', 'strength=10', 'speed=10', 'stamina=10', 'body=*', 'size=2'].map(o => ({ value: o, label: o, detail: o.endsWith('*') ? 'everything / the maximum' : o === 'traits=good' ? 'every good trait' : 'option' })),
-        ...Object.keys(JOBS).map(j => ({ value: `job=${j}`, label: `job=${j}`, detail: JOBS[j].label })),
+        ...Object.keys(JOBS).map(j => ({ value: `job=${j}`, label: `job=${j}`, detail: JOBS[j].label, icon: JOBS[j].icon })),
         ...['combat', 'build', 'mine', 'chop', 'farm', 'craft', 'stealth'].map(s => ({ value: `${s}=10`, label: `${s}=10`, detail: 'skill' })),
         ...Object.keys(CALLINGS).map(c => ({ value: `calling=${c}`, label: `calling=${c}`, detail: 'calling' })),
         ...Object.keys(TRAITS).map(t => ({ value: `traits=${t}`, label: `traits=${t}`, detail: TRAITS[t].label })),
       ];
-      case 'building': return [star('one of every building'), ...Object.entries(BUILDINGS).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${ERAS[d.era].name}` }))];
-      case 'creature': return [star('every creature'), ...Object.entries(CREATURES).map(([k, d]) => ({ value: k, label: k, detail: d.hostile ? `hostile · ${d.hp} hp` : 'animal' }))];
-      case 'event': return [{ value: 'list', label: 'list', detail: 'show all events' }, ...EVENTS.map(ev => ({ value: ev.id, label: ev.id, detail: ev.title }))];
+      case 'building': return [star('one of every building'), ...Object.entries(BUILDINGS).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${ERAS[d.era].name}`, icon: buildingSprite(k) }))];
+      case 'creature': return [star('every creature'), ...Object.entries(CREATURES).map(([k, d]) => ({ value: k, label: k, detail: d.hostile ? `hostile · ${d.hp} hp` : 'animal', icon: d.sprite }))];
+      case 'event': return [{ value: 'list', label: 'list', detail: 'show all events' }, ...EVENTS.map(ev => ({ value: ev.id, label: ev.id, detail: ev.title, icon: ev.icon }))];
       default: return [];
     }
   }
@@ -219,7 +230,7 @@ export class AdminConsole {
     } else if (parts.length === 1) {
       items = Object.entries(COMMANDS)
         .filter(([name]) => name.startsWith(q) && name !== q)
-        .map(([name, c]) => ({ value: name, label: name, detail: c.desc }));
+        .map(([name, c]) => ({ value: name, label: name, detail: c.desc, icon: COMMAND_ICONS[name] }));
       if (q && !items.length && !cmd) hint = 'unknown command — try "help"';
       if (cmd) hint = cmd.usage;
     } else if (cmd) {
@@ -498,13 +509,17 @@ const COMMANDS = {
     },
   },
   reset: {
-    usage: 'reset <player>', desc: 'Wipe a village (asks to confirm)',
+    usage: 'reset <player|me> confirm', desc: 'Wipe a village and start it fresh (asks to confirm)',
     async run([who, confirm]) {
-      const p = await this.resolve(who);
-      if (p.me) throw new Error('use Settings → Abandon village for your own');
+      const p = await this.resolve(who || 'me');
       if (confirm !== 'confirm') {
         this.print(`⚠ this wipes ${p.villageName} forever. Run: reset ${who} confirm`, 'warn');
         return;
+      }
+      if (p.me) {   // your own village: start over right here
+        this.print(`✓ ${p.villageName} is being reset`, 'ok');
+        if (this.hud?.onRestart) { this.toggle(); await this.hud.onRestart(); return; }
+        throw new Error('reset me needs the game screen');
       }
       await api.resetPlayer(p.uid);
       this.print(`✓ ${p.villageName} has been reset`, 'ok');

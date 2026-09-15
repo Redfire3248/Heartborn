@@ -1,6 +1,13 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Admin: reset fixed, pictures everywhere',
+    changes: [
+      'Fixed: reset did not wipe a village (saves had moved into civilization slots). It now wipes every save of that player and restarts their game if they are online. reset me confirm resets your own',
+      'The admin suggestions show a picture for everything that has one: commands, buildings, creatures, resources, villagers, jobs, events, items and gear',
+    ],
+  },
+  {
     title: 'Beasts that fight their own way',
     changes: [
       'Goblins keep their distance and throw rocks: they wind up first (the red !), so dash aside, block or parry',

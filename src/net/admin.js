@@ -53,6 +53,12 @@ export async function getSaveInfo(uid) {
 }
 
 export async function resetPlayer(uid) {
-  await deleteDoc(doc(db, 'saves', uid));
+  // every place a village can be saved: the old single save, each civilization slot, and older per-world saves
+  const soft = p => p.catch(() => {});
+  await soft(deleteDoc(doc(db, 'saves', uid)));
+  for (let n = 1; n <= 5; n++) await soft(deleteDoc(doc(db, 'saves', uid, 'slots', `s${n}`)));
+  const worlds = await getDocs(collection(db, 'saves', uid, 'worlds')).catch(() => null);
+  for (const d of worlds?.docs || []) await soft(deleteDoc(d.ref));
+  // and if they are playing right now, their game restarts fresh
   await sendCommand(uid, { type: 'reset' });
 }
