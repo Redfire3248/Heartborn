@@ -413,7 +413,7 @@ export class Renderer {
       const len = size * 0.72 * (WEAPONS[w.base]?.length || 1);
       const cx = weaponHand.x + Math.cos(blade) * len * 0.32, cy = weaponHand.y + Math.sin(blade) * len * 0.32;
       // gear icons are drawn pointing up and to the right (45 degrees): turn them to the blade direction
-      drawSprite(ctx, weaponKey, cx, cy, len, { rot: blade + Math.PI / 4, center: true, full: true });
+      drawSprite(ctx, weaponKey, cx, cy, len, { rot: blade + Math.PI / 4, center: true, full: true, tint: v._whiteFlash > 0 ? '#ffffff' : null, solid: v._whiteFlash > 0 });
     };
     const drawShield = () => {
       if (!shieldKey) return;
@@ -425,7 +425,7 @@ export class Renderer {
         y += (by - size * 0.4 + dy * size * 0.18 - y) * k;
         if (hero.sinceHit < 0.15) { x += (Math.random() - 0.5) * 3; y += (Math.random() - 0.5) * 3; }
       } else hero._guardDrawAt = undefined;
-      drawSprite(ctx, shieldKey, x, y + bob * 0.5, s, { center: true, full: true, flip: side < 0 });
+      drawSprite(ctx, shieldKey, x, y + bob * 0.5, s, { center: true, full: true, flip: side < 0, tint: v._whiteFlash > 0 ? '#ffffff' : null, solid: v._whiteFlash > 0 });
     };
 
     // layering: facing away, your gear is in front of the body; otherwise the shield arm is behind and the sword in front
@@ -433,6 +433,12 @@ export class Renderer {
     else { drawShield(); drawWeapon(); }
     drawSprite(ctx, body, bx, by, size * (body.startsWith('hero/') ? 1.1 : 1), { flip: side < 0, tint, solid: v._whiteFlash > 0, offsetY: bob, squash: sq, rot: lean });
     if (facing !== 'up') { drawWeapon(); if (hero.blocking) drawShield(); }
+    if (hero.stagger > 0.15) {   // dazed: stars circling your head, like the enemies you stun
+      for (let i = 0; i < 3; i++) {
+        const s = this.time * 6 + i * 2.1;
+        drawSprite(ctx, 'effects/spark', bx + Math.cos(s) * size * 0.35, by - size * 1.05 + Math.sin(s) * 3, 7);
+      }
+    }
   }
 
   /** Which hero frame to show: facing (down / up / side), walking or attacking, and the frame of that animation. */

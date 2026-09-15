@@ -1,6 +1,13 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Arsenal art, and hits hurt you too',
+    changes: [
+      'All 49 new weapons, shields, helmets, armour and trinkets have their own pictures: in your hands, in the Character sheet, on the ground and in the admin gear list',
+      'When something hits you, the same happens to you as to the enemies you hit: you flash completely white (sword and shield too), you are stunned for a second with stars circling your head (no moving, attacking, dashing or blocking) and you are knocked back',
+    ],
+  },
+  {
     title: 'Arsenal and a tidier screen',
     changes: [
       'Over 60 kinds of gear: short swords, katanas, rapiers, claymores, flame, frost, thunder, shadow and holy swords, daggers, axes, maces, flails, halberds, tridents, longbows, crossbows and magic staffs; bucklers to tower, bone, crystal, holy and dragon shields; padded to dragon armour; and helmets, a new gear slot (leather cap, iron, horned and knight helmets, wizard hat, royal crown)',

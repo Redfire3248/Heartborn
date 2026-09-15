@@ -223,7 +223,8 @@ export function damageHero(g, v, dmg, from = null) {
   dmg *= 1 - heroStats(g).armor;
   h.sinceHit = 0;
   if (dmg > 0) {   // you flash white, reel for a moment and are pushed back from the blow
-    v._whiteFlash = 0.16; h.stagger = 0.35;
+    // just like the enemies you hit: flash solid white, stunned for a second, knocked back
+    v._whiteFlash = 0.16; h.stagger = Math.max(h.stagger || 0, 1);
     if (from) { const a = Math.atan2(v.y - from.y, v.x - from.x); const push = TILE * Math.min(9, 4 + dmg * 0.15); h.kbx = Math.cos(a) * push; h.kby = Math.sin(a) * push; }
   }
   return dmg;
@@ -299,7 +300,7 @@ export function updateHero(g, dt, controls = {}) {
   h.atkCd = (h.atkCd || 0) - dt; h.dashCd = (h.dashCd || 0) - dt; h.iframes = Math.max(0, (h.iframes || 0) - dt);
   h.stagger = Math.max(0, (h.stagger || 0) - dt);
   if (v._whiteFlash > 0) v._whiteFlash -= dt;
-  if (h.stagger > 0) controls = { ...controls, mx: 0, my: 0, act: false, dash: false };   // reeling from a hit
+  if (h.stagger > 0) controls = { ...controls, mx: 0, my: 0, act: false, dash: false, block: false };   // stunned by a hit
   h.sinceHit = (h.sinceHit ?? 99) + dt; h.sinceAttack = (h.sinceAttack ?? 99) + dt;
   if (h.arc) { h.arc.t -= dt; if (h.arc.t <= 0) h.arc = null; }
   if (h.atkAnim) h.atkAnim.t += dt;
