@@ -14,6 +14,8 @@ const clamp10 = n => Math.max(1, Math.min(10, n));
 const roll = () => Math.round((Math.random() + Math.random() + Math.random()) / 3 * 8 + 1);   // 1..9, mostly 4-6
 
 export const bodyStat = (v, k) => v.body?.[k] ?? 5;
+// admin heroes can go past 10; the effect keeps growing up to 30 (any faster and people would skip through walls)
+const eff = (v, k) => Math.min(30, bodyStat(v, k));
 
 export function rollBody(v, parents = []) {
   const b = {};
@@ -32,15 +34,15 @@ export function rollBody(v, parents = []) {
 export const ensureBody = v => v.body || rollBody(v);
 
 /** Walking speed: 0.76x at speed 1, 1x at 5, 1.3x at 10. */
-export const speedMult = v => 0.7 + bodyStat(v, 'speed') * 0.06;
+export const speedMult = v => 0.7 + eff(v, 'speed') * 0.06;
 /** Heavy work and fighting: 0.8x at strength 1, 1x at 5, 1.25x at 10. */
-export const strengthMult = v => 0.75 + bodyStat(v, 'strength') * 0.05;
+export const strengthMult = v => 0.75 + eff(v, 'strength') * 0.05;
 /** Any work: 0.92x at stamina 1, 1x at 5, 1.1x at 10. */
-export const staminaMult = v => 0.9 + bodyStat(v, 'stamina') * 0.02;
+export const staminaMult = v => 0.9 + eff(v, 'stamina') * 0.02;
 /** Hunger drain: 1.16x at stamina 1, 1x at 5, 0.8x at 10. */
-export const hungerMult = v => 1.2 - bodyStat(v, 'stamina') * 0.04;
+export const hungerMult = v => Math.max(0.1, 1.2 - eff(v, 'stamina') * 0.04);
 /** Damage taken: 1.12x at stamina 1, 1x at 5, 0.85x at 10. */
-export const toughness = v => 1.15 - bodyStat(v, 'stamina') * 0.03;
+export const toughness = v => Math.max(0.2, 1.15 - eff(v, 'stamina') * 0.03);
 
 /** How much faster this person does a kind of work because of their body. */
 export function bodyWorkMult(v, taskType) {
@@ -50,7 +52,8 @@ export function bodyWorkMult(v, taskType) {
 /** Hard work builds the body, a little at a time. */
 export function trainBody(v, skill) {
   if (!v.body) return;
-  const up = (k, n) => { v.body[k] = Math.round(Math.min(10, v.body[k] + n) * 1000) / 1000; };
+  const cap = k => Math.max(10, v.body[k]);   // training never lowers an admin hero
+  const up = (k, n) => { v.body[k] = Math.round(Math.min(cap(k), v.body[k] + n) * 1000) / 1000; };
   if (skill === 'combat') { up('strength', 0.02); up('stamina', 0.02); up('speed', 0.01); }
   else if (HEAVY.has(skill) || skill === 'craft') { up('strength', 0.012); up('stamina', 0.008); }
   else if (skill === 'hunt' || skill === 'gather' || skill === 'fish') { up('stamina', 0.01); up('speed', 0.006); }

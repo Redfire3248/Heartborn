@@ -14,6 +14,7 @@ import { accuse, punishTraitor, throwBomb, counterIntel, isSpy, hasMissiles, has
 import { openAimMap } from './aimMap.js';
 import { BODY, bodyStat } from '../game/body.js';
 import { homeOf, residents } from '../game/homes.js';
+import { itemAt, pickUp, moveItem, dropFromPack } from '../game/groundItems.js';
 const BODY_COLOR = { strength: '#ff8a5a', speed: '#7fd4ff', stamina: '#8fe07a' };
 const BODY_TIP = { strength: 'Heavy work (chopping, mining, building, farming, forging) and fighting go faster and hit harder', speed: 'Walks and runs faster', stamina: 'Works harder, gets hungry more slowly and takes less damage' };
 import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, avatarOf } from '../game/hero.js';
@@ -492,8 +493,9 @@ export class HUD {
   }
 
   // ------------------------------------------------------------ world interaction
-  onHover(tx, ty) {
+  onHover(tx, ty, w) {
     this.renderer.hoverTile = { tx, ty };
+    if (w) this.game.cursor = { x: w.x, y: w.y };   // where admin drop puts things
     if (this.buildType && !this.placeDrag) {
       const size = BUILDINGS[this.buildType].size;
       const ax = tx - Math.floor((size - 1) / 2), ay = ty - Math.floor((size - 1) / 2);
@@ -1653,13 +1655,19 @@ export class HUD {
   }
 
   /** Pick an item out of a villager's pack and hand it to someone else on the map. */
-  dragItem(e, from, key, count) {
+  /**
+   * Drag an item on a keychain: from a villager's pack (from = villager) or off the ground (ground = item).
+   * Drop it on a villager to give it, on open ground to lay it there.
+   */
+  dragItem(e, from, key, count, ground = null) {
     const g = this.game;
+    const label = ITEMS[key]?.label || key;
+    const overMap = (sx, sy) => !document.elementFromPoint(sx, sy)?.closest('#ui > *:not(.drag-keychain)');
     startItemDrag(e, {
       iconKey: ITEMS[key]?.icon || 'items/relic',
       count,
       findTarget: (sx, sy) => {
-        if (document.elementFromPoint(sx, sy)?.closest('#ui > *:not(.drag-keychain)')) return null;   // over a panel, not the map
+        if (!overMap(sx, sy)) return null;   // over a panel, not the map
         const w = this.renderer.screenToWorld(sx, sy);
         let best = null, bd = TILE * 0.9;
         for (const v of g.state.villagers) {
@@ -1669,14 +1677,40 @@ export class HUD {
         }
         return best;
       },
+      // no villager under the cursor: over the map it can be put down
+      groundAt: (sx, sy) => {
+        if (!overMap(sx, sy)) return null;
+        const w = this.renderer.screenToWorld(sx, sy);
+        return g.world.walkable(w.x, w.y) ? w : null;
+      },
       onDrop: to => {
-        if (!takeItem(from, key)) return;
-        addItem(to, key, 1);
-        g.float(to.x, to.y - TILE, `+1 ${ITEMS[key]?.label || key}`, '#ffd76a');
-        g.log(`${from.name} gave ${to.name} a ${ITEMS[key]?.label || key}.`, 'info');
+        if (ground) {
+          if (!pickUp(g, to, ground)) return;
+          g.log(`${to.name} picked up ${ground.count > 1 ? `${ground.count} ` : 'a '}${label}.`, 'info');
+        } else {
+          if (!takeItem(from, key)) return;
+          addItem(to, key, 1);
+          g.float(to.x, to.y - TILE, `+1 ${label}`, '#ffd76a');
+          g.log(`${from.name} gave ${to.name} a ${label}.`, 'info');
+        }
+        this.updateInspector(true);
+      },
+      onGround: w => {
+        if (ground) moveItem(g, ground, w.x, w.y);
+        else if (dropFromPack(g, from, key, 1, w.x, w.y)) g.log(`${from.name} dropped a ${label}.`, 'info');
         this.updateInspector(true);
       },
     });
+  }
+
+  /** Pointer down on the map: grab a ground item if there is one under the cursor. */
+  grabGroundItem(e) {
+    if (this.visiting || this.buildType || this.demolishMode) return false;
+    const w = this.renderer.screenToWorld(e.clientX, e.clientY);
+    const it = itemAt(this.game, w.x, w.y);
+    if (!it) return false;
+    this.dragItem(e, null, it.item, it.count, it);
+    return true;
   }
 
   inspect_villager(v) {
@@ -1733,7 +1767,7 @@ export class HUD {
       statRow('Hunger', v.hunger, '#ffb44a'),
       statRow('Happy', v.happy, '#ffd76a'),
       h('h3', 'Body'),
-      ...Object.entries(BODY).map(([k, label]) => h('div.stat', { title: BODY_TIP[k] }, h('span', label), bar(bodyStat(v, k) / 10, BODY_COLOR[k]), h('span', bodyStat(v, k).toFixed(1)))),
+      ...Object.entries(BODY).map(([k, label]) => h('div.stat', { title: BODY_TIP[k] }, h('span', label), bar(Math.min(1, bodyStat(v, k) / 10), BODY_COLOR[k]), h('span', bodyStat(v, k) >= 100 ? String(Math.round(bodyStat(v, k))) : bodyStat(v, k).toFixed(1)))),
 
       h('h3', 'Inventory'),
       h('div.inv', slot('Tool', eq.tool), slot('Weapon', eq.weapon), slot('Armor', eq.armor),

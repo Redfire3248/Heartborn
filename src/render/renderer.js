@@ -8,6 +8,7 @@ import { displayRole, toolFor, carryIcon, weaponOf } from '../game/villagers.js'
 import { speedMult, bodyWorkMult, bodyStat } from '../game/body.js';
 import { maxHp } from '../game/creatures.js';
 import { FIND_KINDS } from '../game/finds.js';
+import { ITEMS } from '../data/people.js';
 
 const SEASON_TINT = { Spring: null, Summer: 'rgba(255,220,120,0.05)', Autumn: 'rgba(255,140,40,0.08)', Winter: 'rgba(180,210,255,0.14)' };
 
@@ -114,6 +115,9 @@ export class Renderer {
     for (const v of g.state.villagers) {
       if (!v.away && inView(v.x, v.y)) items.push({ y: v.y, draw: () => this.drawVillager(g, v) });
     }
+    if (!g.visiting) for (const it of g.state.groundItems || []) {
+      if (inView(it.x, it.y)) items.push({ y: it.y, draw: () => this.drawGroundItem(it) });
+    }
     if (!g.visiting) for (const f of g.state.finds || []) {
       if (inView(f.x, f.y)) items.push({ y: f.y, draw: () => this.drawFind(g, f) });
     }
@@ -203,6 +207,15 @@ export class Renderer {
   }
 
   /** A find waiting to be collected: bobbing sprite on a pulsing golden glow, fading out near the end. */
+  /** An item lying on the ground: bobbing gently over its shadow, with a count. */
+  drawGroundItem(it) {
+    const { ctx } = this;
+    const bob = Math.sin(this.time * 3 + it.x * 0.1) * 1.5;
+    this.shadow(it.x, it.y, TILE * 0.45);
+    drawSprite(ctx, ITEMS[it.item]?.icon || 'items/relic', it.x, it.y - 3 + bob, TILE * 0.55);
+    if (it.count > 1 && this.camera.zoom >= 1.5) label(ctx, `×${it.count}`, it.x + 8, it.y + 4);
+  }
+
   drawFind(g, f) {
     const { ctx } = this;
     const left = f.until - g.state.time;

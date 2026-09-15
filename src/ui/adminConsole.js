@@ -13,6 +13,7 @@ import { ITEMS, CALLINGS } from '../data/people.js';
 import { TRAITS } from '../data/traits.js';
 import { JOBS, assignJob } from '../game/villagers.js';
 import { addItem } from '../game/dynasty.js';
+import { dropItem } from '../game/groundItems.js';
 import { recentErrors, clearErrors } from '../net/errors.js';
 import { recentReports, clearReports } from '../net/chatSafety.js';
 
@@ -36,7 +37,7 @@ const ARG_SPECS = {
   reset: ['player', ['confirm']], chat: [['15', 'clear', 'del']], skip: ['number'], era: [['up', '*', '0', '1', '2', '3', '4', '5']],
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
-  item: ['item', 'number', 'villager'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
+  item: ['item', 'number', 'villager'], drop: ['item', 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
   build: ['building', 'number'], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
@@ -191,6 +192,8 @@ export class AdminConsole {
       const pairStart = repeat - 2;
       return spec[pairStart + ((argIndex - pairStart) % 2)];
     }
+    // option lists (person name=… sex=… strength=…) keep suggesting however many options you type
+    if (argIndex >= spec.length && spec[spec.length - 1] === 'personopt') return 'personopt';
     return spec[argIndex];
   }
 
@@ -582,7 +585,7 @@ const COMMANDS = {
         if (opts.happy != null) v.happy = num(opts.happy, 100) || 0;
         for (const k of ['strength', 'speed', 'stamina']) {   // body stats, 1-10
           const val = opts[k] ?? opts.body;
-          if (val != null) v.body = { ...v.body, [k]: val === '*' ? 10 : Math.max(1, Math.min(10, Number(val) || 5)) };
+          if (val != null) v.body = { ...v.body, [k]: val === '*' ? 10 : Math.max(1, Number(val) || 5) };
         }
         if (opts.versatile || opts.trade === '*') v.traits = [...new Set([...v.traits, 'versatile'])];
         if (opts.trade && JOBS[opts.trade]) v.profession = opts.trade;
@@ -614,6 +617,24 @@ const COMMANDS = {
       for (const v of people) for (const k of keys) addItem(v, k, n);
       g.emit('change');
       this.print(`✓ ${n} × ${keys.length > 1 ? `every item (${keys.length})` : ITEMS[key].label} → ${people.length === 1 ? people[0].name : `${people.length} villagers`}`, 'ok');
+    },
+  },
+
+  drop: {
+    usage: 'drop <item|*> [count]', desc: 'Drop an item on the ground at your cursor (drag it onto a villager, or walk over it as your avatar)',
+    run([key, count = '1']) {
+      const g = this.game;
+      if (!key) throw new Error('drop <item|*> [count], e.g. drop sword 3');
+      const keys = key === '*' ? Object.keys(ITEMS) : [key];
+      if (!ITEMS[keys[0]]) throw new Error(`unknown item (item list): ${Object.keys(ITEMS).join(', ')}`);
+      const at = g.cursor || g.center;
+      const n = Math.max(1, Math.floor(Number(count) || 1));
+      // several items fan out in a little circle so each one can be grabbed
+      keys.forEach((k, i) => {
+        const a = (i / keys.length) * Math.PI * 2, r = keys.length > 1 ? 14 + keys.length * 1.5 : 0;
+        dropItem(g, k, n, at.x + Math.cos(a) * r, at.y + Math.sin(a) * r);
+      });
+      this.print(`✓ dropped ${n} × ${keys.length > 1 ? `every item (${keys.length})` : ITEMS[key].label} at your cursor`, 'ok');
     },
   },
 

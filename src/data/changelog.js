@@ -1,6 +1,16 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Items on the ground',
+    changes: [
+      'Drag an item out of a villager\'s pack and drop it on open ground: it lies there with a shadow and a count',
+      'Grab an item off the ground and it swings on the keychain: drop it on a villager to give it, or somewhere else to move it',
+      'Your avatar picks items up by walking over them',
+      'Admin: drop <item|*> [count] puts items at your cursor',
+      'Admin: autocomplete keeps suggesting person options however many you type; strength, speed and stamina can go past 10 (the effect grows up to 30)',
+    ],
+  },
+  {
     title: 'Family homes and your own avatar',
     changes: [
       'Households live together: a couple, their children and unmarried grown children share one home, and families who arrived together stay together',
@@ -8,7 +18,7 @@ export const CHANGELOG = [
       'Families keep their home; newlyweds move into one of their own when a house is free; a family too big for its house takes a second one nearby, grown children first',
       'Castles, Tenements and Arcologies are split into flats for many families',
       'At night people walk to their own home; the profile shows where someone lives',
-      'Play as anyone: tap Play as in a villager''s profile to make them your avatar and walk, fight, chop and mine as them. The Avatar button (G) plays as them again',
+      'Play as anyone: tap Play as in a villager\'s profile to make them your avatar and walk, fight, chop and mine as them. The Avatar button (G) plays as them again',
     ],
   },
   {

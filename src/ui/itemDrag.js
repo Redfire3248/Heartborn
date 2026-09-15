@@ -3,7 +3,7 @@ import { h, icon } from './dom.js';
 /*
  * Drag an item like a keychain: it hangs from a ring under the cursor and swings with your
  * movement (a damped pendulum driven by the cursor's acceleration). Drop it on a target to give it;
- * drop it anywhere else and it springs back to where it came from.
+ * drop it on open ground to lay it there (onGround); anywhere else it springs back to where it came from.
  *
  * startItemDrag(event, { iconKey, label, count, findTarget(x, y) → { name } | null, onDrop(target) })
  */
@@ -45,8 +45,9 @@ export function startItemDrag(e, opts) {
     active.y = ev.clientY;
     const t = opts.findTarget?.(ev.clientX, ev.clientY) || null;
     active.target = t;
+    active.ground = t ? null : opts.groundAt?.(ev.clientX, ev.clientY) || null;
     active.el.classList.toggle('over-target', !!t);
-    active.hint.textContent = t ? `Give to ${t.name}` : 'Drop on a villager';
+    active.hint.textContent = t ? `Give to ${t.name}` : active.ground ? 'Drop on the ground' : 'Drop on a villager';
   };
 
   const up = () => {
@@ -57,6 +58,10 @@ export function startItemDrag(e, opts) {
     document.body.classList.remove('dragging-item');
     if (a.target) {
       opts.onDrop?.(a.target);
+      a.el.classList.add('dropped');
+      setTimeout(() => finish(a), 260);
+    } else if (a.ground && opts.onGround) {
+      opts.onGround(a.ground);
       a.el.classList.add('dropped');
       setTimeout(() => finish(a), 260);
     } else {

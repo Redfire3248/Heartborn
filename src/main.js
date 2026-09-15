@@ -196,7 +196,7 @@ function startGame(user, game, { online = true } = {}) {
 
   if (!app.input) {
     app.input = new Input(canvas, renderer, {
-      onHover: (tx, ty) => app.hud?.onHover(tx, ty),
+      onHover: (tx, ty, w) => app.hud?.onHover(tx, ty, w),
       onClick: (w, tx, ty) => { if (!app.visit) app.hud?.onClick(w, tx, ty, app.input.keys.has('shift')); },
       isPlacing: () => !app.visit && (!!app.hud?.buildType || !!app.hud?.demolishMode),
       isSailing: () => !!app.game?.sail,
@@ -207,6 +207,15 @@ function startGame(user, game, { online = true } = {}) {
       onRightClick: () => { if (app.hud?.demolishMode) app.hud.toggleDemolish(false); else if (app.hud?.buildType) app.hud.cancelBuild(); else app.hud?.select(null); },
       onKey: e => app.hud?.onKey(e),
     });
+  }
+
+  // grab an item lying on the ground before the camera starts panning
+  if (!app.itemGrab) {
+    app.itemGrab = true;
+    canvas.addEventListener('pointerdown', e => {
+      if (e.button !== 0 || app.visit || !app.hud) return;
+      if (app.hud.grabGroundItem(e)) e.stopImmediatePropagation();
+    }, { capture: true });
   }
 
   app.mp = online ? new Multiplayer(user, game, currentWorld()) : null;

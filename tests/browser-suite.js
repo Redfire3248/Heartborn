@@ -238,6 +238,28 @@ export async function run() {
     ok(Ho.residents(g, family).length === 3, 'the house lists its residents');
   });
 
+  await step('items can be dropped on the ground and picked up', async () => {
+    const GI = await import('/src/game/groundItems.js');
+    const H = await import('/src/game/hero.js');
+    const D = await import('/src/game/dynasty.js');
+    const g = freshGame({ era: 1, people: 3 });
+    build(g, 'campfire');
+    const v = g.state.villagers.find(x => x.ruling);
+    D.addItem(v, 'sword', 2);
+    const swords = v.inv.pack.sword;
+    const it = GI.dropFromPack(g, v, 'sword', 1, v.x + 60, v.y);
+    ok(it && v.inv.pack.sword === swords - 1 && GI.groundItems(g).length === 1, 'dropping takes it out of the pack and lays it on the ground');
+    ok(GI.itemAt(g, it.x, it.y - 6) === it, 'the item under the cursor can be grabbed');
+    const other = g.state.villagers.find(x => x !== v);
+    ok(GI.pickUp(g, other, it) && other.inv.pack.sword >= 1 && !GI.groundItems(g).length, 'dragging it onto a villager gives it to them');
+    const d = GI.dropItem(g, 'shield', 3, v.x + 20, v.y);
+    ok(d && d.count === 3, 'the admin drop command puts items at a spot');
+    H.startLead(g, v);
+    for (let i = 0; i < 20; i++) H.updateHero(g, 1 / 30, { mx: 1 });
+    ok(!GI.groundItems(g).length || Math.abs(v.x - d.x) > 20, 'your avatar picks items up by walking over them');
+    H.endLead(g);
+  });
+
   await step('fast lives, and workers carry what they gather home', async () => {
     const g = freshGame({ era: 1, people: 4, resources: false });
     build(g, 'campfire'); build(g, 'stockpile');

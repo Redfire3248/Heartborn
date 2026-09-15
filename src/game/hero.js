@@ -2,6 +2,7 @@ import { TILE, WALK_SPEED, DAY_LENGTH, ADULT_AGE } from '../core/constants.js';
 import { CREATURES, OBJECTS } from '../data/objects.js';
 import { damageCreature } from './creatures.js';
 import { collectFind } from './finds.js';
+import { pickUp } from './groundItems.js';
 import { gainSkill } from './villagers.js';
 import { has } from './dynasty.js';
 import { speedMult, strengthMult } from './body.js';
@@ -177,6 +178,11 @@ export function updateHero(g, dt, controls = {}) {
   // finds are picked up by walking over them
   for (const f of [...(g.state.finds || [])]) {
     if (Math.hypot(f.x - v.x, f.y - v.y) < TILE * 0.9 && collectFind(g, f)) h.finds++;
+  }
+
+  // items on the ground go into your pack as you walk over them
+  for (const it of [...(g.state.groundItems || [])]) {
+    if (Math.hypot(it.x - v.x, it.y - v.y) < TILE * 0.7) pickUp(g, v, it);
   }
 
   // the ruler fights whatever comes in reach
