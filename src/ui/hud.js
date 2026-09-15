@@ -16,6 +16,7 @@ import { rally, standDown, tributeCost, payWarbandTribute, scoutSummary } from '
 import { leaderboard } from '../net/save.js';
 import { fmtRes, travelMs, fmtMinutes, realmPos } from '../net/multiplayer.js';
 import { openRealmMap } from './realmMap.js';
+import { computeBridges, bridgeAt } from '../game/bridges.js';
 import { describeBuilding, effectBadges } from '../data/describe.js';
 import { Tutorial } from './tutorial.js';
 import { abilityOf, abilityCooldown, canUseAbility, useAbility } from '../game/abilities.js';
@@ -75,6 +76,14 @@ export class HUD {
       mp.on('players', () => this.panel === 'world' && this.worldTab === 'players' && this.refreshPanel());
       mp.on('armies', () => this.panel === 'world' && this.worldTab === 'players' && this.refreshPanel());
       this.missionTimer = setInterval(() => { if (this.panel === 'world' && this.worldTab === 'players' && (mp.missions().length || mp.armies().length) && !this.panelEl?.matches(':hover')) this.refreshPanel(); }, 1000);
+      mp.on('visitAsks', asks => this.showVisitAsks(asks));
+      mp.on('players', players => {
+        // rebuild bridges only when the set of neighbours (or who is online) changes
+        const key = players.map(p => `${p.uid}${p.online ? 1 : 0}`).sort().join();
+        if (key === this.bridgeKey) return;
+        this.bridgeKey = key;
+        game.bridges = computeBridges(game.world, user.uid, players);
+      });
       mp.on('inbox', () => { this.updateBadges(); if (this.panel === 'world' && this.worldTab === 'offers') this.refreshPanel(); });
       mp.on('announcement', a => { this.announce(`📜 ${a.text}`); this.toast({ text: `Announcement: ${a.text}`, kind: 'event' }); });
     }
@@ -134,12 +143,9 @@ export class HUD {
 
     // minimap
     this.mini = h('canvas', { width: MAP_W * MINI_SCALE, height: MAP_H * MINI_SCALE });
-    this.mini.addEventListener('pointerdown', e => {
-      const r = this.mini.getBoundingClientRect();
-      this.follow = null;
-      this.input.panTo(((e.clientX - r.left) / r.width) * MAP_W * TILE, ((e.clientY - r.top) / r.height) * MAP_H * TILE);
-    });
-    this.root.append(h('div.card.minimap', this.mini));
+    // clicking the minimap opens the World Map
+    this.mini.addEventListener('click', () => this.openMap());
+    this.root.append(h('div.card.minimap', { title: 'Open the World Map (M)' }, this.mini));
     // back to the main screen (saves first); while visiting, back takes you home first
     this.root.append(h('button.card.home-btn', {
       title: 'Back to the main screen',
@@ -258,6 +264,9 @@ export class HUD {
       if (!shift && !this.buildType.startsWith('wall') && !this.buildType.startsWith('gate')) this.cancelBuild();
       return;
     }
+    // stepping onto a bridge: cross into the neighbour's land
+    const bridge = bridgeAt(g.bridges, tx, ty);
+    if (bridge) { this.bridgePrompt(bridge); return; }
     // pick the closest thing under the cursor
     let best = null, bd = TILE * 0.7;
     for (const v of g.state.villagers) {
@@ -515,7 +524,10 @@ export class HUD {
     this.hintEl = h('div.hint', text);
     this.root.append(this.hintEl);
     if (ms) { const el = this.hintEl; setTimeout(() => { el.remove(); if (this.buildType) this.startBuildHintRestore(); }, ms); }
+    return this.hintEl;
   }
+
+  clearHint(el) { if (el && this.hintEl === el) { el.remove(); this.hintEl = null; } }
 
   startBuildHintRestore() {
     if (this.buildType && !this.root.contains(this.hintEl)) this.hint(`Placing ${BUILDINGS[this.buildType].name} — click or drag to build · Right-click/Esc to cancel`);
@@ -1689,7 +1701,7 @@ export class HUD {
     openProfile(p.uid, {
       onSpy: !me && this.mp ? () => this.spyModal(p) : null,
       user: this.user, username: this.username, world: this.world, village: p.villageName ? p : null,
-      onVisit: !me && this.mp ? () => this.onVisit(p.uid) : null,
+      onVisit: !me && this.mp ? () => this.askToVisit(p.uid) : null,
       onDeal: !me && this.mp ? () => this.offerModal(p) : null,
       onMarch: !me && this.mp && !this.mp.allies.has(p.uid) ? () => this.raidModal(p) : null,
     });
@@ -1700,10 +1712,57 @@ export class HUD {
     this.seenMap = true;
     openRealmMap({
       hud: this,
-      onVisit: async uid => {
-        try { await this.onVisit(uid); } catch (e) { this.hint(e.message, 3000); }
-      },
+      onVisit: uid => this.askToVisit(uid),
     });
+  }
+
+  /** Visiting needs the owner's permission; the answer (or refusal) is shown as a hint. */
+  askToVisit(uid) {
+    return Promise.resolve().then(() => this.onVisit(uid)).catch(e => { if (!e.shown) this.hint(e.message, 3000); });
+  }
+
+  /** A bridge leads to another ruler's land: ask to visit, or intrude with an army or a spy. */
+  bridgePrompt(b) {
+    this.bridgeBox?.remove();
+    const p = this.mp?.players.find(x => x.uid === b.uid) || b;
+    const ally = this.mp?.allies.has(b.uid);
+    const close = () => { box.remove(); this.bridgeBox = null; };
+    const act = fn => () => { close(); fn(); };
+    const box = h('div.card.bridge-prompt',
+      h('div.row', icon('buildings/castle', 26), h('div',
+        h('h3', `Bridge to ${p.villageName || 'another land'}`),
+        h('div.faint', `Ruled by ${p.name || 'someone'} · ${p.online ? 'online' : 'offline'} · army ${fmtMinutes(travelMs(this.user.uid, b.uid))} away`)),
+        h('div.spacer'), h('button.btn.icon.ghost', { onclick: close, title: 'Close' }, '✕')),
+      h('div.muted', ally ? 'You are allies. Ask to cross and look around.' : 'This is their land. Ask permission to visit, or intrude uninvited.'),
+      h('div.row',
+        h('button.btn.sm.primary', { onclick: act(() => this.askToVisit(b.uid)) }, 'Ask to visit'),
+        ally ? null : h('button.btn.sm.danger', { onclick: act(() => this.raidModal(p)) }, 'Intrude with an army'),
+        h('button.btn.sm', { onclick: act(() => this.spyModal(p)) }, 'Send a spy'),
+        h('button.btn.sm', { onclick: act(() => this.openMap()) }, 'World Map')));
+    this.bridgeBox = box;
+    this.root.append(box);
+    play('click');
+  }
+
+  /** Someone wants to visit my land: the owner decides. */
+  showVisitAsks(asks) {
+    for (const a of asks) {
+      if (this.visitPrompts?.has(a.uid)) continue;
+      (this.visitPrompts ||= new Map());
+      play('notify');
+      const box = h('div.card.visit-ask',
+        avatar(a.name || '?', 34),
+        h('div.visit-ask-text', h('b', a.name || 'A ruler'), h('span', ` of ${a.villageName || 'another land'} wants to visit your land.`)),
+        h('div.row',
+          h('button.btn.sm.primary', { onclick: () => { this.mp.answerVisit(a.uid, true); close(); } }, 'Allow'),
+          h('button.btn.sm', { onclick: () => { this.mp.answerVisit(a.uid, false); close(); } }, 'Deny')));
+      const close = () => { box.remove(); this.visitPrompts.delete(a.uid); };
+      this.visitPrompts.set(a.uid, close);
+      this.root.append(box);
+      this.game.log(`${a.name || 'A ruler'} asked to visit your land.`, 'event');
+    }
+    // requests that were withdrawn or timed out
+    for (const [uid, close] of [...(this.visitPrompts || [])]) if (!asks.some(a => a.uid === uid)) close();
   }
 
   setVisiting(profile) {

@@ -90,6 +90,7 @@ export class Renderer {
     };
 
     this.drawTerrain(g, view);
+    this.drawBridges(g);
     this.drawGroundMarks(g, view);
 
     // y-sorted scene
@@ -125,6 +126,41 @@ export class Renderer {
 
   drawTerrain(g, view) {
     this.terrain.draw(this.ctx, g.world, view, TILE * this.scale);
+  }
+
+  /** Wooden bridges from the coast towards neighbouring lands (pixel planks, rails and posts). */
+  drawBridges(g) {
+    const bridges = g.visiting ? null : g.bridges;
+    if (!bridges?.length) return;
+    const { ctx } = this;
+    const P = TILE / 8;   // one "art pixel"
+    for (const b of bridges) {
+      const len = Math.hypot(b.x1 - b.x0, b.y1 - b.y0) * TILE;
+      ctx.save();
+      ctx.translate(b.x0 * TILE, b.y0 * TILE);
+      ctx.rotate(b.angle);
+      const hot = this.hoverBridge === b;
+      // shadow on the water
+      ctx.fillStyle = 'rgba(0,20,40,0.35)';
+      ctx.fillRect(0, -3 * P, len, 8 * P);
+      // planks
+      for (let x = 0, i = 0; x < len; x += 2 * P, i++) {
+        ctx.fillStyle = i % 3 === 0 ? '#8a5a32' : i % 3 === 1 ? '#9c6a3c' : '#7d5230';
+        ctx.fillRect(x, -4 * P, 2 * P - 1, 8 * P);
+      }
+      // rails and posts
+      ctx.fillStyle = '#4a2e18';
+      ctx.fillRect(0, -5 * P, len, P);
+      ctx.fillRect(0, 4 * P, len, P);
+      for (let x = 0; x < len; x += 6 * P) { ctx.fillRect(x, -6 * P, P * 1.5, 2 * P); ctx.fillRect(x, 4 * P, P * 1.5, 2 * P); }
+      if (hot) { ctx.strokeStyle = '#ffd76a'; ctx.lineWidth = 1.5; ctx.strokeRect(-P, -6.5 * P, len + 2 * P, 13 * P); }
+      // flag at the far end in the neighbour's colour
+      ctx.fillStyle = '#4a2e18';
+      ctx.fillRect(len - 2 * P, -12 * P, P, 8 * P);
+      ctx.fillStyle = b.online ? '#ffcf5a' : '#9b8fae';
+      ctx.fillRect(len - P, -12 * P, 4 * P, 3 * P);
+      ctx.restore();
+    }
   }
 
   drawGroundMarks(g, view) {

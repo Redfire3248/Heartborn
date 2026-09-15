@@ -246,6 +246,15 @@ function startGame(user, game, { online = true } = {}) {
 async function visitRealm(uid) {
   if (uid === app.user?.uid) { returnHome(); return; }
   const profile = await getProfile(uid);
+  // their land, their rules: the owner has to let you in
+  if (app.mp) {
+    const who = profile?.villageName || 'their land';
+    const wait = app.hud.hint(`Asking ${profile?.name || 'the ruler'} to let you visit ${who}...`, 60_000);
+    const answer = await app.mp.requestVisit({ uid });
+    app.hud.clearHint?.(wait);
+    const why = { no: `${profile?.name || 'The ruler'} refused your visit.`, timeout: `No answer from ${profile?.name || 'the ruler'}. Try again later.`, offline: `${profile?.name || 'The ruler'} is offline. Visits need them online to let you in.`, cancelled: 'Visit request cancelled.' }[answer];
+    if (answer !== 'yes') { app.hud.hint(why, 4000); throw Object.assign(new Error(why), { shown: true }); }
+  }
   const visit = makeVisitGame({ ...profile, uid });
   if (!app.visit) app.homeCamera = { ...renderer.camera };
   app.visit = visit;

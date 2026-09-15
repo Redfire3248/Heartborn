@@ -58,7 +58,8 @@ export function professionFromCalling(v) {
   if (v.calling === 'leader') makeVersatile(v);
 }
 
-const ALWAYS = new Set(['idle', 'gather']);   // anyone can rest or forage for food
+// anyone can rest or forage for food; spies are recruited and trained at a Spy Den, not born to it
+const ALWAYS = new Set(['idle', 'gather', 'spy']);
 
 export function canDoJob(v, job) {
   if (ALWAYS.has(job) || isVersatile(v)) return true;

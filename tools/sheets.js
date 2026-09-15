@@ -1,5 +1,5 @@
 // HEARTBORN sprite sheet manifest.
-// Every sheet is a 6x6 grid (36 cells), read left-to-right, top-to-bottom.
+// Every sheet is a 6-column grid (usually 6 rows = 36 cells; People has 7 rows), read left-to-right, top-to-bottom.
 // The slicer uses this to name files; the game will use it to load them.
 window.SHEETS = {
   characters: {
@@ -77,7 +77,21 @@ window.SHEETS = {
       "builder_m", "builder_f", "smith_m", "smith_f", "spy_m", "spy_f",
       "recruit_m", "recruit_f", "warrior_m", "warrior_f", "scout_m", "scout_f",
       "explorer_m", "explorer_f", "priest_m", "priest_f", "merchant_m", "merchant_f",
-      "noble_m", "noble_f", "elder_m", "elder_f", "child_m", "child_f"
+      "noble_m", "noble_f", "elder_m", "elder_f", "child_m", "child_f",
+      "clerk_m", "clerk_f", "knight_m", "knight_f", "mage_m", "mage_f"
+    ]
+  },
+  boats: {
+    title: "Sheet 10 - Boats & Sea (boats seen from above, bow pointing right)",
+    folder: "boats",
+    mode: "sprite",
+    names: [
+      "raft", "rowboat", "fishing_boat", "longship", "cog", "caravel",
+      "galleon", "pirate_ship", "paddle_steamer", "ironclad", "battleship", "submarine",
+      "patrol_boat", "destroyer", "cargo_ship", "speedboat", "hover_boat", "energy_battleship",
+      "cannonball", "sea_bomb", "torpedo", "sea_mine", "harpoon", "burning_barrel",
+      "big_splash", "wake", "burning_wreck", "sinking_ship", "debris", "whirlpool",
+      "dock", "buoy", "anchor", "ship_wheel", "treasure_chest", "sea_serpent"
     ]
   },
   nature: {

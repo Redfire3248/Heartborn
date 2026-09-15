@@ -33,11 +33,11 @@ const ARG_SPECS = {
   players: ['text'], info: ['player'], give: ['player', 'res', 'number', '...'], karma: ['player', 'number'],
   shield: ['player', 'number'], msg: ['player', 'text'], broadcast: ['text'], event: ['event', 'target'],
   spawn: ['creature', 'number', 'target'], warband: ['number', 'number'], ban: ['player', 'text'], unban: ['player'],
-  reset: ['player', ['confirm']], chat: [['15', 'clear', 'del']], skip: ['number'], era: [['up', '0', '1', '2', '3']],
+  reset: ['player', ['confirm']], chat: [['15', 'clear', 'del']], skip: ['number'], era: [['up', '*', '0', '1', '2', '3', '4', '5']],
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
-  item: ['item', 'number', 'villager'], person: ['number', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
-  build: ['building', 'number'], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], 'number'],
+  item: ['item', 'number', 'villager'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
+  build: ['building', 'number'], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
 export class AdminConsole {
@@ -162,22 +162,23 @@ export class AdminConsole {
       detail: `${p.name || ''}${p.ban ? ' · banned' : ''}`, online: p.online,
     }));
     const me = { value: 'me', label: 'me', detail: 'your own village' };
+    const star = detail => ({ value: '*', label: '*', detail });
     switch (kind) {
-      case 'player': return [me, ...players];
-      case 'target': return [me, { value: 'all', label: 'all', detail: 'every online player' }, ...players];
+      case 'player': return [me, star('every player'), ...players];
+      case 'target': return [me, star('every village'), { value: 'all', label: 'all', detail: 'every online player' }, ...players];
       case 'res': return [{ value: '*', label: '*', detail: 'every resource' }, ...RESOURCES.map(r => ({ value: r, label: r, detail: 'resource' }))];
-      case 'item': return [{ value: 'list', label: 'list', detail: 'show every item' }, ...Object.entries(ITEMS).map(([k, i]) => ({ value: k, label: k, detail: i.label }))];
-      case 'villager': return [{ value: 'selected', label: 'selected', detail: 'the villager you clicked' }, { value: 'all', label: 'all', detail: 'everyone' },
+      case 'item': return [star('every item'), { value: 'list', label: 'list', detail: 'show every item' }, ...Object.entries(ITEMS).map(([k, i]) => ({ value: k, label: k, detail: i.label }))];
+      case 'villager': return [{ value: 'selected', label: 'selected', detail: 'the villager you clicked' }, star('everyone'), { value: 'all', label: 'all', detail: 'everyone' },
         ...this.game.state.villagers.slice(0, 200).map(v => ({ value: v.name, label: v.name, detail: `${v.job} · ${Math.floor(v.age)}` }))];
       case 'personopt': return [
-        ...['name=', 'sex=m', 'sex=f', 'age=25', 'skills=10', 'trained', 'versatile', 'hp=100', 'happy=100'].map(o => ({ value: o, label: o, detail: 'option' })),
+        ...['name=', 'sex=m', 'sex=f', 'sex=*', 'age=25', 'skills=10', 'skills=*', 'trained', 'versatile', 'hp=100', 'hp=*', 'happy=*', 'job=*', 'traits=*', 'traits=good', 'calling=*', 'trade=*'].map(o => ({ value: o, label: o, detail: o.endsWith('*') ? 'everything / the maximum' : o === 'traits=good' ? 'every good trait' : 'option' })),
         ...Object.keys(JOBS).map(j => ({ value: `job=${j}`, label: `job=${j}`, detail: JOBS[j].label })),
         ...['combat', 'build', 'mine', 'chop', 'farm', 'craft', 'stealth'].map(s => ({ value: `${s}=10`, label: `${s}=10`, detail: 'skill' })),
         ...Object.keys(CALLINGS).map(c => ({ value: `calling=${c}`, label: `calling=${c}`, detail: 'calling' })),
         ...Object.keys(TRAITS).map(t => ({ value: `traits=${t}`, label: `traits=${t}`, detail: TRAITS[t].label })),
       ];
-      case 'building': return Object.entries(BUILDINGS).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${ERAS[d.era].name}` }));
-      case 'creature': return Object.entries(CREATURES).map(([k, d]) => ({ value: k, label: k, detail: d.hostile ? `hostile · ${d.hp} hp` : 'animal' }));
+      case 'building': return [star('one of every building'), ...Object.entries(BUILDINGS).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${ERAS[d.era].name}` }))];
+      case 'creature': return [star('every creature'), ...Object.entries(CREATURES).map(([k, d]) => ({ value: k, label: k, detail: d.hostile ? `hostile · ${d.hp} hp` : 'animal' }))];
       case 'event': return [{ value: 'list', label: 'list', detail: 'show all events' }, ...EVENTS.map(ev => ({ value: ev.id, label: ev.id, detail: ev.title }))];
       default: return [];
     }
@@ -287,6 +288,17 @@ export class AdminConsole {
     return this.players;
   }
 
+  /** Like resolve, but "*" (or "all") means every player, you included. */
+  async resolveMany(query) {
+    if (query === '*' || query === 'all') {
+      const me = { me: true, uid: this.user.uid, villageName: this.game.state.owner.villageName };
+      let list = [];
+      try { list = await this.loadPlayers(true); } catch (e) { this.print(`could not load other players (${e.message}); applying to your village only`, 'warn'); }
+      return [me, ...list.filter(p => p.uid !== this.user.uid)];
+    }
+    return [await this.resolve(query)];
+  }
+
   /** "me", uid, email, village or player name (exact, then unique partial). */
   async resolve(query) {
     if (!query) throw new Error('missing player (use "me", a village name, player name, email or uid)');
@@ -348,9 +360,9 @@ const COMMANDS = {
     },
   },
   give: {
-    usage: 'give <player|me> <res|*> <n> [<res> <n>…]', desc: 'Give resources (* = every resource)',
+    usage: 'give <player|me|*> <res|*> <n> [<res> <n>…]', desc: 'Give resources (* = every resource / every player)',
     async run([who, ...pairs]) {
-      const p = await this.resolve(who);
+      const targets = await this.resolveMany(who);
       const res = {};
       if (pairs[0] === '*' || pairs[0] === 'all') {   // give me * 200000 → every resource
         const n = Number(pairs[1]);
@@ -364,40 +376,46 @@ const COMMANDS = {
       }
       if (!Object.keys(res).length) throw new Error('usage: give me gold 100 wood 50');
       // admin gifts ignore storage limits
-      if (p.me) { for (const [k, v] of Object.entries(res)) this.game.state.resources[k] = Math.max(0, (this.game.state.resources[k] || 0) + v); this.game.emit('change'); }
-      else await api.sendCommand(p.uid, { type: 'give', res });
-      this.print(`✓ gave ${Object.entries(res).map(([k, v]) => `${v} ${k}`).join(', ')} to ${p.villageName}`, 'ok');
+      for (const p of targets) {
+        if (p.me) { for (const [k, v] of Object.entries(res)) this.game.state.resources[k] = Math.max(0, (this.game.state.resources[k] || 0) + v); this.game.emit('change'); }
+        else await api.sendCommand(p.uid, { type: 'give', res });
+      }
+      this.print(`✓ gave ${Object.entries(res).map(([k, v]) => `${v} ${k}`).join(', ')} to ${targets.length === 1 ? targets[0].villageName : `${targets.length} villages`}`, 'ok');
     },
   },
   karma: {
-    usage: 'karma <player|me> <-100..100>', desc: 'Set karma',
+    usage: 'karma <player|me|*> <-100..100>', desc: 'Set karma',
     async run([who, value]) {
-      const p = await this.resolve(who);
       const n = Math.max(-100, Math.min(100, Number(value)));
       if (Number.isNaN(n)) throw new Error('karma needs a number');
-      if (p.me) { this.game.state.karma = n; this.game.emit('change'); }
-      else await api.sendCommand(p.uid, { type: 'karma', value: n });
-      this.print(`✓ karma of ${p.villageName} → ${n}`, 'ok');
+      const targets = await this.resolveMany(who);
+      for (const p of targets) {
+        if (p.me) { this.game.state.karma = n; this.game.emit('change'); }
+        else await api.sendCommand(p.uid, { type: 'karma', value: n });
+      }
+      this.print(`✓ karma of ${targets.length === 1 ? targets[0].villageName : `${targets.length} villages`} → ${n}`, 'ok');
     },
   },
   shield: {
-    usage: 'shield <player|me> <hours>', desc: 'Protect from attacks',
+    usage: 'shield <player|me|*> <hours>', desc: 'Protect from attacks',
     async run([who, hours]) {
-      const p = await this.resolve(who);
       const hrs = Number(hours) || 24;
-      if (p.me) this.game.state.shieldUntil = Date.now() + hrs * 3600000;
-      else await api.sendCommand(p.uid, { type: 'shield', hours: hrs });
-      this.print(`✓ ${hrs}h shield for ${p.villageName}`, 'ok');
+      const targets = await this.resolveMany(who);
+      for (const p of targets) {
+        if (p.me) this.game.state.shieldUntil = Date.now() + hrs * 3600000;
+        else await api.sendCommand(p.uid, { type: 'shield', hours: hrs });
+      }
+      this.print(`✓ ${hrs}h shield for ${targets.length === 1 ? targets[0].villageName : `${targets.length} villages`}`, 'ok');
     },
   },
   msg: {
-    usage: 'msg <player> <text…>', desc: 'Private message banner',
+    usage: 'msg <player|*> <text…>', desc: 'Private message banner',
     async run([who, ...words]) {
-      const p = await this.resolve(who);
       const text = words.join(' ');
       if (!text) throw new Error('message is empty');
-      await api.sendCommand(p.uid, { type: 'message', text });
-      this.print(`✓ message queued for ${p.villageName}`, 'ok');
+      const targets = (await this.resolveMany(who)).filter(p => !p.me);
+      for (const p of targets) await api.sendCommand(p.uid, { type: 'message', text });
+      this.print(`✓ message queued for ${targets.length === 1 ? targets[0].villageName : `${targets.length} players`}`, 'ok');
     },
   },
   broadcast: {
@@ -423,14 +441,17 @@ const COMMANDS = {
     },
   },
   spawn: {
-    usage: 'spawn <creature> [count] [me|<player>]', desc: 'Send monsters at a village',
+    usage: 'spawn <creature|*> [count] [me|<player>|*]', desc: 'Send monsters at a village (* = every kind / every village)',
     async run([type, count = '1', target = 'me']) {
-      if (!CREATURES[type]) throw new Error(`unknown creature (${Object.keys(CREATURES).join(', ')})`);
+      const kinds = type === '*' ? Object.keys(CREATURES) : [type];
+      if (!CREATURES[kinds[0]]) throw new Error(`unknown creature (${Object.keys(CREATURES).join(', ')})`);
       const n = Math.min(20, Number(count) || 1);
-      const p = await this.resolve(target);
-      if (p.me) this.game.spawnRaiders(type, n);
-      else await api.sendCommand(p.uid, { type: 'spawn', creature: type, count: n });
-      this.print(`✓ ${n} ${type} → ${p.villageName}`, 'ok');
+      const targets = await this.resolveMany(target);
+      for (const p of targets) for (const k of kinds) {
+        if (p.me) this.game.spawnRaiders(k, n);
+        else await api.sendCommand(p.uid, { type: 'spawn', creature: k, count: n });
+      }
+      this.print(`✓ ${n} ${type === '*' ? `of each of ${kinds.length} creatures` : type} → ${targets.length === 1 ? targets[0].villageName : `${targets.length} villages`}`, 'ok');
     },
   },
   warband: {
@@ -499,10 +520,10 @@ const COMMANDS = {
     },
   },
   era: {
-    usage: 'era [up|<0-3>]', desc: 'Change your era',
+    usage: 'era [up|*|<0-5>]', desc: 'Change your era (* = the last era)',
     run([arg = 'up']) {
       const s = this.game.state;
-      s.era = arg === 'up' ? Math.min(ERAS.length - 1, s.era + 1) : Math.max(0, Math.min(ERAS.length - 1, Number(arg) || 0));
+      s.era = arg === '*' ? ERAS.length - 1 : arg === 'up' ? Math.min(ERAS.length - 1, s.era + 1) : Math.max(0, Math.min(ERAS.length - 1, Number(arg) || 0));
       this.game.emit('change');
       this.print(`✓ era → ${ERAS[s.era].name}`, 'ok');
     },
@@ -527,32 +548,42 @@ const COMMANDS = {
   },
 
   person: {
-    usage: 'person [count] [name=Ada] [sex=m|f] [age=30] [job=mine] [skills=8] [combat=10 …] [traits=brave,strong] [calling=soldier] [trained] [versatile] [trade=mine] [hp=100]',
-    desc: 'Spawn villagers with the stats you choose',
+    usage: 'person [count|*] [name=Ada] [sex=m|f|*] [age=30] [job=mine|*] [skills=8|*] [combat=10 …] [traits=brave,strong|good|*] [calling=soldier|*] [trained] [versatile] [trade=mine|*] [hp=100|*] [happy=100|*]',
+    desc: 'Spawn villagers with the stats you choose (* = everything / the maximum)',
     run(args) {
       const g = this.game;
-      const count = /^\d+$/.test(args[0] || '') ? Math.max(1, Number(args.shift())) : 1;
+      const jobKeys = Object.keys(JOBS).filter(j => j !== 'idle' && j !== 'prisoner');
+      // "person *" = one of every job
+      const everyJob = args[0] === '*';
+      const count = everyJob ? (args.shift(), jobKeys.length) : /^\d+$/.test(args[0] || '') ? Math.max(1, Number(args.shift())) : 1;
       const opts = {};
       for (const a of args) {
         const [k, ...rest] = a.split('=');
         opts[k.toLowerCase()] = rest.length ? rest.join('=') : true;
       }
+      const num = (val, max) => (val === '*' ? max : Number(val));
+      const cycle = (list, i) => list[i % list.length];
       const made = [];
       for (let i = 0; i < count; i++) {
         const v = g.addWanderer({ child: opts.age != null && Number(opts.age) < 12 });
         if (opts.name) v.name = count > 1 ? `${opts.name} ${i + 1}` : String(opts.name);
         if (opts.sex === 'm' || opts.sex === 'f') v.sex = opts.sex;
+        else if (opts.sex === '*') v.sex = i % 2 ? 'f' : 'm';
         if (opts.age != null) v.age = Math.max(0, Number(opts.age) || 0);
-        if (opts.skills != null) for (const s of Object.keys(v.skills)) v.skills[s] = Number(opts.skills) || 0;
-        for (const s of Object.keys(v.skills)) if (opts[s] != null) v.skills[s] = Number(opts[s]) || 0;
-        if (opts.traits) v.traits = String(opts.traits).split(',').filter(t => TRAITS[t]);
-        if (opts.calling && CALLINGS[opts.calling]) v.calling = opts.calling;
+        if (opts.skills != null) for (const s of Object.keys(v.skills)) v.skills[s] = num(opts.skills, 100) || 0;
+        for (const s of Object.keys(v.skills)) if (opts[s] != null) v.skills[s] = num(opts[s], 100) || 0;
+        if (opts.traits === '*') v.traits = Object.keys(TRAITS);
+        else if (opts.traits === 'good') v.traits = Object.keys(TRAITS).filter(t => TRAITS[t].good);
+        else if (opts.traits) v.traits = String(opts.traits).split(',').filter(t => TRAITS[t]);
+        if (opts.calling === '*') v.calling = cycle(Object.keys(CALLINGS).filter(c => c !== 'none'), i);
+        else if (opts.calling && CALLINGS[opts.calling]) v.calling = opts.calling;
         if (opts.trained) v.trained = true;
-        if (opts.hp != null) v.hp = Math.max(1, Math.min(100, Number(opts.hp) || 100));
-        if (opts.happy != null) v.happy = Math.max(0, Math.min(100, Number(opts.happy) || 0));
-        if (opts.versatile) v.traits = [...new Set([...v.traits, 'versatile'])];
+        if (opts.hp != null) v.hp = Math.max(1, num(opts.hp, 100000) || 100);   // admin heroes may go past 100
+        if (opts.happy != null) v.happy = Math.max(0, Math.min(100, num(opts.happy, 100) || 0));
+        if (opts.versatile || opts.trade === '*') v.traits = [...new Set([...v.traits, 'versatile'])];
         if (opts.trade && JOBS[opts.trade]) v.profession = opts.trade;
-        if (opts.job && JOBS[opts.job]) { if (!opts.trade && !opts.versatile) v.profession = opts.job === 'recruit' ? 'warrior' : opts.job; assignJob(g, v, opts.job, true); }   // not a "personal order": the Steward/office may still move them
+        const job = opts.job === '*' || (everyJob && !opts.job) ? cycle(jobKeys, i) : opts.job;
+        if (job && JOBS[job]) { if (!opts.trade && !opts.versatile && !v.traits.includes('versatile')) v.profession = job === 'recruit' ? 'warrior' : job; assignJob(g, v, job, true); }   // not a "personal order": the Steward/office may still move them
         made.push(v);
       }
       const bad = Object.keys(opts).filter(k => !['name', 'sex', 'age', 'skills', 'traits', 'calling', 'trained', 'hp', 'happy', 'job', 'trade', 'versatile'].includes(k) && !(k in made[0].skills));
@@ -563,21 +594,22 @@ const COMMANDS = {
     },
   },
   item: {
-    usage: 'item <item> [count] [villager name | all | selected]', desc: 'Drop items into villagers’ packs',
+    usage: 'item <item|*> [count] [villager name | all | * | selected]', desc: 'Drop items into villagers’ packs (* = every item / everyone)',
     run([key, count = '1', ...who]) {
       const g = this.game;
       if (!key || key === 'list') { this.table(Object.entries(ITEMS).map(([k, i]) => ({ item: k, name: i.label, does: i.desc || i.slot || '' })), ['item', 'name', 'does']); return; }
-      if (!ITEMS[key]) throw new Error(`unknown item (item list): ${Object.keys(ITEMS).join(', ')}`);
+      const keys = key === '*' ? Object.keys(ITEMS) : [key];
+      if (!ITEMS[keys[0]]) throw new Error(`unknown item (item list): ${Object.keys(ITEMS).join(', ')}`);
       const n = Math.max(1, Math.floor(Number(count) || 1));
       const target = who.join(' ').toLowerCase() || 'selected';
       let people;
-      if (target === 'all') people = g.state.villagers;
+      if (target === 'all' || target === '*') people = g.state.villagers;
       else if (target === 'selected') people = g.selected?.kind === 'villager' ? [g.selected.ref] : [];
       else people = g.state.villagers.filter(v => v.name.toLowerCase() === target || v.name.toLowerCase().startsWith(target)).slice(0, 1);
       if (!people.length) throw new Error(target === 'selected' ? 'click a villager first, or name one: item potion 3 Ada' : `no villager called "${target}"`);
-      for (const v of people) addItem(v, key, n);
+      for (const v of people) for (const k of keys) addItem(v, k, n);
       g.emit('change');
-      this.print(`✓ ${n} × ${ITEMS[key].label} → ${people.length === 1 ? people[0].name : `${people.length} villagers`}`, 'ok');
+      this.print(`✓ ${n} × ${keys.length > 1 ? `every item (${keys.length})` : ITEMS[key].label} → ${people.length === 1 ? people[0].name : `${people.length} villagers`}`, 'ok');
     },
   },
 
@@ -655,24 +687,28 @@ const COMMANDS = {
     },
   },
   build: {
-    usage: 'build <type> [count]', desc: 'Instantly build near the village centre',
+    usage: 'build <type|*> [count]', desc: 'Instantly build near the village centre (* = one of every building)',
     run([type, count = '1']) {
-      if (!BUILDINGS[type]) throw new Error(`unknown building (try: ${Object.keys(BUILDINGS).slice(0, 8).join(', ')}…)`);
+      const types = type === '*' ? Object.keys(BUILDINGS) : [type];
+      if (!BUILDINGS[types[0]]) throw new Error(`unknown building (try: ${Object.keys(BUILDINGS).slice(0, 8).join(', ')}…)`);
       const g = this.game;
-      let made = 0;
-      for (let i = 0; i < Math.min(20, Number(count) || 1); i++) {
-        for (const [k, v] of Object.entries(BUILDINGS[type].cost)) g.state.resources[k] = Math.max(g.state.resources[k] || 0, v);
-        const era = g.state.era;
-        g.state.era = Math.max(era, BUILDINGS[type].era);
-        const spot = g.findBuildSpot(type);
-        const r = spot && g.placeBuilding(type, spot.tx, spot.ty);
-        g.state.era = era;
-        if (!r?.ok) break;
-        g.finishBuilding(r.building);
-        made++;
+      let made = 0, full = 0;
+      for (const t of types) {
+        for (let i = 0; i < Math.min(20, Number(count) || 1); i++) {
+          for (const [k, v] of Object.entries(BUILDINGS[t].cost)) g.state.resources[k] = Math.max(g.state.resources[k] || 0, v);
+          const era = g.state.era;
+          g.state.era = Math.max(era, BUILDINGS[t].era);
+          const spot = g.findBuildSpot(t);
+          const r = spot && g.placeBuilding(t, spot.tx, spot.ty);
+          g.state.era = era;
+          if (!r?.ok) { full++; break; }
+          g.finishBuilding(r.building);
+          made++;
+        }
       }
       g.emit('change');
-      this.print(made ? `✓ built ${made} ${BUILDINGS[type].name}` : '✗ no free space', made ? 'ok' : 'err');
+      const what = types.length > 1 ? `buildings (${full} types had no room)` : BUILDINGS[type].name;
+      this.print(made ? `✓ built ${made} ${what}` : '✗ no free space', made ? 'ok' : 'err');
     },
   },
   abilities: {
@@ -712,7 +748,19 @@ const COMMANDS = {
     run([sub = 'list', arg]) {
       const g = this.game;
       const e = empireOf(g);
-      const pick = () => { const k = e.kingdoms[Number(arg) - 1]; if (!k) throw new Error(`no kingdom #${arg} (empire list)`); return k; };
+      const pickOne = () => { const k = e.kingdoms[Number(arg) - 1]; if (!k) throw new Error(`no kingdom #${arg} (empire list)`); return k; };
+      // "empire win *" etc. act on every kingdom; the last one is returned for the message
+      const pick = () => {
+        if (arg !== '*') return pickOne();
+        if (!e.kingdoms.length) throw new Error('no kingdoms discovered yet (empire discover)');
+        const rest = e.kingdoms.slice(0, -1);
+        for (const k of rest) {
+          if (sub === 'war') { k.status = 'war'; k.warScore = 0; }
+          if (sub === 'win') { k.status = 'war'; k.warScore = 99; k.strength = 1; }
+          if (sub === 'peace') { k.status = 'neutral'; k.warScore = 0; k.attitude = 20; }
+        }
+        return e.kingdoms.at(-1);
+      };
       if (sub === 'list') {
         this.table(e.kingdoms.map((k, i) => ({ '#': i + 1, name: k.name, ruler: k.ruler, type: k.personality, status: k.status, strength: k.strength, relations: Math.round(k.attitude) })), ['#', 'name', 'ruler', 'type', 'status', 'strength', 'relations']);
         this.print(`your army ${empirePower(g)} · title ${empireTitle(g)}`, 'dim');

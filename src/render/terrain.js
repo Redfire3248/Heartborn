@@ -111,8 +111,8 @@ export class TerrainPainter {
 
   /**
    * Paint tiles [tx0,tx1)×[ty0,ty1) at p pixels per tile into a new canvas.
-   * Borders are ragged pixel fringes: every tile is split into 8×8 "pixels", and pixels just outside
-   * a higher terrain join it depending on distance plus noise — a dithered, hand-pixelled edge.
+   * Borders are "chamfered" pixel edges: each terrain's shape is closed then opened with a diamond
+   * so every corner is cut at 45° (a quarter tile deep), then outlined with a dark one-pixel rim.
    */
   paint(tx0, ty0, tx1, ty1, p) {
     const W = tx1 - tx0, H = ty1 - ty0;
@@ -138,9 +138,13 @@ export class TerrainPainter {
     ctx.fillStyle = pattern(LAYERS[layers[0]][0]);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // fringe "pixels" per tile: 4 screen pixels each in detailed chunks, matching the tile art's pixel size
-    const B = p >= 48 ? 16 : 8;
+    // edge "pixels" per tile: 4 screen pixels each in detailed chunks, matching the tile art's pixel size
+    const B = p >= 48 ? 16 : 4;
+    const R = B / 4;                       // chamfer: corners are cut a quarter of a tile deep, at 45°
     const MWB = W * B, MHB = H * B;
+    // work area has a one-tile margin, so corners next to a chunk border match the neighbouring chunk
+    const AW = MWB + 2 * B, AH = MHB + 2 * B;
+    const work = new Uint8Array(AW * AH), tmp = new Uint8Array(AW * AH), dist = new Float32Array(AW * AH);
     const mask = document.createElement('canvas');
     mask.width = MWB; mask.height = MHB;
     const mctx = mask.getContext('2d');
@@ -150,79 +154,68 @@ export class TerrainPainter {
     const layerCanvas = document.createElement('canvas');
     layerCanvas.width = canvas.width; layerCanvas.height = canvas.height;
     const lctx = layerCanvas.getContext('2d');
-    const bits = new Uint8Array(MWB * MHB);
-    const edgeTile = new Uint8Array(W * H);
-    const noiseScale = 4 / B;   // same world-size noise at any resolution
 
-    // build a fringe mask for everything at or above layer L; `reach` widens it (for shallow water)
+    // grow (value 1) or shrink (value 0) the shape in `a` by r pixels, diamond-shaped (city-block distance)
+    const morph = (a, out, r, grow) => {
+      const INF = 1e6, want = grow ? 1 : 0;
+      for (let i = 0; i < a.length; i++) dist[i] = a[i] === want ? 0 : INF;
+      for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) {
+        const i = y * AW + x;
+        let v = dist[i];
+        if (x > 0 && dist[i - 1] + 1 < v) v = dist[i - 1] + 1;
+        if (y > 0 && dist[i - AW] + 1 < v) v = dist[i - AW] + 1;
+        dist[i] = v;
+      }
+      for (let y = AH - 1; y >= 0; y--) for (let x = AW - 1; x >= 0; x--) {
+        const i = y * AW + x;
+        let v = dist[i];
+        if (x < AW - 1 && dist[i + 1] + 1 < v) v = dist[i + 1] + 1;
+        if (y < AH - 1 && dist[i + AW] + 1 < v) v = dist[i + AW] + 1;
+        dist[i] = v;
+      }
+      for (let i = 0; i < a.length; i++) out[i] = dist[i] <= r ? want : 1 - want;
+    };
+
+    // mask for everything at or above layer L, with chamfered corners; `reach` widens it (shallow water)
     const buildMask = (L, reach, withRim) => {
-      bits.fill(0);
-      edgeTile.fill(0);
       let any = false;
-      for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
-        const row0 = ty * B * MWB;
-        if (L_at(tx, ty) >= L) {
-          any = true;
-          for (let by = 0; by < B; by++) bits.fill(1, row0 + by * MWB + tx * B, row0 + by * MWB + tx * B + B);
-          continue;
-        }
-        // neighbours at or above L (only edge tiles need per-pixel work)
-        const nb = [];
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && L_at(tx + dx, ty + dy) >= L) nb.push(dx, dy);
-        if (!nb.length) continue;
-        any = true;
-        edgeTile[ty * W + tx] = 1;
-        for (let by = 0; by < B; by++) for (let bx = 0; bx < B; bx++) {
-          const u = (bx + 0.5) / B, v = (by + 0.5) / B;
-          let dist = 9;
-          for (let i = 0; i < nb.length; i += 2) {
-            const dx = nb[i], dy = nb[i + 1];
-            const ex = dx < 0 ? u : dx > 0 ? 1 - u : 0;
-            const ey = dy < 0 ? v : dy > 0 ? 1 - v : 0;
-            const dd = Math.max(ex, ey) * 0.55 + Math.hypot(ex, ey) * 0.45;   // squarish, not round
-            if (dd < dist) dist = dd;
-          }
-          const wx = (tx0 + tx) * B + bx, wy = (ty0 + ty) * B + by;
-          const n = vnoise(wx * noiseScale * 0.09, wy * noiseScale * 0.09, L * 13) * 0.7 + vnoise(wx * noiseScale * 0.3, wy * noiseScale * 0.3, L * 7) * 0.3;
-          if (dist < 0.08 + reach + 0.22 * n) bits[row0 + by * MWB + tx * B + bx] = 1;
-        }
+      for (let ty = -1; ty <= H; ty++) for (let tx = -1; tx <= W; tx++) {
+        const on = L_at(tx, ty) >= L ? 1 : 0;
+        if (on && tx >= 0 && ty >= 0 && tx < W && ty < H) any = true;
+        const ax = (tx + 1) * B, ay = (ty + 1) * B;
+        for (let by = 0; by < B; by++) work.fill(on, (ay + by) * AW + ax, (ay + by) * AW + ax + B);
       }
-      if (!any) return false;
-
-      // tidy the edge: no lone specks, no one-pixel holes (those read as dirt/noise)
-      for (let pass = 0; pass < 3; pass++) {
-        for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
-          if (!edgeTile[ty * W + tx]) continue;
-          for (let y = ty * B; y < (ty + 1) * B; y++) for (let x = tx * B; x < (tx + 1) * B; x++) {
-            const i = y * MWB + x;
-            const n = (x > 0 ? bits[i - 1] : 1) + (x < MWB - 1 ? bits[i + 1] : 1) + (y > 0 ? bits[i - MWB] : 1) + (y < MHB - 1 ? bits[i + MWB] : 1);
-            if (bits[i] && n <= 1) bits[i] = 0;
-            else if (!bits[i] && n >= 3) bits[i] = 1;
-          }
-        }
-      }
+      if (!any && !reach) return false;
+      // close then open: fills inside corners and cuts outside corners, both at 45°
+      morph(work, tmp, R, true); morph(tmp, work, R, false);
+      morph(work, tmp, R, false); morph(tmp, work, R, true);
+      if (reach) { morph(work, tmp, Math.round(reach * B), true); work.set(tmp); }
 
       const img = mctx.createImageData(MWB, MHB), d = img.data;
       const rimImg = withRim ? rctx.createImageData(MWB, MHB) : null, rd = rimImg?.data;
-      for (let i = 0; i < bits.length; i++) {
-        if (!bits[i]) continue;
-        d[i * 4 + 3] = 255;
-        if (!rd) continue;
-        const x = i % MWB, y = (i / MWB) | 0;
-        // rim = on-pixels touching an off pixel (outer edge of this terrain)
-        if ((x > 0 && !bits[i - 1]) || (x < MWB - 1 && !bits[i + 1]) || (y > 0 && !bits[i - MWB]) || (y < MHB - 1 && !bits[i + MWB])) rd[i * 4 + 3] = 255;
+      let painted = false;
+      for (let y = 0; y < MHB; y++) for (let x = 0; x < MWB; x++) {
+        const i = (y + B) * AW + x + B;
+        if (!work[i]) continue;
+        painted = true;
+        const o = (y * MWB + x) * 4;
+        d[o + 3] = 255;
+        // rim = on-pixels touching an off pixel (the outer edge of this terrain)
+        if (rd && (!work[i - 1] || !work[i + 1] || !work[i - AW] || !work[i + AW])) rd[o + 3] = 255;
       }
+      if (!painted) return false;
       mctx.putImageData(img, 0, 0);
       if (rimImg) rctx.putImageData(rimImg, 0, 0);
       return true;
     };
 
-    // paint a fill through a mask canvas (pixel-sharp)
-    const paintMasked = (fill, m = mask) => {
+    // paint a fill through a mask canvas (pixel-sharp), optionally only inside some tiles
+    const paintMasked = (fill, m = mask, tiles = null) => {
       lctx.globalCompositeOperation = 'source-over';
       lctx.clearRect(0, 0, layerCanvas.width, layerCanvas.height);
       lctx.fillStyle = fill;
-      lctx.fillRect(0, 0, layerCanvas.width, layerCanvas.height);
+      if (tiles) for (const [tx, ty] of tiles) lctx.fillRect(tx * p, ty * p, p, p);
+      else lctx.fillRect(0, 0, layerCanvas.width, layerCanvas.height);
       lctx.globalCompositeOperation = 'destination-in';
       lctx.imageSmoothingEnabled = false;
       lctx.drawImage(m, 0, 0, layerCanvas.width, layerCanvas.height);
@@ -231,28 +224,25 @@ export class TerrainPainter {
 
     for (const L of layers.slice(1)) {
       // shallow water: a paler dithered band where the first land meets the sea
-      if (L === WATER_LAYERS && buildMask(L, 0.3, false)) {
-        ctx.globalAlpha = 0.35;
+      if (L === WATER_LAYERS && buildMask(L, 0.25, false)) {
+        ctx.globalAlpha = 0.3;
         paintMasked('#9fe3ee');
         ctx.globalAlpha = 1;
       }
       const land = L >= WATER_LAYERS;
       if (!buildMask(L, 0, land)) continue;
       paintMasked(pattern(LAYERS[L][0]));
+      // other keys sharing this layer (flowers on grass) keep their own texture inside their tiles, cut to the same edge
+      for (const other of LAYERS[L].slice(1)) {
+        const tiles = [];
+        for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (this.key(tx0 + tx, ty0 + ty) === other) tiles.push([tx, ty]);
+        if (tiles.length) paintMasked(pattern(other), mask, tiles);
+      }
       // a darker one-pixel rim gives land a crisp hand-pixelled outline
       if (land) {
-        ctx.globalAlpha = 0.38;
+        ctx.globalAlpha = 0.45;
         paintMasked('#1a0f08', rim);
         ctx.globalAlpha = 1;
-      }
-      // other keys sharing this layer (flowers on grass) keep their own texture inside their tiles
-      for (const other of LAYERS[L].slice(1)) {
-        const fill = pattern(other);
-        for (let ty = ty0; ty < ty1; ty++) for (let tx = tx0; tx < tx1; tx++) {
-          if (this.key(tx, ty) !== other) continue;
-          ctx.fillStyle = fill;
-          ctx.fillRect((tx - tx0) * p, (ty - ty0) * p, p, p);
-        }
       }
     }
     return canvas;

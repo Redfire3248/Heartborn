@@ -220,7 +220,7 @@ export function updateVillager(g, v, dt) {
     v.happy = Math.max(0, v.happy - dt * 0.2);
     if (v.hp <= 0) { killVillager(g, v, 'starved to death'); return; }
   } else if (v.hp < 100 && !v.sick) {
-    v.hp = Math.min(100, v.hp + ((15 + g.healthBonus * 20) / DAY_LENGTH) * dt);
+    v.hp = Math.min(Math.max(100, v.hp), v.hp + ((15 + g.healthBonus * 20) / DAY_LENGTH) * dt);   // admin-made heroes may have more than 100
   }
   if (v.sick) {
     v.hp -= (6 / DAY_LENGTH) * dt;
@@ -574,7 +574,7 @@ function runTask(g, v, dt) {
     case 'heal':
       if ((t.timer -= dt) > 0) return;
       v.sick = 0;
-      v.hp = Math.min(100, v.hp + 30);
+      v.hp = Math.min(Math.max(100, v.hp), v.hp + 30);
       g.float(v.x, v.y - TILE, 'Healed', '#9dff8a');
       releaseTask(v);
       return;

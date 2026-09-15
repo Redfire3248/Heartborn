@@ -1,6 +1,18 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Bridges, visits with permission, Chamfer coasts',
+    changes: [
+      'Wooden bridges on your coast point to neighbouring lands: step on one to ask to visit, intrude with an army or send a spy',
+      'Visiting someone now needs their permission: they get an Allow / Deny prompt',
+      'Click the minimap to open the World Map; bridges there are pixel terrain blocks',
+      'Terrain borders use the Chamfer style: corners cut at 45° with a dark pixel outline',
+      'New art: knights in real armour, clerks, wizards (the rare genius), spies in black on missions',
+      'Spies fixed: anyone can train as a spy at a Spy Den (the Spy trade was almost impossible to get)',
+      'Admin: * means everything in most commands (person *, traits=*, item *, build *, spawn *, era *, karma *, empire win *) and hp can go above 100',
+    ],
+  },
+  {
     title: 'Solid pixel coastlines, lighter phones, bigger homes',
     changes: [
       'Terrain borders are solid stepped pixel edges with a dark outline (no more circles or specks)',

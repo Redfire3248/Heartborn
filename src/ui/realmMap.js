@@ -235,14 +235,36 @@ function worldCanvas(list) {
   const size = N * Math.max(0.14, Math.min(0.34, 0.62 / Math.sqrt(Math.max(1, list.length))));
   const nodes = list.map(p => { const pos = realmPos(p.uid); return { x: pos.x / 100 * N, y: pos.y / 100 * N, seed: p.seed ?? fallbackSeed(p.uid) }; });
 
-  // land bridges first, under the islands
-  ctx.lineCap = 'round';
+  // land bridges first, under the islands: chunky terrain blocks on a pixel grid (shallows, sand, grass)
+  const cell = Math.max(4, Math.round(size * 0.028));
   for (const [A, B] of bridgesFor(nodes)) {
     const mx = (A.x + B.x) / 2 + (A.y - B.y) * 0.12, my = (A.y + B.y) / 2 + (B.x - A.x) * 0.12;
-    const path = () => { ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.quadraticCurveTo(mx, my, B.x, B.y); };
-    path(); ctx.strokeStyle = 'rgba(40,110,130,0.35)'; ctx.lineWidth = size * 0.1; ctx.stroke();   // shallow water
-    path(); ctx.strokeStyle = '#cdb77f'; ctx.lineWidth = size * 0.055; ctx.stroke();                // sand
-    path(); ctx.strokeStyle = '#5f9a3e'; ctx.lineWidth = size * 0.03; ctx.stroke();                 // grass
+    const pts = new Map();
+    const steps = Math.ceil(Math.hypot(B.x - A.x, B.y - A.y) / (cell * 0.5));
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps, u = 1 - t;
+      const x = u * u * A.x + 2 * u * t * mx + t * t * B.x, y = u * u * A.y + 2 * u * t * my + t * t * B.y;
+      pts.set(`${Math.floor(x / cell)},${Math.floor(y / cell)}`, [Math.floor(x / cell), Math.floor(y / cell)]);
+    }
+    const blocks = (grow, color) => {
+      ctx.fillStyle = color;
+      for (const [cx, cy] of pts.values()) ctx.fillRect((cx - grow) * cell, (cy - grow) * cell, (grow * 2 + 1) * cell, (grow * 2 + 1) * cell);
+    };
+    blocks(2, 'rgba(60,150,170,0.35)');   // shallow water
+    blocks(1, '#cdb77f');                 // sand
+    blocks(0, '#5f9a3e');                 // grass path
+    // dark pixel outline on the sand edge
+    ctx.fillStyle = 'rgba(26,15,8,0.35)';
+    const key = (x, y) => `${x},${y}`;
+    const sand = new Set();
+    for (const [cx, cy] of pts.values()) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) sand.add(key(cx + dx, cy + dy));
+    for (const k of sand) {
+      const [x, y] = k.split(',').map(Number);
+      if (!sand.has(key(x - 1, y))) ctx.fillRect(x * cell, y * cell, 2, cell);
+      if (!sand.has(key(x + 1, y))) ctx.fillRect((x + 1) * cell - 2, y * cell, 2, cell);
+      if (!sand.has(key(x, y - 1))) ctx.fillRect(x * cell, y * cell, cell, 2);
+      if (!sand.has(key(x, y + 1))) ctx.fillRect(x * cell, (y + 1) * cell - 2, cell, 2);
+    }
   }
 
   ctx.imageSmoothingEnabled = true;

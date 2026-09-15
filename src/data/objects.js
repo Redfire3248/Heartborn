@@ -72,12 +72,15 @@ const JOB_PROFESSION = {
   gather: 'gatherer', chop: 'woodcutter', mine: 'miner', farm: 'farmer', fish: 'fisher', hunt: 'hunter', build: 'builder',
   smith: 'smith', spy: 'spy', recruit: 'recruit', warrior: 'warrior', scout: 'scout', explore: 'explorer',
 };
-const OFFICE_PROFESSION = { steward: 'noble', master_builder: 'builder', marshal: 'warrior', spymaster: 'spy', treasurer: 'merchant', high_priest: 'priest' };
+const OFFICE_PROFESSION = { steward: 'noble', master_builder: 'builder', marshal: 'knight', spymaster: 'spy', treasurer: 'clerk', high_priest: 'priest' };
+const FIGHTING_JOBS = new Set(['warrior', 'recruit', 'scout', 'spy']);
 
 function professionSprite(v) {
   const sx = v.sex === 'f' ? 'f' : 'm';
   if (v.age < 12) return `people/child_${sx}`;
   if (v.ruling) return null;                                  // kings and queens keep their royal sprites
+  // the rare genius studies the stars: they wear a wizard's robe (unless they are off fighting)
+  if (!v.office && v.traits?.includes('genius') && v.age >= 16 && !FIGHTING_JOBS.has(v.job)) return `people/mage_${sx}`;
   const prof = v.office ? OFFICE_PROFESSION[v.office] : JOB_PROFESSION[v.job];
   if (prof) return `people/${prof}_${sx}`;
   if (v.age >= 55) return `people/elder_${sx}`;
@@ -88,8 +91,9 @@ export function villagerSprite(v) {
   if (v.robot) return v.job === 'warrior' ? 'units/robot_soldier' : 'units/robot_worker';
   if (v.jailed) return 'units/prisoner';
   if (v.exposed) return 'units/traitor';
+  if (v.away?.missionId && v.job === 'spy') return 'units/assassin';   // spies out on a mission wear black
   // knights always look like knights, whatever work they are doing
-  if (v.traits?.includes('knighted') && v.age >= 12 && !v.ruling) return peopleSprites ? `people/warrior_${v.sex === 'f' ? 'f' : 'm'}` : 'characters/warrior';
+  if (v.traits?.includes('knighted') && v.age >= 12 && !v.ruling) return peopleSprites ? `people/knight_${v.sex === 'f' ? 'f' : 'm'}` : 'characters/warrior';
   if (v.role === 'warrior' && spriteEra >= 4) return spriteEra >= 6 ? 'units/cyborg' : spriteEra >= 5 ? 'units/rifleman' : 'units/musketeer';
   if (peopleSprites) { const p = professionSprite(v); if (p) return p; }
   if (v.age < 12) return 'characters/child';

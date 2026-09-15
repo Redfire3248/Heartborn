@@ -250,7 +250,7 @@ export function dailyPeople(g) {
 
     // personal remedies
     if (v.sick && takeItem(v, 'herbs')) { v.sick = Math.max(0, v.sick - 2); g.float(v.x, v.y - TILE, 'Used herbs', '#9dff8a'); }
-    if (v.hp < 40 && takeItem(v, 'potion')) v.hp = Math.min(100, v.hp + 40);
+    if (v.hp < 40 && takeItem(v, 'potion')) v.hp = Math.min(Math.max(100, v.hp), v.hp + 40);
   }
 }
 

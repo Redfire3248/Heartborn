@@ -29,6 +29,7 @@ DEFAULT_FILES = {
     "buildings3": ["Buildings3.png"],
     "units": ["Units.png"],
     "people": ["People.png"],
+    "boats": ["Boats.png"],
     "nature": ["Tiles.png", "Nature.png"],
     "items": ["Items.png", "Tools.png", "Icons.png"],
     "effects": ["Effects.png", "Weather.png"],
@@ -78,7 +79,8 @@ def clean_mask(alpha):
     return keep[labels]
 
 
-def slice_sheet(key, sheet, path, cols=6, rows=6):
+def slice_sheet(key, sheet, path, cols=6, rows=None):
+    rows = rows or -(-len(sheet["names"]) // cols)   # extra rows when a sheet has more than 36 sprites
     img = Image.open(path).convert("RGBA")
     folder = OUT_DIR / sheet["folder"]
     folder.mkdir(parents=True, exist_ok=True)

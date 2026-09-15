@@ -15,6 +15,7 @@ import { isSpy, destroyBuildings, sufferStrike, hasMissiles, hasOrbital, MISSILE
 
 const RAID_COOLDOWN_MS = 2 * 3600 * 1000;
 const CHAT_COOLDOWN_MS = 1500;
+const VISIT_ASK_MS = 60_000;   // how long a visit request waits for an answer
 // Tests shrink real-time waits (travel, grace periods) with globalThis.HB_TIME_SCALE.
 const scale = () => globalThis.HB_TIME_SCALE ?? 1;
 const DEFENDER_GRACE = () => Math.max(3000, 45_000 * scale());     // an online defender gets first claim on the battle
@@ -111,6 +112,13 @@ export class Multiplayer {
 
     this.unsubs.push(onValue(ref(rtdb, `${this.w}offers/${this.uid}`), snap => this.handleInbox(snap.val() || {})));
     this.unsubs.push(onValue(ref(rtdb, `${this.w}offersSent/${this.uid}`), snap => this.settleSent(snap.val() || {})));
+    // people asking to visit my land
+    this.unsubs.push(onValue(ref(rtdb, `${this.w}visits/${this.uid}`), snap => {
+      const all = snap.val() || {};
+      const asks = Object.entries(all).filter(([, v]) => v.status === 'ask' && Date.now() - (v.ts || 0) < VISIT_ASK_MS).map(([uid, v]) => ({ uid, ...v }));
+      this.visitAsks = asks;
+      this.emit('visitAsks', asks);
+    }));
     this.unsubs.push(onValue(ref(rtdb, `${this.w}alliances/${this.uid}`), snap => {
       this.allies = new Set(Object.keys(snap.val() || {}));
       this.emit('players', this.players);
@@ -182,6 +190,40 @@ export class Multiplayer {
   }
 
   // ---------------- offers ----------------
+  /**
+   * Ask another ruler to let us visit their land. Resolves 'yes' | 'no' | 'timeout' | 'offline'.
+   * visits/{host}/{guest} = { status: 'ask' | 'yes' | 'no', name, villageName, ts }
+   */
+  async requestVisit(host) {
+    const p = this.players.find(x => x.uid === host.uid);
+    if (!p?.online) return 'offline';
+    const path = ref(rtdb, `${this.w}visits/${host.uid}/${this.uid}`);
+    await set(path, { status: 'ask', name: this.name, villageName: this.g.state.owner.villageName, ts: Date.now() });
+    return new Promise(resolve => {
+      let done = false;
+      const finish = answer => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        unsub();
+        remove(path).catch(() => {});
+        resolve(answer);
+      };
+      const unsub = onValue(path, snap => {
+        const s = snap.val()?.status;
+        if (s === 'yes' || s === 'no') finish(s);
+        else if (!snap.exists() && !done) finish('no');
+      });
+      const timer = setTimeout(() => finish('timeout'), VISIT_ASK_MS);
+      this.cancelVisitAsk = () => finish('cancelled');
+    });
+  }
+
+  /** Host: allow or refuse a visitor. */
+  answerVisit(guestUid, allow) {
+    return set(ref(rtdb, `${this.w}visits/${this.uid}/${guestUid}/status`), allow ? 'yes' : 'no').catch(() => {});
+  }
+
   async sendOffer(to, type, give = {}, want = {}) {
     if (to.uid === this.uid) throw new Error("That's you!");
     if (type === 'trade' && !this.g.hasBuilding('market')) throw new Error('You need a Market to trade');

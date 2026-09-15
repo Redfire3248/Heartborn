@@ -85,6 +85,19 @@
             }
           }
         },
+        "visits": {
+          "$host": {
+            ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null && auth.uid === $host)",
+            "$guest": {
+              ".read": "auth != null && (auth.uid === $guest || auth.uid === $host)",
+              ".write": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && auth != null && ((auth.uid === $guest && (!newData.exists() || newData.child('status').val() === 'ask')) || (auth.uid === $host && (!newData.exists() || data.exists())))",
+              "status": {
+                ".write": "auth != null && auth.uid === $host && data.exists() && (newData.val() === 'yes' || newData.val() === 'no')"
+              },
+              ".validate": "!newData.exists() || (newData.hasChildren(['status', 'ts']) && (newData.child('name').val() == null || (newData.child('name').isString() && newData.child('name').val().length <= 40)))"
+            }
+          }
+        },
         "alliances": {
           ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null)",
           "$uid": {

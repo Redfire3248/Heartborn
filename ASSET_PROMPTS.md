@@ -141,6 +141,22 @@ Row 5: man explorer with a backpack, map and walking staff | woman explorer with
 Row 6: man noble steward in a fine blue coat holding a scroll | woman noble steward in a fine blue dress holding a scroll | old grey-bearded elder man with a walking stick | old grey-haired elder woman with a shawl and walking stick | small boy child in a tiny tunic | small girl child in a tiny dress
 ```
 
+## Sheet 10 – Boats & Sea → save as `Boats.png`
+
+Boats are drawn **straight from above, pointing to the RIGHT**, so the game can rotate them in any direction while you steer. Everything else on this sheet uses the normal 3/4 view.
+
+```
+A pixel art sprite sheet, square image, arranged in a perfectly uniform 6x6 grid of 36 equal square cells. Each cell contains exactly ONE isolated sprite, centered in its cell, all drawn at the same scale and filling about 80% of their cell, with even empty spacing between cells. No gridlines, no borders, no text, no labels, no numbers. Transparent background (if not possible: plain flat solid white background). Style: 32x32 retro 16-bit SNES pixel art, clean 1px dark outline, soft light from top-left, no water drawn around the boats, no ground shadows, consistent style across all cells. IMPORTANT: every boat and ship in rows 1 to 3 is seen from directly above (top-down bird's-eye view) with its bow pointing to the RIGHT, drawn horizontally, the same way every time. Rows 4 to 6 use a top-down 3/4 view.
+
+Cells in order, left to right, top to bottom:
+Row 1: small wooden log raft | wooden rowboat with two oars | small fishing boat with a white sail | viking longship with a striped sail and shields along the sides | medieval merchant cog with a square sail | caravel with three sails
+Row 2: large galleon warship with rows of cannons | pirate ship with black sails | steam paddle boat with a smokestack | armored ironclad warship | grey steel battleship with gun turrets | submarine surfaced on the water
+Row 3: small fast patrol boat | missile destroyer with launch tubes | cargo ship stacked with colored containers | small speedboat | futuristic glowing hover boat | futuristic energy battleship with blue lights
+Row 4: black iron cannonball | round sea bomb with a lit fuse | torpedo | spiked naval sea mine | harpoon | burning oil barrel
+Row 5: big white water splash | foamy boat wake trail | burning ship wreck with flames and smoke | ship sinking half underwater | floating broken wooden planks and debris | swirling whirlpool
+Row 6: wooden dock pier | red and white floating buoy | iron anchor icon | wooden ship steering wheel icon | open treasure chest full of gold | green sea serpent rising from the water
+```
+
 ---
 
 ## How to slice

@@ -4,3 +4,6 @@ dist/
 *.log
 _*.py
 __pycache__/
+
+# sprite sheet sources belong in the project root, not in the website
+public/*.png
