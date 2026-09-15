@@ -239,6 +239,54 @@ export async function run() {
     ok(Ho.residents(g, family).length === 3, 'the house lists its residents');
   });
 
+  await step('RPG combat: swing, dash, block, parry, knockouts, levels and loot', async () => {
+    const H = await import('/src/game/hero.js');
+    const R = await import('/src/game/rpg.js');
+    const g = freshGame({ era: 1, people: 4 });
+    build(g, 'campfire');
+    g.state.creatures = [];
+    const me = g.state.villagers.find(v => v.ruling);
+    H.startLead(g, me);
+    for (const o of g.state.villagers) if (o !== me) o.x = me.x + 3000;
+    const hero = g.hero;
+    H.updateHero(g, 1 / 30, {});
+    // dash moves you fast and makes you untouchable for a moment
+    const x0 = me.x;
+    H.updateHero(g, 1 / 30, { mx: 1, dash: true });
+    for (let i = 0; i < 6; i++) H.updateHero(g, 1 / 30, { mx: 1 });
+    ok(me.x - x0 > 40 || !g.world.walkable(x0 + 40, me.y), 'dash bursts you forward', `${Math.round(me.x - x0)}px`);
+    hero.iframes = 0.2;
+    ok(H.damageHero(g, me, 30) === 0, 'a blow during a dash is dodged');
+    // block from the front: most of it stopped; raised just in time: parried and the attacker staggers
+    hero.iframes = 0; hero.facing = 0;
+    const bandit = g.spawnCreature('bandit', me.x + 20, me.y);
+    hero.blocking = true; hero.stamina = 100; hero.blockAt = g.state.time - 1;
+    const blocked = H.damageHero(g, me, 30, bandit);
+    ok(blocked > 0 && blocked < 10, 'a raised guard blocks most of a blow', blocked.toFixed(1));
+    hero.blockAt = g.state.time;
+    ok(H.damageHero(g, me, 30, bandit) === 0 && bandit._stunned > 0, 'a well-timed block parries and staggers the attacker');
+    hero.blocking = false;
+    // the person you play is knocked out, not killed
+    me.hp = 1;
+    ok(H.knockOutHero(g, me) && g.state.villagers.includes(me) && me.hp > 1, 'a knockout sends you home instead of killing you');
+    // swinging kills a beast and earns experience; enough experience levels you up
+    const wolf = g.spawnCreature('wolf', me.x + 18, me.y);
+    hero.iframes = 5;
+    for (let i = 0; i < 300 && g.state.creatures.includes(wolf); i++) { hero.stamina = 100; H.updateHero(g, 1 / 30, { act: true }); }
+    ok(!g.state.creatures.includes(wolf) && R.rpgOf(g).xp > 0, 'swinging kills a beast and earns experience');
+    R.gainXp(g, 500, me);
+    ok(R.rpgOf(g).level > 1 && R.rpgOf(g).points >= 3, 'experience brings levels and points to spend');
+    ok(R.spendPoint(g, 'vigor') && R.heroStats(g).maxHp > 100 + (R.rpgOf(g).level - 1) * 10, 'points make you stronger');
+    // loot: better gear goes straight on, the rest into the bag
+    const epic = { ...R.rollGear(g, { slot: 'weapon' }), rarity: 2, dmg: 60 };
+    R.takeGear(g, epic);
+    ok(R.rpgOf(g).gear.weapon?.id === epic.id && R.heroWeapon(g, me).dmg === 60, 'better loot is equipped at once');
+    R.takeGear(g, { ...R.rollGear(g, { slot: 'weapon' }), rarity: 0, dmg: 5 });
+    ok(R.rpgOf(g).bag.length === 1, 'weaker loot goes into the bag');
+    ok(R.rpgOf(g).quests.length === 3, 'there are always three quests');
+    H.endLead(g);
+  });
+
   await step('auto-pick makes the best choice when something unlocks', async () => {
     const A = await import('/src/game/autopick.js');
     const C = await import('/src/game/court.js');
@@ -1021,8 +1069,9 @@ export async function run() {
     ok(app.game.state.tutorial.step >= 3, 'opening the Build menu completes that step', `step ${app.game.state.tutorial.step}`);
     app.hud.closePanel();
     [...document.querySelectorAll('.tutorial button')].find(b => b.textContent.includes('Skip')).click();
-    await sleep(300);
-    [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Skip').click();
+    let confirmSkip = null;
+    for (let i = 0; i < 20 && !confirmSkip; i++) { await sleep(100); confirmSkip = [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Skip'); }
+    confirmSkip?.click();
     await sleep(600);
     ok(app.game.state.tutorial.skipped === true, 'Skip tutorial button + confirm skips it');
     ok(document.querySelector('.tutorial').hidden, 'skipping hides the tutorial');

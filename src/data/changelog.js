@@ -1,6 +1,19 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'You are the hero: RPG combat',
+    changes: [
+      'You always play as your avatar now. Your villagers still do the jobs: you place buildings and they build them, spy, farm and fight',
+      'Action combat: Space (or ATTACK) swings your weapon in an arc in front of you, with crits and knockback; heavy hammers stagger. Bows shoot arrows. With nothing to fight nearby the same button chops and mines',
+      'Shift (or DASH) dashes through danger: for a moment nothing can hit you. Hold Q (or BLOCK) to raise your guard; block right as a blow lands to PARRY and stagger the attacker',
+      'Stamina: attacks, dashes and blocking use it and it comes back quickly. Enemies wind up before they strike (a red ! over their head), so you can react',
+      'Levels: fights, bounties and quests give experience. Each level gives 3 points for Might (damage), Vigor (health) and Agility (stamina, speed, crits)',
+      'Loot: monsters drop weapons, armour and trinkets in Common, Rare, Epic and Legendary. Better gear goes straight on; open your Character sheet (G) to equip, take off or scrap for gold',
+      'Quests: three at a time (slay beasts, hunt a named kind, claim a bounty, chop and mine), with experience, gold and sometimes gear',
+      'You are never killed: knocked out, you wake up at home a little poorer',
+    ],
+  },
+  {
     title: 'In person, in other lands',
     changes: [
       'Visiting someone: your avatar arrives at the edge of their village and you walk their land with WASD or the stick',

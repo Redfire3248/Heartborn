@@ -15,6 +15,7 @@ import { openAimMap } from './aimMap.js';
 import { BODY, bodyStat } from '../game/body.js';
 import { autoPickOn, runAutoPick } from '../game/autopick.js';
 import { arriveAbroad, leaveAbroad, spyActions } from '../game/abroad.js';
+import { rpgOf, heroStats, heroWeapon, xpToNext, spendPoint, equip, unequip, scrapGear, RARITY } from '../game/rpg.js';
 import { homeOf, residents } from '../game/homes.js';
 import { itemAt, pickUp, moveItem, dropFromPack } from '../game/groundItems.js';
 const BADGE_TRAITS = ['gifted', 'knighted', 'versatile'];   // already shown as badges at the top of a profile
@@ -186,9 +187,9 @@ export class HUD {
       onclick: () => { if (this.visiting) { this.onReturnHome(); return; } this.follow = null; this.input.panTo(this.game.center.x, this.game.center.y); },
     }, pxIcon('target'), h('span.home-label', 'Village')));
     // lead in person: walk your ruler around yourself
-    this.leadInput = { mx: 0, my: 0, act: false };
-    this.root.append(h('button.card.lead-btn', { title: 'Play as your avatar: walk, fight and gather yourself (G). Pick any villager with Play as in their profile.', onclick: () => this.toggleLead() },
-      icon('items/crown_leader', 20), h('span.home-label', 'Avatar')));
+    this.leadInput = { mx: 0, my: 0, act: false, dash: false, block: false };
+    this.root.append(h('button.card.lead-btn', { title: 'Your character: level, points, gear and loot (G)', onclick: () => this.toggleLead() },
+      icon('items/crown_leader', 20), h('span.home-label', 'Character')));
     this.els.heroBar = h('div.card.hero-bar', { hidden: true });
     this.els.heroPad = h('div.hero-pad', { hidden: true });
     this.root.append(this.els.heroBar, this.els.heroPad);
@@ -245,10 +246,19 @@ export class HUD {
       const k = this.input.keys, t = this.leadInput;
       const mx = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0) + t.mx;
       const my = (k.has('s') || k.has('arrowdown') ? 1 : 0) - (k.has('w') || k.has('arrowup') ? 1 : 0) + t.my;
-      if (abroad || (!g.paused && !g.pendingEvent)) updateHero(hg, dt, { mx, my, act: !abroad && (k.has(' ') || t.act) });
+      // dash fires once per press; block is held
+      const dashDown = k.has('shift') || t.dash;
+      const dash = dashDown && !this._dashHeld;
+      this._dashHeld = dashDown;
+      if (abroad || (!g.paused && !g.pendingEvent)) updateHero(hg, dt, { mx, my, act: !abroad && (k.has(' ') || t.act), dash: !abroad && dash, block: !abroad && (k.has('q') || t.block) });
       const v = heroOf(hg);
       const c = this.renderer.camera;
-      if (v) { this.follow = null; c.x += (v.x - c.x) * Math.min(1, dt * 6); c.y += (v.y - c.y) * Math.min(1, dt * 6); }
+      // look around freely while placing buildings or dragging the map; moving snaps the camera back to you
+      if (this.buildType || this.demolishMode || this.input.drag?.moved) this._freeLook = true;
+      if (mx || my) this._freeLook = false;
+      if (v && !this._freeLook) { this.follow = null; c.x += (v.x - c.x) * Math.min(1, dt * 6); c.y += (v.y - c.y) * Math.min(1, dt * 6); }
+    } else {
+      this.ensureAvatar();
       if (abroad && v && this.mp && abroad.hostUid) this.mp.publishStranger(abroad.hostUid, abroad.strangerId, v, { disguised: abroad.role === 'spy' });
     }
     this.tickTimer -= dt;
@@ -312,9 +322,9 @@ export class HUD {
     if (k === 'g' && !this.game.sail) { this.toggleLead(); return; }
     if (this.game.hero) {   // walking your ruler: WASD move, Space strikes, Esc stops
       if (k === ' ' || k.startsWith('arrow')) e.preventDefault?.();
-      if (k === 'escape') { endLead(this.game); return; }
+      if (k === 'escape' && !this.buildType && !this.demolishMode && !this.game.selected && !this.panel) return;
       if (k === 'f') { setViolent(this.game); this._heroKey = null; this.hint(this.game.hero.violent ? 'Hostile: Space strikes people too' : 'Peaceful: you only strike beasts', 1800); return; }
-      if ('wasd '.includes(k) && k.length === 1) return;
+      if (('wasdq '.includes(k) && k.length === 1) || k === 'shift') return;
     }
     if (this.game.sail) {   // the helm takes the keys
       if (k === 'escape') returnToPort(this.game);
@@ -337,19 +347,11 @@ export class HUD {
     else if (k === 'h') { this.follow = null; this.input.panTo(this.game.center.x, this.game.center.y); }
   }
 
-  // ------------------------------------------------------------ leading in person
+  // ------------------------------------------------------------ you, the avatar
+  /** The G key / Avatar button: your character sheet (you are always playing as your avatar). */
   toggleLead() {
-    const g = this.game;
     if (this.visiting) return;
-    if (g.hero) { endLead(g); return; }
-    const r = startLead(g);
-    if (r.error) { this.hint(r.error, 2500); return; }
-    this.select(null);
-    this.closePanel?.();
-    const touch = matchMedia('(pointer: coarse)').matches;
-    this.hint(touch
-      ? `You are ${r.hero.name}. Drag the stick to walk, ACT to strike, chop and mine. Walk over finds to pick them up.`
-      : `You are ${r.hero.name}. WASD to walk, Space to strike, chop and mine. Walk over finds to pick them up. People near you work 50% faster. G or Esc to stop.`, 7000);
+    this.characterSheet();
   }
 
   playAs(v) {
@@ -357,7 +359,23 @@ export class HUD {
     if (r.error) { this.hint(r.error, 2500); return; }
     this.select(null);
     this.closePanel?.();
-    this.hint(matchMedia('(pointer: coarse)').matches ? `You are now ${v.name}. Drag the stick to walk, ACT to strike, chop and mine.` : `You are now ${v.name}. WASD to walk, Space to strike, chop and mine. G or Esc to stop.`, 6000);
+    this.hint(`You are now ${v.name}. Your level, gear and quests come with you.`, 5000);
+  }
+
+  /** Always be someone: at home you play your avatar (after sailing or if they fall, you pick up as the next one). */
+  ensureAvatar() {
+    const g = this.game;
+    if (this.visiting || g.hero || g.sail) return;
+    if (this._leadTry && performance.now() - this._leadTry < 2000) return;
+    this._leadTry = performance.now();
+    const first = !this._introShown;
+    const r = startLead(g);
+    if (r.error || !first) return;
+    this._introShown = true;
+    const touch = matchMedia('(pointer: coarse)').matches;
+    this.hint(touch
+      ? `You are ${r.hero.name}. Stick to move, ATTACK to fight (and chop or mine), DASH to dodge, hold BLOCK to guard.`
+      : `You are ${r.hero.name}. WASD to move, Space to attack (and chop or mine), Shift to dash, hold Q to block, G for your character.`, 9000);
   }
 
   updateHeroBar() {
@@ -368,29 +386,92 @@ export class HUD {
     this.root.classList.toggle('leading', !!v);
     pad.classList.toggle('abroad', !!abroad);
     if (!v) {
-      if (!bar.hidden) { bar.hidden = true; pad.hidden = true; bar.replaceChildren(); pad.replaceChildren(); this._heroKey = null; Object.assign(this.leadInput, { mx: 0, my: 0, act: false }); }
+      if (!bar.hidden) { bar.hidden = true; pad.hidden = true; bar.replaceChildren(); pad.replaceChildren(); this._heroKey = null; Object.assign(this.leadInput, { mx: 0, my: 0, act: false, dash: false, block: false }); }
       return;
     }
     if (abroad) { this.updateAbroadBar(abroad, v); return; }
     const hero = g.hero;
+    const r = rpgOf(g);
+    const st = heroStats(g);
+    const w = heroWeapon(g, v);
     const bounty = bountyOf(g);
     this.els.heroPad.classList.toggle('violent', !!hero.violent);
-    const key = [v.id, Math.round(v.hp), hero.kills, hero.finds, hero.chopped, hero.violent ? 1 : 0, hero.slain || 0, bounty ? `${bounty.bounty.name}${Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE / 3)}` : ''].join('|');
     if (bar.hidden) { bar.hidden = false; pad.hidden = false; this.buildHeroPad(); }
-    if (key === this._heroKey) return;
-    this._heroKey = key;
-    const dist = bounty ? Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE) : 0;
-    bar.replaceChildren(
-      h('div.hero-top', icon('items/crown_leader', 22), h('b', v.name), bar100(v.hp), h('div.spacer'),
-        h(`button.btn.sm${hero.violent ? '.danger' : ''}`, { title: 'Hostile lets you strike your own people (F)', onclick: () => { setViolent(g); this._heroKey = null; } }, hero.violent ? 'Hostile' : 'Peaceful'),
-        h('button.btn.sm', { onclick: () => endLead(g) }, 'Stop')),
-      h('div.hero-deeds', `${hero.slain ? `${hero.slain} people killed · ` : ''}${hero.kills} beasts slain · ${hero.finds} finds · ${hero.chopped} gathered`),
-      bounty
-        ? h('div.hero-bounty', icon('items/icon_gold', 16), `Bounty: ${bounty.bounty.name}, ${bounty.bounty.gold} gold · ${dist < 3 ? 'right here!' : `${dist} tiles ${compass(bounty.x - v.x, bounty.y - v.y)}`}`)
-        : h('div.hero-bounty.faint', 'Scouts are looking for a bounty...'));
-    function bar100(hp) { return h('div.hero-hp', h('div', { style: { width: `${Math.max(0, Math.min(100, hp))}%` } })); }
+    // the bars move every frame; the rest only rebuilds when something changes
+    const els = this.els;
+    const fill = (el, frac) => { if (el) el.style.width = `${Math.max(0, Math.min(100, frac * 100))}%`; };
+    const key = [v.id, r.level, r.points, w.name, hero.violent ? 1 : 0, r.quests.map(q => q.id + q.have).join(), bounty ? bounty.bounty.name + Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE / 3) : ''].join('|');
+    if (key !== this._heroKey) {
+      this._heroKey = key;
+      const dist = bounty ? Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE) : 0;
+      els.heroHp = h('div');
+      els.heroSt = h('div');
+      els.heroXp = h('div');
+      bar.replaceChildren(
+        h('div.hero-top',
+          h('span.hero-level', `Lv ${r.level}`), h('b', v.name),
+          w.icon ? icon(w.icon, 18) : null, h('span.faint', w.name),
+          h('div.spacer'),
+          h(`button.btn.sm${hero.violent ? '.danger' : ''}`, { title: 'Hostile lets you strike your own people (F)', onclick: () => { setViolent(g); this._heroKey = null; } }, hero.violent ? 'Hostile' : 'Peaceful'),
+          h(`button.btn.sm${r.points ? '.primary' : ''}`, { title: 'Character sheet (G)', onclick: () => this.characterSheet() }, r.points ? `Character (+${r.points})` : 'Character')),
+        h('div.hero-bars',
+          h('div.hero-meter.hp', { title: 'Health' }, els.heroHp),
+          h('div.hero-meter.st', { title: 'Stamina: attacks, dashes and blocking use it' }, els.heroSt),
+          h('div.hero-meter.xp', { title: 'Experience' }, els.heroXp)),
+        h('div.hero-quests', r.quests.map(q => h('div.hero-quest', h('span', q.text), h('span.faint', `${q.have}/${q.need}`)))),
+        bounty
+          ? h('div.hero-bounty', icon('items/icon_gold', 16), `Bounty: ${bounty.bounty.name}, ${bounty.bounty.gold} gold · ${dist < 3 ? 'right here!' : `${dist} tiles ${compass(bounty.x - v.x, bounty.y - v.y)}`}`)
+          : '');
+    }
+    fill(els.heroHp, v.hp / st.maxHp);
+    fill(els.heroSt, (hero.stamina ?? st.maxStamina) / st.maxStamina);
+    fill(els.heroXp, r.xp / xpToNext(r.level));
+    els.heroSt?.parentElement?.classList.toggle('low', (hero.stamina ?? 100) < 15);
   }
 
+  /** Your character: level, points to spend, gear you wear and loot in your bag. */
+  characterSheet() {
+    const g = this.game;
+    const render = () => {
+      const r = rpgOf(g);
+      const st = heroStats(g);
+      const v = heroOf(g) || avatarOf(g);
+      const w = heroWeapon(g, v);
+      const statRow = (id, label, desc) => h('div.char-stat',
+        h('div', h('b', `${label} ${r[id]}`), h('div.faint', desc)),
+        h('button.btn.sm.primary', { disabled: !r.points, onclick: () => { spendPoint(g, id); render(); } }, '+'));
+      const gearCard = (slot, label) => {
+        const it = r.gear[slot];
+        return h('div.char-gear', { style: it ? { borderColor: RARITY[it.rarity].color } : {} },
+          h('div.faint', label),
+          it ? h('div.row', icon(it.icon || 'items/relic', 28), h('div', h('b', { style: { color: RARITY[it.rarity].color } }, it.name), h('div.faint', gearText(it))))
+            : h('div.faint', slot === 'weapon' ? `${w.name} (what you carry)` : 'Nothing'),
+          it ? h('button.btn.sm', { onclick: () => { unequip(g, slot); render(); } }, 'Take off') : null);
+      };
+      body.replaceChildren(
+        h('div.row', icon('items/crown_leader', 40), h('div', h('h2', { style: { margin: 0 } }, v?.name || 'You'), h('div.faint', `Level ${r.level} · ${r.xp}/${xpToNext(r.level)} XP · ${r.questsDone} quests done`))),
+        h('div.char-derived', `Health ${st.maxHp} · Stamina ${st.maxStamina} · Damage x${st.dmgMult.toFixed(2)} · Crit ${Math.round(st.crit * 100)}% · Armour ${Math.round(st.armor * 100)}% · Speed x${st.speed.toFixed(2)}`),
+        h('h3', r.points ? `Points to spend: ${r.points}` : 'Attributes'),
+        statRow('might', 'Might', '+8% damage per point'),
+        statRow('vigor', 'Vigor', '+12 health per point'),
+        statRow('agility', 'Agility', '+8 stamina, faster swings and movement, more crits'),
+        h('h3', 'Equipped'),
+        h('div.char-gears', gearCard('weapon', 'Weapon'), gearCard('armor', 'Armour'), gearCard('trinket', 'Trinket')),
+        h('h3', `Bag (${r.bag.length})`),
+        r.bag.length
+          ? h('div.char-bag', r.bag.map(it => h('div.char-item', { style: { borderColor: RARITY[it.rarity].color } },
+            icon(it.icon || 'items/relic', 24),
+            h('div', { style: { flex: 1 } }, h('b', { style: { color: RARITY[it.rarity].color } }, it.name), h('div.faint', gearText(it))),
+            h('button.btn.sm.primary', { onclick: () => { equip(g, it.id); render(); } }, 'Equip'),
+            h('button.btn.sm', { title: 'Break it down for gold', onclick: () => { const gold = scrapGear(g, it.id); this.hint(`+${gold} gold`, 1500); render(); } }, 'Scrap'))))
+          : h('div.faint', 'Monsters drop weapons, armour and trinkets. Bosses and bounties always drop something good.'),
+        h('div.faint', { style: { marginTop: '8px' } }, 'Controls: WASD move · Space attack · Shift dash · hold Q block (block right as a blow lands to parry) · F hostile · phones use the on-screen buttons'));
+    };
+    const gearText = it => it.slot === 'weapon' ? `${it.dmg} damage` : it.slot === 'armor' ? `${Math.round(it.armor * 100)}% armour` : Object.entries(it.bonus || {}).map(([k, n]) => k === 'hp' ? `+${n} health` : `+${Math.round(n * 100)}% ${k === 'dmg' ? 'damage' : k}`).join(', ');
+    const body = h('div.char-sheet');
+    const m = modal([body, h('div.row', h('div.spacer'), h('button.btn', { onclick: () => m.close() }, 'Close'))], { cls: 'char-modal' });
+    render();
+  }
   /** In another land: who you are there, and (as a spy) what you can do right where you stand. */
   updateAbroadBar(abroad, v) {
     const bar = this.els.heroBar;
@@ -407,10 +488,10 @@ export class HUD {
       spy
         ? h('div.hero-deeds', `Disguised as a traveller in ${land}. Walk up to a building or a person to act. One act ends the mission.`)
         : h('div.hero-deeds', `Visiting ${land}. Walk around with WASD or the stick.`),
-      spy && here.guards ? h('div.hero-bounty', { style: { color: '#ff8a7a' } }, `${here.guards} guard${here.guards === 1 ? '' : 's'} watching: much riskier here`) : null,
+      spy && here.guards ? h('div.hero-bounty', { style: { color: '#ff8a7a' } }, `${here.guards} guard${here.guards === 1 ? '' : 's'} watching: much riskier here`) : '',
       spy ? h('div.row', { style: { flexWrap: 'wrap', gap: '5px' } }, here.actions.map(a => h('button.btn.sm', {
         title: a.desc, disabled: !!abroad.busy, onclick: () => this.spyAct(a, here.guards),
-      }, a.label))) : null);
+      }, a.label))) : '');
   }
 
   /** Take control of a spy who has arrived in another land. */
@@ -497,12 +578,19 @@ export class HUD {
     stick.addEventListener('pointermove', e => { if (e.pointerId === id) move(e); });
     stick.addEventListener('pointerup', end);
     stick.addEventListener('pointercancel', end);
-    const act = h('button.hero-act', {
-      onpointerdown: e => { e.preventDefault(); t.act = true; act.classList.add('down'); },
-      onpointerup: () => { t.act = false; act.classList.remove('down'); },
-      onpointerleave: () => { t.act = false; act.classList.remove('down'); },
-    }, icon('items/sword', 30), h('span', 'ACT'));
-    this.els.heroPad.replaceChildren(stick, act);
+    const hold = (cls, key, label, iconKey, size) => {
+      const b = h(`button.${cls}`, {
+        onpointerdown: e => { e.preventDefault(); t[key] = true; b.classList.add('down'); },
+        onpointerup: () => { t[key] = false; b.classList.remove('down'); },
+        onpointerleave: () => { t[key] = false; b.classList.remove('down'); },
+        onpointercancel: () => { t[key] = false; b.classList.remove('down'); },
+      }, iconKey ? icon(iconKey, size) : null, h('span', label));
+      return b;
+    };
+    const act = hold('hero-act', 'act', 'ATTACK', 'items/sword', 30);
+    const dash = hold('hero-dash', 'dash', 'DASH', null, 0);
+    const block = hold('hero-block', 'block', 'BLOCK', 'items/shield', 20);
+    this.els.heroPad.replaceChildren(stick, act, dash, block);
   }
 
   /** Cancel / Done / Undo buttons while placing or demolishing: the on-screen right-click and Esc. */

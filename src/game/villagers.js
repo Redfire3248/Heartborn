@@ -6,7 +6,7 @@ import { clamp, pick, chance } from '../core/rng.js';
 import { MALE_NAMES, FEMALE_NAMES, BIRTH_TRAITS, SURNAMES } from '../data/traits.js';
 import { talentLearnMult } from './talents.js';
 import { upgradeSpeed } from './upgrades.js';
-import { inspired } from './hero.js';
+import { inspired, damageHero, knockOutHero } from './hero.js';
 import { homeOf, shelterFor } from './homes.js';
 import { rollBody, speedMult, strengthMult, hungerMult, bodyWorkMult, trainBody, toughness } from './body.js';
 import { OBJECTS, CREATURES } from '../data/objects.js';
@@ -269,7 +269,7 @@ function reactToAttack(g, victim, attacker, deadly) {
 /** A blow from one villager to another. Returns true if it killed them. */
 export function hitVillager(g, attacker, victim, dmg) {
   if (!g.state.villagers.includes(victim)) return false;
-  victim.hp -= dmg * toughness(victim);
+  victim.hp -= damageHero(g, victim, dmg * toughness(victim), attacker);   // the person you play can dodge, block and parry
   victim._hurtFlash = 0.25;
   g.puff({ x: victim.x, y: victim.y - 8 }, 'effects/hit_star', 2, 8);
   if (victim.hp > 0) {
@@ -277,6 +277,7 @@ export function hitVillager(g, attacker, victim, dmg) {
     if (t?.type !== 'brawl' && t?.type !== 'flee') reactToAttack(g, victim, attacker, true);
     return false;
   }
+  if (knockOutHero(g, victim)) { if (attacker._task?.target === victim) releaseTask(attacker); return false; }
   killVillager(g, victim, `was killed by ${attacker.name}`);
   attacker.murders = (attacker.murders || 0) + 1;
   onMurder(g, attacker, victim);

@@ -226,7 +226,13 @@ export class Renderer {
     const { ctx } = this;
     const bob = Math.sin(this.time * 3 + it.x * 0.1) * 1.5;
     this.shadow(it.x, it.y, TILE * 0.45);
-    drawSprite(ctx, ITEMS[it.item]?.icon || 'items/relic', it.x, it.y - 3 + bob, TILE * 0.55);
+    if (it.gear) {   // loot glows in the colour of its rarity
+      const col = ['#d9d4c7', '#5aa9ff', '#c77dff', '#ffb347'][it.gear.rarity] || '#fff';
+      ctx.save(); ctx.globalAlpha = 0.35 + 0.25 * Math.sin(this.time * 4); ctx.fillStyle = col;
+      ctx.beginPath(); ctx.ellipse(it.x, it.y, TILE * 0.45, TILE * 0.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      if (it.gear.rarity >= 2 && Math.random() < 0.05) this.lastGame?.fx.particles.push({ x: it.x, y: it.y - 6, vx: 0, vy: -14, sprite: 'effects/spark', size: 6, life: 0.6, max: 0.6, rot: 0 });
+    }
+    drawSprite(ctx, it.gear?.icon || ITEMS[it.item]?.icon || 'items/relic', it.x, it.y - 3 + bob, TILE * 0.55);
     if (it.count > 1 && this.camera.zoom >= 1.5) label(ctx, `×${it.count}`, it.x + 8, it.y + 4);
   }
 
@@ -350,6 +356,10 @@ export class Renderer {
     if (load) drawSprite(ctx, load, v.x + (v._flip ? 3 : -3), v.y - size * 0.92 + Math.abs(Math.sin(t * stepRate)) * -2, TILE * 0.42);
     if (v.hp < 99) bar(ctx, v.x - 8, v.y - size - 4, 16, v.hp / 100, v.hp > 40 ? '#6fdc5a' : '#ff5a4a');
     if (v._emote) drawSprite(ctx, v._emote.key, v.x + 6, v.y - size - 2 + Math.sin(this.time * 4) * 1.5, 12);
+    if (hero?.blocking) {   // guard up: a shield in front of you
+      const a = hero.facing ?? 0;
+      drawSprite(ctx, 'items/shield', v.x + Math.cos(a) * 10, v.y - 10 + Math.sin(a) * 8, TILE * 0.55, { alpha: 0.95 });
+    }
     if (hero || g.selected?.ref === v || this.camera.zoom >= 3.2) label(ctx, v.name, v.x, v.y + 7);
   }
 
@@ -378,6 +388,12 @@ export class Renderer {
         if (Math.random() < 0.1) g.fx.particles.push({ x: c.x + (Math.random() - 0.5) * size, y: c.y + offsetY - size * Math.random(), vx: 0, vy: -10, sprite: c.t === 'dragon' ? 'effects/flame' : 'effects/leaf', size: 6, life: 0.8, max: 0.8, rot: 0 });
       }
     }
+    if (c._windup > 0) {   // winding up a blow: a red warning, time to dodge or block
+      const k = 0.5 + 0.5 * Math.sin(this.time * 30);
+      ctx.fillStyle = `rgba(255,60,40,${0.6 + k * 0.4})`;
+      ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('!', c.x, c.y - size + offsetY - 8);
+    }
     if (c.bounty) {
       const p = 0.5 + 0.5 * Math.sin(this.time * 5);
       ctx.strokeStyle = `rgba(255,200,60,${0.5 + p * 0.5})`;
@@ -393,6 +409,29 @@ export class Renderer {
     const { ctx } = this;
     const p = 0.5 + 0.5 * Math.sin(this.time * 4);
     ctx.save();
+    // dash afterimages
+    for (const tr of hero.trail || []) {
+      ctx.globalAlpha = Math.max(0, tr.life / 0.25) * 0.35;
+      drawSprite(ctx, villagerSprite({ ...v, role: displayRole(v) }), tr.x, tr.y, TILE * 0.92, { flip: v._flip, tint: '#9fd4ff' });
+    }
+    ctx.globalAlpha = 1;
+    // the swing: a bright arc in front of you
+    if (hero.arc) {
+      const a = hero.arc, k = a.t / a.max;
+      ctx.fillStyle = a.crit ? `rgba(255,215,106,${0.55 * k})` : `rgba(255,255,255,${0.4 * k})`;
+      ctx.beginPath();
+      ctx.moveTo(v.x, v.y - 8);
+      ctx.arc(v.x, v.y - 8, a.range, a.angle - a.width / 2, a.angle + a.width / 2);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = `rgba(255,255,255,${0.9 * k})`; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(v.x, v.y - 8, a.range, a.angle - a.width / 2, a.angle + a.width / 2); ctx.stroke();
+    }
+    // arrows in flight
+    for (const ar of hero.arrows || []) {
+      const ang = Math.atan2(ar.vy, ar.vx);
+      ctx.strokeStyle = '#e8d2a6'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(ar.x - Math.cos(ang) * 10, ar.y - Math.sin(ang) * 10); ctx.lineTo(ar.x, ar.y); ctx.stroke();
+    }
     ctx.strokeStyle = `rgba(255,215,106,${0.55 + p * 0.45})`;
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.ellipse(v.x, v.y + 1, TILE * 0.5, TILE * 0.22, 0, 0, Math.PI * 2); ctx.stroke();

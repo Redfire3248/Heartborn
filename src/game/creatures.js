@@ -3,7 +3,7 @@ import { irange } from '../core/rng.js';
 import { CREATURES } from '../data/objects.js';
 import { killVillager } from './villagers.js';
 import { has } from './dynasty.js';
-import { payBounty } from './hero.js';
+import { payBounty, damageHero, knockOutHero } from './hero.js';
 import { toughness } from './body.js';
 
 const BIG_KILLS = {
@@ -73,9 +73,9 @@ export function updateCreature(g, c, dt) {
         g.fx.shake = Math.max(g.fx.shake, 1);
         for (const v of [...s.villagers]) {
           if (v.away || Math.hypot(v.x - target.x, v.y - target.y) > TILE * def.breath.radius) continue;
-          v.hp -= def.breath.damage * (c.scale || 1) * toughness(v);
+          v.hp -= damageHero(g, v, def.breath.damage * (c.scale || 1) * toughness(v), c);
           v._hurtFlash = 0.3;
-          if (v.hp <= 0) killVillager(g, v, 'was burned by the dragon');
+          if (v.hp <= 0 && !knockOutHero(g, v)) killVillager(g, v, 'was burned by the dragon');
         }
       }
     }
@@ -86,13 +86,25 @@ export function updateCreature(g, c, dt) {
       } else {
         c._flip = target.x < c.x;
         c._cd = (c._cd || 0) - dt;
+        // a telegraphed blow: it rears back first, so you can dash out of the way, block or parry
+        if (c._cd <= 0 && !c._windup) c._windup = def.boss ? 0.6 : 0.45;
+        if (c._windup > 0) {
+          c._windup -= dt;
+          if (c._windup > 0) { if (c._attack) c._attack = Math.max(0, c._attack - dt); return; }
+          c._windup = 0;
+        }
         if (c._cd <= 0) {
           c._cd = 1.2;
           c._attack = 0.25;
           let dmg = def.damage * (c.scale || 1) / (1 + g.defense / 50);
           if (target.armed && g.hasBuilding('armory')) dmg *= 0.7;   // shield and mail
           dmg *= toughness(target);   // stamina shrugs off wounds
+          if (g.hero?.id === target.id) {
+            if (Math.hypot(target.x - c.x, target.y - c.y) > TILE * 1.2) return;   // stepped out of reach during the wind-up
+            dmg = damageHero(g, target, dmg, c);
+          }
           target.hp -= dmg;
+          if (target.hp <= 0 && knockOutHero(g, target)) return;
           if (target.hp > 0 && target.hp < 15 && !has(target, 'scarred') && Math.random() < 0.3) {
             target.traits.push('scarred');
             g.log(`${target.name} barely survived and will carry the scars.`, 'bad');
@@ -130,7 +142,8 @@ export function damageCreature(g, c, dmg, by) {
   const def = CREATURES[c.t];
   if (c.hp == null) c.hp = maxHp(c);
   // armoured beasts shrug off most blows from people; a real weapon cuts through better
-  if (def.armor && by) dmg *= by.armed || by.inv?.pack?.sword || by.inv?.pack?.spear ? 1 - def.armor * 0.6 : 1 - def.armor;
+  const heroArmed = by && g.hero?.id === by.id && g.state.rpg?.gear?.weapon;
+  if (def.armor && by) dmg *= by.armed || heroArmed || by.inv?.pack?.sword || by.inv?.pack?.spear ? 1 - def.armor * 0.6 : 1 - def.armor;
   c.hp -= dmg;
   c._hurtFlash = 0.25;
   if (c.hp > 0) return;

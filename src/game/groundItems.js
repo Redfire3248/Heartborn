@@ -1,6 +1,7 @@
 import { TILE } from '../core/constants.js';
 import { ITEMS } from '../data/people.js';
 import { addItem, takeItem } from './dynasty.js';
+import { takeGear } from './rpg.js';
 
 /*
  * Items lying on the ground: dropped from a pack (drag it off onto the map), or by the admin `drop` command.
@@ -39,6 +40,8 @@ export function pickUp(g, v, it) {
   const list = groundItems(g);
   if (!list.includes(it)) return false;
   g.state.groundItems = list.filter(x => x !== it);
+  // loot from a fight: weapons, armour and trinkets are yours (the player's), whoever picks them up
+  if (it.gear) { takeGear(g, it.gear, v); return true; }
   addItem(v, it.item, it.count);
   g.float(it.x, it.y - TILE, `${v.name}: +${it.count} ${ITEMS[it.item]?.label || it.item}`, '#ffe7a0');
   g.emit('change');
