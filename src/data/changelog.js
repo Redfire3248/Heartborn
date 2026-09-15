@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Aim your missiles',
+    changes: [
+      'Missiles and orbital strikes are aimed: a targeting map of the enemy land shows every building, tap where it should land and see exactly what the blast will hit',
+      'Fire at your own land too, from the Missile Silo or Orbital Cannon: clear monsters, raiders, forest and rocks, or flatten what you no longer want (only -3 karma)',
+      'Incoming strikes are visible: a red target ring on the ground, the missile streaking down (or a beam from orbit), a flash, then ruins',
+      'The blast wrecks buildings near the centre, damages the ones at the edge and kills whoever is inside it; bunkers still save half',
+    ],
+  },
+  {
     title: 'A smarter Master Builder',
     changes: [
       'The Master Builder works toward your goals and the next era first, then homes, farms, missing workplaces and useful new buildings, and tells you why he ordered each one',

@@ -10,10 +10,12 @@ import { DEEDS, runDeed, sacrificeVillager, exileVillager, smiteCreature } from 
 import { maxHp } from '../game/creatures.js';
 import { rulerOf, rulerTypeOf, rulerTitle, setHeir, setCalling, encourage, ENCOURAGE, inventory, equipment, isTrained, crown, addItem, takeItem } from '../game/dynasty.js';
 import { CALLINGS, RULER_TYPES, ITEMS } from '../data/people.js';
-import { accuse, punishTraitor, throwBomb, counterIntel, isSpy, hasMissiles, hasOrbital, MISSILE_COST } from '../game/intrigue.js';
+import { accuse, punishTraitor, throwBomb, counterIntel, isSpy, hasMissiles, hasOrbital, MISSILE_COST, strikeOwnLand, strikeRadius } from '../game/intrigue.js';
+import { openAimMap } from './aimMap.js';
+import { makeVisitGame } from '../game/visit.js';
 import { LAW_CATEGORIES, DEFAULT_LAWS, LAW_COST, describeEffects } from '../data/laws.js';
 import { rally, standDown, tributeCost, payWarbandTribute, scoutSummary } from '../game/war.js';
-import { leaderboard } from '../net/save.js';
+import { leaderboard, getProfile } from '../net/save.js';
 import { fmtRes, travelMs, fmtMinutes, realmPos } from '../net/multiplayer.js';
 import { openRealmMap } from './realmMap.js';
 
@@ -1683,6 +1685,51 @@ export class HUD {
     ];
   }
 
+  /** Missile Silo / Orbital Cannon: aim a strike at your own land. Strikes abroad are aimed from a realm's profile. */
+  strikeCard(orbital) {
+    const g = this.game;
+    return h('div.strike-card',
+      h('b', orbital ? 'Orbital strike' : 'Missile strike'),
+      h('div.faint', `Fire at a spot you choose on our own land: clear monsters, raiders, forest and rocks, or flatten what you no longer want (${strikeRadius(orbital)} tile blast). Strike another realm from their profile: Covert operations.`),
+      costChips(MISSILE_COST, g.state.resources),
+      h('button.btn.danger', { onclick: () => this.aimOwnStrike(orbital) }, 'Aim at our land'));
+  }
+
+  aimOwnStrike(orbital) {
+    const g = this.game;
+    openAimMap(g, {
+      title: orbital ? 'Aim the Orbital Cannon' : 'Aim a missile at our land',
+      orbital, fireLabel: 'Fire', note: 'Careful: it hits your own buildings and people too. −3 karma.',
+      costChips: costChips(MISSILE_COST, g.state.resources),
+      onFire: aim => {
+        const r = strikeOwnLand(g, orbital, aim);
+        if (r.error) throw new Error(r.error);
+        this.select(null);
+        Object.assign(this.renderer.camera, { x: (aim.tx + 0.5) * TILE, y: (aim.ty + 0.5) * TILE });
+      },
+    });
+  }
+
+  /** Aim a missile at another player's land: their island and buildings, as they last saved them. */
+  async aimStrike(p, orbital) {
+    const g = this.game;
+    let target;
+    try {
+      const profile = await getProfile(p.uid);
+      target = makeVisitGame({ ...profile, uid: p.uid });
+    } catch (e) { this.hint(e.message || 'Could not map that realm', 4000); return; }
+    openAimMap(target, {
+      title: `${orbital ? 'Orbital strike' : 'Missile'}: ${p.villageName}`,
+      orbital, fireLabel: 'Launch',
+      note: `Their land as they last saved it. −${orbital ? 35 : 25} karma. A Shield Generator stops it.`,
+      costChips: costChips(MISSILE_COST, g.state.resources),
+      onFire: async aim => {
+        await this.mp.launchMission(p.uid, orbital ? 'orbital' : 'missile', aim);
+        this.announce('☢ Launched!');
+      },
+    });
+  }
+
   /** Shipyard: build boats, repair them, and set sail. */
   shipyardCard() {
     const g = this.game;
@@ -1899,6 +1946,7 @@ export class HUD {
       def.slots ? h('span.chip', `👷 ${workers}/${def.slots} working now`) : null,
       this.abilityCard(b),
       b.type === 'shipyard' && b.built ? this.shipyardCard() : null,
+      def.missile && b.built ? this.strikeCard(!!def.orbital) : null,
       h('ul.effects', describeBuilding(b.type).filter(e => !e.text.startsWith('Ability')).map(e => h(`li${e.good ? '' : '.warn'}`, h('span', e.icon), e.text))),
       h('div.row', h('div.spacer'),
         (() => {
@@ -2084,8 +2132,8 @@ export class HUD {
         ? h('div.muted', `Your best spy is ${best.name} (stealth ${Math.floor(best.skills.stealth)}). Estimated success: ~${odds}%. A failed spy may be caught and executed.`)
         : h('div.error-text', 'No trained spies at home. Build a Spy Den and give someone the Spy job.'),
       ...MISSIONS.map(([id, label, desc]) => h('button.choice', { disabled: !best, onclick: () => go(id) }, h('span.label', label), h('span.faint', desc))),
-      hasMissiles(g) ? h('button.choice', { onclick: () => go('missile') }, h('span.label', '☢ Launch missile'), h('span.faint', 'Destroys 3 buildings and kills people. −25 karma.'), costChips(MISSILE_COST, g.state.resources)) : null,
-      hasOrbital(g) ? h('button.choice', { onclick: () => go('orbital') }, h('span.label', '🛰 Orbital strike'), h('span.faint', 'Destroys 5 buildings. −35 karma.'), costChips(MISSILE_COST, g.state.resources)) : null,
+      hasMissiles(g) ? h('button.choice', { onclick: () => { m.close(); this.aimStrike(p, false); } }, h('span.label', '☢ Aim a missile'), h('span.faint', 'Pick exactly where it lands: it wrecks every building and person in the blast. −25 karma.'), costChips(MISSILE_COST, g.state.resources)) : null,
+      hasOrbital(g) ? h('button.choice', { onclick: () => { m.close(); this.aimStrike(p, true); } }, h('span.label', '🛰 Aim an orbital strike'), h('span.faint', 'A bigger blast from orbit, wherever you choose. −35 karma.'), costChips(MISSILE_COST, g.state.resources)) : null,
       err,
       h('div.row', h('div.spacer'), h('button.btn.ghost', { onclick: () => m.close() }, 'Cancel')),
     ].filter(Boolean));

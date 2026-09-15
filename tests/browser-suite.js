@@ -140,6 +140,27 @@ export async function run() {
     ok(U.officeLevel(g, 'master_builder') === U.OFFICE_UPGRADES.master_builder.max, 'office upgrades stop at the top level');
   });
 
+  await step('aimed missiles land where you choose', async () => {
+    const I = await import('/src/game/intrigue.js');
+    const V = await import('/src/game/visit.js');
+    const g = freshGame({ era: 5, people: 6 });
+    build(g, 'campfire');
+    const silo = build(g, 'missile_silo');
+    const farm = build(g, 'farm');
+    const far = g.state.buildings.find(b => b !== farm && Math.hypot(b.tx - farm.tx, b.ty - farm.ty) > 10) || build(g, 'house');
+    Object.assign(g.state.resources, { science: 1000, iron: 1000, bombs: 50 });
+    const r = I.strikeOwnLand(g, false, { tx: farm.tx + 1, ty: farm.ty + 1 });
+    ok(r.ok && g.strikes.length === 1 && g.state.buildings.includes(farm), 'a strike on your own land falls first, then hits', JSON.stringify(r));
+    for (let i = 0; i < 100; i++) g.updateFx(1 / 30);
+    ok(!g.state.buildings.includes(farm) || !farm.built, 'the aimed spot is wrecked');
+    ok(Math.hypot(silo.tx - farm.tx, silo.ty - farm.ty) <= 5 || silo.built, 'buildings outside the blast are untouched');
+    const visit = V.makeVisitGame({ seed: g.state.seed, snapshot: V.villageSnapshot(g), villageName: 'Target', uid: 'x' });
+    const p = I.strikePreview(visit.state.buildings, [], far.tx, far.ty, true, b => visit.buildingCenter(b));
+    ok(p.buildings.some(b => b.type === far.type), 'the targeting map shows what another realm would lose');
+    const shielded = I.sufferStrike(g, 'Foe', false, null);
+    ok(!shielded.pending, 'strikes without an aim still hit at random');
+  });
+
   await step('fast lives, and workers carry what they gather home', async () => {
     const g = freshGame({ era: 1, people: 4, resources: false });
     build(g, 'campfire'); build(g, 'stockpile');

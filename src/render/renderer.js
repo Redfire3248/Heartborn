@@ -123,6 +123,7 @@ export class Renderer {
     this.drawGhost(g);
     this.drawParticles(g);
     this.drawBeams(g);
+    this.drawStrikes(g);
     this.drawLighting(g, ox, oy, s);
     this.drawWeather(g, dt);
 
@@ -455,6 +456,50 @@ export class Renderer {
     this.drawShip(`boats/${s.type}`, s.x, s.y + Math.sin(this.time * 2.5) * 1.2, s.angle, TILE * (1.5 + def.guns * 0.12));
     if (boat) bar(ctx, s.x - 16, s.y - TILE * 1.1, 32, boat.hull / def.hull, '#6fdc5a');
     for (const b of s.shots) drawSprite(ctx, b.heavy ? 'boats/sea_bomb' : 'nature/rock', b.x, b.y + 6, TILE * (b.heavy ? 0.45 : 0.3), { rot: this.time * 8 });
+  }
+
+  /** Falling missiles: a red target ring on the ground, the missile streaking down, then a white flash. */
+  drawStrikes(g) {
+    const strikes = g.strikes;
+    if (!strikes?.length) return;
+    const { ctx } = this;
+    ctx.save();
+    for (const st of strikes) {
+      const x = (st.tx + 0.5) * TILE, y = (st.ty + 0.5) * TILE;
+      const r = (st.orbital ? 5 : 3.5) * TILE;
+      if (!st.hit) {
+        const t = 1 - st.life / st.max;   // 0 → 1 as it falls
+        const pulse = 0.5 + 0.5 * Math.sin(this.time * 14);
+        ctx.strokeStyle = `rgba(255,60,50,${0.5 + pulse * 0.4})`;
+        ctx.fillStyle = `rgba(255,40,30,${0.08 + t * 0.14})`;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(x - 10, y); ctx.lineTo(x + 10, y); ctx.moveTo(x, y - 10); ctx.lineTo(x, y + 10); ctx.stroke();
+        if (st.orbital) {
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.strokeStyle = `rgba(120,220,255,${t})`;
+          ctx.lineWidth = 2 + t * 10;
+          ctx.beginPath(); ctx.moveTo(x, y - 900); ctx.lineTo(x, y); ctx.stroke();
+          ctx.globalCompositeOperation = 'source-over';
+        } else {
+          const my = y - (1 - t * t) * 700;
+          const mx = x + (1 - t * t) * 160;
+          ctx.strokeStyle = 'rgba(255,200,120,0.55)';
+          ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(mx + 60 * (1 - t), my - 260 * (1 - t) - 40); ctx.lineTo(mx, my); ctx.stroke();
+          drawSprite(ctx, 'units/missile', mx, my, TILE * 1.1, { rot: Math.atan2(700, -160) - Math.PI / 2 });
+        }
+      } else {
+        const a = Math.max(0, st.flash / 0.7);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = `rgba(255,${180 + a * 60},${120 + a * 100},${a * 0.8})`;
+        ctx.beginPath(); ctx.arc(x, y, r * (1.3 - a * 0.4), 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    }
+    ctx.restore();
   }
 
   /** Spell beams: a glowing line that fades in half a second. */

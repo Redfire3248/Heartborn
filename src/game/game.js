@@ -11,7 +11,7 @@ import { updateCreature } from './creatures.js';
 import { FateContext } from './fate.js';
 import { updateWar, maybeScheduleWarband } from './war.js';
 import { updateCourt } from './court.js';
-import { dailyTraitors, dailyMachines, updateBombDefense } from './intrigue.js';
+import { dailyTraitors, dailyMachines, updateBombDefense, updateStrikes } from './intrigue.js';
 import { dailyEmpire } from './empire.js';
 import { updateEmployment } from './employment.js';
 import { updateFinds } from './finds.js';
@@ -612,6 +612,7 @@ export class Game {
     this.fx.particles = particles.filter(p => p.life > 0);
     for (const b of this.fx.beams || []) b.life -= dt;
     this.fx.beams = (this.fx.beams || []).filter(b => b.life > 0);
+    updateStrikes(this, dt);
     this.fx.shake = Math.max(0, this.fx.shake - dt * 8);
   }
 

@@ -1027,3 +1027,10 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 
 .office-upgrade { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255, 207, 90, .06); border: 1px dashed rgba(255, 207, 90, .35); }
 .office-upgrade-next { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* missile targeting */
+.aim-modal { width: min(560px, 96vw); }
+.aim-wrap { flex-shrink: 0; width: min(100%, 58vh); align-self: center; border-radius: 10px; overflow: hidden; border: 2px solid #3a2a1c; margin: 8px 0; background: #10243a; }
+.aim-canvas { display: block; width: 100%; aspect-ratio: 1; max-width: 100%; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
+.aim-info { min-height: 38px; margin-bottom: 6px; }
+.strike-card { display: flex; flex-direction: column; gap: 6px; padding: 8px; margin: 6px 0; border-radius: 10px; background: rgba(255, 70, 50, .08); border: 1px solid rgba(255, 90, 70, .35); }

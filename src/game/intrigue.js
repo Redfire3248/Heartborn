@@ -216,14 +216,111 @@ export const hasMissiles = g => g.builtBuildings().some(b => BUILDINGS[b.type].m
 export const hasOrbital = g => g.builtBuildings().some(b => BUILDINGS[b.type].orbital);
 export const MISSILE_COST = { science: 200, iron: 60, bombs: 10 };
 
-/** Apply a missile strike that landed on this realm. */
-export function sufferStrike(g, from, orbital) {
-  const s = g.state;
+/** How far an aimed strike reaches, in tiles. */
+export const strikeRadius = orbital => (orbital ? 5 : 3.5);
+
+/** The seconds a missile takes to fall once it appears over the target. */
+export const STRIKE_FALL = 2.4;
+
+/**
+ * A missile coming down on this realm. With an aim point it falls there (a warning ring shows where)
+ * and hits everything in its radius; without one it hits at random, like before.
+ */
+export function sufferStrike(g, from, orbital, aim = null) {
   if (g.builtBuildings().some(b => BUILDINGS[b.type].missileShield)) {
     g.log(`A missile from ${from} was destroyed by the Shield Generator!`, 'good');
     g.announce('🛡 Missile intercepted!');
     return { blocked: true };
   }
+  if (!aim || !Number.isFinite(aim.tx) || !Number.isFinite(aim.ty)) return randomStrike(g, from, orbital);
+  if (g.offline) return landStrike(g, { from, orbital, tx: aim.tx, ty: aim.ty });
+  (g.strikes ||= []).push({ from, orbital, tx: aim.tx, ty: aim.ty, life: STRIKE_FALL, max: STRIKE_FALL });
+  g.announce(`☢ Incoming ${orbital ? 'orbital strike' : 'missile'} from ${from}!`);
+  g.log(`☢ A ${orbital ? 'beam from orbit' : 'missile'} from ${from} is coming down!`, 'bad', { x: (aim.tx + 0.5) * TILE, y: (aim.ty + 0.5) * TILE });
+  return { blocked: false, pending: true };
+}
+
+/** Advance falling missiles; each one hits when its timer runs out. */
+export function updateStrikes(g, dt) {
+  if (!g.strikes?.length) return;
+  for (const st of g.strikes) {
+    st.life -= dt;
+    if (st.life <= 0 && !st.hit) { st.hit = true; st.result = landStrike(g, st); st.flash = 0.7; }
+    if (st.hit) st.flash -= dt;
+  }
+  g.strikes = g.strikes.filter(st => !st.hit || st.flash > 0);
+}
+
+/** The blast itself: every building and person within the radius of the aim point. */
+export function landStrike(g, { from, orbital, tx, ty }) {
+  const s = g.state;
+  const r = strikeRadius(orbital);
+  const cx = (tx + 0.5) * TILE, cy = (ty + 0.5) * TILE;
+  const shelter = sum(g, 'shelter') ? 0.5 : 1;
+  const hitB = s.buildings.filter(b => {
+    const c = g.buildingCenter(b);
+    return Math.hypot(c.x - cx, c.y - cy) <= (r + sizeOf(b) / 2) * TILE;
+  });
+  const cause = `${orbital ? 'An orbital strike' : 'A missile'} from ${from} hit the`;
+  let destroyed = 0;
+  for (const b of hitB) {
+    const c = g.buildingCenter(b);
+    const close = Math.hypot(c.x - cx, c.y - cy) <= r * TILE * 0.5;
+    if (close && b.type !== 'campfire') {
+      s.buildings = s.buildings.filter(x => x !== b);
+      g.log(`${cause} ${BUILDINGS[b.type]?.name || 'building'}! Nothing is left.`, 'bad');
+      g.puff(c, 'effects/flame', 16);
+    } else {
+      b.built = false;
+      b.progress = Math.min(b.progress ?? 1, 0.35);
+      g.log(`${cause} ${BUILDINGS[b.type]?.name || 'building'}! It must be rebuilt.`, 'bad');
+      g.puff(c, 'effects/flame', 10);
+    }
+    destroyed++;
+  }
+  const victims = s.villagers.filter(v => !v.away && Math.hypot(v.x - cx, v.y - cy) <= r * TILE && Math.random() < 0.85 * shelter);
+  for (const v of victims) g.killVillager(v, `died in the ${orbital ? 'orbital strike' : 'missile strike'} from ${from}`);
+  // the land itself burns: trees and rocks near the centre are gone
+  s.objects = s.objects.filter(o => Math.hypot((o.x + 0.5) * TILE - cx, (o.y + 0.5) * TILE - cy) > r * TILE * 0.6);
+  blast(g, cx, cy, 400, r * TILE);
+  for (let i = 0; i < 3; i++) g.puff({ x: cx + (Math.random() - 0.5) * TILE * r, y: cy + (Math.random() - 0.5) * TILE * r }, 'effects/flame', 12);
+  g.recalc();
+  g.fx.shake = orbital ? 6 : 4;
+  g.announce(from === OWN
+    ? `☢ Impact! ${blastHits(destroyed, victims.length)}`
+    : `☢ ${from} struck your realm! ${blastHits(destroyed, victims.length)}`);
+  g.emit('change');
+  return { blocked: false, buildings: destroyed, dead: victims.length };
+}
+
+const OWN = 'your own silo';
+const blastHits = (b, d) => `${b} building${b === 1 ? '' : 's'} hit, ${d} dead`;
+
+/**
+ * Fire at your own land: clear monsters, raiders, rocks and forest, or knock down what you no longer want.
+ * Costs the same as a strike abroad, but only a little karma (and the Shield Generator does not stop your own).
+ */
+export function strikeOwnLand(g, orbital, aim) {
+  if (orbital ? !hasOrbital(g) : !hasMissiles(g)) return { error: `You need a ${orbital ? 'Orbital Cannon' : 'Missile Silo'}` };
+  if (!aim || aim.tx < 0 || aim.ty < 0 || aim.tx >= g.world.w || aim.ty >= g.world.h) return { error: 'Pick a spot on your land' };
+  if (!g.spend(MISSILE_COST)) return { error: `Needs ${Object.entries(MISSILE_COST).map(([k, n]) => `${n} ${k}`).join(', ')}` };
+  g.addKarma(-3);
+  (g.strikes ||= []).push({ from: OWN, orbital, tx: aim.tx, ty: aim.ty, life: STRIKE_FALL, max: STRIKE_FALL });
+  g.log(`☢ ${orbital ? 'The Orbital Cannon fires' : 'A missile launches'} at our own land. −3 karma.`, 'event', { x: (aim.tx + 0.5) * TILE, y: (aim.ty + 0.5) * TILE });
+  g.emit('change');
+  return { ok: true };
+}
+
+/** What an aim point would hit right now (for the targeting screen). */
+export function strikePreview(buildings, villagers, tx, ty, orbital, center) {
+  const r = strikeRadius(orbital);
+  const b = buildings.filter(x => { const c = center(x); return Math.hypot(c.x / TILE - (tx + 0.5), c.y / TILE - (ty + 0.5)) <= r + sizeOf(x) / 2; });
+  const v = villagers.filter(x => Math.hypot(x.x / TILE - (tx + 0.5), x.y / TILE - (ty + 0.5)) <= r).length;
+  return { buildings: b, people: v };
+}
+
+function randomStrike(g, from, orbital) {
+  const s = g.state;
   const shelter = sum(g, 'shelter') ? 0.5 : 1;
   destroyBuildings(g, orbital ? 5 : 3, 'A missile struck the');
   const dead = Math.round((orbital ? 8 : 4) * shelter);

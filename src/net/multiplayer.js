@@ -714,7 +714,7 @@ export class Multiplayer {
     return this.g.state.villagers.filter(v => isSpy(v) && !v.away && v.hp > 30);
   }
 
-  async launchMission(targetUid, mission) {
+  async launchMission(targetUid, mission, aim = null) {
     const g = this.g;
     const s = g.state;
     const target = await getProfile(targetUid);
@@ -738,6 +738,7 @@ export class Multiplayer {
       id, kind: isMissile ? 'missile' : 'spy', mission, from: this.uid, fromName: this.name, fromVillage: s.owner.villageName,
       to: targetUid, toVillage: target.villageName, stealth: agent ? Math.round(agent.skills.stealth * 10) / 10 : 0,
       agent: agent?.name || null, launchedAt: now, arrivesAt, status: 'travelling',
+      ...(isMissile && aim ? { aim: { tx: Math.round(aim.tx), ty: Math.round(aim.ty) } } : {}),
     };
     await update(ref(rtdb), {
       [`${this.w}missions/${targetUid}/${id}`]: record,
@@ -832,7 +833,7 @@ export class Multiplayer {
       const traced = s.court?.spymaster?.id || Math.random() < 0.3;
       const who = traced ? m.fromVillage : 'an unknown enemy';
       if (m.kind === 'missile') {
-        if (r.success) sufferStrike(g, m.fromVillage, m.mission === 'orbital');
+        if (r.success) sufferStrike(g, m.fromVillage, m.mission === 'orbital', m.aim);
         else g.log(`A missile from ${m.fromVillage} was stopped by our shield.`, 'good');
       } else if (r.caught) {
         g.addResource('influence', 15);
