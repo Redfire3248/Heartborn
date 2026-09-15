@@ -6,7 +6,7 @@ import { pickUp } from './groundItems.js';
 import { gainSkill } from './villagers.js';
 import { has } from './dynasty.js';
 import { speedMult, strengthMult } from './body.js';
-import { heroStats, heroWeapon, onHeroKill, questProgress, updateQuests } from './rpg.js';
+import { heroStats, heroWeapon, onHeroKill, questProgress, updateQuests, rpgOf, SHIELDS } from './rpg.js';
 
 /*
  * Lead in person: take control of your ruler and walk the land yourself.
@@ -120,6 +120,7 @@ function attack(g, v, st) {
     h.actCd = Math.max(ACT_COOLDOWN, swingTime);
     h.atkCd = swingTime;
     h.atkAnim = { t: 0, dur: swingTime };
+    slashFx(g, v, h, w, false);
     if (work(g, v)) questProgress(g, 'gather', { v });
     return;
   }
@@ -140,7 +141,7 @@ function attack(g, v, st) {
     return;
   }
   h.arc = { angle: h.facing, width: w.arc, range: w.range * TILE, t: 0.16, max: 0.16, crit };
-  // (the hero's own attack frames draw the slash, so no extra slash effect on top)
+  slashFx(g, v, h, w, crit);
   let hits = 0;
   for (const c of [...g.state.creatures]) {
     if (!CREATURES[c.t]?.hostile && !CREATURES[c.t]?.food) continue;
@@ -151,6 +152,13 @@ function attack(g, v, st) {
     hits++;
   }
   if (hits) g.fx.shake = Math.max(g.fx.shake, crit ? 0.8 : 0.35);
+}
+
+/** The slash animation in front of you, turned the way you swing (gold on a critical hit). */
+function slashFx(g, v, h, w, crit) {
+  if (w.ranged) return;
+  const reach = (w.range || 1.2) * TILE;
+  g.anim(crit ? 'combat/crit_slash' : 'combat/slash', v.x + Math.cos(h.facing) * reach * 0.6, v.y - 12 + Math.sin(h.facing) * reach * 0.6, { size: reach * 1.25, dur: 0.24, rot: h.facing });
 }
 
 function hitCreature(g, v, c, dmg, crit, w) {
@@ -193,7 +201,9 @@ export function damageHero(g, v, dmg, from = null) {
   if (h.iframes > 0) { g.float(v.x, v.y - TILE * 1.3, 'Dodged!', '#9fd4ff'); return 0; }
   const facingIt = from ? angleDiff(Math.atan2(from.y - v.y, from.x - v.x), h.facing) < 1.8 : true;
   if (h.blocking && facingIt) {
-    if (g.state.time - (h.blockAt || 0) < 0.25) {
+    const sh = rpgOf(g).gear.shield;
+    const shieldDef = sh ? SHIELDS[sh.base] : null;
+    if (g.state.time - (h.blockAt || 0) < (shieldDef?.parry ?? 0.2)) {
       if (from && 'hp' in from && !from.traits) from._stunned = Math.max(from._stunned || 0, 1.2);
       g.float(v.x, v.y - TILE * 1.3, 'PARRY!', '#ffd76a');
       g.anim('combat/parry', v.x + Math.cos(h.facing) * 10, v.y - 10 + Math.sin(h.facing) * 8, { size: 34, dur: 0.3 });
@@ -201,7 +211,10 @@ export function damageHero(g, v, dmg, from = null) {
       return 0;
     }
     h.stamina -= dmg * 1.2;
-    dmg *= h.stamina > 0 ? 0.2 : 0.6;   // a broken guard lets more through
+    if (shieldDef?.thorns && from && !from.traits && g.state.creatures.includes(from)) damageCreature(g, from, shieldDef.thorns, v);   // spikes bite back
+    // what gets through a guard: your shield decides (bare arms stop only half); a broken guard lets more through
+    const through = 1 - (sh?.block ?? shieldDef?.block ?? 0.5);
+    dmg *= h.stamina > 0 ? through : Math.min(1, through + 0.4);
     g.float(v.x, v.y - TILE * 1.3, 'Blocked', '#d9d4c7');
   }
   dmg *= 1 - heroStats(g).armor;
@@ -324,7 +337,8 @@ export function updateHero(g, dt, controls = {}) {
   } else {
     v._walking = len > 0.1;
     if (v._walking) {
-      const sp = WALK_SPEED * 2.1 * speedMult(v) * st.speed * (blocking ? 0.45 : 1) * dt;
+      const guardSlow = SHIELDS[rpgOf(g).gear.shield?.base]?.slow ?? 0.45;
+      const sp = WALK_SPEED * 2.1 * speedMult(v) * st.speed * (blocking ? guardSlow : 1) * dt;
       moveBy(mx * sp, my * sp);
     }
   }

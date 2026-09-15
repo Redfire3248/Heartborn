@@ -16,6 +16,7 @@ import { BODY, bodyStat } from '../game/body.js';
 import { autoPickOn, runAutoPick } from '../game/autopick.js';
 import { arriveAbroad, leaveAbroad, spyActions } from '../game/abroad.js';
 import { rpgOf, heroStats, heroWeapon, xpToNext, spendPoint, equip, unequip, scrapGear, RARITY } from '../game/rpg.js';
+import { gearIconKey } from '../render/gearArt.js';
 import { homeOf, residents } from '../game/homes.js';
 import { itemAt, pickUp, moveItem, dropFromPack } from '../game/groundItems.js';
 const BADGE_TRAITS = ['gifted', 'knighted', 'versatile'];   // already shown as badges at the top of a profile
@@ -409,7 +410,7 @@ export class HUD {
       bar.replaceChildren(
         h('div.hero-top',
           h('span.hero-level', `Lv ${r.level}`), h('b', v.name),
-          w.icon ? icon(w.icon, 18) : null, h('span.faint', w.name),
+          gearIconKey(w) ? icon(gearIconKey(w), 18) : null, h('span.faint', w.name),
           h('div.spacer'),
           h(`button.btn.sm${r.points ? '.primary' : ''}`, { title: 'Character sheet (G)', onclick: () => this.characterSheet() }, r.points ? `Character (+${r.points})` : 'Character')),
         h('div.hero-bars',
@@ -448,7 +449,7 @@ export class HUD {
         const it = r.gear[slot];
         return h('div.char-gear', { style: it ? { borderColor: RARITY[it.rarity].color } : {} },
           h('div.faint', label),
-          it ? h('div.row', icon(it.icon || 'items/relic', 28), h('div', h('b', { style: { color: RARITY[it.rarity].color } }, it.name), h('div.faint', gearText(it))))
+          it ? h('div.row', icon(gearIconKey(it) || 'items/relic', 28), h('div', h('b', { style: { color: RARITY[it.rarity].color } }, it.name), h('div.faint', gearText(it))))
             : h('div.faint', slot === 'weapon' ? `${w.name} (what you carry)` : 'Nothing'),
           it ? h('button.btn.sm', { onclick: () => { unequip(g, slot); render(); } }, 'Take off') : null);
       };
@@ -460,18 +461,18 @@ export class HUD {
         statRow('vigor', 'Vigor', '+12 health per point'),
         statRow('agility', 'Agility', '+8 stamina, faster swings and movement, more crits'),
         h('h3', 'Equipped'),
-        h('div.char-gears', gearCard('weapon', 'Weapon'), gearCard('armor', 'Armour'), gearCard('trinket', 'Trinket')),
+        h('div.char-gears', gearCard('weapon', 'Weapon'), gearCard('shield', 'Shield'), gearCard('armor', 'Armour'), gearCard('trinket', 'Trinket')),
         h('h3', `Bag (${r.bag.length})`),
         r.bag.length
           ? h('div.char-bag', r.bag.map(it => h('div.char-item', { style: { borderColor: RARITY[it.rarity].color } },
-            icon(it.icon || 'items/relic', 24),
+            icon(gearIconKey(it) || 'items/relic', 24),
             h('div', { style: { flex: 1 } }, h('b', { style: { color: RARITY[it.rarity].color } }, it.name), h('div.faint', gearText(it))),
             h('button.btn.sm.primary', { onclick: () => { equip(g, it.id); render(); } }, 'Equip'),
             h('button.btn.sm', { title: 'Break it down for gold', onclick: () => { const gold = scrapGear(g, it.id); this.hint(`+${gold} gold`, 1500); render(); } }, 'Scrap'))))
           : h('div.faint', 'Monsters drop weapons, armour and trinkets. Bosses and bounties always drop something good.'),
         h('div.faint', { style: { marginTop: '8px' } }, 'Controls: WASD move · Space attack · Shift dash · hold Q block (block right as a blow lands to parry) · phones use the on-screen buttons'));
     };
-    const gearText = it => it.slot === 'weapon' ? `${it.dmg} damage` : it.slot === 'armor' ? `${Math.round(it.armor * 100)}% armour` : Object.entries(it.bonus || {}).map(([k, n]) => k === 'hp' ? `+${n} health` : `+${Math.round(n * 100)}% ${k === 'dmg' ? 'damage' : k}`).join(', ');
+    const gearText = it => it.slot === 'shield' ? `blocks ${Math.round((it.block || 0) * 100)}%${it.armor ? ` · +${Math.round(it.armor * 100)}% armour` : ''}` : it.slot === 'weapon' ? `${it.dmg} damage` : it.slot === 'armor' ? `${Math.round(it.armor * 100)}% armour` : Object.entries(it.bonus || {}).map(([k, n]) => k === 'hp' ? `+${n} health` : `+${Math.round(n * 100)}% ${k === 'dmg' ? 'damage' : k}`).join(', ');
     const body = h('div.char-sheet');
     const m = modal([body, h('div.row', h('div.spacer'), h('button.btn', { onclick: () => m.close() }, 'Close'))], { cls: 'char-modal' });
     render();

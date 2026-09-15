@@ -23,6 +23,13 @@ export const WEAPONS = {
   hoe: { name: 'Hoe', dmg: 9, range: 1.2, speed: 0.55, arc: 1.2, icon: 'items/hoe' },
   spear: { name: 'Spear', dmg: 13, range: 1.8, speed: 0.6, arc: 0.8, icon: 'gear/spear' },
   sword: { name: 'Sword', dmg: 16, range: 1.3, speed: 0.48, arc: 1.9, icon: 'gear/sword_common' },
+  // more sword types: add a line here (and an icon in public/assets/gear) and it drops as loot and swings in your hand
+  rapier: { name: 'Rapier', dmg: 11, range: 1.4, speed: 0.34, arc: 1.0, crit: 0.08, icon: 'gear/rapier', fallbackIcon: 'gear/sword_common', length: 1.05 },
+  greatsword: { name: 'Greatsword', dmg: 28, range: 1.65, speed: 0.82, arc: 2.3, icon: 'gear/greatsword', fallbackIcon: 'gear/sword_epic', length: 1.35 },
+  katana: { name: 'Katana', dmg: 15, range: 1.35, speed: 0.4, arc: 1.7, crit: 0.12, icon: 'gear/katana', fallbackIcon: 'gear/sword_rare', length: 1.1 },
+  cutlass: { name: 'Cutlass', dmg: 14, range: 1.15, speed: 0.4, arc: 2.0, icon: 'gear/cutlass', fallbackIcon: 'gear/sword_common', length: 0.9 },
+  broadsword: { name: 'Broadsword', dmg: 20, range: 1.35, speed: 0.58, arc: 2.0, icon: 'gear/broadsword', fallbackIcon: 'gear/sword_common', length: 1.15 },
+  scimitar: { name: 'Scimitar', dmg: 15, range: 1.25, speed: 0.44, arc: 2.2, icon: 'gear/scimitar', fallbackIcon: 'gear/sword_rare', length: 1.0 },
   bow: { name: 'Bow', dmg: 12, range: 8, speed: 0.75, ranged: true, icon: 'gear/bow_common' },
 };
 export const ARMORS = {
@@ -30,25 +37,43 @@ export const ARMORS = {
   chain: { name: 'Chain Mail', armor: 0.25, icon: 'gear/chain_mail' },
   plate: { name: 'Plate Armour', armor: 0.38, icon: 'gear/plate_armor' },
 };
+// shields: "block" is the share of a blow stopped while guarding; parry = seconds a well-timed guard parries; slow = move speed while guarding
+export const SHIELDS = {
+  buckler: { name: 'Buckler', block: 0.6, parry: 0.35, slow: 0.7, icon: 'gear/buckler', fallbackIcon: 'gear/round_shield', size: 0.7 },
+  round: { name: 'Round Shield', block: 0.75, parry: 0.25, slow: 0.5, icon: 'gear/round_shield', size: 0.85 },
+  kite: { name: 'Kite Shield', block: 0.85, parry: 0.22, slow: 0.42, armor: 0.05, icon: 'gear/kite_shield', size: 0.95 },
+  tower: { name: 'Tower Shield', block: 0.95, parry: 0.18, slow: 0.3, armor: 0.1, icon: 'gear/tower_shield', fallbackIcon: 'gear/kite_shield', size: 1.15 },
+  heater: { name: 'Heater Shield', block: 0.8, parry: 0.24, slow: 0.48, armor: 0.03, icon: 'gear/heater_shield', fallbackIcon: 'gear/kite_shield', size: 0.9 },
+  spiked: { name: 'Spiked Shield', block: 0.7, parry: 0.3, slow: 0.55, thorns: 8, icon: 'gear/spiked_shield', fallbackIcon: 'gear/round_shield', size: 0.85 },
+};
+
 export const TRINKETS = {
   ring: { name: 'Ring of Might', bonus: { dmg: 0.12 }, icon: 'gear/ring' },
   boots: { name: 'Swift Boots', bonus: { speed: 0.12 }, icon: 'gear/boots' },
   amulet: { name: 'Amulet of Vigor', bonus: { hp: 30 }, icon: 'gear/amulet' },
 };
 
-const START = { level: 1, xp: 0, points: 0, might: 0, vigor: 0, agility: 0, gear: { weapon: null, armor: null, trinket: null }, bag: [], quests: [], questsDone: 0 };
+const START = { level: 1, xp: 0, points: 0, might: 0, vigor: 0, agility: 0, gear: { weapon: null, shield: null, armor: null, trinket: null }, bag: [], quests: [], questsDone: 0 };
 
 export function rpgOf(g) {
   const s = g.state;
   if (!s.rpg) s.rpg = JSON.parse(JSON.stringify(START));
+  if (!('shield' in s.rpg.gear)) s.rpg.gear.shield = null;   // shields came later
   return s.rpg;
 }
 
 /** Swords and bows show their rarity: plain, glowing blue, runed purple, golden flame. */
 export function weaponIcon(base, rarity) {
   if (base === 'sword') return `gear/sword_${['common', 'rare', 'epic', 'legendary'][rarity] || 'common'}`;
+  if (['rapier', 'greatsword', 'katana', 'cutlass', 'broadsword', 'scimitar'].includes(base)) return `gear/${base}${rarity >= 2 ? '_epic' : rarity === 1 ? '_rare' : ''}`;
   if (base === 'bow') return rarity ? 'gear/bow_rare' : 'gear/bow_common';
   return WEAPONS[base]?.icon || null;
+}
+
+/** Shields show their rarity too (the plain round and kite shields keep their first art). */
+export function shieldIcon(base, rarity) {
+  const art = { buckler: 'buckler', round: rarity ? 'round_shield' : 'round_shield_iron', kite: rarity ? 'kite_shield' : 'kite_shield_red', tower: 'tower_shield', heater: 'heater_shield', spiked: 'spiked_shield' }[base];
+  return `gear/${art}${rarity >= 2 ? '_epic' : rarity === 1 ? '_rare' : ''}`;
 }
 
 export const xpToNext = level => Math.round(60 * Math.pow(level, 1.5));
@@ -58,13 +83,13 @@ export function heroStats(g) {
   const r = rpgOf(g);
   const bonus = { dmg: 0, hp: 0, speed: 0 };
   for (const it of Object.values(r.gear)) for (const [k, n] of Object.entries(it?.bonus || {})) bonus[k] = (bonus[k] || 0) + n;
-  const armor = r.gear.armor ? r.gear.armor.armor : 0;
+  const armor = (r.gear.armor ? r.gear.armor.armor : 0) + (r.gear.shield?.armor || 0);
   return {
     maxHp: Math.round(100 + (r.level - 1) * 10 + r.vigor * 12 + bonus.hp),
     maxStamina: Math.round(100 + r.agility * 8 + (r.level - 1) * 3),
     dmgMult: 1 + r.might * 0.08 + (r.level - 1) * 0.04 + bonus.dmg,
     speed: 1 + r.agility * 0.03 + bonus.speed,
-    crit: 0.05 + r.agility * 0.012,
+    crit: 0.05 + r.agility * 0.012 + (r.gear.weapon ? WEAPONS[r.gear.weapon.base]?.crit || 0 : 0),
     armor: Math.min(0.7, armor),
   };
 }
@@ -124,12 +149,19 @@ const pickRarity = (g, boss) => {
 export function rollGear(g, { boss = false, slot = null } = {}) {
   const rarity = pickRarity(g, boss);
   const R = RARITY[rarity];
-  const kind = slot || (Math.random() < 0.55 ? 'weapon' : Math.random() < 0.6 ? 'armor' : 'trinket');
+  const roll = Math.random();
+  const kind = slot || (roll < 0.45 ? 'weapon' : roll < 0.62 ? 'shield' : roll < 0.85 ? 'armor' : 'trinket');
   const id = `gear${Date.now().toString(36)}${Math.floor(Math.random() * 1e5)}`;
   if (kind === 'weapon') {
-    const base = ['sword', 'axe', 'hammer', 'spear', 'bow'][Math.floor(Math.random() * 5)];
+    const bases = ['sword', 'sword', 'rapier', 'greatsword', 'katana', 'cutlass', 'broadsword', 'scimitar', 'axe', 'hammer', 'spear', 'bow'];
+    const base = bases[Math.floor(Math.random() * bases.length)];
     const W = WEAPONS[base];
     return { id, slot: 'weapon', base, rarity, name: `${R.name === 'Common' ? '' : R.name + ' '}${W.name}`, dmg: Math.round(W.dmg * R.mult * (1 + g.state.era * 0.08)), icon: weaponIcon(base, rarity) };
+  }
+  if (kind === 'shield') {
+    const base = ['buckler', 'round', 'spiked', 'heater', 'kite', 'tower'][Math.min(5, Math.floor(Math.random() * (3 + rarity * 1.2)))];
+    const S = SHIELDS[base];
+    return { id, slot: 'shield', base, rarity, name: `${R.name === 'Common' ? '' : R.name + ' '}${S.name}`, block: Math.min(0.98, Math.round((S.block + rarity * 0.03) * 100) / 100), armor: S.armor || 0, icon: shieldIcon(base, rarity) };
   }
   if (kind === 'armor') {
     const base = ['leather', 'chain', 'plate'][Math.min(2, Math.floor(Math.random() * (1.5 + rarity)))];
@@ -143,7 +175,7 @@ export function rollGear(g, { boss = false, slot = null } = {}) {
 }
 
 /** How good a piece of gear is, to compare with what you wear. */
-export const gearScore = it => (it ? (it.dmg || 0) + (it.armor || 0) * 60 + Object.values(it.bonus || {}).reduce((n, b) => n + b * (b < 1 ? 80 : 0.5), 0) + it.rarity * 3 : 0);
+export const gearScore = it => (it ? (it.dmg || 0) + (it.block || 0) * 40 + (it.armor || 0) * 60 + Object.values(it.bonus || {}).reduce((n, b) => n + b * (b < 1 ? 80 : 0.5), 0) + it.rarity * 3 : 0);
 
 /** Picked up: better than what you wear goes straight on, anything else into your bag. */
 export function takeGear(g, it, v = null) {

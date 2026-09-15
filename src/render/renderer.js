@@ -9,6 +9,8 @@ import { speedMult, bodyWorkMult } from '../game/body.js';
 import { maxHp } from '../game/creatures.js';
 import { FIND_KINDS } from '../game/finds.js';
 import { ITEMS } from '../data/people.js';
+import { heroWeapon, rpgOf, WEAPONS, SHIELDS } from '../game/rpg.js';
+import { gearIconKey, hasArt } from './gearArt.js';
 
 // hero frames leave room around the figure for swings and dashes: draw them bigger so the hero stands as tall as villagers
 const HERO_SCALE = 1.55;
@@ -238,7 +240,7 @@ export class Renderer {
       ctx.beginPath(); ctx.ellipse(it.x, it.y, TILE * 0.45, TILE * 0.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
       if (it.gear.rarity >= 2 && Math.random() < 0.05) this.lastGame?.fx.particles.push({ x: it.x, y: it.y - 6, vx: 0, vy: -14, sprite: 'effects/spark', size: 6, life: 0.6, max: 0.6, rot: 0 });
     }
-    drawSprite(ctx, it.gear?.icon || ITEMS[it.item]?.icon || 'items/relic', it.x, it.y - 3 + bob, TILE * 0.55);
+    drawSprite(ctx, gearIconKey(it.gear) || ITEMS[it.item]?.icon || 'items/relic', it.x, it.y - 3 + bob, TILE * 0.55);
     if (it.count > 1 && this.camera.zoom >= 1.5) label(ctx, `×${it.count}`, it.x + 8, it.y + 4);
   }
 
@@ -345,20 +347,10 @@ export class Renderer {
     this.shadow(v.x, v.y, size * 0.8);
     const tint = v._hurtFlash > 0 ? '#ff2020' : v.sick ? '#4fbf3f' : null;
     // you: the animated hero (boy or girl), walking and swinging in four directions
-    const frame = hero ? this.heroFrame(v, hero) : null;
-    if (frame) {
-      // motion on top of the frames: a bounce with every step, a stretch when dashing, a lunge on the swing
-      const step = this.time * 12 * speedMult(v);
-      const bob = hero.dash ? -3 : v._walking ? -Math.abs(Math.sin(step)) * 3 : Math.sin(this.time * 2.5) * 0.6;
-      const sq = hero.dash ? -0.12 : v._walking ? Math.cos(step * 2) * 0.04 : 0;
-      const atk = hero.atkAnim && hero.atkAnim.t < hero.atkAnim.dur ? hero.atkAnim.t / hero.atkAnim.dur : 0;
-      const lunge = atk ? Math.sin(Math.min(1, atk * 1.6) * Math.PI) * 4 : 0;
-      const a = hero.facing ?? 0;
-      drawSprite(ctx, frame.key, v.x + Math.cos(a) * lunge, v.y + 2 + Math.sin(a) * lunge * 0.5, size * HERO_SCALE, { flip: frame.flip, tint, full: true, offsetY: bob, squash: sq, rot: hero.dash ? (Math.cos(a) >= 0 ? 0.18 : -0.18) : 0 });
-    }
+    if (hero && !v.disguised) this.drawHero(g, v, hero, key, size, tint);
     else drawSprite(ctx, key, v.x, v.y, size, { flip: v._flip, offsetY, rot, squash, tint });
 
-    const tool = frame ? null : hero ? (hero.swing > 0 || v._walking ? heldItem(g, v) : null) : working ? toolFor(v, g) : null;
+    const tool = hero && !v.disguised ? null : hero ? (hero.swing > 0 || v._walking ? heldItem(g, v) : null) : working ? toolFor(v, g) : null;
     if (tool) {
       const swing = hero ? (hero.swing > 0 ? 1 - hero.swing / 0.22 * 2 : Math.sin(t * stepRate) * 0.2) : Math.sin(t * swingRate);
       const dir = v._flip ? -1 : 1;
@@ -375,6 +367,72 @@ export class Renderer {
     if (v.hp < 99) bar(ctx, v.x - 8, v.y - size - 4, 16, v.hp / 100, v.hp > 40 ? '#6fdc5a' : '#ff5a4a');
     if (v._emote) drawSprite(ctx, v._emote.key, v.x + 6, v.y - size - 2 + Math.sin(this.time * 4) * 1.5, 12);
     if (hero || g.selected?.ref === v || this.camera.zoom >= 3.2) label(ctx, v.name, v.x, v.y + 7);
+  }
+
+  /**
+   * You, drawn from pieces: the body (your avatar's own look) plus the sword and shield you really carry, each its own
+   * image, animated in code. Any sword or shield you add shows up in your hands and swings, guards and flinches the same.
+   */
+  drawHero(g, v, hero, bodyKey, size, tint) {
+    const { ctx } = this;
+    const a = hero.facing ?? Math.PI / 2;
+    const dx = Math.cos(a), dy = Math.sin(a);
+    const facing = Math.abs(dx) >= Math.abs(dy) * 0.85 ? (dx >= 0 ? 'right' : 'left') : dy < 0 ? 'up' : 'down';
+    const side = facing === 'left' ? -1 : 1;
+    const step = this.time * 12 * speedMult(v);
+    const atkT = hero.atkAnim && hero.atkAnim.t < hero.atkAnim.dur ? hero.atkAnim.t / hero.atkAnim.dur : 0;
+    const ease = atkT ? 1 - Math.pow(1 - atkT, 3) : 0;
+    // body motion: steps bounce, a dash leans and stretches, a swing lunges, a hit knocks you back a little
+    const bob = hero.dash ? -3 : v._walking ? -Math.abs(Math.sin(step)) * 3.2 : Math.sin(this.time * 2.5) * 0.7;
+    const sq = hero.dash ? -0.14 : v._walking ? Math.cos(step * 2) * 0.05 : atkT ? -Math.sin(atkT * Math.PI) * 0.06 : 0;
+    const lean = hero.dash ? side * 0.22 : v._walking ? Math.sin(step) * 0.06 : atkT ? side * Math.sin(atkT * Math.PI) * 0.12 : 0;
+    const lunge = atkT ? Math.sin(Math.min(1, atkT * 1.5) * Math.PI) * 5 : 0;
+    const hurt = v._hurtFlash > 0 ? (v._hurtFlash / 0.25) * 3 : 0;
+    const bx = v.x + dx * lunge - dx * hurt, by = v.y + dy * lunge * 0.5 - dy * hurt;
+    // the weapon-free hero body (front, back or side) once that art is in; until then your avatar's own look
+    const bodyArt = `hero/${v.sex === 'f' ? 'girl' : 'boy'}_body_${facing === 'up' ? 'back' : facing === 'down' ? 'front' : 'side'}`;
+    const body = hasArt(bodyArt) ? bodyArt : bodyKey;
+    const w = heroWeapon(g, v);
+    const weaponKey = w.base === 'fists' ? null : gearIconKey(w) || w.icon;
+    const sh = rpgOf(g).gear.shield;
+    const shieldKey = sh ? gearIconKey(sh) : v.inv?.pack?.shield ? 'gear/round_shield' : null;
+    const shieldDef = sh ? SHIELDS[sh.base] : SHIELDS.round;
+
+    // where the hands are, relative to the body, for each way you can face
+    const hy = by - size * 0.38 + bob;
+    const weaponHand = { x: bx + (facing === 'up' ? -side : side) * size * (facing === 'right' || facing === 'left' ? 0.18 : 0.3), y: hy };
+    const shieldHand = { x: bx - (facing === 'up' ? -1 : 1) * side * size * (facing === 'right' || facing === 'left' ? 0.2 : 0.3), y: hy + 2 };
+
+    const drawWeapon = () => {
+      if (!weaponKey) return;
+      // the blade's direction on screen: resting up and out; on a swing it sweeps from behind to in front of you
+      let blade;
+      if (atkT) blade = a - side * 1.7 + side * 3.2 * ease * (facing === 'up' || facing === 'down' ? 1 : 1);
+      else if (hero.blocking) blade = Math.PI / 2 + side * 0.7;   // sword held low and out of the way behind the shield
+      else blade = -Math.PI / 2 + side * (0.55 + (v._walking ? Math.sin(step) * 0.15 : Math.sin(this.time * 2) * 0.04));
+      const len = size * 0.72 * (WEAPONS[w.base]?.length || 1);
+      const cx = weaponHand.x + Math.cos(blade) * len * 0.32, cy = weaponHand.y + Math.sin(blade) * len * 0.32;
+      // gear icons are drawn pointing up and to the right (45 degrees): turn them to the blade direction
+      drawSprite(ctx, weaponKey, cx, cy, len, { rot: blade + Math.PI / 4, center: true, full: true });
+    };
+    const drawShield = () => {
+      if (!shieldKey) return;
+      const s = size * 0.5 * (shieldDef?.size || 0.85) * (hero.blocking ? 1.25 : 1);
+      let x = shieldHand.x, y = shieldHand.y;
+      if (hero.blocking) {   // guard up: the shield comes round in front of you, toward the danger
+        const k = Math.min(1, (this.time - (hero._guardDrawAt ??= this.time)) * 10);
+        x += (bx + dx * size * 0.32 - x) * k;
+        y += (by - size * 0.4 + dy * size * 0.18 - y) * k;
+        if (hero.sinceHit < 0.15) { x += (Math.random() - 0.5) * 3; y += (Math.random() - 0.5) * 3; }
+      } else hero._guardDrawAt = undefined;
+      drawSprite(ctx, shieldKey, x, y + bob * 0.5, s, { center: true, full: true, flip: side < 0 });
+    };
+
+    // layering: facing away, your gear is in front of the body; otherwise the shield arm is behind and the sword in front
+    if (facing !== 'up') { if (!hero.blocking) drawShield(); }
+    else { drawShield(); drawWeapon(); }
+    drawSprite(ctx, body, bx, by, size * (body.startsWith('hero/') ? 1.1 : 1), { flip: side < 0, tint, offsetY: bob, squash: sq, rot: lean });
+    if (facing !== 'up') { drawWeapon(); if (hero.blocking) drawShield(); }
   }
 
   /** Which hero frame to show: facing (down / up / side), walking or attacking, and the frame of that animation. */
@@ -449,9 +507,9 @@ export class Renderer {
     // dash afterimages
     for (const tr of hero.trail || []) {
       ctx.globalAlpha = Math.max(0, tr.life / 0.25) * 0.35;
-      const f = this.heroFrame(v, hero);
-      if (f) drawSprite(ctx, f.key, tr.x, tr.y + 2, TILE * 0.92 * HERO_SCALE, { flip: f.flip, tint: '#9fd4ff', full: true });
-      else drawSprite(ctx, villagerSprite({ ...v, role: displayRole(v) }), tr.x, tr.y, TILE * 0.92, { flip: v._flip, tint: '#9fd4ff' });
+      const bodyArt = `hero/${v.sex === 'f' ? 'girl' : 'boy'}_body_side`;
+      const body = hasArt(bodyArt) ? bodyArt : villagerSprite({ ...v, role: displayRole(v) });
+      drawSprite(ctx, body, tr.x, tr.y, TILE * 0.92, { flip: Math.cos(hero.facing ?? 0) < 0, tint: '#9fd4ff' });
     }
     ctx.globalAlpha = 1;
     // the swing: a bright arc in front of you

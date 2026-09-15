@@ -261,8 +261,12 @@ export async function run() {
     hero.iframes = 0; hero.facing = 0;
     const bandit = g.spawnCreature('bandit', me.x + 20, me.y);
     hero.blocking = true; hero.stamina = 100; hero.blockAt = g.state.time - 1;
+    const bare = H.damageHero(g, me, 30, bandit);
+    hero.stamina = 100;
+    R.rpgOf(g).gear.shield = { id: 'sh', slot: 'shield', base: 'kite', rarity: 0, block: 0.85, icon: 'gear/kite_shield' };
     const blocked = H.damageHero(g, me, 30, bandit);
-    ok(blocked > 0 && blocked < 10, 'a raised guard blocks most of a blow', blocked.toFixed(1));
+    ok(blocked > 0 && blocked < 10, 'a raised shield blocks most of a blow', blocked.toFixed(1));
+    ok(bare > blocked, 'guarding with bare arms stops less than a shield', `${bare.toFixed(1)} vs ${blocked.toFixed(1)}`);
     hero.blockAt = g.state.time;
     ok(H.damageHero(g, me, 30, bandit) === 0 && bandit._stunned > 0, 'a well-timed block parries and staggers the attacker');
     hero.blocking = false;

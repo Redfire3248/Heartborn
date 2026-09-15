@@ -94,6 +94,25 @@ window.SHEETS = {
       "dock", "buoy", "anchor", "ship_wheel", "treasure_chest", "sea_serpent"
     ]
   },
+  heroBody: {
+    title: "Hero bodies without weapons, boy and girl, front back and side",
+    folder: "hero",
+    mode: "sprite",
+    names: ["boy_body_front", "boy_body_back", "boy_body_side", "girl_body_front", "girl_body_back", "girl_body_side"]
+  },
+  weapons: {
+    title: "Swords and shields you hold, all pointing up and to the right",
+    folder: "gear",
+    mode: "sprite",
+    names: [
+      "rapier", "greatsword", "katana", "cutlass", "broadsword", "scimitar",
+      "rapier_rare", "greatsword_rare", "katana_rare", "cutlass_rare", "broadsword_rare", "scimitar_rare",
+      "rapier_epic", "greatsword_epic", "katana_epic", "cutlass_epic", "broadsword_epic", "scimitar_epic",
+      "buckler", "round_shield_iron", "kite_shield_red", "tower_shield", "heater_shield", "spiked_shield",
+      "buckler_rare", "round_shield_rare", "kite_shield_rare", "tower_shield_rare", "heater_shield_rare", "spiked_shield_rare",
+      "buckler_epic", "round_shield_epic", "kite_shield_epic", "tower_shield_epic", "heater_shield_epic", "spiked_shield_epic"
+    ]
+  },
   heroAll: {
     title: "Hero, everything in one sheet, 12 columns (boy 6 frames, girl 6 frames) by 9 animation rows",
     folder: "hero",

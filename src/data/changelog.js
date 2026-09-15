@@ -1,6 +1,17 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Your sword and shield, in your hands',
+    changes: [
+      'The hero is drawn from pieces: your body plus the actual sword and shield you carry, animated in code. Swap your gear and you see it swing and guard at once',
+      'Swings play the slash animation (gold on a critical hit); the body bounces as you walk, leans into dashes, lunges on a swing and is knocked back when hit',
+      'Guarding brings the shield round in front of you and it shakes when struck, with the sword held low behind it',
+      'Shields are a gear slot: Buckler (quick parries), Round, Spiked (hurts attackers), Heater, Kite and Tower (blocks almost everything but you move slowly). Blocking with bare arms only stops half',
+      'New sword types: Rapier (fast, crits), Katana, Cutlass, Scimitar, Broadsword and Greatsword (slow, huge sweep), each in Common, Rare and Epic',
+      'Removed the extra shield icon and the Peaceful / Hostile switch',
+    ],
+  },
+  {
     title: 'New hero animations',
     changes: [
       'New boy and girl hero art with sword and shield: walking in four directions with both legs moving, sword attacks down, up and to the side, a lunging dash, a shield block with sparks, and a flinch when hit',

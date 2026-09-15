@@ -33,6 +33,8 @@ DEFAULT_FILES = {
     "magic": ["Magic.png"],
     "heroBoy": ["heroBoy.png", "HeroBoy1.png"],
     "heroGirl": ["heroGirl.png", "HeroGirl1.png"],
+    "heroBody": ["HeroBody.png"],
+    "weapons": ["Weapons.png"],
     "heroAll": ["HeroAll.png", "Hero.png"],
     "heroWalk": ["HeroWalk.png"],
     "heroAttack": ["HeroAttack.png"],
