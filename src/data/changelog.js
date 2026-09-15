@@ -7,6 +7,7 @@ export const CHANGELOG = [
       'World Map: missiles fly with a trail, a countdown and the missile pointing at its target; missiles coming at you glow red',
       'Nukes: a 9 tile blast, a bigger missile, a mushroom cloud and a huge screen shake',
       'Size is its own setting: Strength no longer makes people bigger (a strength=10000 hero filled the screen). Admin: person size=2',
+      'Admin: traits=* and traits=good give personality traits only, no longer the earned titles Knight, Veteran, Scarred, Wise, Gifted and Jack of all trades (name them, e.g. traits=knighted, or use traits=all)',
     ],
   },
   {

@@ -177,7 +177,7 @@ export class AdminConsole {
       case 'villager': return [{ value: 'selected', label: 'selected', detail: 'the villager you clicked' }, star('everyone'), { value: 'all', label: 'all', detail: 'everyone' },
         ...this.game.state.villagers.slice(0, 200).map(v => ({ value: v.name, label: v.name, detail: `${v.job} · ${Math.floor(v.age)}` }))];
       case 'personopt': return [
-        ...['name=', 'sex=m', 'sex=f', 'sex=*', 'age=25', 'skills=10', 'skills=*', 'trained', 'versatile', 'hp=100', 'hp=*', 'happy=*', 'job=*', 'traits=*', 'traits=good', 'calling=*', 'trade=*', 'strength=10', 'speed=10', 'stamina=10', 'body=*', 'size=2'].map(o => ({ value: o, label: o, detail: o.endsWith('*') ? 'everything / the maximum' : o === 'traits=good' ? 'every good trait' : 'option' })),
+        ...['name=', 'sex=m', 'sex=f', 'sex=*', 'age=25', 'skills=10', 'skills=*', 'trained', 'versatile', 'hp=100', 'hp=*', 'happy=*', 'job=*', 'traits=*', 'traits=all', 'traits=knighted', 'traits=good', 'calling=*', 'trade=*', 'strength=10', 'speed=10', 'stamina=10', 'body=*', 'size=2'].map(o => ({ value: o, label: o, detail: o.endsWith('*') ? 'everything / the maximum' : o === 'traits=good' ? 'every good trait' : 'option' })),
         ...Object.keys(JOBS).map(j => ({ value: `job=${j}`, label: `job=${j}`, detail: JOBS[j].label })),
         ...['combat', 'build', 'mine', 'chop', 'farm', 'craft', 'stealth'].map(s => ({ value: `${s}=10`, label: `${s}=10`, detail: 'skill' })),
         ...Object.keys(CALLINGS).map(c => ({ value: `calling=${c}`, label: `calling=${c}`, detail: 'calling' })),
@@ -580,8 +580,10 @@ const COMMANDS = {
         if (opts.age != null) v.age = Math.max(0, Number(opts.age) || 0);
         if (opts.skills != null) for (const s of Object.keys(v.skills)) v.skills[s] = num(opts.skills, 100) || 0;
         for (const s of Object.keys(v.skills)) if (opts[s] != null) v.skills[s] = num(opts[s], 100) || 0;
-        if (opts.traits === '*') v.traits = Object.keys(TRAITS);
-        else if (opts.traits === 'good') v.traits = Object.keys(TRAITS).filter(t => TRAITS[t].good);
+        // * is every personality trait; earned titles (knighted, veteran, gifted…) are only given when named, or with traits=all
+        if (opts.traits === '*') v.traits = [...new Set([...v.traits.filter(t => TRAITS[t]?.earned), ...Object.keys(TRAITS).filter(t => !TRAITS[t].earned)])];
+        else if (opts.traits === 'all') v.traits = Object.keys(TRAITS);
+        else if (opts.traits === 'good') v.traits = Object.keys(TRAITS).filter(t => TRAITS[t].good && !TRAITS[t].earned);
         else if (opts.traits) v.traits = String(opts.traits).split(',').filter(t => TRAITS[t]);
         if (opts.calling === '*') v.calling = cycle(Object.keys(CALLINGS).filter(c => c !== 'none'), i);
         else if (opts.calling && CALLINGS[opts.calling]) v.calling = opts.calling;

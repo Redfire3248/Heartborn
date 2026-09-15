@@ -15,6 +15,7 @@ import { openAimMap } from './aimMap.js';
 import { BODY, bodyStat } from '../game/body.js';
 import { homeOf, residents } from '../game/homes.js';
 import { itemAt, pickUp, moveItem, dropFromPack } from '../game/groundItems.js';
+const BADGE_TRAITS = ['gifted', 'knighted', 'versatile'];   // already shown as badges at the top of a profile
 const BODY_COLOR = { strength: '#ff8a5a', speed: '#7fd4ff', stamina: '#8fe07a' };
 const BODY_TIP = { strength: 'Heavy work (chopping, mining, building, farming, forging) and fighting go faster and hit harder', speed: 'Walks and runs faster', stamina: 'Works harder, gets hungry more slowly and takes less damage' };
 import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, avatarOf } from '../game/hero.js';
@@ -1760,8 +1761,8 @@ export class HUD {
         h('button.btn.sm', { onclick: () => this.talkModal(v) }, icon('magic/talk_dots', 16), 'Talk'),
         v.age >= ADULT_AGE && !v.away && g.hero?.id !== v.id ? h('button.btn.sm.primary', { title: 'Make them your avatar: move and act as them (WASD / stick)', onclick: () => this.playAs(v) }, icon('items/crown_leader', 16), g.state.avatarId === v.id ? 'Play (your avatar)' : 'Play as') : null),
       v.job === 'mage' ? this.spellCard(v) : null,
-      h('div.traits', v.traits.filter(t => t !== 'gifted').length
-        ? v.traits.filter(t => t !== 'gifted').map(t => h(`span.chip.${TRAITS[t]?.good ? 'good' : 'bad'}`, { title: TRAITS[t]?.desc }, `${TRAITS[t]?.earned ? '★ ' : ''}${TRAITS[t]?.label || t}`))
+      h('div.traits', v.traits.filter(t => !BADGE_TRAITS.includes(t)).length
+        ? v.traits.filter(t => !BADGE_TRAITS.includes(t)).map(t => h(`span.chip.${TRAITS[t]?.good ? 'good' : 'bad'}`, { title: TRAITS[t]?.desc }, `${TRAITS[t]?.earned ? '★ ' : ''}${TRAITS[t]?.label || t}`))
         : h('span.faint', 'No notable traits yet')),
       statRow('Health', v.hp, v.hp > 40 ? '#6fdc5a' : '#ff5a4a'),
       statRow('Hunger', v.hunger, '#ffb44a'),
