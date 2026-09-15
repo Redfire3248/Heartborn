@@ -33,6 +33,7 @@ DEFAULT_FILES = {
     "magic": ["Magic.png"],
     "heroBoy": ["heroBoy.png", "HeroBoy1.png"],
     "heroGirl": ["heroGirl.png", "HeroGirl1.png"],
+    "heroAll": ["HeroAll.png", "Hero.png"],
     "heroWalk": ["HeroWalk.png"],
     "heroAttack": ["HeroAttack.png"],
     "heroMoves": ["HeroMoves.png"],
@@ -87,7 +88,8 @@ def clean_mask(alpha, keep_frac=0.02):
     return keep[labels]
 
 
-def slice_sheet(key, sheet, path, cols=6, rows=None):
+def slice_sheet(key, sheet, path, cols=None, rows=None):
+    cols = cols or sheet.get("cols", 6)
     rows = rows or -(-len(sheet["names"]) // cols)   # extra rows when a sheet has more than 36 sprites
     img = Image.open(path).convert("RGBA")
     folder = OUT_DIR / sheet["folder"]
