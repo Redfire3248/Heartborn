@@ -136,6 +136,7 @@ export class Renderer {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.drawBubbles(g, ox, oy, s);
     this.drawFloaters(g, ox, oy, s);
+    this.drawEnemyMarkers(g, ox, oy, s);
   }
 
   drawTerrain(g, view) {
@@ -697,6 +698,60 @@ export class Renderer {
       if (p.y > H) { p.y = -10; p.x = Math.random() * W; }
       if (p.x < 0) p.x = W;
     }
+  }
+
+  /**
+   * Enemies inside your land that are off screen: a red dot on the screen edge in their direction,
+   * one per direction with a count, pulsing for armies (raiders, invaders, warbands).
+   */
+  drawEnemyMarkers(g, ox, oy, s) {
+    if (g.visiting || g.sail) return;
+    const W = this.canvas.width / this.dpr, H = this.canvas.height / this.dpr;
+    const cen = g.center, landR = TILE * 40;
+    const groups = new Map();
+    for (const c of g.state.creatures) {
+      if (!CREATURES[c.t]?.hostile) continue;
+      if (!c.raid && !c.attackId && !c.hunting && Math.hypot(c.x - cen.x, c.y - cen.y) > landR * 0.45) continue;   // wild beasts far out in the woods don't count
+      const sx = (c.x * s + ox) / this.dpr, sy = (c.y * s + oy) / this.dpr;
+      if (sx > 0 && sy > 0 && sx < W && sy < H) continue;   // on screen: you can see it
+      const a = Math.atan2(sy - H / 2, sx - W / 2);
+      const key = Math.round(a / (Math.PI / 12));
+      const gr = groups.get(key) || { a: 0, n: 0, army: false, boss: false };
+      gr.a += a; gr.n++; gr.army ||= !!(c.raid || c.attackId); gr.boss ||= !!CREATURES[c.t].boss;
+      groups.set(key, gr);
+    }
+    if (!groups.size) return;
+    const { ctx } = this;
+    const pad = 22, topPad = 70, bottomPad = 90;
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * 6);
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 11px sans-serif';
+    for (const gr of groups.values()) {
+      const a = gr.a / gr.n;
+      const dx = Math.cos(a), dy = Math.sin(a);
+      // walk out from the centre to the padded screen edge
+      const tx = dx > 0 ? (W - pad - W / 2) / dx : dx < 0 ? (pad - W / 2) / dx : Infinity;
+      const ty = dy > 0 ? (H - bottomPad - H / 2) / dy : dy < 0 ? (topPad - H / 2) / dy : Infinity;
+      const t = Math.min(tx, ty);
+      const x = W / 2 + dx * t, y = H / 2 + dy * t;
+      const r = (gr.boss ? 11 : gr.army ? 9 : 7) + (gr.army ? pulse * 2 : 0);
+      ctx.fillStyle = 'rgba(255,40,30,0.25)';
+      ctx.beginPath(); ctx.arc(x, y, r + 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ff3b30';
+      ctx.strokeStyle = '#2a0805';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // a small arrowhead pointing at them
+      ctx.beginPath();
+      ctx.moveTo(x + dx * (r + 9), y + dy * (r + 9));
+      ctx.lineTo(x + dx * (r + 2) - dy * 5, y + dy * (r + 2) + dx * 5);
+      ctx.lineTo(x + dx * (r + 2) + dy * 5, y + dy * (r + 2) - dx * 5);
+      ctx.closePath(); ctx.fill();
+      if (gr.n > 1) { ctx.fillStyle = '#fff'; ctx.fillText(String(gr.n), x, y + 0.5); }
+    }
+    ctx.restore();
   }
 
   drawFloaters(g, ox, oy, s) {

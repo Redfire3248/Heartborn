@@ -1,6 +1,13 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'See your enemies coming',
+    changes: [
+      'Enemies inside your land that are off screen show as red dots on the edge of the screen, pointing their way, with a count for groups; armies pulse and dragons and other bosses are bigger',
+      'Minimap: enemies are round red dots, bigger and pulsing for armies and bosses',
+    ],
+  },
+  {
     title: 'Blood in the village, dragons and real armies',
     changes: [
       'People can kill people of their own village: the cruel, the greedy and the miserable pick fights, and some fights end in murder',

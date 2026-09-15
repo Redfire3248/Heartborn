@@ -2497,8 +2497,15 @@ export class HUD {
     for (const b of g.state.buildings) { const s = sizeOf(b); ctx.fillRect(b.tx, b.ty, s, s); }
     ctx.fillStyle = '#ffffff';
     for (const v of g.state.villagers) if (!v.away) ctx.fillRect(Math.floor(v.x / TILE), Math.floor(v.y / TILE), 1, 1);
-    ctx.fillStyle = '#ff3b3b';
-    for (const c of g.state.creatures) if (CREATURES[c.t]?.hostile) ctx.fillRect(Math.floor(c.x / TILE) - 0.5, Math.floor(c.y / TILE) - 0.5, 2, 2);
+    // enemies: red dots, bigger and pulsing for armies and bosses
+    const pulse = 0.75 + 0.25 * Math.sin(performance.now() / 160);
+    for (const c of g.state.creatures) {
+      if (!CREATURES[c.t]?.hostile) continue;
+      const army = c.raid || c.attackId;
+      const r = (CREATURES[c.t].boss ? 2.6 : army ? 1.8 : 1.2) * (army ? pulse : 1);
+      ctx.fillStyle = army ? '#ff2a1f' : '#ff6b5b';
+      ctx.beginPath(); ctx.arc(c.x / TILE, c.y / TILE, r, 0, Math.PI * 2); ctx.fill();
+    }
     const cam = this.renderer.camera;
     const vw = window.innerWidth / cam.zoom / TILE, vh = window.innerHeight / cam.zoom / TILE;
     ctx.strokeStyle = '#ffd76a';
