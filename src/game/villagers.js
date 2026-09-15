@@ -6,6 +6,7 @@ import { clamp, pick, chance } from '../core/rng.js';
 import { MALE_NAMES, FEMALE_NAMES, BIRTH_TRAITS, SURNAMES } from '../data/traits.js';
 import { talentLearnMult } from './talents.js';
 import { upgradeSpeed } from './upgrades.js';
+import { inspired } from './hero.js';
 import { OBJECTS, CREATURES } from '../data/objects.js';
 import { BUILDINGS, sizeOf } from '../data/buildings.js';
 import { rollFate } from './fate.js';
@@ -275,6 +276,8 @@ export function updateVillager(g, v, dt) {
   const housed = s.villagers.length <= g.housing;
   const target = clamp(45 + g.buildingHappy + g.law.happy + (housed ? 8 : -12) + (v.hunger > 40 ? 5 : -18) + s.karma / 8 - (v.sick ? 15 : 0) + (v.partner ? 5 : 0), 0, 100);
   v.happy += (target - v.happy) * dt * 0.01;
+
+  if (g.hero?.id === v.id) return;   // you are walking this one yourself
 
   // danger check a few times a second
   v._scan = (v._scan || 0) - dt;
@@ -892,6 +895,7 @@ function workSpeed(g, v) {
   if (has(v, 'hardworking')) m *= 1.2;
   if (v.age >= ELDER_AGE) m *= 0.65;
   if (v.sick) m *= 0.5;
+  if (inspired(g, v)) m *= 1.5;   // the ruler is right here, watching
   if (v.happy > 70) m *= 1.1;
   else if (v.happy < 25) m *= 0.8;
   if (g.state.karma <= -60) m *= 1.1;   // tyrants rule by fear

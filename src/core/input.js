@@ -109,7 +109,7 @@ export class Input {
   }
 
   update(dt) {
-    if (this.h.isSailing?.()) return;   // at the helm, the keys steer the boat and the camera follows it
+    if (this.h.isSailing?.() || this.h.isLeading?.()) return;   // at the helm, the keys steer the boat and the camera follows it
     const k = this.keys;
     const sp = 500 * dt / this.r.camera.zoom;
     if (k.has('w') || k.has('arrowup')) this.r.camera.y -= sp;

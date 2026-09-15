@@ -4,7 +4,7 @@ import { BOATS, fleetOf } from '../game/sailing.js';
 import { TerrainPainter } from './terrain.js';
 import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
 import { BUILDINGS, sizeOf, buildingSprite } from '../data/buildings.js';
-import { displayRole, toolFor, carryIcon } from '../game/villagers.js';
+import { displayRole, toolFor, carryIcon, weaponOf } from '../game/villagers.js';
 import { maxHp } from '../game/creatures.js';
 import { FIND_KINDS } from '../game/finds.js';
 
@@ -296,13 +296,15 @@ export class Renderer {
       drawSprite(ctx, key, v.x, v.y, size, { flip: v._flip, offsetY });
       return;
     }
+    const hero = g.hero?.id === v.id ? g.hero : null;
+    if (hero) this.drawHeroRing(g, v, hero);
     this.shadow(v.x, v.y, size * 0.8);
     const tint = v._hurtFlash > 0 ? '#ff2020' : v.sick ? '#4fbf3f' : null;
     drawSprite(ctx, key, v.x, v.y, size, { flip: v._flip, offsetY, rot, squash, tint });
 
-    const tool = working ? toolFor(v) : null;
+    const tool = hero ? (hero.swing > 0 || v._walking ? weaponOf(v) || toolFor(v) || 'items/sword' : null) : working ? toolFor(v) : null;
     if (tool) {
-      const swing = Math.sin(t * 9);
+      const swing = hero ? (hero.swing > 0 ? 1 - hero.swing / 0.22 * 2 : Math.sin(t * 11) * 0.2) : Math.sin(t * 9);
       const dir = v._flip ? -1 : 1;
       ctx.save();
       ctx.translate(v.x + dir * size * 0.32, v.y - size * 0.45);
@@ -316,7 +318,7 @@ export class Renderer {
     if (load) drawSprite(ctx, load, v.x + (v._flip ? 3 : -3), v.y - size * 0.92 + Math.abs(Math.sin(t * 11)) * -2, TILE * 0.42);
     if (v.hp < 99) bar(ctx, v.x - 8, v.y - size - 4, 16, v.hp / 100, v.hp > 40 ? '#6fdc5a' : '#ff5a4a');
     if (v._emote) drawSprite(ctx, v._emote.key, v.x + 6, v.y - size - 2 + Math.sin(this.time * 4) * 1.5, 12);
-    if (g.selected?.ref === v || this.camera.zoom >= 3.2) label(ctx, v.name, v.x, v.y + 7);
+    if (hero || g.selected?.ref === v || this.camera.zoom >= 3.2) label(ctx, v.name, v.x, v.y + 7);
   }
 
   drawCreature(g, c) {
@@ -344,7 +346,34 @@ export class Renderer {
         if (Math.random() < 0.1) g.fx.particles.push({ x: c.x + (Math.random() - 0.5) * size, y: c.y + offsetY - size * Math.random(), vx: 0, vy: -10, sprite: c.t === 'dragon' ? 'effects/flame' : 'effects/leaf', size: 6, life: 0.8, max: 0.8, rot: 0 });
       }
     }
-    if (g.selected?.ref === c) label(ctx, c.t.replace('_', ' '), c.x, c.y + 7);
+    if (c.bounty) {
+      const p = 0.5 + 0.5 * Math.sin(this.time * 5);
+      ctx.strokeStyle = `rgba(255,200,60,${0.5 + p * 0.5})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(c.x, c.y, size * 0.6, size * 0.28, 0, 0, Math.PI * 2); ctx.stroke();
+      drawSprite(ctx, 'items/icon_gold', c.x, c.y - size + offsetY - 12 - p * 3, 12);
+      label(ctx, `${c.bounty.name} · ${c.bounty.gold} gold`, c.x, c.y + 8);
+    } else if (g.selected?.ref === c) label(ctx, c.t.replace('_', ' '), c.x, c.y + 7);
+  }
+
+  /** The villager you walk yourself: a golden ring, and a pointer toward the bounty or the nearest find. */
+  drawHeroRing(g, v, hero) {
+    const { ctx } = this;
+    const p = 0.5 + 0.5 * Math.sin(this.time * 4);
+    ctx.save();
+    ctx.strokeStyle = `rgba(255,215,106,${0.55 + p * 0.45})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(v.x, v.y + 1, TILE * 0.5, TILE * 0.22, 0, 0, Math.PI * 2); ctx.stroke();
+    const target = g.state.creatures.find(c => c.bounty) || (g.state.finds || []).reduce((best, f) => (!best || Math.hypot(f.x - v.x, f.y - v.y) < Math.hypot(best.x - v.x, best.y - v.y) ? f : best), null);
+    if (target && Math.hypot(target.x - v.x, target.y - v.y) > TILE * 3) {
+      const a = Math.atan2(target.y - v.y, target.x - v.x);
+      const r = TILE * 0.95;
+      ctx.translate(v.x + Math.cos(a) * r, v.y - TILE * 0.3 + Math.sin(a) * r);
+      ctx.rotate(a);
+      ctx.fillStyle = target.bounty ? '#ff6b4a' : '#ffd76a';
+      ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-4, -5); ctx.lineTo(-2, 0); ctx.lineTo(-4, 5); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
   }
 
   drawGhost(g) {

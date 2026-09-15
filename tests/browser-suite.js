@@ -161,6 +161,35 @@ export async function run() {
     ok(!shielded.pending, 'strikes without an aim still hit at random');
   });
 
+  await step('lead in person: walk, fight, gather, inspire and bounties', async () => {
+    const H = await import('/src/game/hero.js');
+    const Cr = await import('/src/game/creatures.js');
+    const g = freshGame({ era: 1, people: 4 });
+    build(g, 'campfire');
+    const r = H.startLead(g);
+    const v = r.hero;
+    ok(r.ok && v.ruling, 'the ruler steps out to lead');
+    const x0 = v.x;
+    for (let i = 0; i < 30; i++) H.updateHero(g, 1 / 30, { mx: 1, my: 0 });
+    ok(v.x !== x0 || !g.world.walkable(x0 + 40, v.y), 'the ruler walks where you steer', `${Math.round(v.x - x0)}px`);
+    const wolf = g.spawnCreature('wolf', v.x + 18, v.y);
+    for (let i = 0; i < 200 && g.state.creatures.includes(wolf); i++) { H.updateHero(g, 1 / 30, { act: true }); v.hp = 100; }
+    ok(!g.state.creatures.includes(wolf) && g.hero.kills === 1, 'the ruler slays a beast in reach');
+    const other = g.state.villagers.find(o => o !== v);
+    other.x = v.x + 30; other.y = v.y;
+    ok(H.inspired(g, other), 'people near the ruler are inspired');
+    g.state.finds = [{ id: 'hf', kind: 'berries', x: v.x, y: v.y, until: g.state.time + 99, born: g.state.time }];
+    H.updateHero(g, 1 / 30, {});
+    ok(g.hero.finds === 1 && !g.state.finds.length, 'walking over a find picks it up');
+    g.hero.bountyAt = 0;
+    H.updateHero(g, 1 / 30, {});
+    const b = H.bountyOf(g);
+    ok(!!b, 'a bounty appears while you lead');
+    if (b) { const gold = g.state.resources.gold; Cr.damageCreature(g, b, 1e6, other); ok(g.state.resources.gold > gold, 'killing the bounty pays gold'); }
+    H.endLead(g);
+    ok(!g.hero, 'you can stop leading');
+  });
+
   await step('fast lives, and workers carry what they gather home', async () => {
     const g = freshGame({ era: 1, people: 4, resources: false });
     build(g, 'campfire'); build(g, 'stockpile');

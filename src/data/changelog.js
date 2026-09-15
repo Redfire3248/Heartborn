@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Lead in person',
+    changes: [
+      'Press Lead (or G) to become your ruler: walk with WASD or the on-screen stick, Space or ACT to strike, chop trees and break rocks (double yield)',
+      'Your ruler fights any beast in reach, picks up finds by walking over them, and eats from the stores when hungry',
+      'People working near you work 50% faster: the ruler is watching',
+      'Bounties: named monsters with a price on their head turn up while you lead (Old Greytooth, Grumbelly, Ashwing the Dragon...). A pointer at your feet leads you to them; slaying one pays gold and influence',
+    ],
+  },
+  {
     title: 'Aim your missiles',
     changes: [
       'Missiles and orbital strikes are aimed: a targeting map of the enemy land shows every building, tap where it should land and see exactly what the blast will hit',

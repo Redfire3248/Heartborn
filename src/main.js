@@ -200,6 +200,7 @@ function startGame(user, game, { online = true } = {}) {
       onClick: (w, tx, ty) => { if (!app.visit) app.hud?.onClick(w, tx, ty, app.input.keys.has('shift')); },
       isPlacing: () => !app.visit && (!!app.hud?.buildType || !!app.hud?.demolishMode),
       isSailing: () => !!app.game?.sail,
+      isLeading: () => !!app.game?.hero && !app.visit,
       onPlaceStart: (tx, ty) => app.hud?.onPlaceStart(tx, ty),
       onPlaceMove: (tx, ty) => app.hud?.onPlaceMove(tx, ty),
       onPlaceEnd: (tx, ty) => app.hud?.onPlaceEnd(tx, ty, app.input.keys.has('shift')),

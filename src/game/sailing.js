@@ -82,6 +82,7 @@ export function setSail(g, boatId) {
   if (boat.awayUntil > Date.now()) return { error: 'This boat is away carrying an invasion' };
   const spot = launchSpot(g);
   if (!spot) return { error: 'The shipyard has no open water' };
+  g.hero = null;   // the ruler goes aboard
   g.sail = { boatId, type: boat.type, x: spot.x, y: spot.y, angle: spot.angle, speed: 0, reload: 0, shots: [], pirates: [], loot: [], nextPirateAt: 20, time: 0, sunk: 0, gold: 0, wake: [], others: new Map() };
   g.log(`The ${boat.name} sets sail!`, 'event');
   g.emit('change');

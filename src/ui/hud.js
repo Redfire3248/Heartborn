@@ -12,6 +12,7 @@ import { rulerOf, rulerTypeOf, rulerTitle, setHeir, setCalling, encourage, ENCOU
 import { CALLINGS, RULER_TYPES, ITEMS } from '../data/people.js';
 import { accuse, punishTraitor, throwBomb, counterIntel, isSpy, hasMissiles, hasOrbital, MISSILE_COST, strikeOwnLand, strikeRadius } from '../game/intrigue.js';
 import { openAimMap } from './aimMap.js';
+import { startLead, endLead, heroOf, updateHero, bountyOf, compass } from '../game/hero.js';
 import { makeVisitGame } from '../game/visit.js';
 import { LAW_CATEGORIES, DEFAULT_LAWS, LAW_COST, describeEffects } from '../data/laws.js';
 import { rally, standDown, tributeCost, payWarbandTribute, scoutSummary } from '../game/war.js';
@@ -176,6 +177,13 @@ export class HUD {
       title: 'Back to your village (H)',
       onclick: () => { if (this.visiting) { this.onReturnHome(); return; } this.follow = null; this.input.panTo(this.game.center.x, this.game.center.y); },
     }, pxIcon('target'), h('span.home-label', 'Village')));
+    // lead in person: walk your ruler around yourself
+    this.leadInput = { mx: 0, my: 0, act: false };
+    this.root.append(h('button.card.lead-btn', { title: 'Lead in person: walk, fight and gather yourself (G)', onclick: () => this.toggleLead() },
+      icon('items/crown_leader', 20), h('span.home-label', 'Lead')));
+    this.els.heroBar = h('div.card.hero-bar', { hidden: true });
+    this.els.heroPad = h('div.hero-pad', { hidden: true });
+    this.root.append(this.els.heroBar, this.els.heroPad);
     // sailing: status, Fire, Return to port, and a steering pad for touch screens
     this.sailInput = { throttle: 0, turn: 0, fire: false, wheel: 0 };
     this.els.sailBar = h('div.sail-bar', { hidden: true });
@@ -222,6 +230,15 @@ export class HUD {
       const c = this.renderer.camera;
       if (g.sail) { c.x += (g.sail.x - c.x) * Math.min(1, dt * 4); c.y += (g.sail.y - c.y) * Math.min(1, dt * 4); }
     }
+    if (g.hero && !this.visiting) {
+      const k = this.input.keys, t = this.leadInput;
+      const mx = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0) + t.mx;
+      const my = (k.has('s') || k.has('arrowdown') ? 1 : 0) - (k.has('w') || k.has('arrowup') ? 1 : 0) + t.my;
+      if (!g.paused && !g.pendingEvent) updateHero(g, dt, { mx, my, act: k.has(' ') || t.act });
+      const v = heroOf(g);
+      const c = this.renderer.camera;
+      if (v) { this.follow = null; c.x += (v.x - c.x) * Math.min(1, dt * 6); c.y += (v.y - c.y) * Math.min(1, dt * 6); }
+    }
     this.tickTimer -= dt;
     if (this.tickTimer > 0) return;
     this.tickTimer = 0.25;
@@ -265,6 +282,7 @@ export class HUD {
     this.updateInspector();
     this.updateTouchBar();
     this.updateSailBar();
+    this.updateHeroBar();
     this.updateGoals();
     this.updateThreats();
     this.drawMinimapDots();
@@ -279,6 +297,12 @@ export class HUD {
     const k = e.key.toLowerCase();
     if (k === 'v') { this.openMap(); return; }
     if (k === 'escape' && this.visiting) { this.onReturnHome(); return; }
+    if (k === 'g' && !this.game.sail) { this.toggleLead(); return; }
+    if (this.game.hero) {   // walking your ruler: WASD move, Space strikes, Esc stops
+      if (k === ' ' || k.startsWith('arrow')) e.preventDefault?.();
+      if (k === 'escape') { endLead(this.game); return; }
+      if ('wasd '.includes(k) && k.length === 1) return;
+    }
     if (this.game.sail) {   // the helm takes the keys
       if (k === 'escape') returnToPort(this.game);
       if (k === ' ') e.preventDefault?.();
@@ -298,6 +322,74 @@ export class HUD {
     else if (k === 'l') this.togglePanel('log');
     else if (k === 'm') this.togglePanel('world');
     else if (k === 'h') { this.follow = null; this.input.panTo(this.game.center.x, this.game.center.y); }
+  }
+
+  // ------------------------------------------------------------ leading in person
+  toggleLead() {
+    const g = this.game;
+    if (this.visiting) return;
+    if (g.hero) { endLead(g); return; }
+    const r = startLead(g);
+    if (r.error) { this.hint(r.error, 2500); return; }
+    this.select(null);
+    this.closePanel?.();
+    const touch = matchMedia('(pointer: coarse)').matches;
+    this.hint(touch
+      ? `You are ${r.hero.name}. Drag the stick to walk, ACT to strike, chop and mine. Walk over finds to pick them up.`
+      : `You are ${r.hero.name}. WASD to walk, Space to strike, chop and mine. Walk over finds to pick them up. People near you work 50% faster. G or Esc to stop.`, 7000);
+  }
+
+  updateHeroBar() {
+    const g = this.game;
+    const v = !this.visiting && heroOf(g);
+    const bar = this.els.heroBar, pad = this.els.heroPad;
+    this.root.classList.toggle('leading', !!v);
+    if (!v) {
+      if (!bar.hidden) { bar.hidden = true; pad.hidden = true; bar.replaceChildren(); pad.replaceChildren(); this._heroKey = null; Object.assign(this.leadInput, { mx: 0, my: 0, act: false }); }
+      return;
+    }
+    const hero = g.hero;
+    const bounty = bountyOf(g);
+    const key = [v.id, Math.round(v.hp), hero.kills, hero.finds, hero.chopped, bounty ? `${bounty.bounty.name}${Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE / 3)}` : ''].join('|');
+    if (bar.hidden) { bar.hidden = false; pad.hidden = false; this.buildHeroPad(); }
+    if (key === this._heroKey) return;
+    this._heroKey = key;
+    const dist = bounty ? Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE) : 0;
+    bar.replaceChildren(
+      h('div.hero-top', icon('items/crown_leader', 22), h('b', v.name), bar100(v.hp), h('div.spacer'),
+        h('button.btn.sm', { onclick: () => endLead(g) }, 'Stop leading')),
+      h('div.hero-deeds', `${hero.kills} slain · ${hero.finds} finds · ${hero.chopped} gathered`),
+      bounty
+        ? h('div.hero-bounty', icon('items/icon_gold', 16), `Bounty: ${bounty.bounty.name}, ${bounty.bounty.gold} gold · ${dist < 3 ? 'right here!' : `${dist} tiles ${compass(bounty.x - v.x, bounty.y - v.y)}`}`)
+        : h('div.hero-bounty.faint', 'Scouts are looking for a bounty...'));
+    function bar100(hp) { return h('div.hero-hp', h('div', { style: { width: `${Math.max(0, Math.min(100, hp))}%` } })); }
+  }
+
+  /** On-screen stick and ACT button (shown on touch screens). */
+  buildHeroPad() {
+    const t = this.leadInput;
+    const knob = h('div.hero-knob');
+    const stick = h('div.hero-stick', knob);
+    let id = null;
+    const move = e => {
+      const r = stick.getBoundingClientRect();
+      let dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2), dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+      const len = Math.hypot(dx, dy);
+      if (len > 1) { dx /= len; dy /= len; }
+      t.mx = Math.abs(dx) > 0.15 ? dx : 0; t.my = Math.abs(dy) > 0.15 ? dy : 0;
+      knob.style.transform = `translate(${dx * 34}px, ${dy * 34}px)`;
+    };
+    const end = () => { id = null; t.mx = 0; t.my = 0; knob.style.transform = ''; };
+    stick.addEventListener('pointerdown', e => { e.preventDefault(); id = e.pointerId; stick.setPointerCapture?.(id); move(e); });
+    stick.addEventListener('pointermove', e => { if (e.pointerId === id) move(e); });
+    stick.addEventListener('pointerup', end);
+    stick.addEventListener('pointercancel', end);
+    const act = h('button.hero-act', {
+      onpointerdown: e => { e.preventDefault(); t.act = true; act.classList.add('down'); },
+      onpointerup: () => { t.act = false; act.classList.remove('down'); },
+      onpointerleave: () => { t.act = false; act.classList.remove('down'); },
+    }, icon('items/sword', 30), h('span', 'ACT'));
+    this.els.heroPad.replaceChildren(stick, act);
   }
 
   /** Cancel / Done / Undo buttons while placing or demolishing: the on-screen right-click and Esc. */

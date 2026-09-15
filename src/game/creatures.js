@@ -3,6 +3,7 @@ import { irange } from '../core/rng.js';
 import { CREATURES } from '../data/objects.js';
 import { killVillager } from './villagers.js';
 import { has } from './dynasty.js';
+import { payBounty } from './hero.js';
 
 const BIG_KILLS = {
   bandit:        { gold: [3, 8], text: 'A bandit was defeated!' },
@@ -114,6 +115,7 @@ export function damageCreature(g, c, dmg, by) {
   c._hurtFlash = 0.25;
   if (c.hp > 0) return;
   remove(g, c);
+  if (c.bounty) payBounty(g, c, by);
   if (by) by.kills = (by.kills || 0) + 1;
   const battle = c.attackId && g.state.battles?.[c.attackId];
   if (battle) battle.killed = (battle.killed || 0) + 1;
