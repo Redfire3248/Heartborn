@@ -5,6 +5,7 @@ import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
 import { BUILDINGS, sizeOf } from '../data/buildings.js';
 import { displayRole, toolFor } from '../game/villagers.js';
 import { maxHp } from '../game/creatures.js';
+import { FIND_KINDS } from '../game/finds.js';
 
 const SEASON_TINT = { Spring: null, Summer: 'rgba(255,220,120,0.05)', Autumn: 'rgba(255,140,40,0.08)', Winter: 'rgba(180,210,255,0.14)' };
 
@@ -216,7 +217,7 @@ export class Renderer {
       if (on) ctx.fillRect(f.x + Math.cos(a) * TILE * 0.45 - 1.5, f.y - TILE * 0.5 + Math.sin(a) * TILE * 0.3 - 1.5, 3, 3);
     }
     ctx.restore();
-    const kind = { treasure: 'items/icon_gold', crate: 'items/icon_wood', berries: 'items/icon_food', traveller: 'people/explorer_m', relic: 'items/relic' }[f.kind];
+    const kind = FIND_KINDS[f.kind]?.sprite || 'items/icon_gold';
     const person = f.kind === 'traveller';
     drawSprite(ctx, kind, f.x, f.y - (person ? 0 : 4 + Math.sin(t) * 3), person ? TILE * 0.95 : TILE * 0.6, { alpha: fade });
   }

@@ -384,9 +384,9 @@ const COMMANDS = {
     },
   },
   karma: {
-    usage: 'karma <player|me|*> <-100..100>', desc: 'Set karma',
+    usage: 'karma <player|me|*> <n>', desc: 'Set karma',
     async run([who, value]) {
-      const n = Math.max(-100, Math.min(100, Number(value)));
+      const n = Number(value);   // admins may go past the normal -100..100
       if (Number.isNaN(n)) throw new Error('karma needs a number');
       const targets = await this.resolveMany(who);
       for (const p of targets) {
@@ -445,7 +445,7 @@ const COMMANDS = {
     async run([type, count = '1', target = 'me']) {
       const kinds = type === '*' ? Object.keys(CREATURES) : [type];
       if (!CREATURES[kinds[0]]) throw new Error(`unknown creature (${Object.keys(CREATURES).join(', ')})`);
-      const n = Math.min(20, Number(count) || 1);
+      const n = Math.max(1, Math.floor(Number(count) || 1));
       const targets = await this.resolveMany(target);
       for (const p of targets) for (const k of kinds) {
         if (p.me) this.game.spawnRaiders(k, n);
@@ -458,7 +458,7 @@ const COMMANDS = {
     usage: 'warband [soldiers] [seconds]', desc: 'Send a barbarian army at your village',
     run([count = '4', secs = '60']) {
       const s = this.game.state;
-      s.incoming.push({ id: `w${Date.now().toString(36)}`, kind: 'warband', name: 'The Admin Horde', count: Math.min(12, Number(count) || 4), scale: 1, arrivesAt: s.time + (Number(secs) || 60), warned: false });
+      s.incoming.push({ id: `w${Date.now().toString(36)}`, kind: 'warband', name: 'The Admin Horde', count: Math.max(1, Math.floor(Number(count) || 4)), scale: 1, arrivesAt: s.time + (Number(secs) || 60), warned: false });
       this.print('✓ warband marching', 'ok');
     },
   },
@@ -513,7 +513,7 @@ const COMMANDS = {
   skip: {
     usage: 'skip <days>', desc: 'Fast-forward your village',
     run([days = '1']) {
-      const d = Math.min(30, Number(days) || 1);
+      const d = Math.max(0.01, Number(days) || 1);
       const sum = this.game.simulate(DAY_LENGTH * d);
       this.game.emit('change');
       this.print(`✓ skipped ${d} day(s): pop ${sum.pop >= 0 ? '+' : ''}${sum.pop}, births ${sum.births}, deaths ${sum.deaths}`, 'ok');
@@ -579,7 +579,7 @@ const COMMANDS = {
         else if (opts.calling && CALLINGS[opts.calling]) v.calling = opts.calling;
         if (opts.trained) v.trained = true;
         if (opts.hp != null) v.hp = Math.max(1, num(opts.hp, 100000) || 100);   // admin heroes may go past 100
-        if (opts.happy != null) v.happy = Math.max(0, Math.min(100, num(opts.happy, 100) || 0));
+        if (opts.happy != null) v.happy = num(opts.happy, 100) || 0;
         if (opts.versatile || opts.trade === '*') v.traits = [...new Set([...v.traits, 'versatile'])];
         if (opts.trade && JOBS[opts.trade]) v.profession = opts.trade;
         const job = opts.job === '*' || (everyJob && !opts.job) ? cycle(jobKeys, i) : opts.job;
@@ -694,7 +694,7 @@ const COMMANDS = {
       const g = this.game;
       let made = 0, full = 0;
       for (const t of types) {
-        for (let i = 0; i < Math.min(20, Number(count) || 1); i++) {
+        for (let i = 0; i < Math.max(1, Math.floor(Number(count) || 1)); i++) {
           for (const [k, v] of Object.entries(BUILDINGS[t].cost)) g.state.resources[k] = Math.max(g.state.resources[k] || 0, v);
           const era = g.state.era;
           g.state.era = Math.max(era, BUILDINGS[t].era);

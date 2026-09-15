@@ -806,7 +806,7 @@ export class Multiplayer {
         g.log(`The Admin granted you a ${cmd.hours}h shield.`, 'good');
         break;
       case 'karma':
-        g.state.karma = clamp(Number(cmd.value) || 0, -100, 100);
+        g.state.karma = Number(cmd.value) || 0;   // no limit when the Admin sets it
         g.log(`The Admin set your karma to ${g.state.karma}.`, 'event');
         break;
       case 'event': {

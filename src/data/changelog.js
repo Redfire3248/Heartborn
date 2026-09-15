@@ -7,6 +7,8 @@ export const CHANGELOG = [
       'Finish every goal of an era to open its chest: gold, gems, influence and an Ancient Relic',
       'Finds: treasure, supply crates, wild harvests, lost travellers and relics turn up around the village; click them before they fade',
       'New villages start with Founding Spirit: faster work, happier people and more wanderers for three days',
+      'Boats & Sea art is in (36 ships, sea weapons, wrecks and sea creatures), ready for sailing; treasure finds are now real treasure chests',
+      'Admin commands have no limits: spawn, warband, build, skip, karma and happiness take any number',
     ],
   },
   {

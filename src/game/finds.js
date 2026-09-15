@@ -14,7 +14,7 @@ const scaled = (g, n) => Math.round(n * (1 + g.state.era * 0.8));
 
 export const FIND_KINDS = {
   treasure: {
-    label: 'Glinting treasure', sprite: 'items/icon_gold', weight: 3,
+    label: 'Glinting treasure', sprite: 'boats/treasure_chest', weight: 3,
     collect(g) { const gold = scaled(g, rand(15, 45)), gems = Math.random() < 0.35 ? rand(1, 3) : 0; add(g, { gold, gems }); return { text: `Treasure! +${gold} gold${gems ? `, +${gems} gems` : ''}`, color: '#ffcf5a' }; },
   },
   crate: {
