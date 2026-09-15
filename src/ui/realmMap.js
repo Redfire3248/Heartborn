@@ -18,6 +18,71 @@ export function openRealmMap({ hud, onVisit }) {
   let timer = null;
 
   const map = h('div.realm-map');
+  const world = h('div.realm-world');   // everything on the map lives here; dragging and zooming move this layer
+  // GTA-style camera: drag to move, scroll or pinch to zoom, opens zoomed in on you
+  const view = { z: 2.4, x: 0, y: 0, ready: false };
+  const applyView = () => {
+    const W = map.clientWidth || 1, H = map.clientHeight || 1;
+    view.z = Math.max(1, Math.min(6, view.z));
+    // keep the map covering the frame
+    view.x = Math.min(0, Math.max(W - W * view.z, view.x));
+    view.y = Math.min(0, Math.max(H - H * view.z, view.y));
+    world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.z})`;
+    world.style.setProperty('--inv', (1 / view.z).toFixed(4));
+  };
+  const centerOn = (p, smooth = true) => {
+    const W = map.clientWidth, H = map.clientHeight;
+    world.classList.toggle('smooth', smooth);
+    view.x = W / 2 - (p.x / 100) * W * view.z;
+    view.y = H / 2 - (p.y / 100) * H * view.z;
+    applyView();
+  };
+  const zoomAround = (cx, cy, factor) => {
+    const before = view.z;
+    view.z = Math.max(1, Math.min(6, view.z * factor));
+    const k = view.z / before;
+    view.x = cx - (cx - view.x) * k;
+    view.y = cy - (cy - view.y) * k;
+    world.classList.remove('smooth');
+    applyView();
+  };
+  const pointers = new Map();
+  let drag = null, pinch = null;
+  map.addEventListener('pointerdown', e => {
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: view.z }; drag = null; return; }
+    drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false, id: e.pointerId };
+  });
+  map.addEventListener('pointermove', e => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const r = map.getBoundingClientRect();
+    if (pinch && pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      zoomAround((a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top, (pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d) / view.z);
+      return;
+    }
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) > 6) { drag.moved = true; map.setPointerCapture?.(e.pointerId); map.classList.add('grabbing'); }
+    if (drag.moved) { world.classList.remove('smooth'); view.x = drag.vx + dx; view.y = drag.vy + dy; applyView(); }
+  });
+  const endPointer = e => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (drag?.moved) { map.classList.remove('grabbing'); map._suppressClick = true; setTimeout(() => { map._suppressClick = false; }, 0); }
+    drag = null;
+  };
+  map.addEventListener('pointerup', endPointer);
+  map.addEventListener('pointercancel', endPointer);
+  map.addEventListener('click', e => { if (map._suppressClick) { e.stopPropagation(); e.preventDefault(); } }, true);
+  map.addEventListener('wheel', e => { e.preventDefault(); const r = map.getBoundingClientRect(); zoomAround(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.2 : 1 / 1.2); }, { passive: false });
+  const mapControls = h('div.map-controls',
+    h('button.map-btn', { title: 'Zoom in', onclick: () => zoomAround(map.clientWidth / 2, map.clientHeight / 2, 1.4) }, '+'),
+    h('button.map-btn', { title: 'Zoom out', onclick: () => zoomAround(map.clientWidth / 2, map.clientHeight / 2, 1 / 1.4) }, '−'),
+    h('button.map-btn.me', { title: 'Back to your land', onclick: () => centerOn(realmPos(me)) }, '◎'));
+  const mapHint = h('div.map-hint', 'Drag to move · scroll or pinch to zoom · tap a land to set a waypoint');
+  map.append(world, mapControls, mapHint);
   const side = h('div.realm-side');
   const m = modal([
     h('div.row',
@@ -74,9 +139,9 @@ export function openRealmMap({ hud, onVisit }) {
     const list = villages();
     const mine = realmPos(me);
     const sel = list.find(p => p.uid === selected) || list.find(p => p.uid === me);
-    map.replaceChildren();
+    world.replaceChildren();
 
-    map.append(worldCanvas(list));
+    world.append(worldCanvas(list));
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 100 100');
     svg.setAttribute('preserveAspectRatio', 'none');
@@ -85,7 +150,7 @@ export function openRealmMap({ hud, onVisit }) {
     if (sel && sel.uid !== me) {
       const to = realmPos(sel.uid);
       const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      Object.entries({ x1: mine.x, y1: mine.y, x2: to.x, y2: to.y, stroke: '#ffcf5a', 'stroke-width': 0.35, 'stroke-dasharray': '1.2 1', opacity: 0.85 })
+      Object.entries({ x1: mine.x, y1: mine.y, x2: to.x, y2: to.y, stroke: '#ff8ad8', 'stroke-width': 3, 'vector-effect': 'non-scaling-stroke', 'stroke-dasharray': '8 6', opacity: 0.95 })
         .forEach(([k, v]) => line.setAttribute(k, v));
       svg.append(line);
     }
@@ -97,28 +162,34 @@ export function openRealmMap({ hud, onVisit }) {
         .forEach(([k, v]) => line.setAttribute(k, v));
       svg.append(line);
     }
-    map.append(svg);
+    world.append(svg);
 
     for (const m of mp?.missions?.() || []) {
       const to = realmPos(m.to);
       const total = Math.max(1, m.arrivesAt - (m.launchedAt || m.arrivesAt));
       const t = Math.min(1, Math.max(0, 1 - (m.arrivesAt - Date.now()) / total));
-      map.append(h('div.realm-army', { style: { left: `${mine.x + (to.x - mine.x) * t}%`, top: `${mine.y + (to.y - mine.y) * t}%` }, title: `${m.agent || 'Missile'} → ${m.toVillage}` }, m.kind === 'missile' ? '☢' : '🕵'));
+      world.append(h('div.realm-army', { style: { left: `${mine.x + (to.x - mine.x) * t}%`, top: `${mine.y + (to.y - mine.y) * t}%` }, title: `${m.agent || 'Missile'} → ${m.toVillage}` }, m.kind === 'missile' ? '☢' : '🕵'));
     }
     for (const a of mp?.armies?.() || []) {
       const { x, y } = armyPos(a, mine);
-      map.append(h('div.realm-army', { 'data-id': a.id, style: { left: `${x}%`, top: `${y}%` }, title: `Army → ${a.toVillage}` }, '⚔'));
+      world.append(h('div.realm-army', { 'data-id': a.id, style: { left: `${x}%`, top: `${y}%` }, title: `Army → ${a.toVillage}` }, '⚔'));
     }
 
     for (const p of list) {
       const pos = realmPos(p.uid);
-      map.append(h(`div.realm-pin${p.uid === me ? '.me' : ''}${p.uid === selected ? '.sel' : ''}${p.online ? '' : '.offline'}`, {
+      world.append(h(`div.realm-pin${p.uid === me ? '.me' : ''}${p.uid === selected ? '.sel' : ''}${p.online ? '' : '.offline'}`, {
         style: { left: `${pos.x}%`, top: `${pos.y}%` },
         onclick: () => { selected = p.uid; tick(); },
       },
       h('span.pin-dot'),
       h('span.pin-name', p.online ? h('b.dot-on') : null, p.villageName || 'Unknown')));
     }
+
+    // you are here: a GTA-style arrow (turned to your ship's heading at sea) and a waypoint on the chosen land
+    const heading = game.sail ? game.sail.angle * 180 / Math.PI + 90 : 0;
+    world.append(h('div.realm-you', { style: { left: `${mine.x}%`, top: `${mine.y}%` } }, h('div.you-ring'), h('div.you-arrow', { style: { transform: `rotate(${heading}deg)` } })));
+    if (sel && sel.uid !== me) { const to = realmPos(sel.uid); world.append(h('div.realm-waypoint', { style: { left: `${to.x}%`, top: `${to.y}%` } })); }
+    if (!view.ready) { view.ready = true; requestAnimationFrame(() => centerOn(mine, false)); } else applyView();
 
     // side panel
     side.replaceChildren();
@@ -141,7 +212,7 @@ export function openRealmMap({ hud, onVisit }) {
           h('button.btn.sm', { onclick: () => { close(); hud.showProfile(sel); } }, '👤 View profile'),
           mp ? h('div.row',
             h('button.btn.sm', { style: { flex: 1 }, onclick: () => { close(); hud.offerModal(sel); } }, '🤝 Deal'),
-            ally ? null : h('button.btn.sm.danger', { style: { flex: 1 }, onclick: () => { close(); hud.raidModal(sel); } }, '⚔ March'),
+            ally ? null : h('button.btn.sm.danger', { style: { flex: 1 }, onclick: () => { close(); hud.raidModal(sel); } }, '⚔ Invade'),
             h('button.btn.sm', { style: { flex: 1 }, onclick: () => { close(); hud.spyModal(sel); } }, '🕵 Spy')) : null)));
     }
     const others = list.filter(p => p.uid !== me).sort((a, b) => travelMs(me, a.uid) - travelMs(me, b.uid));

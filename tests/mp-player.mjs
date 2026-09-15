@@ -129,9 +129,11 @@ if (role === 'A') {
   // accept A's trade once the caravan arrives
   const offer = await waitFor('trade caravan from A arrives', () => mp.inbox.find(o => o.type === 'trade'));
   if (offer) {
+    // leave room in storage: the village keeps chopping wood in the background and would hit its cap
+    state.resources.wood = 100;
     const wood0 = state.resources.wood, stone0 = state.resources.stone;
     await mp.respond(offer, true);
-    say(state.resources.wood === wood0 + 50 && state.resources.stone === stone0 - 20, `trade accepted: +50 wood, −20 stone (wood ${wood0}→${state.resources.wood}, stone ${stone0}→${state.resources.stone})`);
+    say(state.resources.wood >= wood0 + 50 && state.resources.stone <= stone0 - 20, `trade accepted: +50 wood, −20 stone (wood ${wood0}→${state.resources.wood}, stone ${stone0}→${state.resources.stone})`);
   }
 
   await mp.sendOffer({ uid: A, name: OTHER, villageName: 'Ironhold' }, 'alliance');

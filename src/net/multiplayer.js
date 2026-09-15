@@ -10,6 +10,7 @@ import { RAID_SHIELD_MS, ADULT_AGE } from '../core/constants.js';
 import { clamp } from '../core/rng.js';
 import { trySpot, DUST_SECONDS, spawnArmy, tributeCost, rally } from '../game/war.js';
 import { returnHome } from '../game/villagers.js';
+import { seaLift } from '../game/sailing.js';
 import { isTrained } from '../game/dynasty.js';
 import { isSpy, destroyBuildings, sufferStrike, hasMissiles, hasOrbital, MISSILE_COST } from '../game/intrigue.js';
 
@@ -330,7 +331,8 @@ export class Multiplayer {
     return true;
   }
 
-  async launchAttack(targetUid) {
+  /** opts.count: how many warriors to send (the best fighters go first); opts.bySea: carried by the fleet. */
+  async launchAttack(targetUid, opts = {}) {
     const g = this.g;
     const s = g.state;
     const target = await getProfile(targetUid);
@@ -339,25 +341,38 @@ export class Multiplayer {
     if (check !== true) throw new Error(check);
     if ((target.shieldUntil || 0) > Date.now()) throw new Error(`${target.villageName} is protected by a shield`);
 
-    const warriors = this.availableWarriors();
+    const all = this.availableWarriors().sort((a, b) => (b.skills.combat || 0) - (a.skills.combat || 0));
+    const count = Math.max(1, Math.min(all.length, Math.floor(opts.count || all.length)));
+    const warriors = all.slice(0, count);
+    let lift = null;
+    if (opts.bySea) {
+      lift = seaLift(g);
+      if (!g.hasBuilding('shipyard') || !lift.ships.length) throw new Error('You need a Shipyard and boats to invade by sea');
+      if (lift.capacity < warriors.length) throw new Error(`Your boats carry only ${lift.capacity} soldiers — send fewer or build more boats`);
+    }
     const bombs = Math.min(Math.floor(s.resources.bombs || 0), warriors.length * 2);
     s.resources.bombs -= bombs;
-    const power = Math.round(warriors.reduce((sum, v) => sum + 5 + v.skills.combat, 0) * (1 + g.combatBonus + (g.raidBonus || 0)) + Math.max(0, g.fateBonus) * 10 + bombs * 3);
+    // by sea: faster, a surprise landing (+15%) and the ships' guns join the attack
+    const seaBonus = lift ? 0.15 : 0;
+    const power = Math.round(warriors.reduce((sum, v) => sum + 5 + v.skills.combat, 0) * (1 + g.combatBonus + (g.raidBonus || 0) + seaBonus) + Math.max(0, g.fateBonus) * 10 + bombs * 3 + (lift ? lift.guns * 6 : 0));
     const now = Date.now();
-    const arrivesAt = now + travelMs(this.uid, targetUid, 'army');
+    const arrivesAt = now + travelMs(this.uid, targetUid, 'army') * (lift ? 0.6 : 1);
     const id = push(ref(rtdb, `${this.w}attacks/${targetUid}`)).key;
     const attack = {
       id, from: this.uid, fromName: this.name, fromVillage: s.owner.villageName,
-      to: targetUid, toVillage: target.villageName, power, warriors: warriors.length, bombs, launchedAt: now, arrivesAt, status: 'marching',
+      to: targetUid, toVillage: target.villageName, power, warriors: warriors.length, bombs, launchedAt: now, arrivesAt, status: 'marching', bySea: !!lift, ships: lift ? lift.ships.length : 0,
     };
     await update(ref(rtdb), {
       [`${this.w}attacks/${targetUid}/${id}`]: attack,
       [`${this.w}attacksSent/${this.uid}/${id}`]: { id, to: targetUid, toVillage: target.villageName, arrivesAt, warriors: warriors.length },
     });
     for (const v of warriors) { v.away = { attackId: id, until: arrivesAt + (arrivesAt - now) + 30 * 60_000 }; v._task = null; }
+    if (lift) for (const b of lift.ships) b.awayUntil = arrivesAt + (arrivesAt - now);   // the fleet sails with them and comes home after
     s.lastRaidAt = now;
     g.addKarma(-8);
-    g.log(`${warriors.length} warriors${bombs ? ` carrying ${bombs} bombs` : ''} march on ${target.villageName}. They arrive in ${fmtMinutes(arrivesAt - now)}.`, 'event');
+    g.log(lift
+      ? `${lift.ships.length} ship${lift.ships.length === 1 ? '' : 's'} carry ${warriors.length} warriors${bombs ? ` and ${bombs} bombs` : ''} to invade ${target.villageName} by sea. They land in ${fmtMinutes(arrivesAt - now)}.`
+      : `${warriors.length} warriors${bombs ? ` carrying ${bombs} bombs` : ''} march on ${target.villageName}. They arrive in ${fmtMinutes(arrivesAt - now)}.`, 'event');
     g.emit('change');
     return { arrivesAt, target };
   }
@@ -395,10 +410,12 @@ export class Multiplayer {
         if (!this.warned.has(a.id) && trySpot(g, remaining, (this.sweeps[a.id] ||= {}), now / 1000)) {
           this.warned.add(a.id);
           {
-            g.emit('scoutReport', { id: a.id, kind: 'player', name: `${a.fromVillage}'s army`, count: a.warriors, seconds: Math.max(0, (a.arrivesAt - now) / 1000), ref: a });
-            g.log(remaining <= DUST_SECONDS
-              ? `Dust on the horizon — ${a.fromVillage}'s army is at the gates! Nobody saw them coming.`
-              : `Scouts report: ${a.fromVillage} (${a.fromName}) marches on us with ${a.warriors} warriors!`, 'bad');
+            g.emit('scoutReport', { id: a.id, kind: 'player', name: a.bySea ? `${a.fromVillage}'s fleet` : `${a.fromVillage}'s army`, count: a.warriors, seconds: Math.max(0, (a.arrivesAt - now) / 1000), ref: a });
+            g.log(a.bySea
+              ? (remaining <= DUST_SECONDS ? `Sails on the horizon! ${a.fromVillage}'s fleet is landing on our shore!` : `Lookouts report: ${a.ships || 'enemy'} ship${a.ships === 1 ? '' : 's'} from ${a.fromVillage} carry ${a.warriors} warriors toward our coast!`)
+              : remaining <= DUST_SECONDS
+                ? `Dust on the horizon — ${a.fromVillage}'s army is at the gates! Nobody saw them coming.`
+                : `Scouts report: ${a.fromVillage} (${a.fromName}) marches on us with ${a.warriors} warriors!`, 'bad');
             if (g.autoRally && !g.state.rallied) rally(g);
           }
         }

@@ -22,7 +22,7 @@ const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)'
 import { computeBridges, bridgeAt } from '../game/bridges.js';
 import { talentLabel, fullName, EGO_PROUD } from '../game/talents.js';
 import { SPELLS, canCast, castSpell } from '../game/magic.js';
-import { BOATS, fleetOf, buildBoat, setSail, returnToPort, repairBoat, updateSailing, fire } from '../game/sailing.js';
+import { BOATS, fleetOf, buildBoat, setSail, returnToPort, repairBoat, updateSailing, fire, RELOAD, seaLift } from '../game/sailing.js';
 import { TOPICS, talkTo } from '../game/talk.js';
 import { activeGoals, claimGoal, rewardText, goalsLeftInEra } from '../game/goals.js';
 import { findAt, collectFind } from '../game/finds.js';
@@ -43,6 +43,9 @@ import { BUILD, LATEST_CHANGES, checkLatest } from '../core/version.js';
 const TOP_RES = ['food', 'wood', 'stone', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];
 // bombs and science only appear once they matter
 const SHOW_WHEN = { bombs: g => g.state.resources.bombs > 0 || g.hasBuilding('powder_mill'), science: g => g.state.resources.science > 0 || g.state.era >= 3 };
+// the engine telegraph, top to bottom
+const TELEGRAPH = [['FULL', 1], ['HALF', 0.6], ['SLOW', 0.3], ['STOP', 0], ['BACK', -0.4]];
+
 const TASK_TEXT = {
   wander: 'Wandering', patrol: 'On patrol', flee: 'Fleeing!', fight: 'Fighting!', hunt: 'Hunting', eat: 'Eating',
   study: 'Studying magic', spytrain: 'Learning the spy trade', train: 'Drilling for war', craft: 'Forging weapons', rest: 'Sleeping', heal: 'Being healed', build: 'Building', chop: 'Chopping wood', mine: 'Mining', gather: 'Gathering',
@@ -169,7 +172,7 @@ export class HUD {
       onclick: () => { if (this.visiting) { this.onReturnHome(); return; } this.follow = null; this.input.panTo(this.game.center.x, this.game.center.y); },
     }, pxIcon('target'), h('span.home-label', 'Village')));
     // sailing: status, Fire, Return to port, and a steering pad for touch screens
-    this.sailInput = { throttle: 0, turn: 0, fire: false };
+    this.sailInput = { throttle: 0, turn: 0, fire: false, wheel: 0 };
     this.els.sailBar = h('div.sail-bar', { hidden: true });
     this.root.append(this.els.sailBar);
 
@@ -207,9 +210,10 @@ export class HUD {
     }
     if (g.sail) {
       const k = this.input.keys, t = this.sailInput;
-      const throttle = (k.has('w') || k.has('arrowup') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0) || t.throttle;
+      const throttle = t.throttle;
       const turn = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0) || t.turn;
       if (!g.paused && !g.pendingEvent) updateSailing(g, dt, { throttle, turn, fire: k.has(' ') || t.fire });
+      this.updateHelm(dt, turn);
       const c = this.renderer.camera;
       if (g.sail) { c.x += (g.sail.x - c.x) * Math.min(1, dt * 4); c.y += (g.sail.y - c.y) * Math.min(1, dt * 4); }
     }
@@ -270,7 +274,13 @@ export class HUD {
     const k = e.key.toLowerCase();
     if (k === 'v') { this.openMap(); return; }
     if (k === 'escape' && this.visiting) { this.onReturnHome(); return; }
-    if (this.game.sail) { if (k === 'escape') returnToPort(this.game); if (k === ' ') e.preventDefault?.(); return; }   // the helm takes the keys
+    if (this.game.sail) {   // the helm takes the keys
+      if (k === 'escape') returnToPort(this.game);
+      if (k === ' ') e.preventDefault?.();
+      if (k === 'w' || k === 'arrowup') { e.preventDefault?.(); this.setTelegraph(+1); }
+      if (k === 's' || k === 'arrowdown') { e.preventDefault?.(); this.setTelegraph(-1); }
+      return;
+    }
     if (k === 'escape') { if (this.demolishMode) this.toggleDemolish(false); else if (this.buildType) this.cancelBuild(); else if (this.game.selected) this.select(null); else this.closePanel(); }
     else if (k === 'z' && (e.ctrlKey || e.metaKey)) { e.preventDefault?.(); this.undo(); }
     else if (k === 'x') this.toggleDemolish();
@@ -1342,11 +1352,35 @@ export class HUD {
     const check = mp.raidCheck(p);
     const warriors = mp.availableWarriors().length;
     const err = h('div.error-text', check === true ? '' : check);
+    // how many to send, and by land or by sea
+    const lift = seaLift(this.game);
+    const canSail = this.game.hasBuilding('shipyard') && lift.ships.length > 0;
+    const plan = { count: warriors, bySea: false };
+    const landTime = travelMs(this.user.uid, p.uid);
+    const countLabel = h('b.invade-count', String(warriors));
+    const summary = h('div.muted');
+    const routeBtns = h('div.invade-routes');
+    const refreshPlan = () => {
+      countLabel.textContent = `${plan.count} of ${warriors}`;
+      const over = plan.bySea && plan.count > lift.capacity;
+      routeBtns.replaceChildren(
+        h(`button.invade-route${plan.bySea ? '' : '.on'}`, { onclick: () => { plan.bySea = false; refreshPlan(); } }, icon('items/war', 28), h('b', 'By land'), h('span', fmtMinutes(landTime))),
+        h(`button.invade-route${plan.bySea ? '.on' : ''}`, { disabled: !canSail, title: canSail ? '' : 'Build a Shipyard and boats first', onclick: () => { plan.bySea = true; refreshPlan(); } },
+          icon('boats/galleon', 28), h('b', 'By sea'), h('span', canSail ? `${fmtMinutes(landTime * 0.6)} · ${lift.ships.length} ship${lift.ships.length === 1 ? '' : 's'} carry ${lift.capacity}` : 'needs boats')));
+      summary.textContent = plan.bySea
+        ? `Your fleet carries ${plan.count} warrior${plan.count === 1 ? '' : 's'} across the sea and lands by surprise (+15% strength, the ships' guns join in). ${over ? `Too many: your boats carry ${lift.capacity}.` : ''}`
+        : `${plan.count} warrior${plan.count === 1 ? '' : 's'} march for ${fmtMinutes(landTime)} and just as long home. Their scouts may see you coming. Victory plunders 20% of their food, wood, stone and gold.`;
+    };
+    const slider = h('input.invade-slider', { type: 'range', min: 1, max: Math.max(1, warriors), value: warriors, disabled: warriors < 1, oninput: e => { plan.count = Number(e.target.value); refreshPlan(); } });
+    refreshPlan();
     const m = modal([
       h('div', { style: { textAlign: 'center' } }, icon('items/war', 72)),
-      h('h2', { style: { textAlign: 'center' } }, `March on ${p.villageName}?`),
-      h('div.muted', `Your ${warriors} warrior${warriors === 1 ? '' : 's'} will march for ${fmtMinutes(travelMs(this.user.uid, p.uid))} to reach them, and just as long to come home. Their scouts may see you coming — they can rally, pay you tribute, or fight. If they are away, the battle is decided by strength. Victory plunders 20% of their food, wood, stone and gold.`),
-      h('div.row', { style: { flexWrap: 'wrap' } }, h('span.chip.evil', '−8 karma'), h('span.chip', 'Warriors leave the village'), h('span.chip.bad', 'Some may not return')),
+      h('h2', { style: { textAlign: 'center' } }, `Invade ${p.villageName}?`),
+      h('div.invade-row', h('span', 'Soldiers to send'), countLabel),
+      slider,
+      routeBtns,
+      summary,
+      h('div.row', { style: { flexWrap: 'wrap' } }, h('span.chip.evil', '−8 karma'), h('span.chip', 'The best fighters go first'), h('span.chip.bad', 'Some may not return')),
       err,
       h('div.row', h('div.spacer'), h('button.btn.ghost', { onclick: () => m.close() }, 'Stand down'),
         h('button.btn.danger', {
@@ -1355,12 +1389,12 @@ export class HUD {
             const btn = e.currentTarget;
             btn.disabled = true;
             try {
-              const r = await mp.launchAttack(p.uid);
+              const r = await mp.launchAttack(p.uid, plan);
               m.close();
-              this.announce(`⚔ Your army marches on ${r.target.villageName}!`);
+              this.announce(plan.bySea ? `Your fleet sails to invade ${r.target.villageName}!` : `Your army marches on ${r.target.villageName}!`);
             } catch (ex) { err.textContent = ex.message; btn.disabled = false; }
           },
-        }, '⚔ March!')),
+        }, 'Invade!')),
     ]);
   }
 
@@ -1634,7 +1668,7 @@ export class HUD {
         return h('div.fleet-row', icon(`boats/${b.type}`, 34),
           h('div.fleet-info', h('b', b.name), h('div.stat', h('span', 'Hull'), bar(b.hull / def.hull, '#6fdc5a'), h('span', `${Math.ceil(b.hull)}/${def.hull}`))),
           b.hull < def.hull ? h('button.btn.sm', { onclick: () => { const r = repairBoat(g, b.id); if (r.error) this.hint(r.error, 1800); this.updateInspector(true); } }, 'Repair') : null,
-          h('button.btn.sm.primary', { onclick: () => { const r = setSail(g, b.id); if (r.error) { this.hint(r.error, 2000); return; } play('ability'); this.select(null); this.closePanel(); this.renderer.camera.zoom = Math.max(this.renderer.camera.zoom, 1.8); this.hint('Set sail! Steer with W A S D, Space fires bombs, Esc returns to port.', 5000); } }, 'Set sail'));
+          b.awayUntil > Date.now() ? h('span.chip', 'Away on an invasion') : h('button.btn.sm.primary', { onclick: () => { const r = setSail(g, b.id); if (r.error) { this.hint(r.error, 2000); return; } play('ability'); this.select(null); this.closePanel(); this.renderer.camera.zoom = Math.max(this.renderer.camera.zoom, 1.8); this.hint('Set sail! Steer with W A S D, Space fires bombs, Esc returns to port.', 5000); } }, 'Set sail'));
       })) : h('div.faint', 'No boats yet. Build one below.'),
       h('div.boat-list', Object.entries(BOATS).map(([type, def]) => {
         const locked = def.era > g.state.era;
@@ -1648,7 +1682,8 @@ export class HUD {
   /** While sailing: the ship's status and controls. */
   updateSailBar() {
     const g = this.game, s = g.sail, bar2 = this.els.sailBar;
-    if (!s) { if (!bar2.hidden) { bar2.hidden = true; bar2.replaceChildren(); this._sailKey = null; this.els.sailPad?.remove(); this.els.sailPad = null; } return; }
+    this.root.classList.toggle('at-sea', !!s);   // the map corner and village buttons step aside for the helm
+    if (!s) { if (!bar2.hidden) { bar2.hidden = true; bar2.replaceChildren(); this._sailKey = null; this.els.helm?.remove(); this.els.helm = null; Object.assign(this.sailInput, { throttle: 0, turn: 0, fire: false, wheel: 0 }); } return; }
     const boat = fleetOf(g).find(b => b.id === s.boatId);
     const def = BOATS[s.type];
     const key = [Math.ceil(boat?.hull || 0), Math.floor(g.state.resources.bombs || 0), s.pirates.length, s.gold, s.atEdge].join('|');
@@ -1656,10 +1691,6 @@ export class HUD {
     const first = !this._sailKey;
     this._sailKey = key;
     bar2.hidden = false;
-    const hold = (prop, value) => ({
-      onpointerdown: e => { e.preventDefault(); this.sailInput[prop] = value; },
-      onpointerup: () => { this.sailInput[prop] = 0; }, onpointerleave: () => { this.sailInput[prop] = 0; }, onpointercancel: () => { this.sailInput[prop] = 0; },
-    });
     const status = h('div.sail-status',
       icon(`boats/${s.type}`, 34),
       h('div', h('b', boat?.name || def.name), h('div.stat', h('span', 'Hull'), bar((boat?.hull || 0) / def.hull, '#6fdc5a'), h('span', Math.ceil(boat?.hull || 0)))),
@@ -1669,14 +1700,84 @@ export class HUD {
     const actions = h('div.sail-actions',
       s.atEdge ? h('button.btn.sm', { onclick: () => this.openMap() }, 'Sail to another land') : null,
       h('button.btn.sm.ghost', { onclick: () => returnToPort(g) }, 'Return to port'));
-    const pad = h('div.sail-pad',
-      h('button.pad.left', hold('turn', -1), '◄'),
-      h('div.pad-col', h('button.pad', hold('throttle', 1), '▲'), h('button.pad', hold('throttle', -1), '▼')),
-      h('button.pad.right', hold('turn', 1), '►'),
-      h('button.pad.fire', { onpointerdown: e => { e.preventDefault(); this.sailInput.fire = true; fire(g); }, onpointerup: () => { this.sailInput.fire = false; }, onpointerleave: () => { this.sailInput.fire = false; } }, 'FIRE'));
     bar2.replaceChildren(status, actions);
-    // the steering pad lives in the bottom corners and is built once, so held buttons are never interrupted
-    if (!this.els.sailPad) { this.els.sailPad = pad; this.root.append(pad); }
+    // the helm is built once, so a held wheel or cannon is never interrupted by a status update
+    if (!this.els.helm) { this.els.helm = this.buildHelm(); this.root.append(this.els.helm); }
+  }
+
+  /** The ship's controls on screen: a wheel to steer, an engine telegraph for speed, a compass, and the cannon. */
+  buildHelm() {
+    const t = this.sailInput;
+    const g = this.game;
+    // --- the wheel: drag sideways (or hold a side) to steer; it springs back when you let go
+    const wheelImg = icon('boats/ship_wheel', 120);
+    const wheel = h('div.helm-wheel', { title: 'Drag to steer (A / D)' }, wheelImg, h('span.helm-key', 'A  ·  D'));
+    let drag = null;
+    wheel.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      wheel.setPointerCapture?.(e.pointerId);
+      const r = wheel.getBoundingClientRect();
+      drag = { x: e.clientX, cx: r.left + r.width / 2 };
+      t.turn = Math.max(-1, Math.min(1, (e.clientX - drag.cx) / (r.width * 0.35)));
+    });
+    wheel.addEventListener('pointermove', e => { if (drag) t.turn = Math.max(-1, Math.min(1, (e.clientX - drag.cx) / (wheel.offsetWidth * 0.35))); });
+    const release = () => { drag = null; t.turn = 0; };
+    wheel.addEventListener('pointerup', release);
+    wheel.addEventListener('pointercancel', release);
+
+    // --- the engine telegraph: a brass lever with fixed speeds that stays where you set it
+    const notches = h('div.telegraph-notches', TELEGRAPH.map(([label, value]) => h('button.telegraph-notch', { 'data-v': value, onpointerdown: e => { e.preventDefault(); t.throttle = value; } }, label)));
+    const knob = h('div.telegraph-knob');
+    const lever = h('div.telegraph', { title: 'Engine: W / S' }, h('div.telegraph-track', knob), notches, h('span.helm-key', 'W  ·  S'));
+    lever.addEventListener('pointermove', e => {
+      if (!(e.buttons & 1) || e.target.closest('.telegraph-notch')) return;
+      const r = lever.querySelector('.telegraph-track').getBoundingClientRect();
+      const f = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+      t.throttle = TELEGRAPH[Math.round(f * (TELEGRAPH.length - 1))][1];
+    });
+
+    // --- compass and speed
+    const needle = h('div.compass-needle');
+    const speed = h('div.compass-speed', '0 kn');
+    const compass = h('div.helm-compass', h('span.cn.n', 'N'), h('span.cn.e', 'E'), h('span.cn.s', 'S'), h('span.cn.w', 'W'), needle, speed);
+
+    // --- the cannon: hold to keep firing; the ring fills as the guns reload
+    const cannon = h('button.helm-cannon', { title: 'Fire (Space)' }, icon('boats/sea_bomb', 44), h('span.cannon-label', 'FIRE'), h('span.cannon-bombs'), h('span.helm-key', 'Space'));
+    cannon.addEventListener('pointerdown', e => { e.preventDefault(); cannon.setPointerCapture?.(e.pointerId); t.fire = true; fire(g); cannon.classList.add('boom'); setTimeout(() => cannon.classList.remove('boom'), 180); });
+    const stop = () => { t.fire = false; };
+    cannon.addEventListener('pointerup', stop);
+    cannon.addEventListener('pointercancel', stop);
+
+    const helm = h('div.helm', h('div.helm-left', wheel, lever, compass), cannon);
+    Object.assign(this.els, { helmWheel: wheelImg, helmKnob: knob, helmNotches: notches, helmNeedle: needle, helmSpeed: speed, helmCannon: cannon });
+    return helm;
+  }
+
+  /** W / S move the telegraph one notch. */
+  setTelegraph(dir) {
+    const values = TELEGRAPH.map(n => n[1]);   // top (FULL) to bottom (BACK)
+    let i = values.indexOf(this.sailInput.throttle);
+    if (i < 0) i = values.indexOf(0);
+    i = Math.max(0, Math.min(values.length - 1, i - dir));
+    this.sailInput.throttle = values[i];
+  }
+
+  /** Every frame at sea: turn the wheel, move the lever, swing the compass, refill the cannon ring. */
+  updateHelm(dt, turn) {
+    const s = this.game.sail, t = this.sailInput, e = this.els;
+    if (!s || !e.helm) return;
+    t.wheel += ((turn || 0) * 140 - t.wheel) * Math.min(1, dt * 8);
+    e.helmWheel.style.transform = `rotate(${t.wheel.toFixed(1)}deg)`;
+    const idx = Math.max(0, TELEGRAPH.findIndex(n => n[1] === t.throttle));
+    e.helmKnob.style.top = `${(idx / (TELEGRAPH.length - 1)) * 100}%`;
+    for (const n of e.helmNotches.children) n.classList.toggle('on', Number(n.dataset.v) === t.throttle);
+    e.helmNeedle.style.transform = `translate(-50%, -100%) rotate(${(s.angle * 180 / Math.PI + 90).toFixed(1)}deg)`;
+    const kn = `${Math.round(Math.abs(s.speed) / TILE * 4)} kn`;
+    if (e.helmSpeed.textContent !== kn) e.helmSpeed.textContent = kn;
+    e.helmCannon.style.setProperty('--reload', (1 - Math.min(1, s.reload / RELOAD)).toFixed(3));
+    const bombs = `${Math.floor(this.game.state.resources.bombs || 0)}`;
+    const label = e.helmCannon.querySelector('.cannon-bombs');
+    if (label.textContent !== bombs) label.textContent = bombs;
   }
 
   /** Mana and spells for a wizard. */
@@ -1986,7 +2087,7 @@ export class HUD {
       h('div.muted', ally ? 'You are allies. Ask to cross and look around.' : 'This is their land. Ask permission to visit, or intrude uninvited.'),
       h('div.row',
         h('button.btn.sm.primary', { onclick: act(() => this.askToVisit(b.uid)) }, 'Ask to visit'),
-        ally ? null : h('button.btn.sm.danger', { onclick: act(() => this.raidModal(p)) }, 'Intrude with an army'),
+        ally ? null : h('button.btn.sm.danger', { onclick: act(() => this.raidModal(p)) }, 'Invade'),
         h('button.btn.sm', { onclick: act(() => this.spyModal(p)) }, 'Send a spy'),
         h('button.btn.sm', { onclick: act(() => this.openMap()) }, 'World Map')));
     this.bridgeBox = box;

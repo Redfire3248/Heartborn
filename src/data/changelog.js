@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'The helm, a living map and invasions by sea',
+    changes: [
+      'Sailing controls on screen: a ship\'s wheel to steer, a brass engine telegraph (FULL / HALF / SLOW / STOP / BACK), a compass with your speed, and a cannon button that glows as it reloads',
+      'World Map moves like GTA: drag it, scroll or pinch to zoom, an arrow shows where you are (and which way your ship faces), tap a land to drop a waypoint with a route',
+      'Invade other lands with exactly as many soldiers as you choose, by land or by sea: ships carry your army faster, land by surprise and add their guns',
+      'Defenders see enemy fleets coming: lookouts warn of sails on the horizon',
+    ],
+  },
+  {
     title: 'Set sail!',
     changes: [
       'Build a Shipyard by the water (Village era), then build boats: Rowboat, Longship, Galleon, Ironclad, Battleship and the Energy Battleship',

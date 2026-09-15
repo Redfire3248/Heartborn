@@ -11,21 +11,29 @@ import { damageCreature } from './creatures.js';
 
 // better ships with every era: [era, sprite, name, cost, hull, top speed (tiles/s), guns]
 export const BOATS = {
-  rowboat: { era: 1, name: 'Rowboat', cost: { wood: 30 }, hull: 40, speed: 2.6, guns: 1, desc: 'Two oars and a crate of bombs. Quick and fragile.' },
-  longship: { era: 2, name: 'Longship', cost: { wood: 90, iron: 5 }, hull: 90, speed: 3.2, guns: 1, desc: 'A raider’s ship with a striped sail.' },
-  galleon: { era: 3, name: 'Galleon', cost: { wood: 180, iron: 30, gold: 40 }, hull: 170, speed: 3.0, guns: 2, desc: 'Rows of cannons fire two bombs at once.' },
-  ironclad: { era: 4, name: 'Ironclad', cost: { iron: 140, coal: 60, wood: 60 }, hull: 280, speed: 3.6, guns: 3, desc: 'Armoured steam warship.' },
-  battleship: { era: 5, name: 'Battleship', cost: { iron: 260, coal: 120, gold: 150 }, hull: 420, speed: 4.2, guns: 4, desc: 'Steel turrets. The sea is yours.' },
-  energy_battleship: { era: 6, name: 'Energy Battleship', cost: { iron: 400, science: 300, gems: 30 }, hull: 650, speed: 5.0, guns: 5, desc: 'Hovering warship of the future.' },
+  rowboat: { era: 1, name: 'Rowboat', cost: { wood: 30 }, hull: 40, speed: 2.6, guns: 1, carries: 4, desc: 'Two oars and a crate of bombs. Quick and fragile.' },
+  longship: { era: 2, name: 'Longship', cost: { wood: 90, iron: 5 }, hull: 90, speed: 3.2, guns: 1, carries: 12, desc: 'A raider’s ship with a striped sail.' },
+  galleon: { era: 3, name: 'Galleon', cost: { wood: 180, iron: 30, gold: 40 }, hull: 170, speed: 3.0, guns: 2, carries: 25, desc: 'Rows of cannons fire two bombs at once.' },
+  ironclad: { era: 4, name: 'Ironclad', cost: { iron: 140, coal: 60, wood: 60 }, hull: 280, speed: 3.6, guns: 3, carries: 35, desc: 'Armoured steam warship.' },
+  battleship: { era: 5, name: 'Battleship', cost: { iron: 260, coal: 120, gold: 150 }, hull: 420, speed: 4.2, guns: 4, carries: 50, desc: 'Steel turrets. The sea is yours.' },
+  energy_battleship: { era: 6, name: 'Energy Battleship', cost: { iron: 400, science: 300, gems: 30 }, hull: 650, speed: 5.0, guns: 5, carries: 80, desc: 'Hovering warship of the future.' },
 };
 
 const BOMB_RANGE = 9 * TILE;
 const BOMB_SPEED = 11 * TILE;
-const RELOAD = 0.9;
+export const RELOAD = 0.9;
 const PIRATE_HULL = [30, 60, 110, 180, 260, 360, 480];
 const PIRATE_SPRITE = ['boats/pirate_ship', 'boats/pirate_ship', 'boats/pirate_ship', 'boats/pirate_ship', 'boats/patrol_boat', 'boats/destroyer', 'boats/hover_boat'];
 
 export const fleetOf = g => (g.state.fleet ||= []);
+
+/** Boats in port and seaworthy (not sunk, not away carrying an invasion). */
+export const shipsInPort = g => fleetOf(g).filter(b => b.hull > 0 && !(b.awayUntil > Date.now()) && g.sail?.boatId !== b.id);
+/** How many soldiers the fleet in port can carry, and how much their guns add to an attack. */
+export function seaLift(g) {
+  const ships = shipsInPort(g);
+  return { ships, capacity: ships.reduce((n, b) => n + (BOATS[b.type].carries || 0), 0), guns: ships.reduce((n, b) => n + BOATS[b.type].guns, 0) };
+}
 export const hasShipyard = g => g.hasBuilding('shipyard');
 
 export function buildBoat(g, type) {
@@ -67,6 +75,7 @@ export function setSail(g, boatId) {
   const boat = fleetOf(g).find(b => b.id === boatId);
   if (!boat) return { error: 'No such boat' };
   if (boat.hull <= 0) return { error: 'This boat needs repairs' };
+  if (boat.awayUntil > Date.now()) return { error: 'This boat is away carrying an invasion' };
   const spot = launchSpot(g);
   if (!spot) return { error: 'The shipyard has no open water' };
   g.sail = { boatId, type: boat.type, x: spot.x, y: spot.y, angle: spot.angle, speed: 0, reload: 0, shots: [], pirates: [], loot: [], nextPirateAt: 20, time: 0, sunk: 0, gold: 0, wake: [] };
