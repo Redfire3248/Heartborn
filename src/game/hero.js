@@ -197,6 +197,8 @@ export function updateHero(g, dt, controls = {}) {
     if (Math.abs(mx) > 0.2) v._flip = mx < 0;
   }
   h.x = v.x; h.y = v.y;
+  // in someone else's land you only walk (a spy acts through the spy bar; nothing there is yours to take)
+  if (g.visiting) return;
 
   // a quick bite from the stores when hungry (nobody else feeds a ruler on the move)
   if (v.hunger < 35 && g.state.resources.food >= 3) { g.state.resources.food -= 3; v.hunger = 100; g.float(v.x, v.y - TILE * 1.3, 'Ate', '#8fe07a'); }

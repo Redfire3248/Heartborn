@@ -200,7 +200,7 @@ function startGame(user, game, { online = true } = {}) {
       onClick: (w, tx, ty) => { if (!app.visit) app.hud?.onClick(w, tx, ty, app.input.keys.has('shift')); },
       isPlacing: () => !app.visit && (!!app.hud?.buildType || !!app.hud?.demolishMode),
       isSailing: () => !!app.game?.sail,
-      isLeading: () => !!app.game?.hero && !app.visit,
+      isLeading: () => (app.visit ? !!app.visit.hero : !!app.game?.hero),
       onPlaceStart: (tx, ty) => app.hud?.onPlaceStart(tx, ty),
       onPlaceMove: (tx, ty) => app.hud?.onPlaceMove(tx, ty),
       onPlaceEnd: (tx, ty) => app.hud?.onPlaceEnd(tx, ty, app.input.keys.has('shift')),
@@ -232,6 +232,8 @@ function startGame(user, game, { online = true } = {}) {
     onVisit: uid => visitRealm(uid),
     // out on the Open Sea the screen shows the shared ocean (your village keeps running at home)
     onSeaView: seaGame => { app.visit = seaGame; },
+    // in person in another land (your spy taking control there)
+    onAbroad: (land, profile) => { if (!app.visit) app.homeCamera = { ...renderer.camera }; app.visit = land; app.hud.setVisiting(profile); },
     onReturnHome: () => returnHome(),
   });
   app.console = null;
@@ -274,10 +276,12 @@ async function visitRealm(uid) {
   const c = visitCenter(visit);
   renderer.camera = { x: c.x, y: c.y, zoom: 2.2 };
   app.hud.setVisiting({ ...profile, uid });
+  app.hud.arriveAsVisitor(visit, { ...profile, uid });   // walk their land as your avatar
 }
 
 function returnHome() {
   if (!app.visit) return;
+  app.hud.leaveAbroad?.();
   app.visit = null;
   if (app.homeCamera) renderer.camera = app.homeCamera;
   app.hud.setVisiting(null);

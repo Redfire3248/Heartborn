@@ -14,6 +14,7 @@ import { accuse, punishTraitor, throwBomb, counterIntel, isSpy, hasMissiles, has
 import { openAimMap } from './aimMap.js';
 import { BODY, bodyStat } from '../game/body.js';
 import { autoPickOn, runAutoPick } from '../game/autopick.js';
+import { arriveAbroad, leaveAbroad, spyActions } from '../game/abroad.js';
 import { homeOf, residents } from '../game/homes.js';
 import { itemAt, pickUp, moveItem, dropFromPack } from '../game/groundItems.js';
 const BADGE_TRAITS = ['gifted', 'knighted', 'versatile'];   // already shown as badges at the top of a profile
@@ -77,8 +78,8 @@ const DOCK_GROUPS = [
 const groupOf = id => DOCK_GROUPS.find(g => g?.tabs.some(t => t[0] === id));
 
 export class HUD {
-  constructor({ game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu, onSeaView }) {
-    Object.assign(this, { game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu, onSeaView });
+  constructor({ game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu, onSeaView, onAbroad }) {
+    Object.assign(this, { game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu, onSeaView, onAbroad });
     // ships at sea talk to other players through the multiplayer layer
     if (mp) game.seaNet = { publish: (s, boat) => mp.publishShip(s, boat), shot: b => mp.sendShot(b), sunk: (by, boat) => mp.reportSunk(by, boat), leave: () => mp.leaveSea() };
     this.root = document.getElementById('ui');
@@ -237,14 +238,18 @@ export class HUD {
       const c = this.renderer.camera;
       if (g.sail) { c.x += (g.sail.x - c.x) * Math.min(1, dt * 4); c.y += (g.sail.y - c.y) * Math.min(1, dt * 4); }
     }
-    if (g.hero && !this.visiting) {
+    // the person you control: your avatar at home, or your visitor / spy in another land
+    const abroad = this.visiting && this.abroad?.land?.hero ? this.abroad : null;
+    const hg = abroad ? abroad.land : !this.visiting ? g : null;
+    if (hg?.hero) {
       const k = this.input.keys, t = this.leadInput;
       const mx = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0) + t.mx;
       const my = (k.has('s') || k.has('arrowdown') ? 1 : 0) - (k.has('w') || k.has('arrowup') ? 1 : 0) + t.my;
-      if (!g.paused && !g.pendingEvent) updateHero(g, dt, { mx, my, act: k.has(' ') || t.act });
-      const v = heroOf(g);
+      if (abroad || (!g.paused && !g.pendingEvent)) updateHero(hg, dt, { mx, my, act: !abroad && (k.has(' ') || t.act) });
+      const v = heroOf(hg);
       const c = this.renderer.camera;
       if (v) { this.follow = null; c.x += (v.x - c.x) * Math.min(1, dt * 6); c.y += (v.y - c.y) * Math.min(1, dt * 6); }
+      if (abroad && v && this.mp && abroad.hostUid) this.mp.publishStranger(abroad.hostUid, abroad.strangerId, v, { disguised: abroad.role === 'spy' });
     }
     this.tickTimer -= dt;
     if (this.tickTimer > 0) return;
@@ -356,14 +361,17 @@ export class HUD {
   }
 
   updateHeroBar() {
-    const g = this.game;
-    const v = !this.visiting && heroOf(g);
+    const abroad = this.visiting && this.abroad?.land?.hero ? this.abroad : null;
+    const g = abroad ? abroad.land : this.game;
+    const v = (abroad || !this.visiting) && heroOf(g);
     const bar = this.els.heroBar, pad = this.els.heroPad;
     this.root.classList.toggle('leading', !!v);
+    pad.classList.toggle('abroad', !!abroad);
     if (!v) {
       if (!bar.hidden) { bar.hidden = true; pad.hidden = true; bar.replaceChildren(); pad.replaceChildren(); this._heroKey = null; Object.assign(this.leadInput, { mx: 0, my: 0, act: false }); }
       return;
     }
+    if (abroad) { this.updateAbroadBar(abroad, v); return; }
     const hero = g.hero;
     const bounty = bountyOf(g);
     this.els.heroPad.classList.toggle('violent', !!hero.violent);
@@ -381,6 +389,93 @@ export class HUD {
         ? h('div.hero-bounty', icon('items/icon_gold', 16), `Bounty: ${bounty.bounty.name}, ${bounty.bounty.gold} gold · ${dist < 3 ? 'right here!' : `${dist} tiles ${compass(bounty.x - v.x, bounty.y - v.y)}`}`)
         : h('div.hero-bounty.faint', 'Scouts are looking for a bounty...'));
     function bar100(hp) { return h('div.hero-hp', h('div', { style: { width: `${Math.max(0, Math.min(100, hp))}%` } })); }
+  }
+
+  /** In another land: who you are there, and (as a spy) what you can do right where you stand. */
+  updateAbroadBar(abroad, v) {
+    const bar = this.els.heroBar;
+    const spy = abroad.role === 'spy';
+    const here = spy ? spyActions(abroad.land, v) : null;
+    const key = ['abroad', abroad.role, v.id, abroad.busy ? 1 : 0, here ? here.actions.map(a => a.id + (a.target?.tx ?? a.target?.x ?? '')).join(',') + here.guards : ''].join('|');
+    if (bar.hidden) { bar.hidden = false; this.els.heroPad.hidden = false; this.buildHeroPad(); }
+    if (key === this._heroKey) return;
+    this._heroKey = key;
+    const land = this.visiting?.villageName || 'their land';
+    bar.replaceChildren(
+      h('div.hero-top', icon(spy ? 'units/spy' : 'items/crown_leader', 22), h('b', v.name), h('div.spacer'),
+        h('button.btn.sm', { onclick: () => this.onReturnHome() }, spy ? 'Slip away' : 'Leave')),
+      spy
+        ? h('div.hero-deeds', `Disguised as a traveller in ${land}. Walk up to a building or a person to act. One act ends the mission.`)
+        : h('div.hero-deeds', `Visiting ${land}. Walk around with WASD or the stick.`),
+      spy && here.guards ? h('div.hero-bounty', { style: { color: '#ff8a7a' } }, `${here.guards} guard${here.guards === 1 ? '' : 's'} watching: much riskier here`) : null,
+      spy ? h('div.row', { style: { flexWrap: 'wrap', gap: '5px' } }, here.actions.map(a => h('button.btn.sm', {
+        title: a.desc, disabled: !!abroad.busy, onclick: () => this.spyAct(a, here.guards),
+      }, a.label))) : null);
+  }
+
+  /** Take control of a spy who has arrived in another land. */
+  async infiltrate(m) {
+    const g = this.game;
+    const agent = g.state.villagers.find(v => v.away?.missionId === m.id);
+    if (!agent || !this.mp) { this.hint('Your spy is no longer there', 3000); return; }
+    let profile, land;
+    try {
+      profile = await getProfile(m.to);
+      land = makeVisitGame({ ...profile, uid: m.to });
+    } catch (e) { this.hint(e.message || 'Could not reach that land', 4000); return; }
+    this.mp.infiltrating = m.id;
+    this.onAbroad?.(land, { ...profile, uid: m.to, spy: true });
+    const copy = arriveAbroad(land, agent, { role: 'spy' });
+    this.abroad = { land, role: 'spy', mission: m, hostUid: m.to, strangerId: `${this.user.uid}_${m.id}` };
+    Object.assign(this.renderer.camera, { x: copy.x, y: copy.y, zoom: 2.4 });
+    this.hint(`You are ${agent.name}, disguised in ${profile.villageName}. Walk to a building or a person and choose what to do.`, 7000);
+  }
+
+  /** Visiting: your avatar arrives at the edge of their village and you walk it about. */
+  arriveAsVisitor(land, profile) {
+    const person = avatarOf(this.game);
+    if (!person) return;
+    const copy = arriveAbroad(land, person, { role: 'visitor' });
+    this.abroad = { land, role: 'visitor', hostUid: profile.uid, strangerId: this.user.uid };
+    Object.assign(this.renderer.camera, { x: copy.x, y: copy.y, zoom: 2.4 });
+  }
+
+  leaveAbroad() {
+    const ab = this.abroad;
+    if (!ab) return;
+    this.mp?.clearStranger(ab.hostUid, ab.strangerId);
+    if (ab.mission && this.mp?.infiltrating === ab.mission.id) this.mp.infiltrating = null;   // the spy waits; take control again before time runs out
+    leaveAbroad(ab.land);
+    this.abroad = null;
+  }
+
+  async spyAct(action, guards) {
+    const ab = this.abroad;
+    if (!ab?.mission || ab.busy) return;
+    ab.busy = true;
+    this._heroKey = null;
+    try {
+      const done = await this.mp.actInPerson(ab.mission, action.id, action.target || null, guards);
+      const r = done?.result;
+      if (!r) { this.hint('Too late: the mission was already decided.', 4000); return; }
+      const t = action.target;
+      if (r.success && t) {
+        const spot = t.tx != null ? { x: (t.tx + 1) * TILE, y: (t.ty + 1) * TILE } : { x: t.x, y: t.y };
+        ab.land.puff(spot, action.id === 'sabotage' ? 'effects/flame' : 'effects/hit_star', 14, 24);
+        if (action.id === 'assassinate') ab.land.state.villagers = ab.land.state.villagers.filter(o => Math.hypot(o.x - t.x, o.y - t.y) > 8 || o.id.startsWith('abroad_'));
+      }
+      const text = r.caught ? 'Caught! The guards drag your spy away.'
+        : r.success ? { sabotage: 'It burns! Now slip away.', steal: `You got away with ${r.gold || 0} gold!`, assassinate: 'It is done.', incite: 'They will turn on their ruler.', scout: 'You have counted everything.' }[action.id] || 'Done.'
+          : 'It went wrong, but you escaped.';
+      this.announce(text);
+      this.hint(text, 4000);
+      setTimeout(() => { if (this.abroad === ab) this.onReturnHome(); }, 2500);
+    } catch (e) {
+      this.hint(e.message, 3000);
+    } finally {
+      ab.busy = false;
+      this._heroKey = null;
+    }
   }
 
   /** On-screen stick and ACT button (shown on touch screens). */
@@ -1367,7 +1462,8 @@ export class HUD {
           const left = Math.max(0, m.arrivesAt - Date.now());
           body.append(h('div.offer', h('div.row', icon(m.kind === 'missile' ? 'units/missile' : 'units/spy', 24),
             h('b', m.kind === 'missile' ? `☢ Strike → ${m.toVillage}` : `${m.agent} → ${m.toVillage} (${m.mission})`), h('div.spacer'),
-            h('span.faint', left ? fmtClock(left / 1000) : 'Arriving…')), bar(1 - left / total, m.kind === 'missile' ? '#ff6b5b' : '#9f7aea')));
+            left || m.mission !== 'infiltrate' ? h('span.faint', left ? fmtClock(left / 1000) : 'Arriving…') : h('button.btn.sm.primary', { onclick: () => this.infiltrate(m) }, 'Take control')),
+            bar(1 - left / total, m.kind === 'missile' ? '#ff6b5b' : '#9f7aea')));
         }
         for (const c of homeSpies) {
           body.append(h('div.offer', h('div.row', icon('units/spy', 24), h('b', c.text), h('div.spacer'), h('span.faint', `home in ${fmtClock(Math.max(0, (c.at - Date.now()) / 1000))}`))));
@@ -2302,6 +2398,7 @@ export class HUD {
     const odds = best ? Math.round(Math.max(5, Math.min(90, (0.4 + best.skills.stealth * 0.06 - (p.counterIntel ?? 0.1)) * 100))) : 0;
     const err = h('div.error-text');
     const MISSIONS = [
+      ['infiltrate', 'Infiltrate in person', 'Take control of your spy when they arrive: walk their land disguised as a traveller and choose what to sabotage, rob or who to kill. Better odds, unless guards are watching.'],
       ['scout', '👁 Scout', 'Count their soldiers, gold and food.'],
       ['steal', '💰 Steal', 'Take a quarter of their gold.'],
       ['sabotage', '💣 Sabotage', 'Burn one of their buildings (uses 1 bomb).'],
@@ -2404,11 +2501,11 @@ export class HUD {
     if (!profile) return;
     this.visitBanner = h('div.visit-banner',
       avatar(profile.name || '?', 34),
-      h('div', h('div.visit-title', `Visiting ${profile.villageName}`),
+      h('div', h('div.visit-title', profile.spy ? `Infiltrating ${profile.villageName}` : `Visiting ${profile.villageName}`),
         h('div.faint', `Ruled by ${profile.name} · ${ERAS[profile.era || 0]?.name} · 👥 ${profile.pop} · ${fmtMinutes(travelMs(this.user.uid, profile.uid || ''))} from home`)),
-      profile.uid ? h('button.btn.sm', { onclick: () => this.offerModal({ ...profile, uid: profile.uid }) }, '🤝 Deal') : null,
-      profile.uid ? h('button.btn.sm.danger', { onclick: () => this.raidModal({ ...profile, uid: profile.uid }) }, '⚔ March') : null,
-      profile.uid && this.mp ? h('button.btn.sm', { onclick: () => this.spyModal({ ...profile, uid: profile.uid }) }, '🕵 Spy') : null,
+      profile.uid && !profile.spy ? h('button.btn.sm', { onclick: () => this.offerModal({ ...profile, uid: profile.uid }) }, '🤝 Deal') : null,
+      profile.uid && !profile.spy ? h('button.btn.sm.danger', { onclick: () => this.raidModal({ ...profile, uid: profile.uid }) }, '⚔ March') : null,
+      profile.uid && this.mp && !profile.spy ? h('button.btn.sm', { onclick: () => this.spyModal({ ...profile, uid: profile.uid }) }, '🕵 Spy') : null,
       h('button.btn.sm.primary', { onclick: () => this.onReturnHome() }, '🏠 Return home'));
     this.root.append(this.visitBanner);
   }

@@ -12,11 +12,12 @@ import { trySpot, DUST_SECONDS, spawnArmy, tributeCost, rally } from '../game/wa
 import { returnHome } from '../game/villagers.js';
 import { seaLift, seaUpdate, seaIncomingShot, BOATS } from '../game/sailing.js';
 import { isTrained } from '../game/dynasty.js';
-import { isSpy, destroyBuildings, sufferStrike, hasMissiles, hasOrbital, MISSILE_COST } from '../game/intrigue.js';
+import { isSpy, destroyBuildings, damageBuilding, sufferStrike, hasMissiles, hasOrbital, MISSILE_COST } from '../game/intrigue.js';
 
 const RAID_COOLDOWN_MS = 2 * 3600 * 1000;
 const CHAT_COOLDOWN_MS = 1500;
 const VISIT_ASK_MS = 60_000;   // how long a visit request waits for an answer
+const INFILTRATE_WINDOW_MS = 10 * 60_000;   // a spy sent in person waits this long for you to take control
 // Tests shrink real-time waits (travel, grace periods) with globalThis.HB_TIME_SCALE.
 const scale = () => globalThis.HB_TIME_SCALE ?? 1;
 const DEFENDER_GRACE = () => Math.max(3000, 45_000 * scale());     // an online defender gets first claim on the battle
@@ -35,6 +36,14 @@ export function travelMs(fromUid, toUid, kind = 'army') {
   const d = Math.hypot(a.x - b.x, a.y - b.y);          // 0 .. ~141
   const minutes = 4 + d * 0.115;
   return Math.round(minutes * (kind === 'caravan' ? 0.6 : 1) * 60_000 * scale());
+}
+
+/** The villager a spy on the spot chose: whoever stands nearest where they were (same job preferred). */
+function personNear(s, target, ok) {
+  if (!target || target.x == null) return null;
+  const near = s.villagers.filter(v => !v.away && ok(v) && Math.hypot(v.x - target.x, v.y - target.y) < 32 * 6);
+  near.sort((a, b) => (b.job === target.job) - (a.job === target.job) || Math.hypot(a.x - target.x, a.y - target.y) - Math.hypot(b.x - target.x, b.y - target.y));
+  return near[0] || null;
 }
 
 export const fmtMinutes = ms => {
@@ -133,6 +142,16 @@ export class Multiplayer {
     this.unsubs.push(onValue(ref(rtdb, `${this.w}attacksSent/${this.uid}`), snap => this.trackOutgoing(snap.val() || {})));
     this.unsubs.push(onValue(ref(rtdb, `${this.w}missions/${this.uid}`), snap => { this.incomingMissions = snap.val() || {}; this.applyMissions(); }));
     this.unsubs.push(onValue(ref(rtdb, `${this.w}missionsSent/${this.uid}`), snap => { this.sentMissions = snap.val() || {}; }));
+    // people from other lands walking in ours (visitors, and spies dressed as travellers)
+    this.unsubs.push(onValue(ref(rtdb, `${this.w}strangers/${this.uid}`), snap => {
+      const all = snap.val() || {};
+      const now = Date.now();
+      const prev = new Map((this.g.strangers || []).map(s => [s.id, s]));
+      this.g.strangers = Object.entries(all).filter(([, s]) => now - (s.ts || 0) < 20_000).map(([id, s]) => {
+        const old = prev.get(id);
+        return { id, name: s.name, sex: s.sex, job: s.job, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
+      });
+    }));
     const offBattle = this.g.on('battleEnd', r => { if (r.kind === 'player') this.finishLiveBattle(r); });
     this.unsubs.push(offBattle);
 
@@ -760,37 +779,85 @@ export class Multiplayer {
     const now = Date.now();
     for (const m of Object.values(this.sentMissions || {})) {
       if (m.arrivesAt > now || this.busy.has(m.id)) continue;
+      // a spy sent in person waits for you to take control (and acts by stats if you never do)
+      if (m.mission === 'infiltrate' && (now < m.arrivesAt + INFILTRATE_WINDOW_MS || this.infiltrating === m.id)) continue;
       this.busy.add(m.id);
       try {
-        const path = ref(rtdb, `${this.w}missions/${m.to}/${m.id}`);
-        const target = await getProfile(m.to);
-        const tx = await runTransaction(path, cur => {
-          // with nothing cached locally the first call sees null: return null so the server value is retried
-          if (cur === null) return null;
-          if (cur.status !== 'travelling') return undefined;
-          const result = { success: false, caught: false };
-          if (cur.kind === 'missile') {
-            result.success = !!cur.aim?.pierce || !target?.missileShield;
-          } else {
-            const chance = clamp(0.4 + cur.stealth * 0.06 + Math.min(0.2, (target?.leaks || 0) * 0.05) - (target?.counterIntel || 0.1), 0.05, 0.9);
-            result.success = Math.random() < chance;
-            result.caught = !result.success && Math.random() < 0.7;
-            if (result.success && cur.mission === 'steal') result.gold = Math.floor((target?.res?.gold || 0) * 0.25);
-            if (result.success && cur.mission === 'scout' && target) {
-              result.report = { pop: target.pop, warriors: target.warriors, power: target.warriorPower, defense: target.defense, gold: target.res?.gold, food: target.res?.food, era: target.era, officials: target.officials };
-            }
-          }
-          return { ...cur, status: 'resolved', result };
-        });
-        const done = tx.committed && tx.snapshot.val();
-        if (done?.status === 'resolved') this.applyOwnMission(done);
-        await remove(ref(rtdb, `${this.w}missionsSent/${this.uid}/${m.id}`));
+        await this.decideMission(m);
       } catch (e) {
         console.warn('mission resolve failed', e);
       } finally {
         this.busy.delete(m.id);
       }
     }
+  }
+
+  /**
+   * Settle a mission on its record. `inPerson` = { action, target, guards } when you did it yourself as the spy:
+   * better odds for the hand on the spot, worse when guards are watching, and the exact building or person hit.
+   */
+  async decideMission(m, inPerson = null) {
+    const path = ref(rtdb, `${this.w}missions/${m.to}/${m.id}`);
+    const target = await getProfile(m.to);
+    const tx = await runTransaction(path, cur => {
+      // with nothing cached locally the first call sees null: return null so the server value is retried
+      if (cur === null) return null;
+      if (cur.status !== 'travelling') return undefined;
+      const mission = inPerson?.action || (cur.mission === 'infiltrate' ? 'scout' : cur.mission);
+      const result = { success: false, caught: false };
+      if (cur.kind === 'missile') {
+        result.success = !!cur.aim?.pierce || !target?.missileShield;
+      } else {
+        const guards = inPerson?.guards || 0;
+        const chance = clamp(0.4 + cur.stealth * 0.06 + Math.min(0.2, (target?.leaks || 0) * 0.05) - (target?.counterIntel || 0.1) + (inPerson ? 0.15 - guards * 0.1 : 0), 0.05, 0.95);
+        result.success = Math.random() < chance;
+        result.caught = !result.success && Math.random() < Math.min(0.95, 0.6 + guards * 0.1);
+        if (result.success && mission === 'steal') result.gold = Math.floor((target?.res?.gold || 0) * 0.25);
+        if (result.success && mission === 'scout' && target) {
+          result.report = { pop: target.pop, warriors: target.warriors, power: target.warriorPower, defense: target.defense, gold: target.res?.gold, food: target.res?.food, era: target.era, officials: target.officials };
+        }
+        if (inPerson?.target) result.target = inPerson.target;
+        if (inPerson) result.inPerson = true;
+      }
+      return { ...cur, mission, status: 'resolved', result };
+    });
+    const done = tx.committed && tx.snapshot.val();
+    if (done?.status === 'resolved') this.applyOwnMission(done);
+    await remove(ref(rtdb, `${this.w}missionsSent/${this.uid}/${m.id}`));
+    return done;
+  }
+
+  /** You are the spy on the spot: do one thing, and the mission ends with it. */
+  async actInPerson(m, action, target = null, guards = 0) {
+    if (this.busy.has(m.id)) throw new Error('Already acting');
+    if (action === 'sabotage' && !this.g.spend({ bombs: 1 })) throw new Error('Sabotage needs 1 bomb');
+    this.busy.add(m.id);
+    try {
+      return await this.decideMission(m, { action, target, guards });
+    } finally {
+      this.busy.delete(m.id);
+      if (this.infiltrating === m.id) this.infiltrating = null;
+    }
+  }
+
+  // ---------------- strangers: people from other lands walking in yours ----------------
+  /** Where you are in someone else's land, so they see you walking about (a spy shows as a nameless traveller). */
+  publishStranger(hostUid, id, v, { disguised = false } = {}) {
+    const now = Date.now();
+    if (now - (this._strangerAt || 0) < 300) return;
+    this._strangerAt = now;
+    const path = ref(rtdb, `${this.w}strangers/${hostUid}/${id}`);
+    if (this._strangerPath !== path.toString()) { this._strangerPath = path.toString(); onDisconnect(path).remove(); }
+    set(path, {
+      from: this.uid, x: Math.round(v.x), y: Math.round(v.y), sex: v.sex === 'f' ? 'f' : 'm',
+      name: disguised ? 'Traveller' : String(v.name || 'Visitor').slice(0, 40), job: disguised ? 'gather' : String(v.job || 'idle').slice(0, 20),
+      walking: !!v._walking, flip: !!v._flip, ts: now,
+    }).catch(() => {});
+  }
+
+  clearStranger(hostUid, id) {
+    this._strangerPath = null;
+    remove(ref(rtdb, `${this.w}strangers/${hostUid}/${id}`)).catch(() => {});
   }
 
   applyOwnMission(m) {
@@ -843,7 +910,13 @@ export class Multiplayer {
         g.log(`🕵 We caught a spy from ${m.fromVillage} (${m.mission})! +15 influence`, 'good');
       } else if (r.success) {
         switch (m.mission) {
-          case 'sabotage': destroyBuildings(g, 1, `Saboteurs sent by ${who} struck the`); break;
+          case 'sabotage': {
+            // a spy on the spot picked the building; otherwise it is whichever they could reach
+            const b = r.target && s.buildings.find(x => x.built && x.type === r.target.type && x.tx === r.target.tx && x.ty === r.target.ty);
+            if (b) damageBuilding(g, b, `Saboteurs sent by ${who} struck the`);
+            else destroyBuildings(g, 1, `Saboteurs sent by ${who} struck the`);
+            break;
+          }
           case 'steal': {
             const n = Math.min(r.gold || 0, Math.floor(s.resources.gold));
             s.resources.gold -= n;
@@ -851,7 +924,7 @@ export class Multiplayer {
             break;
           }
           case 'incite': {
-            const v = s.villagers.filter(x => x.age >= 12 && !x.ruling && !x.robot && !x.traitor).sort((a, b) => a.happy - b.happy)[0];
+            const v = personNear(s, r.target, x => x.age >= 12 && !x.ruling && !x.robot && !x.traitor) || s.villagers.filter(x => x.age >= 12 && !x.ruling && !x.robot && !x.traitor).sort((a, b) => a.happy - b.happy)[0];
             if (v) v.traitor = true;   // silently
             if (traced) g.log(`Our Spymaster suspects agents of ${m.fromVillage} are turning our people…`, 'bad');
             break;
@@ -859,7 +932,7 @@ export class Multiplayer {
           case 'assassinate': {
             const court = Object.values(s.court || {}).map(c => s.villagers.find(v => v.id === c?.id)).filter(Boolean);
             const heir = s.villagers.find(v => v.id === s.ruler?.heirId);
-            const victim = heir || court[0];
+            const victim = personNear(s, r.target, x => !x.ruling) || heir || court[0];
             if (victim) g.killVillager(victim, `was assassinated by agents of ${who}`);
             break;
           }

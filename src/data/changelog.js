@@ -1,6 +1,16 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'In person, in other lands',
+    changes: [
+      'Visiting someone: your avatar arrives at the edge of their village and you walk their land with WASD or the stick',
+      'Infiltrate in person: a new spy mission. When your spy arrives, press Take control in the World panel and walk their village disguised as a traveller',
+      'Walk up to a building to sabotage it or rob a store, or to a person to assassinate them or turn them against their ruler. One act ends the mission; guards nearby make it much riskier, doing it yourself makes it likelier to work',
+      'The owner sees exactly that building burn or that person fall. If you never take control, the spy scouts on their own after 10 minutes',
+      'Strangers are real: the owner of a land sees visitors and travellers walking through their village live',
+    ],
+  },
+  {
     title: 'Admin finds everyone',
     changes: [
       'Fixed: in a private world the admin console listed no other players, so give, karma, nuke, missile and the other player commands could not find anyone. It now reads the world you are in, and anyone online always shows up',

@@ -115,6 +115,11 @@ export class Renderer {
     for (const v of g.state.villagers) {
       if (!v.away && inView(v.x, v.y)) items.push({ y: v.y, draw: () => this.drawVillager(g, v) });
     }
+    // strangers from other lands (visitors, spies dressed as travellers), gliding to where they really are
+    if (!g.visiting) for (const st of g.strangers || []) {
+      st.x += (st.tx - st.x) * Math.min(1, dt * 8); st.y += (st.ty - st.y) * Math.min(1, dt * 8);
+      if (inView(st.x, st.y)) items.push({ y: st.y, draw: () => this.drawStranger(g, st) });
+    }
     if (!g.visiting) for (const it of g.state.groundItems || []) {
       if (inView(it.x, it.y)) items.push({ y: it.y, draw: () => this.drawGroundItem(it) });
     }
@@ -208,6 +213,14 @@ export class Renderer {
   }
 
   /** A find waiting to be collected: bobbing sprite on a pulsing golden glow, fading out near the end. */
+  /** Someone from another land walking through yours: drawn like any villager, with their name. */
+  drawStranger(g, st) {
+    const v = st._v ||= { id: `s${st.id}`, age: 25, hp: 100, traits: [], skills: {}, inv: { pack: {} } };
+    Object.assign(v, { name: st.name, sex: st.sex, job: st.job, profession: st.job, x: st.x, y: st.y, _walking: st._walking, _flip: st._flip });
+    this.drawVillager(g, v);
+    label(this.ctx, st.name, st.x, st.y + 7);
+  }
+
   /** An item lying on the ground: bobbing gently over its shadow, with a count. */
   drawGroundItem(it) {
     const { ctx } = this;
