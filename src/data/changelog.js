@@ -13,6 +13,9 @@ export const CHANGELOG = [
       'No more swords from nowhere: people fight with the weapon or tool they actually carry',
       'When an official dies, the best person takes over the office at once',
       'Phones: Cancel / Done / Undo buttons while building or demolishing, and a Village button to jump home',
+      'Construction never sits at 0%: when there are too few builders, everyone else pitches in',
+      'Inventory slots show the tool, weapon and armour a person really carries; a carried sword counts in fights',
+      'Building abilities show real waiting time (Ready in 7m 26s); workplaces count everyone working there',
     ],
   },
   {

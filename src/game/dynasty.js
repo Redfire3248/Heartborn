@@ -1,4 +1,4 @@
-import { professionFromCalling } from './professions.js';
+import { professionFromCalling, TRADE_TOOL } from './professions.js';
 import { ADULT_AGE, TILE } from '../core/constants.js';
 import { clamp, chance, pick } from '../core/rng.js';
 import { CALLINGS, RULER_TYPES, RULER_TITLES, ITEMS, TOOL_FOR_JOB } from '../data/people.js';
@@ -201,14 +201,18 @@ export function takeItem(v, item) {
   return true;
 }
 
-/** What a person is carrying right now (tools and gear follow their job). */
+/** What a person really carries in each slot: items from their pack first, then gear from the village armoury. */
 export function equipment(g, v) {
   const iron = g.hasBuilding('blacksmith') || g.hasBuilding('weaponsmith');
-  const toolKey = TOOL_FOR_JOB[v.job];
+  const pack = inventory(v).pack;
+  const own = key => (pack[key] ? { ...ITEMS[key], key } : null);
+  // the tool of their trade (or of the job they are doing now), if they own one
+  const toolKey = [TRADE_TOOL[v.profession], TOOL_FOR_JOB[v.job], ...Object.keys(pack).filter(k => ITEMS[k]?.slot === 'tool')].find(k => k && pack[k]);
+  const weaponKey = ['sword', 'spear'].find(k => pack[k]);
   return {
-    tool: toolKey ? { ...ITEMS[toolKey], key: toolKey, quality: iron ? 'Iron' : 'Stone' } : null,
-    weapon: v.armed ? { ...ITEMS[iron ? 'sword' : 'spear'], key: iron ? 'sword' : 'spear' } : null,
-    armor: v.armed && g.hasBuilding('armory') ? { ...ITEMS.shield, key: 'shield' } : null,
+    tool: toolKey ? { ...own(toolKey), quality: iron ? 'Iron' : 'Stone' } : null,
+    weapon: weaponKey ? own(weaponKey) : v.armed ? { ...ITEMS[iron ? 'sword' : 'spear'], key: iron ? 'sword' : 'spear', issued: true } : null,
+    armor: pack.shield ? own('shield') : v.armed && g.hasBuilding('armory') ? { ...ITEMS.shield, key: 'shield', issued: true } : null,
   };
 }
 

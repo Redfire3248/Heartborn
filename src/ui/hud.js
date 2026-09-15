@@ -1540,8 +1540,9 @@ export class HUD {
       h('h3', 'Inventory'),
       h('div.inv', slot('Tool', eq.tool), slot('Weapon', eq.weapon), slot('Armor', eq.armor),
         h('div.inv-slot', { title: 'Wages earned from work' }, h('b', { style: { color: 'var(--gold)', fontSize: '16px' } }, inv.coins), h('span', 'Coins'))),
-      h('div.traits', Object.keys(inv.pack).length
-        ? Object.entries(inv.pack).map(([k, n]) => h('span.chip.pack-item', {
+      // the pack shows what is not already in a slot above
+      h('div.traits', packExtras(inv.pack, eq).length
+        ? packExtras(inv.pack, eq).map(([k, n]) => h('span.chip.pack-item', {
           title: `${ITEMS[k]?.desc || ''}${ITEMS[k]?.desc ? ' · ' : ''}Drag onto another villager to give it`,
           onpointerdown: e => this.dragItem(e, v, k, n),
         }, icon(ITEMS[k]?.icon || 'items/relic', 16), `${ITEMS[k]?.label || k} ×${n}`))
@@ -1604,9 +1605,10 @@ export class HUD {
     if (!a) return null;
     const left = abilityCooldown(g, b);
     const ok = canUseAbility(g, b);
-    const label = left > 0 ? `Ready in ${Math.ceil(left / DAY_LENGTH * 24)}h` : ok === true ? `${a.icon} ${a.name}` : ok;
+    // real time left (a game day is only 90 seconds, so game hours looked like real days)
+    const label = left > 0 ? `Ready in ${fmtWait(left / Math.max(0.1, g.speed || 1))}` : ok === true ? `${a.icon} ${a.name}` : ok;
     return h('div.ability',
-      h('div.ability-head', h('span.ability-icon', a.icon), h('div', h('div.ability-name', a.name), h('div.faint', `Recharges every ${a.cooldown} day${a.cooldown > 1 ? 's' : ''}`))),
+      h('div.ability-head', h('span.ability-icon', a.icon), h('div', h('div.ability-name', a.name), h('div.faint', `Recharges every ${a.cooldown} game day${a.cooldown > 1 ? 's' : ''} (${fmtWait(a.cooldown * DAY_LENGTH)})`))),
       h('div.ability-desc', a.desc),
       h('div.row', { style: { flexWrap: 'wrap' } },
         a.cost ? costChips(a.cost, g.state.resources) : null,
@@ -1626,7 +1628,8 @@ export class HUD {
     const g = this.game;
     const def = BUILDINGS[b.type];
     const recipe = def.recipe;
-    const workers = g.state.villagers.filter(v => v._task?.building === b).length;
+    // everyone working here, including those walking back between catches or harvests
+    const workers = g.state.villagers.filter(v => v._task?.building === b || (v._workAt?.id === b.id && g.state.time - v._workAt.t < 20)).length;
     return [
       h('div.row', { style: { gap: '12px' } },
         h('div.portrait', icon(`buildings/${b.type}`, 72)),
@@ -2024,6 +2027,21 @@ export class HUD {
     this.tutorial?.destroy();
     this.root.replaceChildren();
   }
+}
+
+/** Pack items minus the one of each that is equipped in a slot. */
+function packExtras(pack, eq) {
+  const used = new Set([eq.tool, eq.weapon, eq.armor].filter(x => x && !x.issued).map(x => x.key));
+  return Object.entries(pack).map(([k, n]) => [k, n - (used.has(k) ? 1 : 0)]).filter(([, n]) => n > 0);
+}
+
+/** Real waiting time: 45s, 7m 26s, 1h 5m. */
+function fmtWait(secs) {
+  secs = Math.max(0, Math.ceil(secs));
+  if (secs < 60) return `${secs}s`;
+  const m = Math.floor(secs / 60), s = secs % 60;
+  if (m < 60) return s ? `${m}m ${s}s` : `${m}m`;
+  return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
 function fmtClock(secs) {

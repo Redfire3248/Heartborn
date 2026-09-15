@@ -292,6 +292,7 @@ function setTask(v, task) {
 
 function releaseTask(v) {
   const t = v._task;
+  if (t?.building && t.phase === 'work' && t.type !== 'build' && t.building.id) v._workAt = { id: t.building.id, t: t._now ?? 0 };
   if (t?.target?.obj && t.target.obj._res === v.id) delete t.target.obj._res;
   v._task = null;
 }
@@ -328,7 +329,7 @@ function chooseTask(g, v) {
 
   // construction sites builders can reach (a site nobody can walk to is skipped for a while, so it can't stall the rest)
   const unbuilt = s.buildings.filter(b => !b.built && !(b._noPathUntil > s.time));
-  if (unbuilt.length && (v.job === 'build' || v.job === 'idle')) {
+  if (unbuilt.length && (v.job === 'build' || v.job === 'idle' || needsHelpers(g, unbuilt.length))) {
     const b = pickSite(g, v, unbuilt);
     setTask(v, { type: 'build', building: b, ...standAt(g, b) });
     return;
@@ -432,6 +433,19 @@ function chooseTask(g, v) {
     return;
   }
   wander(g, v, 5);
+}
+
+/**
+ * Too few hands on the construction sites (no builders by trade, or far too few)? Then everyone else pitches in.
+ * Checked about once a second, not for every villager.
+ */
+function needsHelpers(g, sites) {
+  const s = g.state;
+  if (g._helpersAt != null && s.time - g._helpersAt < 1) return g._helpers;
+  g._helpersAt = s.time;
+  const crew = s.villagers.filter(x => x.age >= ADULT_AGE && !x.away && (x.job === 'build' || x._task?.type === 'build')).length;
+  g._helpers = crew < Math.min(sites * 2, 2 + Math.floor(s.villagers.length / 10));
+  return g._helpers;
 }
 
 /** Nearest construction site, but spread out: each builder already working a site makes it count as further away. */
@@ -541,7 +555,7 @@ function runTask(g, v, dt) {
         if (t.timer <= 0) {
           t.timer = 1;
           let dmg = (4 + v.skills.combat * 1.2) * (1 + g.combatBonus);
-          if (v.job === 'warrior') dmg *= v.armed ? 1.8 : 0.7;   // bare fists are no match for a blade
+          if (v.job === 'warrior' || v.ruling) dmg *= v.armed || v.inv?.pack?.sword || v.inv?.pack?.spear ? 1.8 : 0.7;   // bare fists are no match for a blade
           if (!isTrained(v)) dmg *= 0.6;                           // untrained militia swing wildly
           if (has(v, 'cruel')) dmg *= 1.2;
           if (has(v, 'veteran')) dmg *= 1.3;
@@ -592,6 +606,7 @@ function runTask(g, v, dt) {
     if (r === 'fail') { v._cooldown = 1; return releaseTask(v); }
     if (r !== 'arrived') return;
     t.phase = 'work';
+    t._now = s.time;
     t.timer = (WORK_TIME[t.type] || 4) / workSpeed(g, v);
     if (t.building) v._flip = g.buildingCenter(t.building).x < v.x;
     else if (t.target?.obj) v._flip = tileCenter(t.target.obj).x < v.x;
