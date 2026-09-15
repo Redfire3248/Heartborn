@@ -48,8 +48,9 @@ export function maybeScheduleWarband(g) {
     id: `w${Date.now().toString(36)}${irange(0, 999)}`,
     kind: 'warband',
     name: pick(WARBAND_NAMES),
-    count: clamp(2 + Math.floor(pop / 9) + s.era, 2, 10),
-    scale: 0.65 + s.era * 0.12,
+    // real armies: they grow with your village and your era
+    count: clamp(4 + Math.floor(pop / 4) + s.era * 3, 4, 80),
+    scale: 0.85 + s.era * 0.15,
     arrivesAt: s.time + DAY_LENGTH * (0.5 + Math.random() * 1.2),
     warned: false,
   });

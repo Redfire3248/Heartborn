@@ -238,6 +238,40 @@ export async function run() {
     ok(Ho.residents(g, family).length === 3, 'the house lists its residents');
   });
 
+  await step('people can fight and kill people of their own village', async () => {
+    const V = await import('/src/game/villagers.js');
+    const H = await import('/src/game/hero.js');
+    const g = freshGame({ era: 1, people: 6 });
+    build(g, 'campfire');
+    g.state.creatures = [];
+    const [a, b, c] = g.state.villagers.filter(v => !v.ruling && v.age >= 16);
+    b.x = a.x + 10; b.y = a.y; b.traits = b.traits.filter(t => t !== 'brave');
+    const pop = g.state.villagers.length;
+    ok(V.attackVillager(g, a, b, { deadly: true }), 'a villager can attack another');
+    for (let i = 0; i < 600 && g.state.villagers.includes(b); i++) { g.step(0.1); a.hp = Math.max(a.hp, 60); }
+    ok(!g.state.villagers.includes(b) && g.state.villagers.length === pop - 1, 'a deadly attack ends in a death', `b hp ${Math.round(b.hp)}`);
+    ok(a.murders === 1, 'the killer is remembered');
+    // a brawl is not a murder
+    c.x = a.x + 10; c.y = a.y; c.hp = 100; a._task = null;
+    V.attackVillager(g, a, c, { deadly: false });
+    for (let i = 0; i < 400 && a._task?.type === 'brawl'; i++) { g.step(0.1); a.hp = Math.max(a.hp, 60); }
+    ok(g.state.villagers.includes(c), 'a brawl stops before anyone dies');
+    // your avatar in hostile mode
+    const me = g.state.villagers.find(v => v.ruling);
+    const victim = g.state.villagers.find(v => v !== me && v !== a && v.age >= 16) || c;
+    H.startLead(g, me);
+    victim.x = me.x + 12; victim.y = me.y; victim.hp = 1;
+    H.updateHero(g, 1 / 30, { act: true });
+    ok(g.state.villagers.includes(victim), 'a peaceful avatar never strikes people');
+    H.setViolent(g, true);
+    g.state.creatures = [];
+    g.hero.actCd = 0; g.hero.cd = 0;
+    victim.x = me.x + 12; victim.y = me.y; victim.hp = 1;
+    H.updateHero(g, 1 / 30, { act: true });
+    ok(!g.state.villagers.includes(victim), 'in Hostile mode your avatar can kill your own people');
+    H.endLead(g);
+  });
+
   await step('items can be dropped on the ground and picked up', async () => {
     const GI = await import('/src/game/groundItems.js');
     const H = await import('/src/game/hero.js');

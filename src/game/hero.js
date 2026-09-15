@@ -3,7 +3,7 @@ import { CREATURES, OBJECTS } from '../data/objects.js';
 import { damageCreature } from './creatures.js';
 import { collectFind } from './finds.js';
 import { pickUp } from './groundItems.js';
-import { gainSkill } from './villagers.js';
+import { gainSkill, hitVillager } from './villagers.js';
 import { has } from './dynasty.js';
 import { speedMult, strengthMult } from './body.js';
 
@@ -105,6 +105,32 @@ function strike(g, v, c, mult) {
   if (had && !g.state.creatures.includes(c)) g.hero.kills++;
 }
 
+/** Hostile mode: your avatar can strike your own people too. Guards and grieving families answer a killing. */
+export function setViolent(g, on) {
+  if (!g.hero) return;
+  g.hero.violent = on ?? !g.hero.violent;
+  g.emit('change');
+}
+
+function nearestPerson(g, v, range) {
+  let best = null, bd = range;
+  for (const o of g.state.villagers) {
+    if (o === v || o.away) continue;
+    const d = Math.hypot(o.x - v.x, o.y - v.y);
+    if (d < bd) { bd = d; best = o; }
+  }
+  return best;
+}
+
+function strikePerson(g, v, o) {
+  v._flip = o.x < v.x;
+  g.hero.swing = 0.22;
+  g.hero.cd = 0.5;
+  gainSkill(g, v, 'combat');
+  g.fx.shake = Math.max(g.fx.shake, 0.25);
+  if (hitVillager(g, v, o, heroDamage(g, v) * 1.2)) g.hero.slain = (g.hero.slain || 0) + 1;
+}
+
 /** Chop, mine or pick the thing in reach: a few hits and it gives double what a worker would get. */
 function work(g, v) {
   const s = g.state;
@@ -193,7 +219,9 @@ export function updateHero(g, dt, controls = {}) {
   if (controls.act && h.actCd <= 0) {
     h.actCd = ACT_COOLDOWN;
     const target = nearestHostile(g, v, REACH * 1.4);
+    const person = !target && h.violent ? nearestPerson(g, v, REACH * 1.3) : null;
     if (target) { strike(g, v, target, 1.6); h.cd = 0.5; }
+    else if (person) strikePerson(g, v, person);
     else if (!work(g, v)) h.actCd = 0.1;
   }
 

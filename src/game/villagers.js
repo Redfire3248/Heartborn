@@ -8,7 +8,7 @@ import { talentLearnMult } from './talents.js';
 import { upgradeSpeed } from './upgrades.js';
 import { inspired } from './hero.js';
 import { homeOf, shelterFor } from './homes.js';
-import { rollBody, speedMult, strengthMult, hungerMult, bodyWorkMult, trainBody } from './body.js';
+import { rollBody, speedMult, strengthMult, hungerMult, bodyWorkMult, trainBody, toughness } from './body.js';
 import { OBJECTS, CREATURES } from '../data/objects.js';
 import { BUILDINGS, sizeOf } from '../data/buildings.js';
 import { rollFate } from './fate.js';
@@ -73,7 +73,7 @@ export function displayRole(v) {
 export function toolFor(v, g = null) {
   const t = v._task;
   if (!t || t.phase !== 'work') return null;
-  if (t.type === 'fight' || t.type === 'explore') return weaponOf(v, g);
+  if (t.type === 'fight' || t.type === 'brawl' || t.type === 'explore') return weaponOf(v, g);
   if (t.type === 'train') return null;   // recruits drill with the wooden practice sword they already carry
   const need = TASK_TOOL[t.type];
   if (need && !v.inv?.pack?.[need]) return null;   // no tool of their own: bare hands
@@ -177,6 +177,19 @@ export function dailyVillagers(g) {
       v.sick = 2;
     }
 
+    // quarrels: the cruel, the greedy and the miserable pick fights, and now and then one ends in murder
+    if (v.age >= ADULT_AGE && !v.jailed && !v.ruling && g.hero?.id !== v.id && pop >= 4) {
+      const temper = (has(v, 'cruel') ? 0.06 : 0) + (has(v, 'greedy') ? 0.02 : 0) + (v.happy < 20 ? 0.05 : 0) + (v.traitor ? 0.04 : 0) - (has(v, 'kind') ? 0.04 : 0);
+      if (temper > 0 && chance(temper)) {
+        const near = s.villagers.filter(o => o !== v && !o.away && o.age >= ADULT_AGE && o.id !== v.partner && Math.hypot(o.x - v.x, o.y - v.y) < TILE * 12);
+        if (near.length) {
+          const victim = pick(near);
+          const deadly = has(v, 'cruel') ? chance(0.35) : chance(0.1);
+          attackVillager(g, v, victim, { deadly, why: deadly ? `${v.name} attacks ${victim.name} with murder in their eyes!` : `${v.name} picks a fight with ${victim.name}.` });
+        }
+      }
+    }
+
     // unhappy villagers may leave or steal
     if (v.happy < 12 && v.age >= ADULT_AGE && !has(v, 'loyal') && !v.ruling && chance(0.15)) {
       g.log(`${v.name} was so miserable they left the village.`, 'bad');
@@ -226,6 +239,66 @@ export function dailyVillagers(g) {
 
 // traits that cannot live in one person
 const OPPOSITE = { brave: 'coward', coward: 'brave', lazy: 'hardworking', hardworking: 'lazy', kind: 'cruel', cruel: 'kind', honest: 'greedy', greedy: 'honest', sickly: 'strong', strong: 'sickly' };
+
+// ------------------------------------------------------------------ violence between villagers
+
+/**
+ * One villager goes for another. A brawl ends when someone is beaten; a deadly attack ends in a death.
+ * The victim fights back if they are a soldier, brave or feeling strong, and otherwise runs.
+ */
+export function attackVillager(g, attacker, victim, { deadly = false, why = '' } = {}) {
+  if (!attacker || !victim || attacker === victim || attacker.away || victim.away) return false;
+  if (!g.state.villagers.includes(attacker) || !g.state.villagers.includes(victim)) return false;
+  if (g.hero?.id === attacker.id) return false;   // your avatar only swings when you do
+  setTask(attacker, { type: 'brawl', target: victim, deadly, timer: 0.2 });
+  attacker._emote = { key: 'effects/emote_alert', life: 2 };
+  reactToAttack(g, victim, attacker, deadly);
+  if (why) g.log(why, deadly ? 'bad' : 'event', victim);
+  return true;
+}
+
+function reactToAttack(g, victim, attacker, deadly) {
+  if (g.hero?.id === victim.id) return;
+  const t = victim._task;
+  if ((t?.type === 'brawl' || t?.type === 'flee') && t.target === attacker) return;
+  const fights = victim.job === 'warrior' || has(victim, 'brave') || has(victim, 'knighted') || (victim.hp > 60 && chance(0.4));
+  if (victim.age < ADULT_AGE || victim.jailed || !fights) setTask(victim, { type: 'flee', target: attacker, timer: 4 });
+  else setTask(victim, { type: 'brawl', target: attacker, deadly, timer: 0.4 });
+}
+
+/** A blow from one villager to another. Returns true if it killed them. */
+export function hitVillager(g, attacker, victim, dmg) {
+  if (!g.state.villagers.includes(victim)) return false;
+  victim.hp -= dmg * toughness(victim);
+  victim._hurtFlash = 0.25;
+  g.puff({ x: victim.x, y: victim.y - 8 }, 'effects/hit_star', 2, 8);
+  if (victim.hp > 0) {
+    const t = victim._task;
+    if (t?.type !== 'brawl' && t?.type !== 'flee') reactToAttack(g, victim, attacker, true);
+    return false;
+  }
+  killVillager(g, victim, `was killed by ${attacker.name}`);
+  attacker.murders = (attacker.murders || 0) + 1;
+  onMurder(g, attacker, victim);
+  return true;
+}
+
+/** A killing shakes the village: grief, fear, guards who strike the killer down, and family who want revenge. */
+function onMurder(g, killer, victim) {
+  const s = g.state;
+  g.addKarma(-2);
+  g.announce(`${killer.name} killed ${victim.name}!`);
+  for (const o of [...s.villagers]) {
+    if (o === killer || o.away) continue;
+    const kin = o.partner === victim.id || isFamily(o, victim) || (victim.parents || []).includes(o.id);
+    const saw = Math.hypot(o.x - victim.x, o.y - victim.y) < TILE * 8;
+    if (kin || saw) o.happy = clamp(o.happy - (kin ? 25 : 8), 0, 100);
+    if (g.hero?.id === o.id || o.age < ADULT_AGE || o.jailed) continue;
+    const guard = (o.job === 'warrior' || has(o, 'knighted')) && !killer.ruling && Math.hypot(o.x - killer.x, o.y - killer.y) < TILE * 14;
+    const avenger = kin && (has(o, 'brave') || has(o, 'cruel') || chance(0.3));
+    if (guard || avenger) attackVillager(g, o, killer, { deadly: true });
+  }
+}
 
 function isFamily(a, b) {
   if (!a.parents || !b.parents) return false;
@@ -308,7 +381,7 @@ export function updateVillager(g, v, dt) {
 
 function reactToDanger(g, v) {
   const t = v._task;
-  if (t?.type === 'fight' || t?.type === 'flee') return;
+  if (t?.type === 'fight' || t?.type === 'flee' || t?.type === 'brawl') return;
   const range = v.job === 'warrior' ? TILE * 12 : TILE * 3;
   let nearest = null, nd = Infinity;
   for (const c of g.state.creatures) {
@@ -591,8 +664,34 @@ function runTask(g, v, dt) {
       else if (g.world.walkable(v.x, ny)) v.y = ny;
       v._walking = true; v._flip = dx < 0;
       t.timer -= dt;
-      const safe = !s.creatures.includes(c) || ad > TILE * 8;
+      const safe = (c.t ? !s.creatures.includes(c) : !s.villagers.includes(c)) || ad > TILE * 8;   // fleeing a beast or a person
       if (safe || t.timer <= -6) releaseTask(v);
+      return;
+    }
+
+    case 'brawl': {   // fighting another villager
+      const c = t.target;
+      if (!s.villagers.includes(c) || c.away) return releaseTask(v);
+      const d = Math.hypot(c.x - v.x, c.y - v.y);
+      if (d > TILE * 20) return releaseTask(v);
+      if (d > TILE * 0.8) { t.phase = 'move'; chase(g, v, c, dt); return; }
+      t.phase = 'work';
+      v._flip = c.x < v.x;
+      t.timer -= dt;
+      if (t.timer > 0) return;
+      t.timer = 1;
+      let dmg = (4 + v.skills.combat * 1.2) * (v.armed || v.inv?.pack?.sword || v.inv?.pack?.spear ? 1.8 : 1) * strengthMult(v);
+      if (has(v, 'cruel')) dmg *= 1.2;
+      gainSkill(g, v, 'combat', true);
+      if (!t.deadly && c.hp - dmg < 20) {   // a brawl, not a murder: it ends when one of them is beaten
+        c.hp = Math.max(15, c.hp - dmg * 0.5);
+        c._hurtFlash = 0.25;
+        c.happy = clamp(c.happy - 10, 0, 100);
+        g.log(`${v.name} beat ${c.name} in a fight.`, 'event', c);
+        if (c._task?.target === v) releaseTask(c);
+        return releaseTask(v);
+      }
+      hitVillager(g, v, c, dmg);
       return;
     }
 
@@ -904,6 +1003,7 @@ export function walkSpeed(g, v) {
   if (v.hunger <= 0) sp *= 0.7;
   if (has(v, 'nimble')) sp *= 1.1;
   sp *= speedMult(v);   // quick people really are quicker
+  if (v._task?.type === 'brawl') sp *= 1.45;   // someone out for blood runs down whoever flees
   return sp;
 }
 

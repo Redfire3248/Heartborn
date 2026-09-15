@@ -182,7 +182,7 @@ function dailyWar(g, k, power) {
   if (swing < 0) {
     const warriors = g.state.villagers.filter(v => v.job === 'warrior');
     if (warriors.length && chance(0.4)) killVillager(g, pick(warriors), `fell fighting ${k.name}`);
-    if (chance(0.35)) g.spawnRaiders('bandit', 2 + g.state.era + Math.floor(k.strength / 60));
+    if (chance(0.35)) g.spawnRaiders('bandit', 4 + g.state.era * 2 + Math.floor(k.strength / 30));
   }
 
   if (k.warScore >= 100) {

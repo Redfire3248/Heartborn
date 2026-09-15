@@ -456,7 +456,8 @@ export class Game {
     const c = makeCreature(type, 0, 0);
     Object.assign(c, { x, y, ...extra });
     // monsters that come for the village grow with it, so tiny tribes are not wiped out
-    if (c.raid && CREATURES[type].hostile) c.scale = clamp(0.3 + this.state.villagers.length * 0.06, 0.4, 1.6);
+    // bosses (dragons, trolls, spirits) are never weakened for small villages, and grow with big ones
+    if (c.raid && CREATURES[type].hostile) c.scale = CREATURES[type].boss ? clamp(1 + this.state.villagers.length * 0.01, 1, 2) : clamp(0.3 + this.state.villagers.length * 0.06, 0.4, 1.6);
     this.state.creatures.push(c);
     return c;
   }

@@ -52,9 +52,10 @@ export const CREATURES = {
   bandit:        { sprite: 'characters/bandit',        size: 1.0, hp: 45, speed: 34, hostile: true, damage: 10, steals: true },
   skeleton:      { sprite: 'characters/skeleton',      size: 1.0, hp: 40, speed: 26, hostile: true, damage: 9 },
   ghost:         { sprite: 'characters/ghost',         size: 0.9, hp: 30, speed: 24, hostile: true, damage: 7, night: true },
-  cave_troll:    { sprite: 'characters/cave_troll',    size: 1.4, hp: 120, speed: 22, hostile: true, damage: 18 },
-  forest_spirit: { sprite: 'characters/forest_spirit', size: 1.1, hp: 80, speed: 28, hostile: true, damage: 12 },
-  dragon:        { sprite: 'characters/dragon',        size: 2.6, hp: 400, speed: 46, hostile: true, damage: 35, flying: true },
+  cave_troll:    { sprite: 'characters/cave_troll',    size: 1.4, hp: 260, speed: 22, hostile: true, damage: 22, armor: 0.3, boss: true },
+  forest_spirit: { sprite: 'characters/forest_spirit', size: 1.1, hp: 160, speed: 28, hostile: true, damage: 14, armor: 0.2, boss: true },
+  // armor: share of every blow shrugged off (a real weapon halves it); breath: fire that burns everyone near it
+  dragon:        { sprite: 'characters/dragon',        size: 2.6, hp: 1500, speed: 46, hostile: true, damage: 36, flying: true, armor: 0.6, boss: true, breath: { every: 4.5, radius: 2.5, damage: 18 } },
   // soldiers of an enemy army (another player or a barbarian warband)
   invader:       { sprite: 'characters/warrior',       size: 1.0, hp: 50, speed: 32, hostile: true, damage: 9, steals: true, tint: '#ff3a3a' },
 };

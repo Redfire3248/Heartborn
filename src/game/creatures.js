@@ -12,7 +12,7 @@ const BIG_KILLS = {
   cave_troll:    { gold: [10, 20], gems: [1, 2], text: 'The CAVE TROLL has fallen!' },
   forest_spirit: { influence: [5, 10], karma: -2, text: 'The forest spirit fades… the woods mourn.' },
   skeleton:      { iron: [1, 3] },
-  dragon:        { gold: [80, 150], gems: [8, 15], influence: [40, 60], text: 'THE DRAGON IS SLAIN! Legends will be sung!' },
+  dragon:        { gold: [300, 600], gems: [25, 40], influence: [120, 200], text: 'THE DRAGON IS SLAIN! Legends will be sung!' },
   bear:          { text: 'A great bear was brought down.' },
 };
 
@@ -63,6 +63,22 @@ export function updateCreature(g, c, dt) {
       step(g, c, c.hx, c.hy, def.speed * 0.5 * dt, def);
       return;
     }
+    // dragon fire: every few seconds it burns everyone close to it
+    if (def.breath && target && Math.hypot(target.x - c.x, target.y - c.y) < TILE * def.breath.radius * 1.5) {
+      c._breath = (c._breath ?? def.breath.every) - dt;
+      if (c._breath <= 0) {
+        c._breath = def.breath.every;
+        c._attack = 0.4;
+        g.puff({ x: target.x, y: target.y }, 'effects/flame', 18, TILE * def.breath.radius);
+        g.fx.shake = Math.max(g.fx.shake, 1);
+        for (const v of [...s.villagers]) {
+          if (v.away || Math.hypot(v.x - target.x, v.y - target.y) > TILE * def.breath.radius) continue;
+          v.hp -= def.breath.damage * (c.scale || 1) * toughness(v);
+          v._hurtFlash = 0.3;
+          if (v.hp <= 0) killVillager(g, v, 'was burned by the dragon');
+        }
+      }
+    }
     if (target) {
       const d = Math.hypot(target.x - c.x, target.y - c.y);
       if (d > TILE * 0.75) {
@@ -84,7 +100,7 @@ export function updateCreature(g, c, dt) {
           target._hurtFlash = 0.25;
           if (target.hp <= 0) {
             killVillager(g, target, `was slain by ${/^[aeiou]/.test(c.t) ? 'an' : 'a'} ${c.t.replace('_', ' ')}`);
-            if (c.raid && Math.random() < 0.5) c.fleeing = true;   // sated, it retreats
+            if (c.raid && !def.boss && Math.random() < 0.5) c.fleeing = true;   // sated, it retreats (bosses stay until they are slain)
             if (c.hunting) { c.hunting = null; c.hx = c.x; c.hy = c.y; }   // fed: it settles here for now
           }
         }
@@ -113,6 +129,8 @@ export function updateCreature(g, c, dt) {
 export function damageCreature(g, c, dmg, by) {
   const def = CREATURES[c.t];
   if (c.hp == null) c.hp = maxHp(c);
+  // armoured beasts shrug off most blows from people; a real weapon cuts through better
+  if (def.armor && by) dmg *= by.armed || by.inv?.pack?.sword || by.inv?.pack?.spear ? 1 - def.armor * 0.6 : 1 - def.armor;
   c.hp -= dmg;
   c._hurtFlash = 0.25;
   if (c.hp > 0) return;

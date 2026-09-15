@@ -1,13 +1,25 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Blood in the village, dragons and real armies',
+    changes: [
+      'People can kill people of their own village: the cruel, the greedy and the miserable pick fights, and some fights end in murder',
+      'A brawl stops when someone is beaten; a deadly attack does not. Victims fight back if they are soldiers or brave, and run otherwise (but a killer runs faster)',
+      'A killing shakes everyone: grief for the family and witnesses, guards strike the killer down, and grieving family may take revenge. -2 karma',
+      'Your avatar can switch to Hostile (F or the button on the avatar bar) and strike your own people with Space or ACT. Peaceful mode never hurts anyone',
+      'Dragons are real threats: 1500 HP, armour that shrugs off most blows (weapons cut better than bare hands), fire breath that burns everyone near it, and they no longer fly off after one kill. Slaying one pays far more',
+      'Cave Trolls and Forest Spirits are tougher, and bosses are never weakened for small villages',
+      'Barbarian warbands grow with your village and era (up to 80 soldiers) and hit harder; kingdoms send bigger raiding parties',
+      'Admin: traits=* and traits=good give personality traits only, not earned titles like Knight (name them, e.g. traits=knighted, or use traits=all). A profile no longer lists Knight and Jack of all trades twice',
+    ],
+  },
+  {
     title: 'Nukes and missiles anywhere',
     changes: [
       'Admin: missile <nuke|missile|orbital> <me|player> (or nuke <me|player>): aim a free strike on any land; strikes on other realms ignore shields, land in about 20 seconds and show on the World Map',
       'World Map: missiles fly with a trail, a countdown and the missile pointing at its target; missiles coming at you glow red',
       'Nukes: a 9 tile blast, a bigger missile, a mushroom cloud and a huge screen shake',
       'Size is its own setting: Strength no longer makes people bigger (a strength=10000 hero filled the screen). Admin: person size=2',
-      'Admin: traits=* and traits=good give personality traits only, no longer the earned titles Knight, Veteran, Scarred, Wise, Gifted and Jack of all trades (name them, e.g. traits=knighted, or use traits=all)',
     ],
   },
   {
