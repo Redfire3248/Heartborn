@@ -1,4 +1,4 @@
-﻿"""Slice 6x6 sprite sheets into square PNGs (256x256 by default).
+"""Slice 6x6 sprite sheets into square PNGs (256x256 by default).
 
 Usage:  python tools/slice_sheets.py [--size 256] [sheet_key=image.png ...]
 With no args, slices every sheet image found in the project root
@@ -31,6 +31,10 @@ DEFAULT_FILES = {
     "people": ["People.png"],
     "boats": ["Boats.png"],
     "magic": ["Magic.png"],
+    "heroBoy": ["heroBoy.png", "HeroBoy1.png"],
+    "heroGirl": ["heroGirl.png", "HeroGirl1.png"],
+    "combat": ["Combat.png"],
+    "gear": ["Gear.png"],
     "nature": ["Tiles.png", "Nature.png"],
     "items": ["Items.png", "Tools.png", "Icons.png"],
     "effects": ["Effects.png", "Weather.png"],
@@ -68,7 +72,7 @@ def find_cuts(profile, count, search=0.3):
     return cuts
 
 
-def clean_mask(alpha):
+def clean_mask(alpha, keep_frac=0.02):
     """Opaque mask with stray specks (from neighbours / bad bg removal) removed."""
     mask = alpha > ALPHA_CUT
     labels, num = ndimage.label(mask, structure=np.ones((3, 3)))
@@ -76,7 +80,7 @@ def clean_mask(alpha):
         return mask
     sizes = ndimage.sum(mask, labels, range(1, num + 1))
     keep = np.zeros(num + 1, bool)
-    keep[1:] = sizes >= max(MIN_SPECK, sizes.max() * 0.02)
+    keep[1:] = sizes >= max(MIN_SPECK, sizes.max() * keep_frac)
     return keep[labels]
 
 
@@ -94,7 +98,21 @@ def slice_sheet(key, sheet, path, cols=6, rows=None):
         r, c = divmod(i, cols)
         y0, y1 = row_cuts[r], row_cuts[r + 1]
 
-        if i < tiles:
+        if sheet.get("anim"):
+            # animation frames: the same even grid cell for every frame and the same scale, so nothing jitters
+            cw, ch = img.width / cols, img.height / rows
+            x0, y0a = round(c * cw), round(r * ch)
+            cell_px = rgba[y0a:round((r + 1) * ch), x0:round((c + 1) * cw)].copy()
+            mask = clean_mask(cell_px[:, :, 3], 0.08)   # drop bits of the neighbouring frames
+            cell_px[~mask] = 0
+            cell = Image.fromarray(cell_px)
+            side = max(cell.width, cell.height)
+            square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+            square.paste(cell, ((side - cell.width) // 2, (side - cell.height) // 2))
+            out = square.resize((SIZE, SIZE), Image.BOX)
+            a = out.getchannel("A").point(lambda v: 255 if v >= 128 else 0)
+            out.putalpha(a)
+        elif i < tiles:
             # tiles fill their cell completely, so use the even grid
             cw = img.width / cols
             ix, iy = round(cw * TILE_INSET), round((y1 - y0) * TILE_INSET)

@@ -1,6 +1,17 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'A real hero: animations and punchy combat',
+    changes: [
+      'You are drawn as an animated hero: a boy or a girl (matching your avatar), walking and swinging a sword in four directions',
+      'Every swing throws a slash arc (gold on a critical hit), hits burst with sparks, dashes kick up dust, parries flash blue and defeated enemies vanish in a puff of smoke',
+      'Hits feel heavy: the world freezes for a heartbeat when a blow lands, and damage numbers pop off enemies',
+      'Health is shown as hearts, Zelda style',
+      'New gear art: leather, chain and plate armour, rings, winged boots, amulets, and swords that show their rarity (plain, glowing blue, runed purple, golden flame)',
+      'Good loot on the ground shines with a beam of light (gold for Legendary)',
+    ],
+  },
+  {
     title: 'You are the hero: RPG combat',
     changes: [
       'You always play as your avatar now. Your villagers still do the jobs: you place buildings and they build them, spy, farm and fight',

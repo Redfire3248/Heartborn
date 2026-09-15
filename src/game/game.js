@@ -103,6 +103,8 @@ export class Game {
   // ---------- main loop ----------
   update(realDt) {
     if (this.paused || this.pendingEvent) { this.updateFx(realDt); return; }
+    // hit-stop: the world freezes for a heartbeat when a blow lands, so hits feel heavy
+    if (this.hitStop > 0) { this.hitStop -= realDt; this.updateFx(realDt * 0.2); return; }
     let dt = realDt * this.speed;
     // fixed small steps keep the sim stable at high speed
     while (dt > 0) {
@@ -601,6 +603,12 @@ export class Game {
     if (this.offline || !text) return;
     this.fx.floaters.push({ x, y, text, color, life: 2.2, max: 2.2 });
   }
+  /** A 6-frame animated effect (combat/slash, combat/hit, combat/poof...) played once at a spot. */
+  anim(prefix, x, y, { size = 32, dur = 0.3, rot = 0, flip = false } = {}) {
+    if (this.offline) return;
+    (this.fx.anims ||= []).push({ prefix, x, y, size, rot, flip, t: 0, dur });
+  }
+
   puff(pos, spriteKey, n = 6, spread = 14) {
     if (this.offline) return;
     for (let i = 0; i < n; i++) {
@@ -617,6 +625,8 @@ export class Game {
     for (const p of particles) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 20 * dt; p.rot += dt * 2; }
     this.fx.floaters = floaters.filter(f => f.life > 0);
     this.fx.particles = particles.filter(p => p.life > 0);
+    for (const a of this.fx.anims || []) a.t += dt;
+    if (this.fx.anims?.length) this.fx.anims = this.fx.anims.filter(a => a.t < a.dur);
     for (const b of this.fx.beams || []) b.life -= dt;
     this.fx.beams = (this.fx.beams || []).filter(b => b.life > 0);
     updateStrikes(this, dt);

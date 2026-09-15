@@ -175,7 +175,8 @@ function tileColor(name) {
 export function drawSprite(ctx, key, x, y, size, opts = {}) {
   const s = images.get(key);
   if (!s) return;
-  const { box } = s;
+  // animation frames use the whole image (every frame the same frame box, so nothing jitters)
+  const box = opts.full ? { x: 0, y: 0, w: s.img.width, h: s.img.height } : s.box;
   const scale = size / Math.max(box.w, box.h);
   const w = box.w * scale, h = box.h * scale;
   const src = opts.tint ? tintedImage(key, s, opts.tint) : s.img;
@@ -186,7 +187,7 @@ export function drawSprite(ctx, key, x, y, size, opts = {}) {
   if (opts.flip) ctx.scale(-1, 1);
   if (opts.squash) ctx.scale(1 + opts.squash, 1 - opts.squash);
   if (opts.alpha != null) ctx.globalAlpha *= opts.alpha;
-  ctx.drawImage(src, box.x, box.y, box.w, box.h, -w / 2, -h, w, h);
+  ctx.drawImage(src, box.x, box.y, box.w, box.h, -w / 2, opts.center ? -h / 2 : -h, w, h);
   ctx.restore();
 }
 

@@ -94,6 +94,61 @@ window.SHEETS = {
       "dock", "buoy", "anchor", "ship_wheel", "treasure_chest", "sea_serpent"
     ]
   },
+  heroBoy: {
+    title: "Sheet 12 - Boy hero, walking and sword attacks (animation rows of 6 frames)",
+    folder: "hero",
+    mode: "sprite",
+    anim: true,
+    names: [
+      "boy_walk_down_0", "boy_walk_down_1", "boy_walk_down_2", "boy_walk_down_3", "boy_walk_down_4", "boy_walk_down_5",
+      "boy_walk_up_0", "boy_walk_up_1", "boy_walk_up_2", "boy_walk_up_3", "boy_walk_up_4", "boy_walk_up_5",
+      "boy_walk_side_0", "boy_walk_side_1", "boy_walk_side_2", "boy_walk_side_3", "boy_walk_side_4", "boy_walk_side_5",
+      "boy_attack_down_0", "boy_attack_down_1", "boy_attack_down_2", "boy_attack_down_3", "boy_attack_down_4", "boy_attack_down_5",
+      "boy_attack_up_0", "boy_attack_up_1", "boy_attack_up_2", "boy_attack_up_3", "boy_attack_up_4", "boy_attack_up_5",
+      "boy_attack_side_0", "boy_attack_side_1", "boy_attack_side_2", "boy_attack_side_3", "boy_attack_side_4", "boy_attack_side_5"
+    ]
+  },
+  heroGirl: {
+    title: "Sheet 14 - Girl hero, walking and sword attacks (animation rows of 6 frames)",
+    folder: "hero",
+    mode: "sprite",
+    anim: true,
+    names: [
+      "girl_walk_down_0", "girl_walk_down_1", "girl_walk_down_2", "girl_walk_down_3", "girl_walk_down_4", "girl_walk_down_5",
+      "girl_walk_up_0", "girl_walk_up_1", "girl_walk_up_2", "girl_walk_up_3", "girl_walk_up_4", "girl_walk_up_5",
+      "girl_walk_side_0", "girl_walk_side_1", "girl_walk_side_2", "girl_walk_side_3", "girl_walk_side_4", "girl_walk_side_5",
+      "girl_attack_down_0", "girl_attack_down_1", "girl_attack_down_2", "girl_attack_down_3", "girl_attack_down_4", "girl_attack_down_5",
+      "girl_attack_up_0", "girl_attack_up_1", "girl_attack_up_2", "girl_attack_up_3", "girl_attack_up_4", "girl_attack_up_5",
+      "girl_attack_side_0", "girl_attack_side_1", "girl_attack_side_2", "girl_attack_side_3", "girl_attack_side_4", "girl_attack_side_5"
+    ]
+  },
+  combat: {
+    title: "Sheet 16 - Combat effects (animation rows of 6 frames)",
+    folder: "combat",
+    mode: "sprite",
+    anim: true,
+    names: [
+      "slash_0", "slash_1", "slash_2", "slash_3", "slash_4", "slash_5",
+      "crit_slash_0", "crit_slash_1", "crit_slash_2", "crit_slash_3", "crit_slash_4", "crit_slash_5",
+      "hit_0", "hit_1", "hit_2", "hit_3", "hit_4", "hit_5",
+      "dust_0", "dust_1", "dust_2", "dust_3", "dust_4", "dust_5",
+      "parry_0", "parry_1", "parry_2", "parry_3", "parry_4", "parry_5",
+      "poof_0", "poof_1", "poof_2", "poof_3", "poof_4", "poof_5"
+    ]
+  },
+  gear: {
+    title: "Sheet 18 - Gear, loot and hearts",
+    folder: "gear",
+    mode: "sprite",
+    names: [
+      "leather_armor", "chain_mail", "plate_armor", "round_shield", "kite_shield", "arrow",
+      "ring", "boots", "amulet", "magic_scroll", "health_potion", "stamina_potion",
+      "sword_common", "sword_rare", "sword_epic", "sword_legendary", "war_hammer", "battle_axe",
+      "bow_common", "bow_rare", "spear", "staff", "arrows", "key",
+      "heart_full", "heart_half", "heart_empty", "stamina_full", "stamina_empty", "xp_gem",
+      "chest_closed", "chest_open", "boss_chest", "gold_pile", "loot_beam_white", "loot_beam_gold"
+    ]
+  },
   magic: {
     title: "Sheet 11 - Magic & Moods",
     folder: "magic",

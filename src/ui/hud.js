@@ -404,7 +404,8 @@ export class HUD {
     if (key !== this._heroKey) {
       this._heroKey = key;
       const dist = bounty ? Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE) : 0;
-      els.heroHp = h('div');
+      els.heroHp = h('div.hero-hearts', { title: 'Health' });
+      this._heartsKey = null;
       els.heroSt = h('div');
       els.heroXp = h('div');
       bar.replaceChildren(
@@ -415,7 +416,7 @@ export class HUD {
           h(`button.btn.sm${hero.violent ? '.danger' : ''}`, { title: 'Hostile lets you strike your own people (F)', onclick: () => { setViolent(g); this._heroKey = null; } }, hero.violent ? 'Hostile' : 'Peaceful'),
           h(`button.btn.sm${r.points ? '.primary' : ''}`, { title: 'Character sheet (G)', onclick: () => this.characterSheet() }, r.points ? `Character (+${r.points})` : 'Character')),
         h('div.hero-bars',
-          h('div.hero-meter.hp', { title: 'Health' }, els.heroHp),
+          els.heroHp,
           h('div.hero-meter.st', { title: 'Stamina: attacks, dashes and blocking use it' }, els.heroSt),
           h('div.hero-meter.xp', { title: 'Experience' }, els.heroXp)),
         h('div.hero-quests', r.quests.map(q => h('div.hero-quest', h('span', q.text), h('span.faint', `${q.have}/${q.need}`)))),
@@ -423,7 +424,13 @@ export class HUD {
           ? h('div.hero-bounty', icon('items/icon_gold', 16), `Bounty: ${bounty.bounty.name}, ${bounty.bounty.gold} gold · ${dist < 3 ? 'right here!' : `${dist} tiles ${compass(bounty.x - v.x, bounty.y - v.y)}`}`)
           : '');
     }
-    fill(els.heroHp, v.hp / st.maxHp);
+    // health as hearts, Zelda style: one heart per 20 health, halves in between
+    const hearts = Math.ceil(st.maxHp / 20);
+    const heartState = Array.from({ length: hearts }, (_, i) => (v.hp >= (i + 1) * 20 ? 'full' : v.hp >= i * 20 + 10 ? 'half' : 'empty')).join();
+    if (heartState !== this._heartsKey) {
+      this._heartsKey = heartState;
+      els.heroHp.replaceChildren(...heartState.split(',').map(s => icon(`gear/heart_${s}`, 18)));
+    }
     fill(els.heroSt, (hero.stamina ?? st.maxStamina) / st.maxStamina);
     fill(els.heroXp, r.xp / xpToNext(r.level));
     els.heroSt?.parentElement?.classList.toggle('low', (hero.stamina ?? 100) < 15);

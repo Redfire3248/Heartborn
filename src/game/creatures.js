@@ -152,7 +152,7 @@ export function damageCreature(g, c, dmg, by) {
   if (by) by.kills = (by.kills || 0) + 1;
   const battle = c.attackId && g.state.battles?.[c.attackId];
   if (battle) battle.killed = (battle.killed || 0) + 1;
-  g.puff(c, 'effects/hit_star', 6);
+  g.anim('combat/poof', c.x, c.y - 8, { size: def.size * TILE * 1.3, dur: 0.4 });
   const reward = BIG_KILLS[c.t];
   const parts = [];
   if (def.food && !def.hostile) parts.push(`+${g.addResource('food', irange(...def.food))} food`);

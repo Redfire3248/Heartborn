@@ -226,6 +226,9 @@ export class Renderer {
     const { ctx } = this;
     const bob = Math.sin(this.time * 3 + it.x * 0.1) * 1.5;
     this.shadow(it.x, it.y, TILE * 0.45);
+    if (it.gear?.rarity >= 1) {   // a beam of light marks good loot from afar
+      drawSprite(ctx, it.gear.rarity >= 3 ? 'gear/loot_beam_gold' : 'gear/loot_beam_white', it.x, it.y + 4, TILE * (1 + it.gear.rarity * 0.3), { alpha: 0.55 + 0.25 * Math.sin(this.time * 3) });
+    }
     if (it.gear) {   // loot glows in the colour of its rarity
       const col = ['#d9d4c7', '#5aa9ff', '#c77dff', '#ffb347'][it.gear.rarity] || '#fff';
       ctx.save(); ctx.globalAlpha = 0.35 + 0.25 * Math.sin(this.time * 4); ctx.fillStyle = col;
@@ -338,9 +341,12 @@ export class Renderer {
     if (hero) this.drawHeroRing(g, v, hero);
     this.shadow(v.x, v.y, size * 0.8);
     const tint = v._hurtFlash > 0 ? '#ff2020' : v.sick ? '#4fbf3f' : null;
-    drawSprite(ctx, key, v.x, v.y, size, { flip: v._flip, offsetY, rot, squash, tint });
+    // you: the animated hero (boy or girl), walking and swinging in four directions
+    const frame = hero ? this.heroFrame(v, hero) : null;
+    if (frame) drawSprite(ctx, frame.key, v.x, v.y + 2, size * 1.25, { flip: frame.flip, tint, full: true });
+    else drawSprite(ctx, key, v.x, v.y, size, { flip: v._flip, offsetY, rot, squash, tint });
 
-    const tool = hero ? (hero.swing > 0 || v._walking ? heldItem(g, v) : null) : working ? toolFor(v, g) : null;
+    const tool = frame ? null : hero ? (hero.swing > 0 || v._walking ? heldItem(g, v) : null) : working ? toolFor(v, g) : null;
     if (tool) {
       const swing = hero ? (hero.swing > 0 ? 1 - hero.swing / 0.22 * 2 : Math.sin(t * stepRate) * 0.2) : Math.sin(t * swingRate);
       const dir = v._flip ? -1 : 1;
@@ -361,6 +367,22 @@ export class Renderer {
       drawSprite(ctx, 'items/shield', v.x + Math.cos(a) * 10, v.y - 10 + Math.sin(a) * 8, TILE * 0.55, { alpha: 0.95 });
     }
     if (hero || g.selected?.ref === v || this.camera.zoom >= 3.2) label(ctx, v.name, v.x, v.y + 7);
+  }
+
+  /** Which hero frame to show: facing (down / up / side), walking or attacking, and the frame of that animation. */
+  heroFrame(v, hero) {
+    if (v.disguised) return null;   // a spy abroad looks like an ordinary traveller
+    const who = v.sex === 'f' ? 'girl' : 'boy';
+    const a = hero.facing ?? Math.PI / 2;
+    const dx = Math.cos(a), dy = Math.sin(a);
+    const dir = Math.abs(dx) >= Math.abs(dy) * 0.85 ? 'side' : dy < 0 ? 'up' : 'down';
+    let anim = 'walk', n = 0;
+    const atk = hero.atkAnim;
+    if (atk && atk.t < atk.dur) { anim = 'attack'; n = Math.min(5, Math.floor(atk.t / atk.dur * 6)); }
+    else if (v._walking) n = Math.floor(this.time * 10 * speedMult(v)) % 6;
+    const key = `hero/${who}_${anim}_${dir}_${n}`;
+    if (!sprite(key)) return null;   // art not loaded yet: fall back to the villager look
+    return { key, flip: dir === 'side' && dx < 0 };
   }
 
   drawCreature(g, c) {
@@ -416,7 +438,7 @@ export class Renderer {
     }
     ctx.globalAlpha = 1;
     // the swing: a bright arc in front of you
-    if (hero.arc) {
+    if (hero.arc && !sprite('combat/slash_0')) {   // until the slash art has loaded
       const a = hero.arc, k = a.t / a.max;
       ctx.fillStyle = a.crit ? `rgba(255,215,106,${0.55 * k})` : `rgba(255,255,255,${0.4 * k})`;
       ctx.beginPath();
@@ -670,6 +692,11 @@ export class Renderer {
   drawParticles(g) {
     for (const p of g.fx.particles) {
       drawSprite(this.ctx, p.sprite, p.x, p.y, p.size, { alpha: Math.min(1, p.life / p.max * 1.5), rot: p.rot });
+    }
+    // animated effects: slashes, hits, dust, parries, poofs
+    for (const a of g.fx.anims || []) {
+      const frame = Math.min(5, Math.floor(a.t / a.dur * 6));
+      drawSprite(this.ctx, `${a.prefix}_${frame}`, a.x, a.y, a.size, { rot: a.rot, flip: a.flip, full: true, center: true });
     }
   }
 

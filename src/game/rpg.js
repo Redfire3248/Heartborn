@@ -17,23 +17,23 @@ export const RARITY = [
 // dmg per hit, range in tiles, speed = seconds between swings, arc = swing width in radians
 export const WEAPONS = {
   fists: { name: 'Fists', dmg: 6, range: 1.0, speed: 0.4, arc: 1.4, icon: null },
-  hammer: { name: 'War Hammer', dmg: 24, range: 1.05, speed: 0.85, arc: 1.5, stun: 0.5, icon: 'items/hammer' },
-  axe: { name: 'Battle Axe', dmg: 19, range: 1.15, speed: 0.7, arc: 1.8, icon: 'items/axe' },
+  hammer: { name: 'War Hammer', dmg: 24, range: 1.05, speed: 0.85, arc: 1.5, stun: 0.5, icon: 'gear/war_hammer' },
+  axe: { name: 'Battle Axe', dmg: 19, range: 1.15, speed: 0.7, arc: 1.8, icon: 'gear/battle_axe' },
   pickaxe: { name: 'Pick', dmg: 13, range: 1.0, speed: 0.6, arc: 1.2, icon: 'items/pickaxe' },
   hoe: { name: 'Hoe', dmg: 9, range: 1.2, speed: 0.55, arc: 1.2, icon: 'items/hoe' },
-  spear: { name: 'Spear', dmg: 13, range: 1.8, speed: 0.6, arc: 0.8, icon: 'items/spear' },
-  sword: { name: 'Sword', dmg: 16, range: 1.3, speed: 0.48, arc: 1.9, icon: 'items/sword' },
-  bow: { name: 'Bow', dmg: 12, range: 8, speed: 0.75, ranged: true, icon: 'items/bow' },
+  spear: { name: 'Spear', dmg: 13, range: 1.8, speed: 0.6, arc: 0.8, icon: 'gear/spear' },
+  sword: { name: 'Sword', dmg: 16, range: 1.3, speed: 0.48, arc: 1.9, icon: 'gear/sword_common' },
+  bow: { name: 'Bow', dmg: 12, range: 8, speed: 0.75, ranged: true, icon: 'gear/bow_common' },
 };
 export const ARMORS = {
-  leather: { name: 'Leather Armour', armor: 0.12, icon: 'items/shield' },
-  chain: { name: 'Chain Mail', armor: 0.25, icon: 'items/shield' },
-  plate: { name: 'Plate Armour', armor: 0.38, icon: 'items/shield' },
+  leather: { name: 'Leather Armour', armor: 0.12, icon: 'gear/leather_armor' },
+  chain: { name: 'Chain Mail', armor: 0.25, icon: 'gear/chain_mail' },
+  plate: { name: 'Plate Armour', armor: 0.38, icon: 'gear/plate_armor' },
 };
 export const TRINKETS = {
-  ring: { name: 'Ring of Might', bonus: { dmg: 0.12 }, icon: 'items/relic' },
-  boots: { name: 'Swift Boots', bonus: { speed: 0.12 }, icon: 'items/star_rank' },
-  amulet: { name: 'Amulet of Vigor', bonus: { hp: 30 }, icon: 'items/karma_good' },
+  ring: { name: 'Ring of Might', bonus: { dmg: 0.12 }, icon: 'gear/ring' },
+  boots: { name: 'Swift Boots', bonus: { speed: 0.12 }, icon: 'gear/boots' },
+  amulet: { name: 'Amulet of Vigor', bonus: { hp: 30 }, icon: 'gear/amulet' },
 };
 
 const START = { level: 1, xp: 0, points: 0, might: 0, vigor: 0, agility: 0, gear: { weapon: null, armor: null, trinket: null }, bag: [], quests: [], questsDone: 0 };
@@ -42,6 +42,13 @@ export function rpgOf(g) {
   const s = g.state;
   if (!s.rpg) s.rpg = JSON.parse(JSON.stringify(START));
   return s.rpg;
+}
+
+/** Swords and bows show their rarity: plain, glowing blue, runed purple, golden flame. */
+export function weaponIcon(base, rarity) {
+  if (base === 'sword') return `gear/sword_${['common', 'rare', 'epic', 'legendary'][rarity] || 'common'}`;
+  if (base === 'bow') return rarity ? 'gear/bow_rare' : 'gear/bow_common';
+  return WEAPONS[base]?.icon || null;
 }
 
 export const xpToNext = level => Math.round(60 * Math.pow(level, 1.5));
@@ -122,7 +129,7 @@ export function rollGear(g, { boss = false, slot = null } = {}) {
   if (kind === 'weapon') {
     const base = ['sword', 'axe', 'hammer', 'spear', 'bow'][Math.floor(Math.random() * 5)];
     const W = WEAPONS[base];
-    return { id, slot: 'weapon', base, rarity, name: `${R.name === 'Common' ? '' : R.name + ' '}${W.name}`, dmg: Math.round(W.dmg * R.mult * (1 + g.state.era * 0.08)), icon: W.icon };
+    return { id, slot: 'weapon', base, rarity, name: `${R.name === 'Common' ? '' : R.name + ' '}${W.name}`, dmg: Math.round(W.dmg * R.mult * (1 + g.state.era * 0.08)), icon: weaponIcon(base, rarity) };
   }
   if (kind === 'armor') {
     const base = ['leather', 'chain', 'plate'][Math.min(2, Math.floor(Math.random() * (1.5 + rarity)))];

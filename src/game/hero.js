@@ -128,12 +128,15 @@ function attack(g, v, st) {
   const target = nearFoe || nearPerson;
   if (target && (!h._movedAt || g.state.time - h._movedAt > 0.15 || angleDiff(h.facing, Math.atan2(target.y - v.y, target.x - v.x)) < 1.2)) h.facing = Math.atan2(target.y - v.y, target.x - v.x);
   const crit = Math.random() < st.crit;
+  h.atkAnim = { t: 0, dur: Math.max(0.24, Math.min(0.42, w.speed * 0.7)) };
   const dmg = w.dmg * st.dmgMult * strengthMult(v) * (crit ? 1.8 : 1);
   if (w.ranged) {
     (h.arrows ||= []).push({ x: v.x, y: v.y - 8, vx: Math.cos(h.facing) * TILE * 14, vy: Math.sin(h.facing) * TILE * 14, left: TILE * w.range, dmg, crit });
     return;
   }
   h.arc = { angle: h.facing, width: w.arc, range: w.range * TILE, t: 0.16, max: 0.16, crit };
+  const reachPx = w.range * TILE;
+  g.anim(crit ? 'combat/crit_slash' : 'combat/slash', v.x + Math.cos(h.facing) * reachPx * 0.55, v.y - 10 + Math.sin(h.facing) * reachPx * 0.55, { size: reachPx * 1.2, dur: 0.22, rot: h.facing });
   let hits = 0;
   for (const c of [...g.state.creatures]) {
     if (!CREATURES[c.t]?.hostile && !CREATURES[c.t]?.food) continue;
@@ -160,8 +163,10 @@ function hitCreature(g, v, c, dmg, crit, w) {
   const had = g.state.creatures.includes(c);
   damageCreature(g, c, dmg, v);
   gainSkill(g, v, 'combat', true);
-  g.puff({ x: c.x, y: c.y - 6 }, 'effects/hit_star', crit ? 5 : 2, 8);
-  if (crit) g.float(c.x, c.y - TILE, 'CRIT!', '#ffd76a');
+  g.anim('combat/hit', c.x, c.y - 8, { size: crit ? 34 : 24, dur: 0.24 });
+  g.hitStop = crit ? 0.09 : 0.05;
+  g.float(c.x + (Math.random() - 0.5) * 10, c.y - TILE * 0.9, String(Math.round(dmg)), crit ? '#ffd76a' : '#ffffff');
+
   // knockback, and heavy weapons stagger
   const a = Math.atan2(c.y - v.y, c.x - v.x);
   const push = (w.stun ? 14 : 7) * (CREATURES[c.t]?.boss ? 0.2 : 1);
@@ -197,7 +202,7 @@ export function damageHero(g, v, dmg, from = null) {
     if (g.state.time - (h.blockAt || 0) < 0.25) {
       if (from && 'hp' in from && !from.traits) from._stunned = Math.max(from._stunned || 0, 1.2);
       g.float(v.x, v.y - TILE * 1.3, 'PARRY!', '#ffd76a');
-      g.puff({ x: v.x, y: v.y - 10 }, 'effects/spark', 8, 12);
+      g.anim('combat/parry', v.x + Math.cos(h.facing) * 10, v.y - 10 + Math.sin(h.facing) * 8, { size: 34, dur: 0.3 });
       h.stamina = Math.min(h.maxStamina || 100, (h.stamina || 0) + 10);
       return 0;
     }
@@ -306,6 +311,7 @@ export function updateHero(g, dt, controls = {}) {
   h.atkCd = (h.atkCd || 0) - dt; h.dashCd = (h.dashCd || 0) - dt; h.iframes = Math.max(0, (h.iframes || 0) - dt);
   h.sinceHit = (h.sinceHit ?? 99) + dt; h.sinceAttack = (h.sinceAttack ?? 99) + dt;
   if (h.arc) { h.arc.t -= dt; if (h.arc.t <= 0) h.arc = null; }
+  if (h.atkAnim) h.atkAnim.t += dt;
   h.maxStamina = st.maxStamina; h.maxHp = st.maxHp;
   h.stamina = Math.min(st.maxStamina, h.stamina ?? st.maxStamina);
   v._task = null;
@@ -336,6 +342,7 @@ export function updateHero(g, dt, controls = {}) {
     h.dash = { t: 0.18, dx: Math.cos(a), dy: Math.sin(a) };
     h.iframes = 0.3;
     h.dashCd = 0.5;
+    g.anim('combat/dust', v.x, v.y - 4, { size: 26, dur: 0.32, flip: Math.cos(a) > 0 });
     h.stamina -= 22;
     (h.trail ||= []).length = 0;
   }

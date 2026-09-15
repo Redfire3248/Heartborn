@@ -1091,3 +1091,5 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .char-gear { display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 10px; border: 2px solid rgba(255,255,255,.12); background: rgba(0,0,0,.2); }
 .char-bag { display: flex; flex-direction: column; gap: 4px; max-height: 32vh; overflow-y: auto; }
 .char-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.2); }
+.hero-hearts { display: flex; flex-wrap: wrap; gap: 1px; min-height: 18px; }
+.hero-hearts img { image-rendering: pixelated; }
