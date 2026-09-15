@@ -22,7 +22,7 @@ const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)'
 import { computeBridges, bridgeAt } from '../game/bridges.js';
 import { talentLabel, fullName, EGO_PROUD } from '../game/talents.js';
 import { SPELLS, canCast, castSpell } from '../game/magic.js';
-import { UPGRADES, MAX_LEVEL, PER_LEVEL, jobLevel, upgradeCost, upgradeJob } from '../game/upgrades.js';
+import { UPGRADES, MAX_LEVEL, PER_LEVEL, jobLevel, upgradeCost, upgradeJob, OFFICE_UPGRADES, officeLevel, officeUpgradeCost, upgradeOffice } from '../game/upgrades.js';
 import { BOATS, fleetOf, buildBoat, setSail, returnToPort, repairBoat, updateSailing, fire, RELOAD, seaLift, enterOpenSea } from '../game/sailing.js';
 import { TOPICS, talkTo } from '../game/talk.js';
 import { activeGoals, claimGoal, rewardText, goalsLeftInEra } from '../game/goals.js';
@@ -1034,6 +1034,19 @@ export class HUD {
           h('div.row', icon(villagerSprite({ ...holder, role: displayRole(holder) }), 30),
             h('div', h('b', holder.name), h('div.faint', `Age ${Math.floor(holder.age)} · ${holder.traits.map(t => TRAITS[t]?.label).join(', ') || 'no traits'}`))),
           h('button.btn.sm', { onclick: () => dismiss(g, key) }, 'Dismiss')));
+        // upgrading the office itself
+        const up = OFFICE_UPGRADES[key];
+        if (up) {
+          const lvl = officeLevel(g, key);
+          const cost = officeUpgradeCost(g, key);
+          card.append(h('div.office-upgrade',
+            h('div', h('b', `Level ${lvl}`), h('div.faint', up.effect(lvl))),
+            lvl < up.max ? h('div.office-upgrade-next', costChips(cost, g.state.resources),
+              h(`button.btn.sm.upgrade-btn${g.canAfford(cost) ? '.ready' : ''}`, {
+                title: `Level ${lvl + 1}: ${up.effect(lvl + 1)}`,
+                onclick: () => { const r = upgradeOffice(g, key); if (r.error) this.hint(r.error, 1800); else { play('ability'); this.courtKey = null; this.refreshPanel(); } },
+              }, `Upgrade · Lv ${lvl + 1}`)) : h('span.chip.good', 'Top level')));
+        }
         for (const [opt, choices] of Object.entries(office.options || {})) {
           const cur = g.state.court[key]?.[opt];
           card.append(h('select.input', { onchange: e => setOfficeOption(g, key, opt, e.target.value) },

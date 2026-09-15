@@ -1024,3 +1024,6 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .job-upgrade-cost { margin-top: 3px; transform: scale(.9); transform-origin: left center; }
 .upgrade-btn { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .upgrade-btn.ready { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 0 1px rgba(255, 207, 90, .35); }
+
+.office-upgrade { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255, 207, 90, .06); border: 1px dashed rgba(255, 207, 90, .35); }
+.office-upgrade-next { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }

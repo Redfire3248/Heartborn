@@ -1,9 +1,11 @@
 import { ADULT_AGE } from '../core/constants.js';
 import { clamp } from '../core/rng.js';
-import { BUILDINGS } from '../data/buildings.js';
+import { BUILDINGS, ERAS } from '../data/buildings.js';
 import { assignJob } from './villagers.js';
 import { isTrained } from './dynasty.js';
 import { canDoJob, ensureProfession, isVersatile } from './professions.js';
+import { officeLevel } from './upgrades.js';
+import { activeGoals } from './goals.js';
 
 /*
  * The Court: villagers you appoint to run the realm for you.
@@ -17,8 +19,8 @@ export const OFFICES = {
   },
   master_builder: {
     name: 'Master Builder', icon: 'characters/blacksmith', requires: ['campfire'],
-    desc: 'Orders new homes before people run out of room, farms when food runs low, and storage when it fills up.',
-    options: { plan: [['all', 'Homes, farms & storage'], ['homes', 'Homes only'], ['economy', 'Farms & storage only']] },
+    desc: 'Builds toward your goals and the next era, homes before people run out of room, farms when food runs low, missing workplaces, and new useful buildings. Upgrade the office to run more projects at once.',
+    options: { plan: [['all', 'Goals, homes & new buildings'], ['homes', 'Homes only'], ['economy', 'Goals & needs (no homes)']] },
   },
   marshal: {
     name: 'Marshal', icon: 'characters/warrior', requires: ['barracks', 'training_ground', 'craft_hut'],
@@ -148,7 +150,7 @@ export function updateCourt(g, dt) {
     if (!TICK[key]) continue;
     g._courtTimers[key] = (g._courtTimers[key] ?? 1) - dt;
     if (g._courtTimers[key] > 0) continue;
-    g._courtTimers[key] = TICK[key];
+    g._courtTimers[key] = key === 'master_builder' ? Math.max(6, TICK[key] - officeLevel(g, key) * 3) : TICK[key];
     RUN[key](g, c, official);
   }
 }
@@ -258,29 +260,58 @@ const RUN = {
   // (recruits are left to finish their training)
   master_builder(g, c) {
     const s = g.state;
-    if (s.buildings.filter(b => !b.built).length >= 2) return;
+    const level = officeLevel(g, 'master_builder');
+    const unbuilt = () => s.buildings.filter(b => !b.built);
+    if (unbuilt().length >= 2 + level) return;
     const pop = s.villagers.length;
-    const order = type => {
+    const count = type => s.buildings.filter(b => b.type === type).length;
+    const pending = type => unbuilt().some(b => b.type === type);
+    const order = (type, why) => {
+      const def = BUILDINGS[type];
+      if (!def || def.era > s.era || pending(type) || !g.canAfford(def.cost)) return false;
       const spot = g.findBuildSpot(type);
       if (!spot) return false;
       const res = g.placeBuilding(type, spot.tx, spot.ty);
-      if (res.ok) g.log(`Master Builder ordered a ${BUILDINGS[type].name}.`, 'event');
+      if (res.ok) g.log(`Master Builder ordered a ${def.name}${why ? ` (${why})` : ''}.`, 'event', g.buildingCenter(res.building));
       return res.ok;
     };
-    const tryTypes = types => types.some(t => BUILDINGS[t] && BUILDINGS[t].era <= s.era && g.canAfford(BUILDINGS[t].cost) && order(t));
+    const first = (types, why) => types.some(t => order(t, why));
 
-    if (!g.hasBuilding('campfire') && !s.buildings.some(b => b.type === 'campfire') && tryTypes(['campfire'])) return;
-    if (c.plan !== 'economy' && g.housing - pop <= 3 && tryTypes(['house', 'hut', 'tent'])) return;
-    if (c.plan === 'homes') return;
-    // workplaces for people whose trade has nowhere to work (the Steward reports them)
-    const short = Object.entries(s.court?.steward?.shortages || {}).sort((a, b) => b[1] - a[1]);
-    const roomiest = list => [...list].filter(t => BUILDINGS[t]).sort((a, b) => (BUILDINGS[b].slots || 1) - (BUILDINGS[a].slots || 1));
-    for (const [trade, n] of short) if (n >= 2 && TRADE_WORKPLACE[trade] && tryTypes(roomiest(TRADE_WORKPLACE[trade].build))) return;
-    const farms = s.buildings.filter(b => BUILDINGS[b.type].workplace === 'farm').length;
-    if (s.resources.food < pop * 5 && farms < Math.ceil(pop / 5) && tryTypes(['orchard', 'farm'])) return;
-    const full = Object.entries(g.caps).some(([k, cap]) => s.resources[k] >= cap * 0.9);
-    if (full && tryTypes(['warehouse', 'stockpile'])) return;
-    if ((s.court?.marshal?.id || pop >= 8) && !s.buildings.some(b => BUILDINGS[b.type].workplace === 'smith') && tryTypes(['weaponsmith', 'craft_hut'])) return;
+    // what the realm needs most, in order; a higher office level places more at once
+    const wants = [];
+    if (!count('campfire')) wants.push([['campfire'], 'the heart of the village']);
+    if (c.plan !== 'economy' && g.housing - pop <= 3) wants.push([['house', 'hut', 'tent'], 'homes are nearly full']);
+    if (c.plan !== 'homes') {
+      // the goals you are working on
+      for (const goal of activeGoals(g)) if (goal.type && !goal.done) wants.push([[goal.type], 'for a goal']);
+      // what the next era asks for
+      const next = ERAS[s.era + 1];
+      for (const t of next?.requires || []) if (!s.buildings.some(b => b.type === t && b.built)) wants.push([[t], `needed for the ${next.name} era`]);
+      const farms = s.buildings.filter(b => BUILDINGS[b.type].workplace === 'farm').length;
+      if (s.resources.food < pop * 5 && farms < Math.ceil(pop / 5)) wants.push([['orchard', 'farm'], 'food is running low']);
+      const short = Object.entries(s.court?.steward?.shortages || {}).sort((a, b) => b[1] - a[1]);
+      const roomiest = list => [...list].filter(t => BUILDINGS[t]).sort((a, b) => (BUILDINGS[b].slots || 1) - (BUILDINGS[a].slots || 1));
+      for (const [trade, n] of short) if (n >= 2 && TRADE_WORKPLACE[trade]) wants.push([roomiest(TRADE_WORKPLACE[trade].build), `${n} ${trade} workers have no workplace`]);
+      // storage only when the main goods are really full, and never a whole street of warehouses
+      const stores = count('stockpile') + count('warehouse');
+      const full = ['wood', 'stone', 'food'].some(k => g.caps[k] && s.resources[k] >= g.caps[k] * 0.9);
+      if (full && stores < 1 + Math.floor(pop / 25)) wants.push([['warehouse', 'stockpile'], 'the stores are full']);
+      if (pop >= 8 && !s.buildings.some(b => BUILDINGS[b.type].workplace === 'smith')) wants.push([['craft_hut', 'weaponsmith'], 'nobody can make tools']);
+      // then something new and useful for this era, while resources allow
+      if (c.plan === 'all') {
+        const skip = new Set(['wall_wood', 'wall_stone', 'gate_wood', 'gate_stone', 'construction', 'ruins', 'grave', 'statue', 'wonder', 'tent', 'hut']);
+        const fresh = Object.entries(BUILDINGS)
+          .filter(([t, d]) => d.era <= s.era && !count(t) && !skip.has(t) && !d.nearWater && g.canAfford(Object.fromEntries(Object.entries(d.cost).map(([k, n]) => [k, n * 2]))))
+          .sort((a, b) => b[1].era - a[1].era || Object.values(a[1].cost).reduce((x, y) => x + y, 0) - Object.values(b[1].cost).reduce((x, y) => x + y, 0))
+          .map(([t]) => t);
+        if (fresh.length) wants.push([fresh.slice(0, 3), 'something new for the realm']);
+      }
+    }
+    let placed = 0;
+    for (const [types, why] of wants) {
+      if (placed > level / 2 || unbuilt().length >= 2 + level) break;
+      if (first(types, why)) placed++;
+    }
   },
 
   marshal(g, c) {

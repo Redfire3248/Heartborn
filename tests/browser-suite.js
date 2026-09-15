@@ -120,6 +120,26 @@ export async function run() {
     ok(U.upgradeJob(broke, 'build').error && U.jobLevel(broke, 'build') === 0, 'cannot upgrade without the resources');
   });
 
+  await step('Master Builder follows goals and the next era, and upgrades', async () => {
+    const U = await import('/src/game/upgrades.js');
+    const C = await import('/src/game/court.js');
+    const G = await import('/src/game/goals.js');
+    const g = freshGame({ era: 2, people: 10 });
+    build(g, 'campfire'); build(g, 'stockpile');
+    for (const id of G.GOALS.filter(x => x.era < 2).map(x => x.id)) g.state.goals.claimed.push(id);
+    C.appoint(g, 'master_builder', g.state.villagers.find(v => !v.ruling));
+    const orders = [];
+    const log = g.log.bind(g);
+    g.log = (text, kind, pos) => { if (/Master Builder ordered/.test(text)) orders.push(text); log(text, kind, pos); };
+    for (let i = 0; i < 6; i++) { g._courtTimers = { master_builder: 0 }; g.step(0.1); for (const b of g.state.buildings) if (!b.built) g.finishBuilding(b); }
+    ok(orders.some(o => /for a goal|needed for the/.test(o)), 'orders buildings for goals and the next era', orders.slice(0, 4).join(' | '));
+    const stores = g.state.buildings.filter(b => b.type === 'warehouse' || b.type === 'stockpile').length;
+    ok(stores <= 2, `no street of warehouses (${stores} stores)`);
+    ok(U.officeLevel(g, 'master_builder') === 0 && !U.upgradeOffice(g, 'master_builder').error && U.officeLevel(g, 'master_builder') === 1, 'the Master Builder office can be upgraded');
+    for (let i = 0; i < 10; i++) U.upgradeOffice(g, 'master_builder');
+    ok(U.officeLevel(g, 'master_builder') === U.OFFICE_UPGRADES.master_builder.max, 'office upgrades stop at the top level');
+  });
+
   await step('fast lives, and workers carry what they gather home', async () => {
     const g = freshGame({ era: 1, people: 4, resources: false });
     build(g, 'campfire'); build(g, 'stockpile');

@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'A smarter Master Builder',
+    changes: [
+      'The Master Builder works toward your goals and the next era first, then homes, farms, missing workplaces and useful new buildings, and tells you why he ordered each one',
+      'No more streets of warehouses: storage is only built when wood, stone or food is really full, with a sensible limit',
+      'Upgrade the Master Builder in the Court: each level runs another project at once and plans faster (up to level 5)',
+    ],
+  },
+  {
     title: 'Upgrade your workers',
     changes: [
       'Upgrade a position in the Jobs panel: every level makes everyone in it work 10% faster, up to level 10 (twice as fast)',

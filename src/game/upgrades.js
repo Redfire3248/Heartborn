@@ -50,3 +50,33 @@ export function upgradeJob(g, job) {
   g.emit('change');
   return { ok: true, level: level + 1 };
 }
+
+// ------------------------------------------------------------------ court offices
+
+export const OFFICE_UPGRADES = {
+  master_builder: {
+    label: 'Master Builder', max: 5,
+    effect: level => `${2 + level} projects at once, plans every ${Math.max(6, 20 - level * 3)}s`,
+  },
+};
+
+export const officeLevel = (g, key) => g.state.officeLevels?.[key] || 0;
+
+export function officeUpgradeCost(g, key) {
+  const next = officeLevel(g, key) + 1;
+  return { wood: 60 * next, stone: 40 * next, gold: 25 * next * next, influence: 20 * next };
+}
+
+export function upgradeOffice(g, key) {
+  const def = OFFICE_UPGRADES[key];
+  if (!def) return { error: 'This office cannot be upgraded' };
+  const level = officeLevel(g, key);
+  if (level >= def.max) return { error: `The ${def.label} is already at the top level` };
+  if (!g.spend(officeUpgradeCost(g, key))) return { error: 'Not enough resources' };
+  (g.state.officeLevels ||= {})[key] = level + 1;
+  g._courtTimers = {};
+  g.log(`The ${def.label} office rises to level ${level + 1}: ${def.effect(level + 1)}.`, 'good');
+  g.announce(`${def.label} level ${level + 1}!`);
+  g.emit('change');
+  return { ok: true, level: level + 1 };
+}
