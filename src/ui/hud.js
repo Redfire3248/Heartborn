@@ -1951,8 +1951,7 @@ export class HUD {
       v.gifted && !v.ruling ? h('div.stat', { title: 'Gifted people grow proud unless they are respected (an office, a knighthood, Discipline). At full pride they rebel.' },
         h('span', icon('magic/proud', 14), (v.ego || 0) >= EGO_PROUD ? ' Pride!' : ' Pride'), bar((v.ego || 0) / 100, (v.ego || 0) >= EGO_PROUD ? '#ff7a4a' : '#c9a0ff'), h('span', Math.round(v.ego || 0))) : null,
       h('div.row', { style: { flexWrap: 'wrap', gap: '4px' } },
-        h('button.btn.sm', { onclick: () => this.talkModal(v) }, icon('magic/talk_dots', 16), 'Talk'),
-        v.age >= ADULT_AGE && !v.away && g.hero?.id !== v.id ? h('button.btn.sm.primary', { title: 'Make them your avatar: move and act as them (WASD / stick)', onclick: () => this.playAs(v) }, icon('items/crown_leader', 16), g.state.avatarId === v.id ? 'Play (your avatar)' : 'Play as') : null),
+        h('button.btn.sm', { onclick: () => this.talkModal(v) }, icon('magic/talk_dots', 16), 'Talk')),
       v.job === 'mage' ? this.spellCard(v) : null,
       h('div.traits', v.traits.filter(t => !BADGE_TRAITS.includes(t)).length
         ? v.traits.filter(t => !BADGE_TRAITS.includes(t)).map(t => h(`span.chip.${TRAITS[t]?.good ? 'good' : 'bad'}`, { title: TRAITS[t]?.desc }, `${TRAITS[t]?.earned ? '★ ' : ''}${TRAITS[t]?.label || t}`))

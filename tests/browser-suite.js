@@ -190,10 +190,8 @@ export async function run() {
     H.endLead(g);
     ok(!g.hero, 'you can stop leading');
     const pick = g.state.villagers.find(o => !o.ruling && o.age >= 16);
-    const av = H.setAvatar(g, pick);
-    ok(av.ok && g.hero.id === pick.id && g.state.avatarId === pick.id, 'any villager can be made your avatar');
-    H.endLead(g);
-    ok(H.startLead(g).hero === pick, 'the Avatar button plays as your chosen villager again');
+    g.state.avatarId = pick.id;   // an old save that picked someone else
+    ok(H.startLead(g).hero.ruling, 'you always play as the King');
     H.endLead(g);
   });
 

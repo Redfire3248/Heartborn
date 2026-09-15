@@ -391,7 +391,7 @@ export class Renderer {
     const bx = v.x + dx * lunge - dx * hurt, by = v.y + dy * lunge * 0.5 - dy * hurt;
     // the weapon-free hero body (front, back or side) once that art is in; until then your avatar's own look
     const bodyArt = `hero/${v.sex === 'f' ? 'girl' : 'boy'}_body_${facing === 'up' ? 'back' : facing === 'down' ? 'front' : 'side'}`;
-    const body = hasArt(bodyArt) ? bodyArt : bodyKey;
+    const body = hasArt(bodyArt) ? bodyArt : 'characters/king';   // you are always the King
     const w = heroWeapon(g, v);
     const weaponKey = w.base === 'fists' ? null : gearIconKey(w) || w.icon;
     const sh = rpgOf(g).gear.shield;
@@ -514,7 +514,7 @@ export class Renderer {
     for (const tr of hero.trail || []) {
       ctx.globalAlpha = Math.max(0, tr.life / 0.25) * 0.35;
       const bodyArt = `hero/${v.sex === 'f' ? 'girl' : 'boy'}_body_side`;
-      const body = hasArt(bodyArt) ? bodyArt : villagerSprite({ ...v, role: displayRole(v) });
+      const body = hasArt(bodyArt) ? bodyArt : 'characters/king';
       drawSprite(ctx, body, tr.x, tr.y, TILE * 0.92, { flip: Math.cos(hero.facing ?? 0) < 0, tint: '#9fd4ff' });
     }
     ctx.globalAlpha = 1;

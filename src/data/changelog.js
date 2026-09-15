@@ -1,6 +1,13 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'You are the King',
+    changes: [
+      'You always play as your ruler, drawn as the King with your sword and shield in hand',
+      'Removed Play as: other villagers are no longer avatars',
+    ],
+  },
+  {
     title: 'Hits that land',
     changes: [
       'Anything you hit flashes solid white and is stunned for a second, with little stars circling its head (bosses shake it off faster). A stunned enemy cannot attack',

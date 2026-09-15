@@ -34,10 +34,10 @@ export const heroOf = g => {
   return v;
 };
 
-/** Who you play as: your chosen avatar, else the ruler, else the strongest adult at home. */
+/** Who you play as: always your ruler, the King (only if there is no ruler at home, the strongest adult stands in). */
 export function avatarOf(g) {
   const s = g.state;
-  return s.villagers.find(v => v.id === s.avatarId && !v.away) || s.villagers.find(v => v.ruling && !v.away) || [...s.villagers].filter(v => !v.away && v.age >= 16).sort((a, b) => (b.skills.combat || 0) - (a.skills.combat || 0))[0] || null;
+  return s.villagers.find(v => v.ruling && !v.away) || [...s.villagers].filter(v => !v.away && v.age >= 16).sort((a, b) => (b.skills.combat || 0) - (a.skills.combat || 0))[0] || null;
 }
 
 export function startLead(g, v = avatarOf(g)) {
