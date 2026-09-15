@@ -1,6 +1,16 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Combos, treasure and elites',
+    changes: [
+      'Combos: swing again right after a swing to chain three blows. The third is a finisher: 60% more damage, a bigger slash, a longer stun and a big knockback',
+      'Treasure chests turn up in the wilds around your land. Walk up and strike one to break it open for gold, gems, gear and sometimes a potion. Bosses and bounties leave a big boss chest behind',
+      'Hearts drop from beasts when you are hurt: walk over one to heal. They blink before they vanish',
+      'Health potions drop too (more from Elites and bosses). Press E, or the potion button on phones, to drink one; your card shows how many you have',
+      'Elite monsters: about one beast in ten is an Elite, bigger with a golden ring and 80% more health. Beating one always drops good loot and gives far more experience',
+    ],
+  },
+  {
     title: 'Arsenal art, and hits hurt you too',
     changes: [
       'All 49 new weapons, shields, helmets, armour and trinkets have their own pictures: in your hands, in the Character sheet, on the ground and in the admin gear list',

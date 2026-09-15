@@ -7,6 +7,7 @@ import { gainSkill } from './villagers.js';
 import { has } from './dynasty.js';
 import { speedMult, strengthMult } from './body.js';
 import { heroStats, heroWeapon, onHeroKill, questProgress, updateQuests, rpgOf, SHIELDS } from './rpg.js';
+import { updateTreasure, chestNear, openChest, drinkPotion } from './treasure.js';
 
 /*
  * Lead in person: take control of your ruler and walk the land yourself.
@@ -115,6 +116,15 @@ function attack(g, v, st) {
   const nearPerson = null;   // your avatar only fights beasts and raiders
   const swingTime = Math.max(0.3, Math.min(0.45, w.speed * 0.8));
   // nothing to fight close by: you still swing (the animation always plays), and the swing chops, mines and gathers
+  // a chest in reach and no foe close: the swing breaks it open
+  const chest = !nearFoe && chestNear(g, v.x, v.y);
+  if (chest) {
+    h.atkCd = swingTime; h.atkAnim = { t: 0, dur: swingTime };
+    h.facing = Math.atan2(chest.y - v.y, chest.x - v.x);
+    slashFx(g, v, h, w, false);
+    openChest(g, chest, v);
+    return;
+  }
   if (!nearFoe && !nearPerson) {
     if (h.actCd > 0) return;
     h.actCd = Math.max(ACT_COOLDOWN, swingTime);
@@ -135,30 +145,37 @@ function attack(g, v, st) {
   if (target && (!h._movedAt || g.state.time - h._movedAt > 0.15 || angleDiff(h.facing, Math.atan2(target.y - v.y, target.x - v.x)) < 1.2)) h.facing = Math.atan2(target.y - v.y, target.x - v.x);
   const crit = Math.random() < st.crit;
   h.atkAnim = { t: 0, dur: swingTime };
-  const dmg = w.dmg * st.dmgMult * strengthMult(v) * (crit ? 1.8 : 1);
+  // combos: swing again soon after a swing to chain up to three; the third blow is a finisher
+  h.combo = h.sinceAttackSwing != null && g.state.time - h.sinceAttackSwing < swingTime + 0.45 ? (h.combo % 3) + 1 : 1;
+  h.sinceAttackSwing = g.state.time;
+  const finisher = h.combo === 3;
+  if (finisher) h.atkAnim.dur = swingTime * 1.25;
+  const dmg = w.dmg * st.dmgMult * strengthMult(v) * (crit ? 1.8 : 1) * (finisher ? 1.6 : 1);
   if (w.ranged) {
     (h.arrows ||= []).push({ x: v.x, y: v.y - 8, vx: Math.cos(h.facing) * TILE * 14, vy: Math.sin(h.facing) * TILE * 14, left: TILE * w.range, dmg, crit });
     return;
   }
   h.arc = { angle: h.facing, width: w.arc, range: w.range * TILE, t: 0.16, max: 0.16, crit };
-  slashFx(g, v, h, w, crit);
+  slashFx(g, v, h, w, crit || finisher, finisher ? 1.45 : 1);
   let hits = 0;
   for (const c of [...g.state.creatures]) {
     if (!CREATURES[c.t]?.hostile && !CREATURES[c.t]?.food) continue;
     const d = Math.hypot(c.x - v.x, c.y - v.y);
     const reach = w.range * TILE + CREATURES[c.t].size * TILE * 0.4;
     if (d > reach || (d > TILE * 0.4 && angleDiff(Math.atan2(c.y - v.y, c.x - v.x), h.facing) > w.arc / 2 + 0.25)) continue;
-    hitCreature(g, v, c, dmg, crit, w);
+    hitCreature(g, v, c, dmg, crit || finisher, finisher ? { ...w, stun: (w.stun || 0) + 0.4, finisher: true } : w);
     hits++;
   }
-  if (hits) g.fx.shake = Math.max(g.fx.shake, crit ? 0.8 : 0.35);
+  if (hits) g.fx.shake = Math.max(g.fx.shake, finisher ? 1.1 : crit ? 0.8 : 0.35);
+  if (finisher) g.float(v.x, v.y - TILE * 1.6, 'COMBO!', '#9fd4ff');
 }
 
 /** The slash animation in front of you, turned the way you swing (gold on a critical hit). */
-function slashFx(g, v, h, w, crit) {
+function slashFx(g, v, h, w, crit, scale = 1) {
   if (w.ranged) return;
   const reach = (w.range || 1.2) * TILE;
-  g.anim(crit ? 'combat/crit_slash' : 'combat/slash', v.x + Math.cos(h.facing) * reach * 0.6, v.y - 12 + Math.sin(h.facing) * reach * 0.6, { size: reach * 1.25, dur: 0.24, rot: h.facing });
+  // alternate swings mirror the slash, so a combo reads as back-and-forth blows
+  g.anim(crit ? 'combat/crit_slash' : 'combat/slash', v.x + Math.cos(h.facing) * reach * 0.6, v.y - 12 + Math.sin(h.facing) * reach * 0.6, { size: reach * 1.25 * scale, dur: 0.24, rot: h.facing, flip: h.combo === 2 });
 }
 
 function hitCreature(g, v, c, dmg, crit, w) {
@@ -171,7 +188,7 @@ function hitCreature(g, v, c, dmg, crit, w) {
 
   // knockback: sent sliding away from the blow (heavier weapons send them further; bosses barely budge)
   const a = Math.atan2(c.y - v.y, c.x - v.x);
-  const push = TILE * (w.stun ? 11 : 7) * (crit ? 1.4 : 1) * (CREATURES[c.t]?.boss ? 0.2 : 1);
+  const push = TILE * (w.stun ? 11 : 7) * (crit ? 1.4 : 1) * (w.finisher ? 1.6 : 1) * (CREATURES[c.t]?.boss ? 0.2 : 1);
   c._kbx = Math.cos(a) * push; c._kby = Math.sin(a) * push;
   if (w.stun && !CREATURES[c.t]?.boss) c._stunned = Math.max(c._stunned || 0, 1 + w.stun);
   c._windup = 0;   // a hit interrupts their attack
@@ -387,6 +404,8 @@ export function updateHero(g, dt, controls = {}) {
   if (controls.act && h.atkCd <= 0 && !blocking && !h.dash) attack(g, v, st);
   updateArrows(g, v, dt);
   updateQuests(g);
+  updateTreasure(g, dt, v);
+  if (controls.potion) drinkPotion(g, v);
 
   // people nearby are inspired: a spark over their heads now and then
   h.inspire -= dt;

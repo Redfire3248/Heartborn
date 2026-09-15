@@ -16,11 +16,16 @@ const BIG_KILLS = {
   bear:          { text: 'A great bear was brought down.' },
 };
 
-export const maxHp = c => Math.round(CREATURES[c.t].hp * (c.scale || 1));
+export const maxHp = c => Math.round(CREATURES[c.t].hp * (c.scale || 1) * (c.elite ? 1.8 : 1));
 
 export function updateCreature(g, c, dt) {
   const def = CREATURES[c.t];
   if (!def) { remove(g, c); return; }
+  // one in ten hostile beasts is an Elite: bigger, tougher, harder hitting, with better loot
+  if (c._eliteRolled == null) {
+    c._eliteRolled = true;
+    if (def.hostile && !def.boss && !c.bounty && c.t !== 'invader' && Math.random() < 0.1) { c.elite = true; c.scale = (c.scale || 1) * 1.3; c.hp = maxHp(c); }
+  }
   if (c.hp == null) c.hp = maxHp(c);
   c._walking = false;
   if (c._hurtFlash) c._hurtFlash = Math.max(0, c._hurtFlash - dt);

@@ -125,6 +125,12 @@ export class Renderer {
       st.x += (st.tx - st.x) * Math.min(1, dt * 8); st.y += (st.ty - st.y) * Math.min(1, dt * 8);
       if (inView(st.x, st.y)) items.push({ y: st.y, draw: () => this.drawStranger(g, st) });
     }
+    if (!g.visiting) {   // treasure chests, opened chests fading away, and hearts and potions to grab
+      for (const ch of g.state.chests || []) if (inView(ch.x, ch.y)) items.push({ y: ch.y, draw: () => this.drawChest(ch) });
+      for (const ch of g.openedChests || []) { ch.life -= dt; if (ch.life > 0 && inView(ch.x, ch.y)) items.push({ y: ch.y, draw: () => this.drawChest(ch, true) }); }
+      if (g.openedChests?.length) g.openedChests = g.openedChests.filter(c => c.life > 0);
+      for (const p of g.pickups || []) if (inView(p.x, p.y)) items.push({ y: p.y, draw: () => this.drawPickup(p) });
+    }
     if (!g.visiting) for (const it of g.state.groundItems || []) {
       if (inView(it.x, it.y)) items.push({ y: it.y, draw: () => this.drawGroundItem(it) });
     }
@@ -224,6 +230,27 @@ export class Renderer {
     Object.assign(v, { name: st.name, sex: st.sex, job: st.job, profession: st.job, x: st.x, y: st.y, _walking: st._walking, _flip: st._flip });
     this.drawVillager(g, v);
     label(this.ctx, st.name, st.x, st.y + 7);
+  }
+
+  /** A treasure chest: bobbing sparkle when closed, lid open for a moment after you break it open. */
+  drawChest(ch, opened = false) {
+    const { ctx } = this;
+    const size = TILE * (ch.boss ? 1.25 : ch.tier ? 1.0 : 0.85);
+    this.shadow(ch.x, ch.y, size * 0.8);
+    const key = opened ? 'gear/chest_open' : ch.boss ? 'gear/boss_chest' : 'gear/chest_closed';
+    drawSprite(ctx, key, ch.x, ch.y + 2, size, { alpha: opened ? Math.min(1, ch.life) : 1 });
+    if (!opened && Math.sin(this.time * 3 + ch.x) > 0.6) {
+      drawSprite(ctx, 'effects/spark', ch.x + Math.sin(this.time * 5 + ch.y) * size * 0.35, ch.y - size * 0.8, 8);
+    }
+  }
+
+  /** A heart or potion dropped by a slain beast, bobbing and blinking before it fades. */
+  drawPickup(p) {
+    const { ctx } = this;
+    if (p.life < 5 && Math.floor(this.time * 8) % 2) return;   // blinks before it disappears
+    const bob = Math.sin(this.time * 4 + p.x) * 2;
+    this.shadow(p.x, p.y, TILE * 0.35);
+    drawSprite(ctx, p.kind === 'heart' ? 'gear/heart_full' : 'gear/health_potion', p.x, p.y - 4 + bob, TILE * (p.kind === 'heart' ? 0.45 : 0.55));
   }
 
   /** An item lying on the ground: bobbing gently over its shadow, with a count. */
@@ -500,6 +527,11 @@ export class Renderer {
       ctx.fillStyle = `rgba(255,60,40,${0.6 + k * 0.4})`;
       ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('!', c.x, c.y - size + offsetY - 8);
+    }
+    if (c.elite && !c.bounty) {   // Elite: a golden ring and its title
+      ctx.strokeStyle = `rgba(255,207,90,${0.6 + 0.4 * Math.sin(this.time * 5)})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(c.x, c.y, size * 0.55, size * 0.25, 0, 0, Math.PI * 2); ctx.stroke();
+      if (this.camera.zoom >= 1.4) label(ctx, `Elite ${c.t.replace('_', ' ')}`, c.x, c.y + 8);
     }
     if (c.bounty) {
       const p = 0.5 + 0.5 * Math.sin(this.time * 5);

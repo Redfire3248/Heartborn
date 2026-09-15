@@ -1,5 +1,6 @@
 import { TILE } from '../core/constants.js';
 import { CREATURES } from '../data/objects.js';
+import { dropPickup, chestsOf } from './treasure.js';
 
 /*
  * The player's own progression, RPG style. You are your avatar: you level up from fights, bounties and quests,
@@ -352,12 +353,18 @@ export function onHeroKill(g, c, v) {
   const def = CREATURES[c.t];
   if (!def) return;
   const boss = !!def.boss || !!c.bounty;
-  gainXp(g, (def.hp * (c.scale || 1)) / 3 * (boss ? 2 : 1) + (def.hostile ? 5 : 1), v);
+  gainXp(g, (def.hp * (c.scale || 1)) / 3 * (boss ? 2 : 1) * (c.elite ? 2.5 : 1) + (def.hostile ? 5 : 1), v);
+  if (def.hostile) {
+    // Zelda-style drops: hearts when you are hurt, now and then a potion
+    if (v && v.hp < (g.hero?.maxHp || 100) && Math.random() < 0.3) dropPickup(g, 'heart', c.x - 8, c.y);
+    if (Math.random() < (c.elite || boss ? 0.45 : 0.07)) dropPickup(g, 'potion', c.x + 8, c.y);
+    if (boss) chestsOf(g).push({ id: `boss${Date.now().toString(36)}`, x: c.x, y: c.y + 10, boss: true });
+  }
   if (def.hostile) questProgress(g, 'slayType', { type: c.t, v });
   if (c.bounty) questProgress(g, 'bounty', { v });
-  const chance = boss ? 1 : def.hostile ? 0.2 : 0.03;
+  const chance = boss || c.elite ? 1 : def.hostile ? 0.2 : 0.03;
   if (Math.random() < chance) {
-    const it = rollGear(g, { boss });
+    const it = rollGear(g, { boss: boss || !!c.elite });
     (g.state.groundItems ||= []).push({ id: it.id, gear: it, item: null, count: 1, x: c.x + (Math.random() - 0.5) * 10, y: c.y + (Math.random() - 0.5) * 10 });
     g.float(c.x, c.y - TILE * 1.2, `${RARITY[it.rarity].name} loot!`, RARITY[it.rarity].color);
   }

@@ -289,6 +289,44 @@ export async function run() {
     H.endLead(g);
   });
 
+  await step('adventure: combos, chests, potions, hearts and elites', async () => {
+    const H = await import('/src/game/hero.js');
+    const T = await import('/src/game/treasure.js');
+    const R = await import('/src/game/rpg.js');
+    const g = freshGame({ era: 1, people: 3 });
+    build(g, 'campfire');
+    g.state.creatures = [];
+    const me = g.state.villagers.find(v => v.ruling);
+    H.startLead(g, me);
+    for (const o of g.state.villagers) if (o !== me) o.x = me.x + 3000;
+    const hero = g.hero;
+    // three quick swings make a combo whose last blow is a finisher
+    const foe = g.spawnCreature('bandit', me.x + 20, me.y); foe._eliteRolled = true; foe.hp = 1e6;
+    const seen = new Set();
+    for (let i = 0; i < 120; i++) { hero.stamina = 100; foe.x = me.x + 20; foe.y = me.y; foe._stunned = 0; H.updateHero(g, 1 / 30, { act: true }); if (hero.combo) seen.add(hero.combo); }
+    ok(seen.has(3), 'quick swings chain into a three-hit combo');
+    g.state.creatures = [];
+    // chests open with a swing
+    g.state.chests = [{ id: 't', x: me.x + 20, y: me.y, tier: 1 }];
+    const gold = g.state.resources.gold;
+    hero.atkCd = 0; hero.actCd = 0;
+    H.updateHero(g, 1 / 30, { act: true });
+    ok(!g.state.chests.length && g.state.resources.gold > gold, 'a swing breaks a chest open for gold');
+    // potions and hearts heal
+    R.rpgOf(g).potions = 1; me.hp = 20;
+    ok(T.drinkPotion(g, me) && me.hp > 20 && R.rpgOf(g).potions === 0, 'a potion heals');
+    me.hp = 30;
+    T.dropPickup(g, 'heart', me.x, me.y);
+    H.updateHero(g, 1 / 30, {});
+    ok(me.hp >= 50 && me.hp < 52, 'walking over a heart heals 20', `${me.hp}`);
+    // elites are tougher
+    const elite = g.spawnCreature('wolf', me.x + 2000, me.y); elite._eliteRolled = true; elite.elite = true; elite.hp = null;
+    const plain = g.spawnCreature('wolf', me.x + 2100, me.y); plain._eliteRolled = true;
+    const C = await import('/src/game/creatures.js');
+    ok(C.maxHp(elite) > C.maxHp(plain), 'elites have more health');
+    H.endLead(g);
+  });
+
   await step('auto-pick makes the best choice when something unlocks', async () => {
     const A = await import('/src/game/autopick.js');
     const C = await import('/src/game/court.js');

@@ -250,8 +250,11 @@ export class HUD {
       // dash fires once per press; block is held
       const dashDown = k.has('shift') || t.dash;
       const dash = dashDown && !this._dashHeld;
+      const potionDown = k.has('e') || t.potion;
+      const potion = potionDown && !this._potionHeld;
+      this._potionHeld = potionDown;
       this._dashHeld = dashDown;
-      if (abroad || (!g.paused && !g.pendingEvent)) updateHero(hg, dt, { mx, my, act: !abroad && (k.has(' ') || t.act), dash: !abroad && dash, block: !abroad && (k.has('q') || t.block) });
+      if (abroad || (!g.paused && !g.pendingEvent)) updateHero(hg, dt, { mx, my, act: !abroad && (k.has(' ') || t.act), dash: !abroad && dash, potion: !abroad && potion, block: !abroad && (k.has('q') || t.block) });
       const v = heroOf(hg);
       const c = this.renderer.camera;
       // look around freely while placing buildings or dragging the map; moving snaps the camera back to you
@@ -324,7 +327,7 @@ export class HUD {
     if (this.game.hero) {   // walking your ruler: WASD move, Space strikes, Esc stops
       if (k === ' ' || k.startsWith('arrow')) e.preventDefault?.();
       if (k === 'escape' && !this.buildType && !this.demolishMode && !this.game.selected && !this.panel) return;
-      if (('wasdq '.includes(k) && k.length === 1) || k === 'shift') return;
+      if (('wasdqe '.includes(k) && k.length === 1) || k === 'shift') return;
     }
     if (this.game.sail) {   // the helm takes the keys
       if (k === 'escape') returnToPort(this.game);
@@ -401,7 +404,7 @@ export class HUD {
     // the bars move every frame; the rest only rebuilds when something changes
     const els = this.els;
     const fill = (el, frac) => { if (el) el.style.width = `${Math.max(0, Math.min(100, frac * 100))}%`; };
-    const key = [v.id, r.level, r.points, w.name, this._questsOpen, r.quests.map(q => q.id + q.have).join(), bounty ? bounty.bounty.name + Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE / 3) : ''].join('|');
+    const key = [v.id, r.level, r.points, r.potions || 0, w.name, this._questsOpen, r.quests.map(q => q.id + q.have).join(), bounty ? bounty.bounty.name + Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE / 3) : ''].join('|');
     if (key !== this._heroKey) {
       this._heroKey = key;
       const dist = bounty ? Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE) : 0;
@@ -416,7 +419,8 @@ export class HUD {
           h('div.hero-top',
             h('span.hero-level', `Lv ${r.level}`), h('b', v.name),
             gearIconKey(w) ? icon(gearIconKey(w), 16) : '',
-            r.points ? h('span.hero-points', `+${r.points}`) : ''),
+            r.points ? h('span.hero-points', `+${r.points}`) : '',
+            h('span.hero-potions', { title: 'Health potions: press E to drink' }, icon('gear/health_potion', 14), String(r.potions || 0))),
           els.heroHp,
           h('div.hero-meter.st', { title: 'Stamina: attacks, dashes and blocking use it' }, els.heroSt),
           h('div.hero-meter.xp', { title: 'Experience' }, els.heroXp)),
@@ -436,6 +440,7 @@ export class HUD {
       els.heroHp.replaceChildren(...heartState.split(',').map(s => icon(`gear/heart_${s}`, 18)));
     }
     fill(els.heroSt, (hero.stamina ?? st.maxStamina) / st.maxStamina);
+    if (els.potionCount) { const n = String(r.potions || 0); if (els.potionCount.textContent !== n) els.potionCount.textContent = n; els.potionCount.parentElement.classList.toggle('empty', !r.potions); }
     fill(els.heroXp, r.xp / xpToNext(r.level));
     els.heroSt?.parentElement?.classList.toggle('low', (hero.stamina ?? 100) < 15);
   }
@@ -601,7 +606,10 @@ export class HUD {
     const act = hold('hero-act', 'act', 'ATTACK', 'items/sword', 30);
     const dash = hold('hero-dash', 'dash', 'DASH', null, 0);
     const block = hold('hero-block', 'block', 'BLOCK', 'items/shield', 20);
-    this.els.heroPad.replaceChildren(stick, act, dash, block);
+    const potion = hold('hero-potion', 'potion', '', 'gear/health_potion', 26);
+    this.els.potionCount = h('span.hero-potion-count', '0');
+    potion.append(this.els.potionCount);
+    this.els.heroPad.replaceChildren(stick, act, dash, block, potion);
   }
 
   /** Cancel / Done / Undo buttons while placing or demolishing: the on-screen right-click and Esc. */

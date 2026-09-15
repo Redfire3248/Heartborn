@@ -1106,3 +1106,9 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .gc-gear { display: flex; align-items: center; gap: 8px; }
 .gc-gear-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 3px 10px; margin: 2px 0 8px 8px; }
 .hero-bar.abroad-bar { left: 50%; transform: translateX(-50%); top: 108px; width: min(420px, calc(100vw - 32px)); padding: 8px 12px; gap: 4px; pointer-events: auto; }
+.hero-potions { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; font-size: 12px; color: #ffb3aa; }
+.hero-potion { position: fixed; z-index: 14; right: 132px; bottom: calc(176px + env(safe-area-inset-bottom)); width: 52px; height: 52px; border-radius: 50%; border: 2px solid #ff9f9f; background: radial-gradient(circle at 35% 30%, #7a2d3a, #2e1018); color: #fff; font: inherit; display: flex; align-items: center; justify-content: center; touch-action: none; box-shadow: 0 3px 0 #0b0712; }
+.hero-potion.down { transform: translateY(3px); }
+.hero-potion.empty { opacity: .45; }
+.hero-potion-count { position: absolute; right: -2px; bottom: -2px; min-width: 18px; padding: 0 4px; border-radius: 9px; background: #ff6b6b; color: #fff; font-size: 11px; font-weight: 700; text-align: center; }
+.hero-pad.abroad .hero-potion { display: none; }
