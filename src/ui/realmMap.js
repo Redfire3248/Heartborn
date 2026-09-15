@@ -164,11 +164,32 @@ export function openRealmMap({ hud, onVisit }) {
     }
     world.append(svg);
 
-    for (const m of mp?.missions?.() || []) {
-      const to = realmPos(m.to);
+    // missiles and spies on their way: ours flying out, and anything flying at us
+    const incoming = Object.values(mp?.incomingMissions || {}).filter(m => m.status === 'travelling' && m.kind === 'missile');
+    const flights = [
+      ...(mp?.missions?.() || []).map(m => ({ m, from: mine, to: realmPos(m.to), mine: true })),
+      ...incoming.map(m => ({ m, from: realmPos(m.from), to: mine, mine: false })),
+    ];
+    for (const { m, from, to, mine: ours } of flights) {
       const total = Math.max(1, m.arrivesAt - (m.launchedAt || m.arrivesAt));
-      const t = Math.min(1, Math.max(0, 1 - (m.arrivesAt - Date.now()) / total));
-      world.append(h('div.realm-army', { style: { left: `${mine.x + (to.x - mine.x) * t}%`, top: `${mine.y + (to.y - mine.y) * t}%` }, title: `${m.agent || 'Missile'} → ${m.toVillage}` }, m.kind === 'missile' ? '☢' : '🕵'));
+      const left = Math.max(0, m.arrivesAt - Date.now());
+      const t = Math.min(1, Math.max(0, 1 - left / total));
+      const x = from.x + (to.x - from.x) * t, y = from.y + (to.y - from.y) * t;
+      const missile = m.kind === 'missile' || ['missile', 'orbital', 'nuke'].includes(m.mission);
+      if (missile) {
+        const trail = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        Object.entries({ x1: from.x, y1: from.y, x2: x, y2: y, stroke: ours ? '#ffb347' : '#ff3b3b', 'stroke-width': 2.5, 'vector-effect': 'non-scaling-stroke', 'stroke-dasharray': '4 4', opacity: 0.9 })
+          .forEach(([k, v]) => trail.setAttribute(k, v));
+        svg.append(trail);
+      }
+      const angle = Math.atan2(to.y - from.y, to.x - from.x) * 180 / Math.PI + 90;
+      const what = m.mission === 'nuke' ? 'Nuke' : m.mission === 'orbital' ? 'Orbital strike' : missile ? 'Missile' : m.agent || 'Spy';
+      world.append(h(`div.realm-missile${ours ? '' : '.incoming'}${m.mission === 'nuke' ? '.nuke' : ''}`, {
+        style: { left: `${x}%`, top: `${y}%` },
+        title: ours ? `${what} → ${m.toVillage}` : `${what} from ${m.fromVillage}`,
+      },
+      h('span.realm-missile-icon', { style: { transform: `rotate(${angle}deg)` } }, icon(missile ? 'units/missile' : 'units/spy', m.mission === 'nuke' ? 30 : 22)),
+      h('span.realm-missile-label', `${ours ? '' : 'Incoming! '}${what} ${left ? `${Math.ceil(left / 1000)}s` : 'impact'}`)));
     }
     for (const a of mp?.armies?.() || []) {
       const { x, y } = armyPos(a, mine);

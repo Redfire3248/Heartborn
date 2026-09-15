@@ -14,6 +14,10 @@ import { TRAITS } from '../data/traits.js';
 import { JOBS, assignJob } from '../game/villagers.js';
 import { addItem } from '../game/dynasty.js';
 import { dropItem } from '../game/groundItems.js';
+import { STRIKE_KINDS, adminStrike } from '../game/intrigue.js';
+import { openAimMap } from './aimMap.js';
+import { makeVisitGame } from '../game/visit.js';
+import { getProfile } from '../net/save.js';
 import { recentErrors, clearErrors } from '../net/errors.js';
 import { recentReports, clearReports } from '../net/chatSafety.js';
 
@@ -37,13 +41,14 @@ const ARG_SPECS = {
   reset: ['player', ['confirm']], chat: [['15', 'clear', 'del']], skip: ['number'], era: [['up', '*', '0', '1', '2', '3', '4', '5']],
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
-  item: ['item', 'number', 'villager'], drop: ['item', 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
+  item: ['item', 'number', 'villager'], drop: ['item', 'number'], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
   build: ['building', 'number'], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
 export class AdminConsole {
-  constructor({ game, mp, user }) {
+  constructor({ game, mp, user, hud = null }) {
     this.game = game;
+    this.hud = hud;
     this.mp = mp;
     this.user = user;
     this.players = null;
@@ -172,7 +177,7 @@ export class AdminConsole {
       case 'villager': return [{ value: 'selected', label: 'selected', detail: 'the villager you clicked' }, star('everyone'), { value: 'all', label: 'all', detail: 'everyone' },
         ...this.game.state.villagers.slice(0, 200).map(v => ({ value: v.name, label: v.name, detail: `${v.job} · ${Math.floor(v.age)}` }))];
       case 'personopt': return [
-        ...['name=', 'sex=m', 'sex=f', 'sex=*', 'age=25', 'skills=10', 'skills=*', 'trained', 'versatile', 'hp=100', 'hp=*', 'happy=*', 'job=*', 'traits=*', 'traits=good', 'calling=*', 'trade=*', 'strength=10', 'speed=10', 'stamina=10', 'body=*'].map(o => ({ value: o, label: o, detail: o.endsWith('*') ? 'everything / the maximum' : o === 'traits=good' ? 'every good trait' : 'option' })),
+        ...['name=', 'sex=m', 'sex=f', 'sex=*', 'age=25', 'skills=10', 'skills=*', 'trained', 'versatile', 'hp=100', 'hp=*', 'happy=*', 'job=*', 'traits=*', 'traits=good', 'calling=*', 'trade=*', 'strength=10', 'speed=10', 'stamina=10', 'body=*', 'size=2'].map(o => ({ value: o, label: o, detail: o.endsWith('*') ? 'everything / the maximum' : o === 'traits=good' ? 'every good trait' : 'option' })),
         ...Object.keys(JOBS).map(j => ({ value: `job=${j}`, label: `job=${j}`, detail: JOBS[j].label })),
         ...['combat', 'build', 'mine', 'chop', 'farm', 'craft', 'stealth'].map(s => ({ value: `${s}=10`, label: `${s}=10`, detail: 'skill' })),
         ...Object.keys(CALLINGS).map(c => ({ value: `calling=${c}`, label: `calling=${c}`, detail: 'calling' })),
@@ -551,7 +556,7 @@ const COMMANDS = {
   },
 
   person: {
-    usage: 'person [count|*] [name=Ada] [sex=m|f|*] [age=30] [job=mine|*] [skills=8|*] [combat=10 …] [traits=brave,strong|good|*] [calling=soldier|*] [trained] [versatile] [trade=mine|*] [hp=100|*] [happy=100|*] [strength=10] [speed=10] [stamina=10] [body=*]',
+    usage: 'person [count|*] [name=Ada] [sex=m|f|*] [age=30] [job=mine|*] [skills=8|*] [combat=10 …] [traits=brave,strong|good|*] [calling=soldier|*] [trained] [versatile] [trade=mine|*] [hp=100|*] [happy=100|*] [strength=10] [speed=10] [stamina=10] [body=*] [size=2]',
     desc: 'Spawn villagers with the stats you choose (* = everything / the maximum)',
     run(args) {
       const g = this.game;
@@ -583,6 +588,7 @@ const COMMANDS = {
         if (opts.trained) v.trained = true;
         if (opts.hp != null) v.hp = Math.max(1, num(opts.hp, 100000) || 100);   // admin heroes may go past 100
         if (opts.happy != null) v.happy = num(opts.happy, 100) || 0;
+        if (opts.size != null) v.size = Math.max(0.3, Math.min(8, Number(opts.size) || 1));   // how big they are drawn (1 = normal)
         for (const k of ['strength', 'speed', 'stamina']) {   // body stats, 1-10
           const val = opts[k] ?? opts.body;
           if (val != null) v.body = { ...v.body, [k]: val === '*' ? 10 : Math.max(1, Number(val) || 5) };
@@ -593,7 +599,7 @@ const COMMANDS = {
         if (job && JOBS[job]) { if (!opts.trade && !opts.versatile && !v.traits.includes('versatile')) v.profession = job === 'recruit' ? 'warrior' : job; assignJob(g, v, job, true); }   // not a "personal order": the Steward/office may still move them
         made.push(v);
       }
-      const bad = Object.keys(opts).filter(k => !['name', 'sex', 'age', 'skills', 'traits', 'calling', 'trained', 'hp', 'happy', 'job', 'trade', 'versatile', 'strength', 'speed', 'stamina', 'body'].includes(k) && !(k in made[0].skills));
+      const bad = Object.keys(opts).filter(k => !['name', 'sex', 'age', 'skills', 'traits', 'calling', 'trained', 'hp', 'happy', 'job', 'trade', 'versatile', 'strength', 'speed', 'stamina', 'body', 'size'].includes(k) && !(k in made[0].skills));
       g.recalc();
       g.emit('change');
       this.print(`✓ spawned ${made.length}: ${made.slice(0, 5).map(v => `${v.name} (${v.sex}, ${Math.floor(v.age)}, ${v.job})`).join(', ')}${made.length > 5 ? '…' : ''}`, 'ok');
@@ -618,6 +624,46 @@ const COMMANDS = {
       g.emit('change');
       this.print(`✓ ${n} × ${keys.length > 1 ? `every item (${keys.length})` : ITEMS[key].label} → ${people.length === 1 ? people[0].name : `${people.length} villagers`}`, 'ok');
     },
+  },
+
+  missile: {
+    usage: 'missile <nuke|missile|orbital> <me|player>', desc: 'Aim a free strike anywhere: your own land or any realm (ignores shields), then watch it fly on the World Map',
+    async run([kind = 'missile', ...who]) {
+      if (!STRIKE_KINDS[kind]) { who.unshift(kind); kind = 'missile'; }
+      const k = STRIKE_KINDS[kind];
+      const target = who.join(' ') || 'me';
+      const [p] = await this.resolveMany(target);
+      if (!p) throw new Error(`no realm called "${target}"`);
+      if (p.me) {
+        if (this.open) this.toggle();   // get the console out of the way of the targeting map
+        openAimMap(this.game, {
+          title: `${k.label}: your own land`, orbital: !!k.orbital, radius: k.radius, fireLabel: 'Fire',
+          note: `Admin strike: free, ${k.radius} tile blast.`,
+          onFire: aim => {
+            adminStrike(this.game, kind, aim);
+            if (this.hud) Object.assign(this.hud.renderer.camera, { x: (aim.tx + 0.5) * 32, y: (aim.ty + 0.5) * 32 });
+          },
+        });
+        return;
+      }
+      if (!this.mp) throw new Error('striking another realm needs multiplayer');
+      const profile = await getProfile(p.uid);
+      const land = makeVisitGame({ ...profile, uid: p.uid });
+      if (this.open) this.toggle();
+      openAimMap(land, {
+        title: `${k.label}: ${p.villageName}`, orbital: !!k.orbital, radius: k.radius, fireLabel: 'Launch',
+        note: `Admin strike: free, ignores shields, lands in about 20 seconds. ${k.radius} tile blast.`,
+        onFire: async aim => {
+          await this.mp.launchMission(p.uid, kind, aim, { admin: true, radius: k.radius });
+          this.print(`✓ ${k.label} launched at ${p.villageName}`, 'ok');
+          this.hud?.openMap();   // watch it fly
+        },
+      });
+    },
+  },
+  nuke: {
+    usage: 'nuke <me|player>', desc: 'Shortcut for missile nuke',
+    run(args) { return COMMANDS.missile.run.call(this, ['nuke', ...args]); },
   },
 
   drop: {

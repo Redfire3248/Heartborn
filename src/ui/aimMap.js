@@ -13,7 +13,7 @@ import { strikeRadius, strikePreview } from '../game/intrigue.js';
 const PX = 4;          // painter pixels per tile
 const VIEW = 480;      // canvas resolution
 
-export function openAimMap(game, { title, orbital = false, fireLabel = 'Launch', note = '', costChips = null, onFire }) {
+export function openAimMap(game, { title, orbital = false, radius: forcedRadius = null, fireLabel = 'Launch', note = '', costChips = null, onFire }) {
   const world = game.world;
   const s = game.state;
   const painter = new TerrainPainter();
@@ -39,14 +39,14 @@ export function openAimMap(game, { title, orbital = false, fireLabel = 'Launch',
   let aim = null;
   let t = 0;
 
-  const radius = strikeRadius(orbital);
+  const radius = forcedRadius || strikeRadius(orbital);
   function draw() {
     t += 1 / 60;
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#10243a';
     ctx.fillRect(0, 0, VIEW, VIEW);
     ctx.drawImage(land, vx * PX, vy * PX, span * PX, span * PX, 0, 0, VIEW, VIEW);
-    const hit = aim ? new Set(strikePreview(s.buildings, [], aim.tx, aim.ty, orbital, b => game.buildingCenter(b)).buildings) : new Set();
+    const hit = aim ? new Set(strikePreview(s.buildings, [], aim.tx, aim.ty, orbital, b => game.buildingCenter(b), radius).buildings) : new Set();
     for (const b of s.buildings) {
       const n = sizeOf(b);
       ctx.fillStyle = hit.has(b) ? '#ff4d3d' : b.built ? '#ffae3d' : 'rgba(255,174,61,0.5)';
@@ -79,7 +79,7 @@ export function openAimMap(game, { title, orbital = false, fireLabel = 'Launch',
 
   function setAim(tx, ty) {
     aim = { tx: Math.max(0, Math.min(world.w - 1, tx)), ty: Math.max(0, Math.min(world.h - 1, ty)) };
-    const p = strikePreview(s.buildings, s.villagers.filter(v => !v.away), aim.tx, aim.ty, orbital, b => game.buildingCenter(b));
+    const p = strikePreview(s.buildings, s.villagers.filter(v => !v.away), aim.tx, aim.ty, orbital, b => game.buildingCenter(b), radius);
     const names = {};
     for (const b of p.buildings) { const n = BUILDINGS[b.type]?.name || b.type; names[n] = (names[n] || 0) + 1; }
     const list = Object.entries(names).map(([n, k]) => (k > 1 ? `${k} ${n}s` : n)).join(', ');

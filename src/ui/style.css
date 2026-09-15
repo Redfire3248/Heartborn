@@ -1054,3 +1054,12 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 @media (max-width: 760px) { .lead-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 198px); right: 6px; padding: 6px 10px; } .hero-bar { top: 96px; } }
 .at-sea .lead-btn { display: none !important; }
 .home-card { display: flex; flex-direction: column; gap: 6px; padding: 8px; margin: 6px 0; border-radius: 10px; background: rgba(255, 215, 106, .07); border: 1px solid rgba(255, 215, 106, .25); }
+
+/* missiles on the World Map */
+.realm-missile { position: absolute; z-index: 6; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; pointer-events: auto; }
+.realm-missile-icon { display: block; filter: drop-shadow(0 0 6px rgba(255, 170, 60, .9)); }
+.realm-missile.incoming .realm-missile-icon { filter: drop-shadow(0 0 8px rgba(255, 50, 40, 1)); animation: missile-pulse .6s infinite alternate; }
+.realm-missile.nuke .realm-missile-icon { filter: drop-shadow(0 0 12px rgba(255, 230, 80, 1)); }
+.realm-missile-label { margin-top: 2px; padding: 1px 6px; border-radius: 6px; font-size: 11px; white-space: nowrap; color: #ffe7a0; background: rgba(20, 12, 8, .8); }
+.realm-missile.incoming .realm-missile-label { color: #ffb3aa; }
+@keyframes missile-pulse { to { transform: scale(1.2); } }

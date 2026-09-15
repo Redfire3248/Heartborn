@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Nukes and missiles anywhere',
+    changes: [
+      'Admin: missile <nuke|missile|orbital> <me|player> (or nuke <me|player>): aim a free strike on any land; strikes on other realms ignore shields, land in about 20 seconds and show on the World Map',
+      'World Map: missiles fly with a trail, a countdown and the missile pointing at its target; missiles coming at you glow red',
+      'Nukes: a 9 tile blast, a bigger missile, a mushroom cloud and a huge screen shake',
+      'Size is its own setting: Strength no longer makes people bigger (a strength=10000 hero filled the screen). Admin: person size=2',
+    ],
+  },
+  {
     title: 'What people hold and wear',
     changes: [
       'Fixed: your avatar always showed a sword. People now hold the weapon or tool they really have: a spear from the armoury until a smithy forges swords, their own tool, or nothing',

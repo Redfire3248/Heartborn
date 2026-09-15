@@ -227,16 +227,19 @@ export const STRIKE_FALL = 2.4;
  * and hits everything in its radius; without one it hits at random, like before.
  */
 export function sufferStrike(g, from, orbital, aim = null) {
-  if (g.builtBuildings().some(b => BUILDINGS[b.type].missileShield)) {
+  if (!aim?.pierce && g.builtBuildings().some(b => BUILDINGS[b.type].missileShield)) {
     g.log(`A missile from ${from} was destroyed by the Shield Generator!`, 'good');
     g.announce('🛡 Missile intercepted!');
     return { blocked: true };
   }
   if (!aim || !Number.isFinite(aim.tx) || !Number.isFinite(aim.ty)) return randomStrike(g, from, orbital);
-  if (g.offline) return landStrike(g, { from, orbital, tx: aim.tx, ty: aim.ty });
-  (g.strikes ||= []).push({ from, orbital, tx: aim.tx, ty: aim.ty, life: STRIKE_FALL, max: STRIKE_FALL });
-  g.announce(`☢ Incoming ${orbital ? 'orbital strike' : 'missile'} from ${from}!`);
-  g.log(`☢ A ${orbital ? 'beam from orbit' : 'missile'} from ${from} is coming down!`, 'bad', { x: (aim.tx + 0.5) * TILE, y: (aim.ty + 0.5) * TILE });
+  const strike = { from, orbital, tx: aim.tx, ty: aim.ty, radius: aim.radius || null, nuke: !!aim.nuke };
+  if (g.offline) return landStrike(g, strike);
+  const fall = STRIKE_FALL * (aim.nuke ? 1.5 : 1);
+  (g.strikes ||= []).push({ ...strike, life: fall, max: fall });
+  const what = aim.nuke ? 'NUKE' : orbital ? 'orbital strike' : 'missile';
+  g.announce(`☢ Incoming ${what} from ${from}!`);
+  g.log(`☢ A ${aim.nuke ? 'nuclear missile' : orbital ? 'beam from orbit' : 'missile'} from ${from} is coming down!`, 'bad', { x: (aim.tx + 0.5) * TILE, y: (aim.ty + 0.5) * TILE });
   return { blocked: false, pending: true };
 }
 
@@ -252,9 +255,9 @@ export function updateStrikes(g, dt) {
 }
 
 /** The blast itself: every building and person within the radius of the aim point. */
-export function landStrike(g, { from, orbital, tx, ty }) {
+export function landStrike(g, { from, orbital, tx, ty, radius, nuke }) {
   const s = g.state;
-  const r = strikeRadius(orbital);
+  const r = radius || strikeRadius(orbital);
   const cx = (tx + 0.5) * TILE, cy = (ty + 0.5) * TILE;
   const shelter = sum(g, 'shelter') ? 0.5 : 1;
   const hitB = s.buildings.filter(b => {
@@ -285,7 +288,7 @@ export function landStrike(g, { from, orbital, tx, ty }) {
   blast(g, cx, cy, 400, r * TILE);
   for (let i = 0; i < 3; i++) g.puff({ x: cx + (Math.random() - 0.5) * TILE * r, y: cy + (Math.random() - 0.5) * TILE * r }, 'effects/flame', 12);
   g.recalc();
-  g.fx.shake = orbital ? 6 : 4;
+  g.fx.shake = nuke ? 12 : orbital ? 6 : 4;
   g.announce(from === OWN
     ? `☢ Impact! ${blastHits(destroyed, victims.length)}`
     : `☢ ${from} struck your realm! ${blastHits(destroyed, victims.length)}`);
@@ -311,9 +314,24 @@ export function strikeOwnLand(g, orbital, aim) {
   return { ok: true };
 }
 
+/** Kinds of strike and their blast radius in tiles. Nukes are the admin's biggest. */
+export const STRIKE_KINDS = {
+  missile: { radius: 3.5, label: 'Missile' },
+  orbital: { radius: 5, orbital: true, label: 'Orbital strike' },
+  nuke: { radius: 9, nuke: true, label: 'Nuke' },
+};
+
+/** Admin: a free strike of any kind on this land (no silo, cost, karma or shield). */
+export function adminStrike(g, kind, aim) {
+  const k = STRIKE_KINDS[kind] || STRIKE_KINDS.missile;
+  const fall = STRIKE_FALL * (k.nuke ? 1.5 : 1);
+  (g.strikes ||= []).push({ from: OWN, orbital: !!k.orbital, nuke: !!k.nuke, radius: k.radius, tx: aim.tx, ty: aim.ty, life: fall, max: fall });
+  g.emit('change');
+}
+
 /** What an aim point would hit right now (for the targeting screen). */
-export function strikePreview(buildings, villagers, tx, ty, orbital, center) {
-  const r = strikeRadius(orbital);
+export function strikePreview(buildings, villagers, tx, ty, orbital, center, radius = null) {
+  const r = radius || strikeRadius(orbital);
   const b = buildings.filter(x => { const c = center(x); return Math.hypot(c.x / TILE - (tx + 0.5), c.y / TILE - (ty + 0.5)) <= r + sizeOf(x) / 2; });
   const v = villagers.filter(x => Math.hypot(x.x / TILE - (tx + 0.5), x.y / TILE - (ty + 0.5)) <= r).length;
   return { buildings: b, people: v };

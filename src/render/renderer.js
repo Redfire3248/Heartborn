@@ -5,7 +5,7 @@ import { TerrainPainter } from './terrain.js';
 import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
 import { BUILDINGS, sizeOf, buildingSprite } from '../data/buildings.js';
 import { displayRole, toolFor, carryIcon, heldItem } from '../game/villagers.js';
-import { speedMult, bodyWorkMult, bodyStat } from '../game/body.js';
+import { speedMult, bodyWorkMult } from '../game/body.js';
 import { maxHp } from '../game/creatures.js';
 import { FIND_KINDS } from '../game/finds.js';
 import { ITEMS } from '../data/people.js';
@@ -292,11 +292,11 @@ export class Renderer {
   drawVillager(g, v) {
     const { ctx } = this;
     const child = v.age < 12;
-    // strong people are a little bigger
     const t = this.time + (v.id.charCodeAt(1) || 0);
     const task = v._task;
     const working = task && task.phase === 'work' && !['rest', 'eat', 'wait'].includes(task.type) && task.type !== 'wander';
-    const size = TILE * (child ? 0.62 : 0.92 * (0.94 + bodyStat(v, 'strength') * 0.012));
+    // how big someone is drawn is its own setting (v.size, 1 = normal), never their strength or health
+    const size = TILE * (child ? 0.62 : 0.92) * Math.max(0.3, Math.min(8, v.size || 1));
     // quick people take quicker steps; strong, tireless people swing their tools faster
     const stepRate = 11 * speedMult(v);
     const swingRate = 9 * (working ? bodyWorkMult(v, task.type) : 1);
@@ -513,7 +513,7 @@ export class Renderer {
     ctx.save();
     for (const st of strikes) {
       const x = (st.tx + 0.5) * TILE, y = (st.ty + 0.5) * TILE;
-      const r = (st.orbital ? 5 : 3.5) * TILE;
+      const r = (st.radius || (st.orbital ? 5 : 3.5)) * TILE;
       if (!st.hit) {
         const t = 1 - st.life / st.max;   // 0 → 1 as it falls
         const pulse = 0.5 + 0.5 * Math.sin(this.time * 14);
@@ -536,10 +536,16 @@ export class Renderer {
           ctx.strokeStyle = 'rgba(255,200,120,0.55)';
           ctx.lineWidth = 3;
           ctx.beginPath(); ctx.moveTo(mx + 60 * (1 - t), my - 260 * (1 - t) - 40); ctx.lineTo(mx, my); ctx.stroke();
-          drawSprite(ctx, 'units/missile', mx, my, TILE * 1.1, { rot: Math.atan2(700, -160) - Math.PI / 2 });
+          drawSprite(ctx, 'units/missile', mx, my, TILE * (st.nuke ? 2 : 1.1), { rot: Math.atan2(700, -160) - Math.PI / 2 });
         }
       } else {
         const a = Math.max(0, st.flash / 0.7);
+        if (st.nuke) {   // a mushroom cloud rising out of the flash
+          const up = 1 - a;
+          ctx.fillStyle = `rgba(90,70,60,${0.55 * a + 0.1})`;
+          ctx.beginPath(); ctx.ellipse(x, y - r * (0.6 + up * 0.5), r * 0.55, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillRect(x - r * 0.1, y - r * (0.6 + up * 0.5), r * 0.2, r * (0.6 + up * 0.5));
+        }
         ctx.globalCompositeOperation = 'lighter';
         ctx.fillStyle = `rgba(255,${180 + a * 60},${120 + a * 100},${a * 0.8})`;
         ctx.beginPath(); ctx.arc(x, y, r * (1.3 - a * 0.4), 0, Math.PI * 2); ctx.fill();

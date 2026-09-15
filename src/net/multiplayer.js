@@ -714,14 +714,17 @@ export class Multiplayer {
     return this.g.state.villagers.filter(v => isSpy(v) && !v.away && v.hp > 30);
   }
 
-  async launchMission(targetUid, mission, aim = null) {
+  /** opts.admin: free, no silo needed, pierces shields, arrives in ~20s (admin missile command) */
+  async launchMission(targetUid, mission, aim = null, opts = {}) {
     const g = this.g;
     const s = g.state;
     const target = await getProfile(targetUid);
     if (!target) throw new Error('Village not found');
-    const isMissile = mission === 'missile' || mission === 'orbital';
+    const isMissile = mission === 'missile' || mission === 'orbital' || mission === 'nuke';
     let agent = null;
-    if (isMissile) {
+    if (isMissile && opts.admin) {
+      aim = aim && { ...aim, radius: opts.radius || null, nuke: mission === 'nuke', pierce: true };
+    } else if (isMissile) {
       if (mission === 'orbital' ? !hasOrbital(g) : !hasMissiles(g)) throw new Error(`You need a ${mission === 'orbital' ? 'Orbital Cannon' : 'Missile Silo'}`);
       if (!g.spend(MISSILE_COST)) throw new Error(`Needs ${Object.entries(MISSILE_COST).map(([k, n]) => `${n} ${k}`).join(', ')}`);
       g.addKarma(mission === 'orbital' ? -35 : -25);
@@ -731,14 +734,14 @@ export class Multiplayer {
       if (mission === 'sabotage' && !g.spend({ bombs: 1 })) throw new Error('Sabotage needs 1 bomb');
     }
     const now = Date.now();
-    const travel = travelMs(this.uid, targetUid, 'caravan') * (isMissile ? 0.2 : 1);
+    const travel = opts.admin ? 20_000 : travelMs(this.uid, targetUid, 'caravan') * (isMissile ? 0.2 : 1);
     const arrivesAt = now + travel;
     const id = push(ref(rtdb, `${this.w}missions/${targetUid}`)).key;
     const record = {
       id, kind: isMissile ? 'missile' : 'spy', mission, from: this.uid, fromName: this.name, fromVillage: s.owner.villageName,
       to: targetUid, toVillage: target.villageName, stealth: agent ? Math.round(agent.skills.stealth * 10) / 10 : 0,
       agent: agent?.name || null, launchedAt: now, arrivesAt, status: 'travelling',
-      ...(isMissile && aim ? { aim: { tx: Math.round(aim.tx), ty: Math.round(aim.ty) } } : {}),
+      ...(isMissile && aim ? { aim: { tx: Math.round(aim.tx), ty: Math.round(aim.ty), ...(aim.radius ? { radius: aim.radius } : {}), ...(aim.nuke ? { nuke: true } : {}), ...(aim.pierce ? { pierce: true } : {}) } } : {}),
     };
     await update(ref(rtdb), {
       [`${this.w}missions/${targetUid}/${id}`]: record,
@@ -746,7 +749,7 @@ export class Multiplayer {
     });
     if (agent) { agent.away = { missionId: id, until: arrivesAt + travel + 30 * 60_000 }; agent._task = null; }
     g.log(isMissile
-      ? `☢ ${mission === 'orbital' ? 'Orbital strike' : 'Missile'} launched at ${target.villageName}! Impact in ${fmtMinutes(travel)}.`
+      ? `☢ ${mission === 'nuke' ? 'Nuke' : mission === 'orbital' ? 'Orbital strike' : 'Missile'} launched at ${target.villageName}! Impact in ${fmtMinutes(travel)}.`
       : `🕵 ${agent.name} slips away toward ${target.villageName} to ${mission}. Arrives in ${fmtMinutes(travel)}.`, 'event');
     g.emit('change');
     return { arrivesAt, target };
@@ -767,7 +770,7 @@ export class Multiplayer {
           if (cur.status !== 'travelling') return undefined;
           const result = { success: false, caught: false };
           if (cur.kind === 'missile') {
-            result.success = !target?.missileShield;
+            result.success = !!cur.aim?.pierce || !target?.missileShield;
           } else {
             const chance = clamp(0.4 + cur.stealth * 0.06 + Math.min(0.2, (target?.leaks || 0) * 0.05) - (target?.counterIntel || 0.1), 0.05, 0.9);
             result.success = Math.random() < chance;

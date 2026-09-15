@@ -241,7 +241,7 @@ function startGame(user, game, { online = true } = {}) {
     app.adminStatus = status;
     if (status !== 'admin' || app.hud !== hud) return;
     hud.isAdmin = true;
-    app.console = new AdminConsole({ game, mp: app.mp, user });
+    app.console = new AdminConsole({ game, mp: app.mp, user, hud });
   });
   if (app.mp) {
     app.mp.on('reset', () => { clearLocalSave(user.uid); restart(); });
