@@ -330,21 +330,14 @@ export async function run() {
     V.attackVillager(g, a, c, { deadly: false });
     for (let i = 0; i < 400 && a._task?.type === 'brawl'; i++) { g.step(0.1); a.hp = Math.max(a.hp, 60); }
     ok(g.state.villagers.includes(c), 'a brawl stops before anyone dies');
-    // your avatar in hostile mode
+    // your avatar never strikes your own people
     const me = g.state.villagers.find(v => v.ruling);
     const victim = g.state.villagers.find(v => v !== me && v !== a && v.age >= 16) || c;
     H.startLead(g, me);
     for (const o of g.state.villagers) if (o !== me) o.x = me.x + 400;   // nobody else in reach
     victim.x = me.x + 12; victim.y = me.y; victim.hp = 1;
     H.updateHero(g, 1 / 30, { act: true });
-    ok(g.state.villagers.includes(victim), 'a peaceful avatar never strikes people');
-    H.setViolent(g, true);
-    g.state.creatures = [];
-    g.hero.actCd = 0; g.hero.cd = 0; g.hero.atkCd = 0;
-    for (const o of g.state.villagers) if (o !== me) o.x = me.x + 400;   // nobody else in reach
-    victim.x = me.x + 12; victim.y = me.y; victim.hp = 1;
-    H.updateHero(g, 1 / 30, { act: true });
-    ok(!g.state.villagers.includes(victim), 'in Hostile mode your avatar can kill your own people');
+    ok(g.state.villagers.includes(victim), 'your avatar never strikes your own people');
     H.endLead(g);
   });
 

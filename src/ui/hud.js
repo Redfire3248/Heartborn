@@ -21,7 +21,7 @@ import { itemAt, pickUp, moveItem, dropFromPack } from '../game/groundItems.js';
 const BADGE_TRAITS = ['gifted', 'knighted', 'versatile'];   // already shown as badges at the top of a profile
 const BODY_COLOR = { strength: '#ff8a5a', speed: '#7fd4ff', stamina: '#8fe07a' };
 const BODY_TIP = { strength: 'Heavy work (chopping, mining, building, farming, forging) and fighting go faster and hit harder', speed: 'Walks and runs faster', stamina: 'Works harder, gets hungry more slowly and takes less damage' };
-import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, avatarOf, setViolent } from '../game/hero.js';
+import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, avatarOf } from '../game/hero.js';
 import { makeVisitGame } from '../game/visit.js';
 import { LAW_CATEGORIES, DEFAULT_LAWS, LAW_COST, describeEffects } from '../data/laws.js';
 import { rally, standDown, tributeCost, payWarbandTribute, scoutSummary } from '../game/war.js';
@@ -323,7 +323,6 @@ export class HUD {
     if (this.game.hero) {   // walking your ruler: WASD move, Space strikes, Esc stops
       if (k === ' ' || k.startsWith('arrow')) e.preventDefault?.();
       if (k === 'escape' && !this.buildType && !this.demolishMode && !this.game.selected && !this.panel) return;
-      if (k === 'f') { setViolent(this.game); this._heroKey = null; this.hint(this.game.hero.violent ? 'Hostile: Space strikes people too' : 'Peaceful: you only strike beasts', 1800); return; }
       if (('wasdq '.includes(k) && k.length === 1) || k === 'shift') return;
     }
     if (this.game.sail) {   // the helm takes the keys
@@ -395,12 +394,11 @@ export class HUD {
     const st = heroStats(g);
     const w = heroWeapon(g, v);
     const bounty = bountyOf(g);
-    this.els.heroPad.classList.toggle('violent', !!hero.violent);
     if (bar.hidden) { bar.hidden = false; pad.hidden = false; this.buildHeroPad(); }
     // the bars move every frame; the rest only rebuilds when something changes
     const els = this.els;
     const fill = (el, frac) => { if (el) el.style.width = `${Math.max(0, Math.min(100, frac * 100))}%`; };
-    const key = [v.id, r.level, r.points, w.name, hero.violent ? 1 : 0, r.quests.map(q => q.id + q.have).join(), bounty ? bounty.bounty.name + Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE / 3) : ''].join('|');
+    const key = [v.id, r.level, r.points, w.name, r.quests.map(q => q.id + q.have).join(), bounty ? bounty.bounty.name + Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE / 3) : ''].join('|');
     if (key !== this._heroKey) {
       this._heroKey = key;
       const dist = bounty ? Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE) : 0;
@@ -413,7 +411,6 @@ export class HUD {
           h('span.hero-level', `Lv ${r.level}`), h('b', v.name),
           w.icon ? icon(w.icon, 18) : null, h('span.faint', w.name),
           h('div.spacer'),
-          h(`button.btn.sm${hero.violent ? '.danger' : ''}`, { title: 'Hostile lets you strike your own people (F)', onclick: () => { setViolent(g); this._heroKey = null; } }, hero.violent ? 'Hostile' : 'Peaceful'),
           h(`button.btn.sm${r.points ? '.primary' : ''}`, { title: 'Character sheet (G)', onclick: () => this.characterSheet() }, r.points ? `Character (+${r.points})` : 'Character')),
         h('div.hero-bars',
           els.heroHp,
@@ -472,7 +469,7 @@ export class HUD {
             h('button.btn.sm.primary', { onclick: () => { equip(g, it.id); render(); } }, 'Equip'),
             h('button.btn.sm', { title: 'Break it down for gold', onclick: () => { const gold = scrapGear(g, it.id); this.hint(`+${gold} gold`, 1500); render(); } }, 'Scrap'))))
           : h('div.faint', 'Monsters drop weapons, armour and trinkets. Bosses and bounties always drop something good.'),
-        h('div.faint', { style: { marginTop: '8px' } }, 'Controls: WASD move · Space attack · Shift dash · hold Q block (block right as a blow lands to parry) · F hostile · phones use the on-screen buttons'));
+        h('div.faint', { style: { marginTop: '8px' } }, 'Controls: WASD move · Space attack · Shift dash · hold Q block (block right as a blow lands to parry) · phones use the on-screen buttons'));
     };
     const gearText = it => it.slot === 'weapon' ? `${it.dmg} damage` : it.slot === 'armor' ? `${Math.round(it.armor * 100)}% armour` : Object.entries(it.bonus || {}).map(([k, n]) => k === 'hp' ? `+${n} health` : `+${Math.round(n * 100)}% ${k === 'dmg' ? 'damage' : k}`).join(', ');
     const body = h('div.char-sheet');

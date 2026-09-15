@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'New hero animations',
+    changes: [
+      'New boy and girl hero art with sword and shield: walking in four directions with both legs moving, sword attacks down, up and to the side, a lunging dash, a shield block with sparks, and a flinch when hit',
+      'The hero stands as tall as your villagers',
+      'Removed the Peaceful / Hostile switch: your avatar only fights beasts and raiders',
+    ],
+  },
+  {
     title: 'Hero animation fixes',
     changes: [
       'The attack animation plays on every press, even with nothing to hit (and still chops and mines)',

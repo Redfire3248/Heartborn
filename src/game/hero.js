@@ -3,7 +3,7 @@ import { CREATURES, OBJECTS } from '../data/objects.js';
 import { damageCreature } from './creatures.js';
 import { collectFind } from './finds.js';
 import { pickUp } from './groundItems.js';
-import { gainSkill, hitVillager } from './villagers.js';
+import { gainSkill } from './villagers.js';
 import { has } from './dynasty.js';
 import { speedMult, strengthMult } from './body.js';
 import { heroStats, heroWeapon, onHeroKill, questProgress, updateQuests } from './rpg.js';
@@ -112,7 +112,7 @@ function attack(g, v, st) {
   const h = g.hero;
   const w = heroWeapon(g, v);
   const nearFoe = nearestHostile(g, v, TILE * Math.max(3, w.ranged ? w.range : 3));
-  const nearPerson = h.violent ? nearestPerson(g, v, TILE * 2.5) : null;
+  const nearPerson = null;   // your avatar only fights beasts and raiders
   const swingTime = Math.max(0.3, Math.min(0.45, w.speed * 0.8));
   // nothing to fight close by: you still swing (the animation always plays), and the swing chops, mines and gathers
   if (!nearFoe && !nearPerson) {
@@ -149,16 +149,6 @@ function attack(g, v, st) {
     if (d > reach || (d > TILE * 0.4 && angleDiff(Math.atan2(c.y - v.y, c.x - v.x), h.facing) > w.arc / 2 + 0.25)) continue;
     hitCreature(g, v, c, dmg, crit, w);
     hits++;
-  }
-  if (h.violent) {
-    for (const o of [...g.state.villagers]) {
-      if (o === v || o.away) continue;
-      const d = Math.hypot(o.x - v.x, o.y - v.y);
-      if (d > w.range * TILE + 8 || (d > 8 && angleDiff(Math.atan2(o.y - v.y, o.x - v.x), h.facing) > w.arc / 2 + 0.2)) continue;
-      gainSkill(g, v, 'combat', true);
-      if (hitVillager(g, v, o, dmg)) h.slain = (h.slain || 0) + 1;
-      hits++;
-    }
   }
   if (hits) g.fx.shake = Math.max(g.fx.shake, crit ? 0.8 : 0.35);
 }
@@ -234,32 +224,6 @@ export function knockOutHero(g, v) {
   g.log(`You were knocked out and woke up at home${lost ? `, ${lost} gold poorer` : ''}.`, 'bad');
   g.fx.shake = 2;
   return true;
-}
-
-/** Hostile mode: your avatar can strike your own people too. Guards and grieving families answer a killing. */
-export function setViolent(g, on) {
-  if (!g.hero) return;
-  g.hero.violent = on ?? !g.hero.violent;
-  g.emit('change');
-}
-
-function nearestPerson(g, v, range) {
-  let best = null, bd = range;
-  for (const o of g.state.villagers) {
-    if (o === v || o.away) continue;
-    const d = Math.hypot(o.x - v.x, o.y - v.y);
-    if (d < bd) { bd = d; best = o; }
-  }
-  return best;
-}
-
-function strikePerson(g, v, o) {
-  v._flip = o.x < v.x;
-  g.hero.swing = 0.22;
-  g.hero.cd = 0.5;
-  gainSkill(g, v, 'combat');
-  g.fx.shake = Math.max(g.fx.shake, 0.25);
-  if (hitVillager(g, v, o, heroDamage(g, v) * 1.2)) g.hero.slain = (g.hero.slain || 0) + 1;
 }
 
 /** Chop, mine or pick the thing in reach: a few hits and it gives double what a worker would get. */

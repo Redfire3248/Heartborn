@@ -10,6 +10,9 @@ import { maxHp } from '../game/creatures.js';
 import { FIND_KINDS } from '../game/finds.js';
 import { ITEMS } from '../data/people.js';
 
+// hero frames leave room around the figure for swings and dashes: draw them bigger so the hero stands as tall as villagers
+const HERO_SCALE = 1.55;
+
 const SEASON_TINT = { Spring: null, Summer: 'rgba(255,220,120,0.05)', Autumn: 'rgba(255,140,40,0.08)', Winter: 'rgba(180,210,255,0.14)' };
 
 export class Renderer {
@@ -351,7 +354,7 @@ export class Renderer {
       const atk = hero.atkAnim && hero.atkAnim.t < hero.atkAnim.dur ? hero.atkAnim.t / hero.atkAnim.dur : 0;
       const lunge = atk ? Math.sin(Math.min(1, atk * 1.6) * Math.PI) * 4 : 0;
       const a = hero.facing ?? 0;
-      drawSprite(ctx, frame.key, v.x + Math.cos(a) * lunge, v.y + 2 + Math.sin(a) * lunge * 0.5, size * 1.25, { flip: frame.flip, tint, full: true, offsetY: bob, squash: sq, rot: hero.dash ? (Math.cos(a) >= 0 ? 0.18 : -0.18) : 0 });
+      drawSprite(ctx, frame.key, v.x + Math.cos(a) * lunge, v.y + 2 + Math.sin(a) * lunge * 0.5, size * HERO_SCALE, { flip: frame.flip, tint, full: true, offsetY: bob, squash: sq, rot: hero.dash ? (Math.cos(a) >= 0 ? 0.18 : -0.18) : 0 });
     }
     else drawSprite(ctx, key, v.x, v.y, size, { flip: v._flip, offsetY, rot, squash, tint });
 
@@ -451,7 +454,7 @@ export class Renderer {
     for (const tr of hero.trail || []) {
       ctx.globalAlpha = Math.max(0, tr.life / 0.25) * 0.35;
       const f = this.heroFrame(v, hero);
-      if (f) drawSprite(ctx, f.key, tr.x, tr.y + 2, TILE * 0.92 * 1.25, { flip: f.flip, tint: '#9fd4ff', full: true });
+      if (f) drawSprite(ctx, f.key, tr.x, tr.y + 2, TILE * 0.92 * HERO_SCALE, { flip: f.flip, tint: '#9fd4ff', full: true });
       else drawSprite(ctx, villagerSprite({ ...v, role: displayRole(v) }), tr.x, tr.y, TILE * 0.92, { flip: v._flip, tint: '#9fd4ff' });
     }
     ctx.globalAlpha = 1;
