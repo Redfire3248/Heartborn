@@ -4,7 +4,7 @@ import { BOATS, fleetOf } from '../game/sailing.js';
 import { TerrainPainter } from './terrain.js';
 import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
 import { BUILDINGS, sizeOf, buildingSprite } from '../data/buildings.js';
-import { displayRole, toolFor } from '../game/villagers.js';
+import { displayRole, toolFor, carryIcon } from '../game/villagers.js';
 import { maxHp } from '../game/creatures.js';
 import { FIND_KINDS } from '../game/finds.js';
 
@@ -232,7 +232,8 @@ export class Renderer {
     const size = def.size * TILE;
     const isTree = o.t.startsWith('tree_') && o.t !== 'tree_stump';
     if (def.size > 0.7) this.shadow(x, y, size * 0.7);
-    const sway = isTree ? Math.sin(this.time * 1.3 + o.x * 0.7 + o.y) * 0.025 : 0;
+    let sway = isTree ? Math.sin(this.time * 1.3 + o.x * 0.7 + o.y) * 0.025 : 0;
+    if (o._shake > 0) { sway += Math.sin(this.time * 38) * 0.07 * Math.min(1, o._shake * 4); o._shake -= 1 / 60; }   // being chopped or mined
     const depleted = def.regrowDays && o.charges <= 0;
     drawSprite(this.ctx, def.sprite, x, y, size, { rot: sway, alpha: depleted ? 0.55 : 1 });
   }
@@ -250,8 +251,18 @@ export class Renderer {
       ctx.fill();
     }
     if (!b.built) {
-      drawSprite(ctx, buildingSprite(b.type), x, y, size, { alpha: 0.22 });
-      drawSprite(ctx, 'buildings/construction', x, y, Math.max(TILE, size * 0.8));
+      // the building rises from the ground as it is built, behind its scaffolding
+      drawSprite(ctx, buildingSprite(b.type), x, y, size, { alpha: 0.18 });
+      const p = Math.max(0, Math.min(1, b.progress || 0));
+      if (p > 0.02) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x - size, y - size * 1.3 * p, size * 2, size * 1.3 * p + 4);
+        ctx.clip();
+        drawSprite(ctx, buildingSprite(b.type), x, y, size);
+        ctx.restore();
+      }
+      drawSprite(ctx, 'buildings/construction', x, y, Math.max(TILE, size * 0.8), { alpha: p > 0.75 ? Math.max(0.25, 1 - (p - 0.75) * 3) : 1 });
       bar(ctx, x - TILE * 0.6, y + 2, TILE * 1.2, b.progress, '#ffd76a');
       return;
     }
@@ -299,6 +310,9 @@ export class Renderer {
       ctx.restore();
     }
 
+    // carrying work home: a bundle bobbing above their head
+    const load = carryIcon(v);
+    if (load) drawSprite(ctx, load, v.x + (v._flip ? 3 : -3), v.y - size * 0.92 + Math.abs(Math.sin(t * 11)) * -2, TILE * 0.42);
     if (v.hp < 99) bar(ctx, v.x - 8, v.y - size - 4, 16, v.hp / 100, v.hp > 40 ? '#6fdc5a' : '#ff5a4a');
     if (v._emote) drawSprite(ctx, v._emote.key, v.x + 6, v.y - size - 2 + Math.sin(this.time * 4) * 1.5, 12);
     if (g.selected?.ref === v || this.camera.zoom >= 3.2) label(ctx, v.name, v.x, v.y + 7);

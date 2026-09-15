@@ -1,6 +1,6 @@
 import {
   TILE, DAY_LENGTH, DAYS_PER_YEAR, ADULT_AGE, ELDER_AGE, HUNGER_PER_DAY, FOOD_PER_MEAL, MEAL_RESTORES,
-  WALK_SPEED, MAX_SKILL,
+  WALK_SPEED, MAX_SKILL, ADULT_YEARS_PER_DAY, CHILD_YEARS_PER_DAY,
 } from '../core/constants.js';
 import { clamp, pick, chance } from '../core/rng.js';
 import { MALE_NAMES, FEMALE_NAMES, BIRTH_TRAITS, SURNAMES } from '../data/traits.js';
@@ -33,7 +33,7 @@ export const JOBS = {
 
 const ITEM_NAMES = { axe: 'Axe', pickaxe: 'Pickaxe', hoe: 'Hoe', hammer: 'Hammer', bow: 'Bow', spear_t: 'Fishing spear' };
 const TOOL = { train: 'items/sword', craft: 'items/hammer', chop: 'items/axe', mine: 'items/pickaxe', deepmine: 'items/pickaxe', farm: 'items/hoe', build: 'items/hammer', hunt: 'items/spear', fight: 'items/sword', fish: 'items/spear', explore: 'items/sword' };
-const WORK_TIME = { study: 8, spytrain: 8, train: 8, craft: 8, chop: 5, mine: 6, deepmine: 7, gather: 3, farm: 7, fish: 6, hunt: 2.5, explore: 4, heal: 4, eat: 1.5 };
+const WORK_TIME = { haul: 0.6, study: 8, spytrain: 8, train: 8, craft: 8, chop: 5, mine: 6, deepmine: 7, gather: 3, farm: 7, fish: 6, hunt: 2.5, explore: 4, heal: 4, eat: 1.5 };
 const JOB_ROLE = { farm: 'farmer', mine: 'miner', hunt: 'hunter', warrior: 'warrior', scout: 'scout', smith: 'blacksmith' };
 
 let idCounter = 0;
@@ -136,7 +136,7 @@ export function dailyVillagers(g) {
   for (const v of [...s.villagers]) {
     if (v.robot) continue;   // machines do not age, sicken or wander off
     const wasChild = v.age < ADULT_AGE;
-    v.age += v.age < ADULT_AGE ? yearFrac * 12 : yearFrac;   // children grow up in about a week
+    v.age += v.age < ADULT_AGE ? CHILD_YEARS_PER_DAY : ADULT_YEARS_PER_DAY;   // fast lives: generations come and go while you play
     if (wasChild && v.age >= ADULT_AGE) {
       const calling = CALLINGS[v.calling || 'none'];
       if (isTrained(v)) v.trained = true;
@@ -338,6 +338,7 @@ function chooseTask(g, v) {
     if (v.age >= ADULT_AGE && tryGather(g, v)) return;
   }
 
+  if (v._carry && !g.isNight) { startHaul(g, v); return; }
   if (v.age < ADULT_AGE) { wander(g, v, 4); return; }
 
   if (g.isNight && v.job !== 'warrior') {
@@ -609,7 +610,7 @@ function runTask(g, v, dt) {
         c._stunned = t.timer + 0.5;
       }
       if ((t.timer -= dt) <= 0) {
-        rollFate(g, 'hunt', v, c);
+        haul(g, v, () => rollFate(g, 'hunt', v, c));
         releaseTask(v);
       }
       return;
@@ -673,6 +674,7 @@ function runTask(g, v, dt) {
       t.fateTimer = (t.fateTimer || 0) + dt;
       if (t.fateTimer > 6) { t.fateTimer = 0; rollFate(g, 'build', v, b); if (!s.villagers.includes(v)) return; }
       if (Math.random() < dt * 2) g.puff({ x: t.x, y: t.y - 8 }, 'effects/dust', 1, 20);
+      if (Math.random() < dt * 1.5) g.puff({ x: t.x, y: t.y - 12 }, 'effects/hit_star', 1, 8);
       if (b.progress >= 1) {
         gainSkill(g, v, 'build');
         g.finishBuilding(b);
@@ -686,9 +688,20 @@ function runTask(g, v, dt) {
     case 'gather': {
       const { obj } = t.target;
       if (!s.objects.includes(obj) || (OBJECTS[obj.t].work !== t.type)) return releaseTask(v);
+      // the work shows: the tree shakes, chips and chunks fly
+      obj._shake = 0.25;
+      if (Math.random() < dt * 4) g.puff(tileCenter(obj), t.type === 'chop' ? 'items/icon_wood' : t.type === 'mine' ? 'effects/rock_chunk' : 'effects/leaf', 1, 14);
+      if (t.type === 'mine' && Math.random() < dt * 2) g.puff(tileCenter(obj), 'effects/spark', 1, 8);
       if ((t.timer -= dt) > 0) return;
-      rollFate(g, t.type, v, t.target);
+      haul(g, v, () => rollFate(g, t.type, v, t.target));
       consumeObject(g, obj, t.type);
+      releaseTask(v);
+      return;
+    }
+
+    case 'haul': {
+      if ((t.timer -= dt) > 0) return;
+      deliver(g, v);
       releaseTask(v);
       return;
     }
@@ -728,6 +741,7 @@ function runTask(g, v, dt) {
     }
 
     case 'craft': {
+      if (Math.random() < dt * 5) g.puff({ x: t.x, y: t.y - 10 }, 'effects/spark', 1, 10);   // hammer on hot iron
       if ((t.timer -= dt) > 0) return;
       const recipe = BUILDINGS[t.building.type]?.recipe;
       if (!recipe || !s.buildings.includes(t.building)) return releaseTask(v);
@@ -764,7 +778,7 @@ function runTask(g, v, dt) {
     case 'fish':
       if ((t.timer -= dt) > 0) return;
       if (t.type === 'farm' && t.building.blightUntil > s.time) return releaseTask(v);
-      rollFate(g, (t.type === 'deepmine' && BUILDINGS[t.building.type]?.outcome) || t.type, v, t.building);
+      haul(g, v, () => rollFate(g, (t.type === 'deepmine' && BUILDINGS[t.building.type]?.outcome) || t.type, v, t.building));
       releaseTask(v);
       return;
 
@@ -782,6 +796,54 @@ function runTask(g, v, dt) {
   }
 }
 
+// ------------------------------------------------------------------ hauling: work you can see arrive
+
+const HAULED = ['food', 'wood', 'stone', 'coal', 'iron', 'gold', 'gems'];
+const STORES = ['stockpile', 'warehouse', 'granary', 'campfire'];
+
+/** Run a yield, but put what it produced into the worker's arms instead of straight into the stores. */
+function haul(g, v, work) {
+  const s = g.state;
+  const before = Object.fromEntries(HAULED.map(k => [k, s.resources[k] || 0]));
+  work();
+  if (!s.villagers.includes(v)) return;   // the work went badly wrong
+  const got = {};
+  for (const k of HAULED) {
+    const d = Math.round((s.resources[k] || 0) - before[k]);
+    if (d > 0) { got[k] = d; s.resources[k] -= d; }
+  }
+  if (!Object.keys(got).length) return;
+  v._carry = v._carry || {};
+  for (const [k, n] of Object.entries(got)) v._carry[k] = (v._carry[k] || 0) + n;
+  // a store close by: walk it over. Far from any store: it goes straight in (nobody hauls across the island)
+  const store = nearestBuilding(g, v, b => STORES.includes(b.type), 30);
+  if (!store) deliver(g, v);
+}
+
+function startHaul(g, v) {
+  const store = nearestBuilding(g, v, b => STORES.includes(b.type), 30);
+  if (!store) { deliver(g, v); return; }
+  setTask(v, { type: 'haul', building: store, ...standAt(g, store) });
+}
+
+/** Drop the bundle in the stores, with a little "+5 wood" so you see it arrive. */
+function deliver(g, v) {
+  const c = v._carry;
+  if (!c) return;
+  v._carry = null;
+  const parts = [];
+  for (const [k, n] of Object.entries(c)) { const added = g.addResource(k, n); parts.push(`+${added ?? n} ${k}`); }
+  if (parts.length) g.float(v.x, v.y - TILE * 1.2, parts.join('  '), '#ffe7a0');
+  g.puff({ x: v.x, y: v.y - 6 }, 'effects/coin', 2, 10);
+}
+
+/** The icon for what someone is carrying (the biggest part of their bundle). */
+export function carryIcon(v) {
+  if (!v._carry) return null;
+  const [k] = Object.entries(v._carry).sort((a, b) => b[1] - a[1])[0] || [];
+  return { food: 'items/icon_food', wood: 'items/icon_wood', stone: 'items/icon_stone', coal: 'items/icon_coal', iron: 'items/icon_iron', gold: 'items/icon_gold', gems: 'items/icon_gem' }[k] || null;
+}
+
 function consumeObject(g, obj, work) {
   const s = g.state;
   const def = OBJECTS[obj.t];
@@ -789,7 +851,8 @@ function consumeObject(g, obj, work) {
     s.stats.treesCut = (s.stats.treesCut || 0) + 1;
     if (def.stump) { obj.t = 'tree_stump'; obj.growAt = s.time + OBJECTS.tree_stump.growDays * DAY_LENGTH; }
     else g.world.removeObject(s.objects, obj);
-    g.puff(tileCenter(obj), 'effects/leaf', 5);
+    g.puff(tileCenter(obj), 'effects/leaf', 12, 30);   // timber! the tree comes down in a shower of leaves
+    g.puff(tileCenter(obj), 'items/icon_wood', 3, 20);
     return;
   }
   obj.charges = (obj.charges || 1) - 1;

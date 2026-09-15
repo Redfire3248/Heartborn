@@ -11,6 +11,9 @@ export const DAYS_PER_YEAR = DAYS_PER_SEASON * SEASONS.length;
 
 // Villagers
 export const ADULT_AGE = 12;
+// ageing: grown-ups gain a year every game day, children four (they grow up in about three days)
+export const ADULT_YEARS_PER_DAY = 1;
+export const CHILD_YEARS_PER_DAY = 4;
 export const ELDER_AGE = 55;
 export const HUNGER_PER_DAY = 70;    // hunger points lost per day (100 = full)
 export const FOOD_PER_MEAL = 1;

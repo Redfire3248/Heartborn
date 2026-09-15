@@ -104,6 +104,24 @@ export async function run() {
     ok(texts.size > 1, 'repeated choice gives varied outcomes', `${texts.size} distinct`);
   });
 
+  await step('fast lives, and workers carry what they gather home', async () => {
+    const g = freshGame({ era: 1, people: 4, resources: false });
+    build(g, 'campfire'); build(g, 'stockpile');
+    const kid = g.addWanderer({ child: true }); kid.age = 1;
+    const adult = g.state.villagers.find(v => !v.ruling && v !== kid); const age0 = adult.age;
+    for (let d = 0; d < 3; d++) g.newDay();
+    ok(kid.age >= 12 && adult.age - age0 >= 3 && adult.age - age0 < 4, `a child grows up in about 3 days (${Math.floor(kid.age)}), adults age a year a day (+${Math.round(adult.age - age0)})`);
+    Object.assign(g.state.resources, { wood: 0, food: 0, stone: 0 });
+    let carried = 0;
+    for (let i = 0; i < 90 * 20 * 2 && g.state.resources.wood + g.state.resources.food + g.state.resources.stone < 10; i++) {
+      g.update(0.05); g.pendingEvent = null;
+      if (g.state.villagers.some(v => v._carry)) carried++;
+      if (g.isNight) g.state.time += 90 * 0.4;
+    }
+    ok(carried > 0, 'workers carry their loads', `${carried} frames with someone carrying`);
+    ok(g.state.resources.wood + g.state.resources.food + g.state.resources.stone >= 10, 'loads are delivered to the stores', JSON.stringify({ wood: Math.floor(g.state.resources.wood), food: Math.floor(g.state.resources.food), stone: Math.floor(g.state.resources.stone) }));
+  });
+
   await step('sailing: shipyard, boats, steering, bombs, pirates, treasure, sinking', async () => {
     const S = await import('/src/game/sailing.js');
     const g = freshGame({ era: 3, people: 6 });

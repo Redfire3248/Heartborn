@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Fast lives, visible work',
+    changes: [
+      'People age much faster: children grow up in about three game days and a whole life passes in about an hour, so you watch generations rise',
+      'Workers carry what they gather: logs, stone, ore and food bob over their heads as they haul it to the Stockpile, Granary or Campfire, and "+5 wood" pops up when it arrives',
+      'See the work: trees shake and throw wood chips, rocks spit chunks and sparks, forges spark, and a felled tree comes down in a shower of leaves',
+      'Buildings rise from the ground as they are built, behind scaffolding that clears as they finish',
+    ],
+  },
+  {
     title: 'The Open Sea',
     changes: [
       'Sail to the edge of your waters and enter the Open Sea: one shared ocean where every player in your world can sail at the same time',
