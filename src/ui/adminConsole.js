@@ -291,7 +291,10 @@ export class AdminConsole {
 
   async loadPlayers(force = false) {
     if (!this.players || force) {
-      try { this.players = await api.fetchPlayers(); } catch (e) { this.players ||= []; throw e; }
+      // the world you are playing in (a private world keeps its players apart from the public realm)
+      try { this.players = await api.fetchPlayers(this.mp?.world || 'realm'); } catch (e) { this.players ||= []; }
+      // live presence always knows who is here, even if a list could not be read
+      for (const p of this.mp?.players || []) if (!this.players.some(x => x.uid === p.uid)) this.players.push({ ...p });
     }
     return this.players;
   }

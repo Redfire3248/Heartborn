@@ -1,6 +1,12 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Admin finds everyone',
+    changes: [
+      'Fixed: in a private world the admin console listed no other players, so give, karma, nuke, missile and the other player commands could not find anyone. It now reads the world you are in, and anyone online always shows up',
+    ],
+  },
+  {
     title: 'Auto-pick',
     changes: [
       'When something unlocks, the best choice is made for you: a new court office gets the best person for it (once the village has enough workers to spare them)',

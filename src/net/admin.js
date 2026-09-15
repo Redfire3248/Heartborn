@@ -4,17 +4,19 @@ import { db, rtdb, auth } from './firebase.js';
 
 // Everything here is also enforced server-side by the security rules (admins/ list in the database).
 
-export async function fetchPlayers() {
+/** Every player in a world (the public realm, or a private world), with email, ban and online status. */
+export async function fetchPlayers(world = 'realm') {
+  const soft = p => p.catch(() => null);   // one unreadable source should not hide everyone
   const [players, privates, bans, presence] = await Promise.all([
-    getDocs(collection(db, 'players')),
-    getDocs(collection(db, 'private')),
-    getDocs(collection(db, 'bans')),
-    get(ref(rtdb, 'w/realm/presence')),
+    soft(getDocs(world === 'realm' ? collection(db, 'players') : collection(db, 'worldPlayers', world, 'players'))),
+    soft(getDocs(collection(db, 'private'))),
+    soft(getDocs(collection(db, 'bans'))),
+    soft(get(ref(rtdb, `w/${world}/presence`))),
   ]);
-  const priv = Object.fromEntries(privates.docs.map(d => [d.id, d.data()]));
-  const banned = Object.fromEntries(bans.docs.map(d => [d.id, d.data()]));
-  const online = presence.val() || {};
-  return players.docs.map(d => ({
+  const priv = Object.fromEntries((privates?.docs || []).map(d => [d.id, d.data()]));
+  const banned = Object.fromEntries((bans?.docs || []).map(d => [d.id, d.data()]));
+  const online = presence?.val() || {};
+  const list = (players?.docs || []).map(d => ({
     ...d.data(),
     uid: d.id,
     email: priv[d.id]?.email || '',
@@ -22,6 +24,9 @@ export async function fetchPlayers() {
     ban: banned[d.id] || null,
     online: !!online[d.id]?.online,
   }));
+  // players only seen online (no profile saved in this world yet) still count
+  for (const [uid, p] of Object.entries(online)) if (!list.some(x => x.uid === uid)) list.push({ ...p, uid, email: priv[uid]?.email || '', ban: banned[uid] || null, online: !!p.online });
+  return list;
 }
 
 export async function banPlayer(uid, reason) {
