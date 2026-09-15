@@ -15,6 +15,10 @@ import { dailyTraitors, dailyMachines, updateBombDefense } from './intrigue.js';
 import { dailyEmpire } from './empire.js';
 import { updateEmployment } from './employment.js';
 import { updateFinds } from './finds.js';
+import { updateMagic } from './magic.js';
+import { updateTalk } from './talk.js';
+import { dailyTalents, rollTalents } from './talents.js';
+import { SURNAMES } from '../data/traits.js';
 import { ensureProfession, shareHousehold, canDoJob, randomTrade, TRADE_TOOL, grantTradeSkill } from './professions.js';
 import { dailyPeople, ensureRuler, rulerEffects, carriedLuck } from './dynasty.js';
 import { LAW_CATEGORIES, NO_LAW_EFFECTS, DEFAULT_LAWS, LAW_COST, lawOption } from '../data/laws.js';
@@ -31,7 +35,7 @@ export class Game {
     this.pendingEvent = null;
     this.selected = null;
     this.listeners = {};
-    this.fx = { floaters: [], particles: [], shake: 0 };
+    this.fx = { floaters: [], particles: [], beams: [], shake: 0 };
     this.offline = false;      // true while fast-forwarding offline progress
     this.recalc();
     ensureRuler(this);
@@ -42,6 +46,24 @@ export class Game {
     if (!state.toolsGiven) {
       state.toolsGiven = 1;
       for (const v of state.villagers) if (TRADE_TOOL[v.profession]) { v.inv ||= { pack: {}, coins: 0 }; v.inv.pack ||= {}; v.inv.pack[TRADE_TOOL[v.profession]] ||= 1; }
+    }
+    // talents, family names and magic arrived: older villages get them once
+    if (!state.talentsGiven) {
+      state.talentsGiven = 1;
+      for (const v of state.villagers) {
+        v.skills.magic ??= 0;
+        if (!v.talents?.length) {
+          const skill = { gather: 'gather', chop: 'chop', mine: 'mine', farm: 'farm', fish: 'fish', hunt: 'hunt', build: 'build', smith: 'craft', warrior: 'combat', scout: 'stealth', spy: 'stealth', explore: 'combat' }[v.profession];
+          v.talents = skill ? [skill] : [];
+          if (!v.talents.length && !v.ruling) rollTalents(v);
+          v.gifted = v.gifted || v.traits.includes('genius');
+          v.ego ??= 0;
+        }
+      }
+      // households: children share a parent's family name, everyone else gets one of their own
+      const byId = new Map(state.villagers.map(v => [v.id, v]));
+      for (const v of state.villagers) if (!v.surname && !v.parents?.length) v.surname = SURNAMES[Math.floor(Math.random() * SURNAMES.length)];
+      for (const v of state.villagers) if (!v.surname) v.surname = v.parents.map(id => byId.get(id)?.surname).find(Boolean) || SURNAMES[Math.floor(Math.random() * SURNAMES.length)];
     }
     if (!state.skillsGiven) {
       state.skillsGiven = 1;
@@ -100,6 +122,8 @@ export class Game {
     updateEmployment(this, dt);
     updateBombDefense(this, dt);
     updateFinds(this, dt);
+    updateMagic(this, dt);
+    updateTalk(this, dt);
 
     if (!this.offline && !this.pendingEvent && s.time >= s.nextEventAt) this.triggerRandomEvent();
     if (s.modifiers.length) {
@@ -136,6 +160,7 @@ export class Game {
     dailyTraitors(this);
     dailyMachines(this);
     dailyEmpire(this);
+    dailyTalents(this);
 
     // regrowth
     for (const o of [...s.objects]) {
@@ -579,6 +604,8 @@ export class Game {
     for (const p of particles) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 20 * dt; p.rot += dt * 2; }
     this.fx.floaters = floaters.filter(f => f.life > 0);
     this.fx.particles = particles.filter(p => p.life > 0);
+    for (const b of this.fx.beams || []) b.life -= dt;
+    this.fx.beams = (this.fx.beams || []).filter(b => b.life > 0);
     this.fx.shake = Math.max(0, this.fx.shake - dt * 8);
   }
 

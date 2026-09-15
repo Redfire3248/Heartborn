@@ -30,6 +30,7 @@ export function newState({ uid, name, villageName }) {
     goals: { claimed: [], chests: [] },
     finds: [],
     tradeFix: 1,
+    talentsGiven: 1,
     toolsGiven: 1,
     skillsGiven: 1,
     incoming: [],
@@ -50,8 +51,11 @@ export function newState({ uid, name, villageName }) {
     { sex: 'm', age: 24, profession: 'smith', job: 'smith', skill: ['craft', 4], pack: { hammer: 1 } },
     { sex: 'f', age: 21, profession: 'chop', job: 'chop', skill: ['chop', 4], pack: { axe: 1 } },
   ];
+  const founderTalent = { warrior: 'combat', smith: 'craft', chop: 'chop' };
   founders.forEach((f, i) => {
     const v = makeVillager(state, { sex: f.sex, age: f.age });
+    v.talents = [founderTalent[f.profession]];
+    v.ego = 0;
     v.x = start.x + (i - 1) * TILE;
     v.y = start.y + TILE * 0.5;
     v.job = f.job;

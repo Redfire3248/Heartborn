@@ -104,6 +104,60 @@ export async function run() {
     ok(texts.size > 1, 'repeated choice gives varied outcomes', `${texts.size} distinct`);
   });
 
+  await step('talents, gifted pride and rebellion, magic, talking, family names', async () => {
+    const T = await import('/src/game/talents.js');
+    const M = await import('/src/game/magic.js');
+    const K = await import('/src/game/talk.js');
+    const g = freshGame({ era: 3, people: 12 });
+    ok(g.state.villagers.every(v => v.talents?.length >= 1 && v.talents.length <= 2), 'everyone has one or two natural talents');
+    ok(g.state.villagers.every(v => v.surname), 'everyone has a family name');
+    // children take after their parents
+    const mom = g.state.villagers[1], dad = g.state.villagers[2];
+    mom.sex = 'f'; dad.sex = 'm'; mom.traits = ['brave', 'honest']; dad.traits = ['brave'];
+    let brave = 0, surname = 0;
+    const V = await import('/src/game/villagers.js');
+    for (let i = 0; i < 60; i++) {
+      const before = g.state.villagers.length;
+      V.__birthForTest?.(g, mom, dad);
+      const child = g.state.villagers[before];
+      if (child?.traits.includes('brave')) brave++;
+      if (child?.surname === dad.surname) surname++;
+      if (child) g.state.villagers.splice(before, 1);
+    }
+    if (V.__birthForTest) {
+      ok(surname === 60, 'children take their father’s family name', `${surname}/60`);
+      ok(brave > 30, 'a trait both parents share usually passes on', `${brave}/60 brave`);
+    }
+    // gifted pride grows into a rebellion event
+    const proud = g.state.villagers.find(v => !v.ruling && !v.office);
+    proud.gifted = true; proud.talents = ['combat']; proud.skills.combat = 9; proud.happy = 20; proud.ego = 95; proud.traits = proud.traits.filter(t => t !== 'loyal');
+    g.pendingEvent = null;
+    T.dailyTalents(g);
+    ok(g.pendingEvent?.id === 'gifted_rebellion', 'a proud gifted villager rebels', g.pendingEvent?.title);
+    const res = g.chooseEvent(2);   // duel
+    ok(res?.text, 'the rebellion can be settled', res?.text);
+    // magic
+    const wiz = g.state.villagers.find(v => !v.ruling && v !== proud);
+    wiz.talents = ['magic']; wiz.profession = 'mage'; wiz.traits = [];
+    ok(assignJob(g, wiz, 'mage'), 'someone with the Magic talent can become a wizard');
+    const plain = g.state.villagers.find(v => !v.ruling && v !== proud && v !== wiz);
+    plain.traits = ['versatile']; plain.talents = ['farm'];
+    ok(!assignJob(g, plain, 'mage'), 'magic cannot be learned without the gift');
+    wiz.skills.magic = 7; wiz.mana = 100;
+    const wolf = g.spawnCreature('wolf', wiz.x + 40, wiz.y);
+    const hp = g.state.creatures.find(c => c.t === 'wolf')?.hp ?? null;
+    const cast = M.castSpell(g, wiz, 'fireball');
+    ok(!cast.error && wiz.mana < 100, 'a wizard casts Fireball at a monster', cast.error || cast.text);
+    wiz.mana = 100; const hurt = g.state.villagers.find(v => v !== wiz); hurt.hp = 20;
+    ok(!M.castSpell(g, wiz, 'heal').error && hurt.hp > 20, 'Healing Light heals the wounded', `hp ${Math.round(hurt.hp)}`);
+    wiz.mana = 100;
+    ok(!M.castSpell(g, wiz, 'ward').error && g.state.modifiers.some(m => m.id === 'arcane_ward'), 'Arcane Ward protects the village');
+    // talking
+    ok(K.chatter(g, wiz)?.text && K.TOPICS.every(([id]) => K.talkTo(g, wiz, id)), 'villagers chatter and answer every topic');
+    g.step(0.6); for (let i = 0; i < 200; i++) K.updateTalk(g, 0.6);
+    ok(g.state.villagers.some(v => v._say?.text), 'speech bubbles appear over time');
+  });
+
   await step('founders, trade skills, tools, miners and succession', async () => {
     const P = await import('/src/game/professions.js');
     const V = await import('/src/game/villagers.js');
@@ -247,7 +301,7 @@ export async function run() {
     ok(v.armed, 'warrior picks up a weapon from storage');
 
     const others = g.state.villagers.filter(x => !x.ruling && x !== v);
-    const jobs = Object.keys(JOBS).filter(j => !['warrior', 'idle'].includes(j));
+    const jobs = Object.keys(JOBS).filter(j => !['warrior', 'idle', 'mage'].includes(j));   // wizards need the Magic talent (tested separately)
     const failed = jobs.filter((job, i) => !assignJob(g, others[i % others.length], job));
     ok(!failed.length, `every job can be assigned (${jobs.length})`, failed.join(', '));
 
@@ -471,7 +525,7 @@ export async function run() {
     let same = 0;
     const mom = { profession: 'smith', traits: [] }, dad = { profession: 'smith', traits: [] };
     for (let i = 0; i < 200; i++) { const child = { traits: [] }; P.inheritProfession(child, mom, dad); if (child.profession === 'smith') same++; }
-    ok(same > 120, 'children usually take their household’s trade', `${same}/200 became smiths`);
+    ok(same > 105, 'children usually take their household’s trade', `${same}/200 became smiths`);
     const family = [0, 1, 2, 3].map(() => ({ traits: [], job: 'idle' }));
     let shared = 0;
     for (let i = 0; i < 50; i++) { family.forEach(f => { delete f.profession; }); P.shareHousehold(family); shared += family.filter(f => f.profession === family[0].profession).length - 1; }

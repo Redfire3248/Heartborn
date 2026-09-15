@@ -145,6 +145,7 @@ export function encourage(g, v, action) {
     case 'praise':
       v.happy = clamp(v.happy + 20, 0, 100);
       text = `${v.name} beams with pride.`;
+      if (v.gifted) v.ego = Math.min(100, (v.ego || 0) + 8);   // praise feeds a gifted ego
       if (chance(0.2)) text += gain(v, chance(0.5) ? 'loyal' : 'ambitious');
       break;
     case 'mentor': {
@@ -157,6 +158,7 @@ export function encourage(g, v, action) {
     case 'discipline':
       v.happy = clamp(v.happy - 15, 0, 100);
       text = `${v.name} is set straight.`;
+      if (v.gifted) v.ego = Math.max(0, (v.ego || 0) - 25);   // a firm word humbles the proud
       for (const bad of ['lazy', 'greedy', 'glutton']) {
         if (has(v, bad) && chance(0.35)) { v.traits = v.traits.filter(t => t !== bad); text += ` No longer ${TRAITS[bad].label.toLowerCase()}!`; break; }
       }

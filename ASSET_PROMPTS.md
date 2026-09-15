@@ -157,6 +157,22 @@ Row 5: big white water splash | foamy boat wake trail | burning ship wreck with 
 Row 6: wooden dock pier | red and white floating buoy | iron anchor icon | wooden ship steering wheel icon | open treasure chest full of gold | green sea serpent rising from the water
 ```
 
+## Sheet 11 – Magic & Moods (optional) → save as `Magic.png`
+
+Spell effects for wizards, plus small icons for talents, pride and rebellion. The game works without this sheet (it borrows existing effects), but magic looks far better with it.
+
+```
+A pixel art sprite sheet, square image, arranged in a perfectly uniform 6x6 grid of 36 equal square cells. Each cell contains exactly ONE isolated sprite, centered in its cell, all drawn at the same scale and filling about 80% of their cell, with even empty spacing between cells. No gridlines, no borders, no text, no labels, no numbers. Transparent background (if not possible: plain flat solid white background). Style: 32x32 retro 16-bit SNES pixel art, top-down 3/4 view, clean 1px dark outline, soft light from top-left, glowing magical colors, no ground shadows, consistent style across all cells.
+
+Cells in order, left to right, top to bottom:
+Row 1: blazing orange fireball with a trail | green healing light sparkles rising | golden blessing glow over wheat | translucent blue arcane ward dome | forked white-blue lightning bolt striking down | swirling purple magic portal
+Row 2: blue mana crystal | glowing mana potion bottle | open spellbook with glowing runes | wooden wizard staff with a blue orb | crackling magic wand | floating glowing rune circle on the ground
+Row 3: icy frost blast | green poison cloud | glowing shield rune | exploding purple arcane burst | small glowing wisp spirit familiar | wizard's crystal ball on a stand
+Row 4: gold star talent badge | proud villager with nose in the air and a tiny crown of arrogance | angry rebel raising a fist | red rebel flag on a pole | broken chain shackles | crossed swords duel icon
+Row 5: speech bubble with three dots | speech bubble with an exclamation mark | speech bubble with a heart | speech bubble with a question mark | speech bubble with an angry scribble | speech bubble with musical notes
+Row 6: family crest shield with a tree | baby cradle | wedding rings | old family tree scroll | gravestone with flowers | glowing golden laurel wreath of honour
+```
+
 ---
 
 ## How to slice

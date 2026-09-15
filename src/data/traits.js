@@ -27,6 +27,7 @@ export const TRAITS = {
   scarred:     { label: 'Scarred',     good: false, earned: true, desc: 'Nearly died once. Tougher, but haunted (−10 happiness)' },
   wise:        { label: 'Wise',        good: true,  earned: true, desc: 'Decades of experience. A wise ruler brings good fortune' },
   knighted:    { label: 'Knight',      good: true,  earned: true, desc: 'Knighted by the ruler: +25% combat, never flees' },
+  gifted:      { label: 'Gifted',      good: true,  earned: true, desc: 'Born stronger than others: learns their talents three times as fast, but may grow proud and rebel' },
   versatile:   { label: 'Jack of all trades', good: true, earned: true, desc: 'Can work in any job. Everyone else sticks to their own trade' },
 };
 
@@ -35,4 +36,7 @@ export const BIRTH_TRAITS = ['brave', 'strong', 'genius', 'clever', 'hardworking
 
 export const MALE_NAMES = ['Aran', 'Bram', 'Cael', 'Doran', 'Edric', 'Finn', 'Garr', 'Hale', 'Ivo', 'Jory', 'Kael', 'Lorn', 'Milo', 'Nash', 'Orin', 'Pell', 'Rhun', 'Soren', 'Tobin', 'Ulric', 'Vale', 'Wren', 'Yorick', 'Zane', 'Asher', 'Beck', 'Cyrus', 'Dax', 'Emrys', 'Galen', 'Hugo', 'Idris', 'Jarek', 'Lucan', 'Marek', 'Osric', 'Rowan', 'Silas', 'Theo', 'Wulf'];
 export const FEMALE_NAMES = ['Aila', 'Brynn', 'Cora', 'Dela', 'Elsa', 'Fern', 'Gwen', 'Hana', 'Isla', 'Juno', 'Kira', 'Lyra', 'Mira', 'Nell', 'Ona', 'Pia', 'Rosa', 'Sela', 'Tess', 'Una', 'Vera', 'Wynn', 'Yara', 'Zia', 'Ada', 'Bree', 'Cleo', 'Dara', 'Esme', 'Faye', 'Greta', 'Ilse', 'Jora', 'Liv', 'Maren', 'Nia', 'Runa', 'Sigrid', 'Thea', 'Wren'];
+// household family names: children take their father's (or mother's) name, families who arrive together share one
+export const SURNAMES = ['Ashford', 'Blackwood', 'Brook', 'Carver', 'Dunmore', 'Elder', 'Fairweather', 'Fenwick', 'Flint', 'Greaves', 'Hart', 'Hollow', 'Ironside', 'Kettle', 'Lark', 'Marsh', 'Mill', 'Northam', 'Oakes', 'Pike', 'Quill', 'Reed', 'Rook', 'Sable', 'Thorne', 'Tanner', 'Underhill', 'Vance', 'Wainwright', 'Webb', 'Wilde', 'Yarrow', 'Cobb', 'Hale', 'Stone', 'Fisher', 'Cooper', 'Smith', 'Mason', 'Fletcher'];
+
 export const DYNASTY_NAMES = ['Ashborn', 'Emberhall', 'Stormvale', 'Ironwood', 'Goldmere', 'Ravencrest', 'Oakheart', 'Frostholm', 'Brightwater', 'Stonebrook', 'Wolfsbane', 'Dawnridge'];

@@ -30,6 +30,7 @@ DEFAULT_FILES = {
     "units": ["Units.png"],
     "people": ["People.png"],
     "boats": ["Boats.png"],
+    "magic": ["Magic.png"],
     "nature": ["Tiles.png", "Nature.png"],
     "items": ["Items.png", "Tools.png", "Icons.png"],
     "effects": ["Effects.png", "Weather.png"],

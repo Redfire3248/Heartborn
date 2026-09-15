@@ -93,7 +93,7 @@ export const BUILDINGS = {
   monastery:       { name: 'Monastery',        era: 2, size: 2, cost: { wood: 50, stone: 60 },              work: 40, learn: 0.3, fate: 0.05, desc: 'Monks teach and pray: skills grow 30% faster.' },
   observatory:     { name: 'Observatory',      era: 2, size: 1, cost: { stone: 50, gems: 2 },               work: 30, spot: 0.2, learn: 0.1, desc: 'Watch the horizon: armies spotted far more often.' },
   university:      { name: 'University',       era: 3, size: 2, cost: { stone: 120, gold: 40 },             work: 60, learn: 0.8, influence: 3, desc: 'Scholars everywhere: skills grow 80% faster.' },
-  mage_tower:      { name: 'Mage Tower',       era: 3, size: 1, cost: { stone: 100, gems: 8 },              work: 50, fate: 0.15, influence: 6, defense: 6, desc: 'Arcane wards: +15% luck, +6 influence a day.' },
+  mage_tower:      { name: 'Mage Tower',       era: 3, size: 1, cost: { stone: 100, gems: 8 },              work: 50, fate: 0.15, influence: 6, defense: 6, workplace: 'magic', slots: 2, desc: 'Wizards study here (faster mana and magic). Arcane wards: +15% luck, +6 influence a day.' },
 
   // ================= intrigue, gunpowder and the modern ages =================
   // ---- Espionage & gunpowder

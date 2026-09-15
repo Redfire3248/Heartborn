@@ -20,6 +20,9 @@ import { openRealmMap } from './realmMap.js';
 // phones and tablets: no right-click, no Esc key
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 import { computeBridges, bridgeAt } from '../game/bridges.js';
+import { talentLabel, fullName, EGO_PROUD } from '../game/talents.js';
+import { SPELLS, canCast, castSpell } from '../game/magic.js';
+import { TOPICS, talkTo } from '../game/talk.js';
 import { activeGoals, claimGoal, rewardText, goalsLeftInEra } from '../game/goals.js';
 import { findAt, collectFind } from '../game/finds.js';
 import { describeBuilding, effectBadges } from '../data/describe.js';
@@ -41,7 +44,7 @@ const TOP_RES = ['food', 'wood', 'stone', 'iron', 'weapons', 'bombs', 'gold', 'g
 const SHOW_WHEN = { bombs: g => g.state.resources.bombs > 0 || g.hasBuilding('powder_mill'), science: g => g.state.resources.science > 0 || g.state.era >= 3 };
 const TASK_TEXT = {
   wander: 'Wandering', patrol: 'On patrol', flee: 'Fleeing!', fight: 'Fighting!', hunt: 'Hunting', eat: 'Eating',
-  spytrain: 'Learning the spy trade', train: 'Drilling for war', craft: 'Forging weapons', rest: 'Sleeping', heal: 'Being healed', build: 'Building', chop: 'Chopping wood', mine: 'Mining', gather: 'Gathering',
+  study: 'Studying magic', spytrain: 'Learning the spy trade', train: 'Drilling for war', craft: 'Forging weapons', rest: 'Sleeping', heal: 'Being healed', build: 'Building', chop: 'Chopping wood', mine: 'Mining', gather: 'Gathering',
   deepmine: 'Mining deep', farm: 'Farming', fish: 'Fishing', explore: 'Exploring the wilds',
 };
 const MINI_COLORS = ['#1d4e89', '#3a9ad9', '#e3cd8c', '#5c9e3c', '#66a843', '#8a5a36', '#44613a', '#55535a', '#eef4fa', '#e5561e', '#8c8c8c', '#6b4526'];
@@ -970,7 +973,7 @@ export class HUD {
             h('div.faint', `House ${g.state.ruler.dynasty} · Age ${Math.floor(ruler.age)}${ruler.age < ADULT_AGE ? ' · ruling through a regent' : ''}`))),
         h('div.row', icon(type.icon, 22), h('b', type.label), h('span.faint', type.desc)),
         h('div.row', { style: { flexWrap: 'wrap', gap: '4px' } }, effects),
-        h('div.faint', 'The ruler’s traits decide their type. Raise your heir with the Leader or Scholar calling, and shape them with Praise, Mentor and Discipline.'),
+        h('div.faint', 'The ruler’s traits and talents decide their type. Shape your heir with Praise, Mentor and Discipline.'),
         h('div.field', h('label', 'Heir'),
           h('select.input', { onchange: e => setHeir(g, g.state.villagers.find(x => x.id === e.target.value) || null) },
             h('option', { value: '' }, '— Eldest child of the ruler —'),
@@ -1516,7 +1519,7 @@ export class HUD {
       isHeir ? h('span.chip', '⭐ Heir') : null,
       v.office ? h('span.chip.good', OFFICES[v.office].name) : null,
       v.traits.includes('knighted') ? h('span.chip.good', '⚔ Knight') : isTrained(v) ? h('span.chip', 'Trained soldier') : null,
-      v.calling ? h('span.chip', `Calling: ${CALLINGS[v.calling].label}`) : null,
+      v.gifted ? h('span.chip.good', { title: 'Born stronger than others. Learns their talents three times as fast, but may grow proud.' }, '★ Gifted') : null,
       v.age >= ADULT_AGE ? h(`span.chip${isVersatile(v) ? '.good' : ''}`, { title: isVersatile(v) ? 'Can work in any job' : 'Works in this trade (or gathers food). Only a Jack of all trades can switch.' }, `🧰 ${professionLabel(v)}`) : null,
     ].filter(Boolean);
 
@@ -1524,14 +1527,22 @@ export class HUD {
       h('div.row', { style: { gap: '12px' } },
         h('div.portrait', icon(villagerSprite({ ...v, role }), 72)),
         h('div.col', { style: { gap: '2px' } },
-          h('div.title', v.traits.includes('knighted') ? `Sir ${v.name}` : v.name),
+          h('div.title', v.traits.includes('knighted') ? `Sir ${fullName(v)}` : fullName(v)),
           h('div.faint', `${v.sex === 'f' ? '♀' : '♂'} Age ${Math.floor(v.age)} · Gen ${v.gen || 1}${g.state.ruler?.dynasty && (v.ruling || v.parents?.includes(g.state.ruler.id)) ? ` · House ${g.state.ruler.dynasty}` : ''}`),
           h('div', { style: { fontSize: '13px' } }, v.sick ? '🤒 ' : '', task),
           partner ? h('div.faint', `♥ ${partner.name}`) : null,
           parents.length ? h('div.faint', `Child of ${parents.join(' & ')}`) : null)),
       badges.length ? h('div.traits', badges) : null,
-      h('div.traits', v.traits.length
-        ? v.traits.map(t => h(`span.chip.${TRAITS[t]?.good ? 'good' : 'bad'}`, { title: TRAITS[t]?.desc }, `${TRAITS[t]?.earned ? '★ ' : ''}${TRAITS[t]?.label || t}`))
+      // natural talents: what they were born good at (they learn these fast)
+      v.talents?.length ? h('div.talents', h('span.faint', 'Natural talents'),
+        ...v.talents.map((t, i) => h(`span.chip${i === 0 ? '.good' : ''}`, { title: i === 0 ? 'Main talent: decides their trade' : 'Second talent' }, `${i === 0 ? '★ ' : ''}${talentLabel(t)}`))) : null,
+      v.gifted && !v.ruling ? h('div.stat', { title: 'Gifted people grow proud unless they are respected (an office, a knighthood, Discipline). At full pride they rebel.' },
+        h('span', (v.ego || 0) >= EGO_PROUD ? 'Pride!' : 'Pride'), bar((v.ego || 0) / 100, (v.ego || 0) >= EGO_PROUD ? '#ff7a4a' : '#c9a0ff'), h('span', Math.round(v.ego || 0))) : null,
+      h('div.row', { style: { flexWrap: 'wrap', gap: '4px' } },
+        h('button.btn.sm', { onclick: () => this.talkModal(v) }, pxIcon('people'), 'Talk')),
+      v.job === 'mage' ? this.spellCard(v) : null,
+      h('div.traits', v.traits.filter(t => t !== 'gifted').length
+        ? v.traits.filter(t => t !== 'gifted').map(t => h(`span.chip.${TRAITS[t]?.good ? 'good' : 'bad'}`, { title: TRAITS[t]?.desc }, `${TRAITS[t]?.earned ? '★ ' : ''}${TRAITS[t]?.label || t}`))
         : h('span.faint', 'No notable traits yet')),
       statRow('Health', v.hp, v.hp > 40 ? '#6fdc5a' : '#ff5a4a'),
       statRow('Hunger', v.hunger, '#ffb44a'),
@@ -1553,10 +1564,7 @@ export class HUD {
       h('div.skills', Object.entries(v.skills).map(([k, val]) => h('div.skill', h('span', `${k} ${Math.floor(val)}`), bar(val / 10)))),
 
       v.age < ADULT_AGE
-        ? h('div.field', h('label', 'Calling — what should they grow up to be?'),
-          h('select.input', { onchange: e => { setCalling(g, v, e.target.value); this.updateInspector(true); } },
-            Object.entries(CALLINGS).map(([id, c]) => h('option', { value: id, selected: (v.calling || 'none') === id }, c.label))),
-          h('div.faint', CALLINGS[v.calling || 'none'].desc))
+        ? h('div.faint', `A child. They will grow up to work with their talent${v.talents?.[0] ? ` for ${talentLabel(v.talents[0]).toLowerCase()}` : ''}.`)
         : v.office || v.ruling
           ? (v.office ? h('div.law.active', h('div', h('b', `👑 ${OFFICES[v.office].name}`), h('div.faint', OFFICES[v.office].desc)),
             h('button.btn.sm', { onclick: () => dismiss(g, v.office) }, 'Dismiss')) : null)
@@ -1596,6 +1604,38 @@ export class HUD {
           if (await confirmModal(`Sacrifice ${v.name}?`, `The gods grant +40 influence and great luck for 2 days. −15 karma.${v.ruling ? ' Sacrificing your own ruler will throw the realm into chaos.' : ''}`, { okLabel: 'Sacrifice', okClass: 'evil' })) this.float(sacrificeVillager(g, v));
         } }, '🩸 Sacrifice')),
     ];
+  }
+
+  /** Mana and spells for a wizard. */
+  spellCard(v) {
+    const g = this.game;
+    return h('div.ability',
+      h('div.ability-head', icon('people/mage_' + (v.sex === 'f' ? 'f' : 'm'), 30), h('div', h('div.ability-name', 'Magic'), h('div.faint', `Magic skill ${Math.floor(v.skills.magic || 0)} · wizards cast on their own when monsters come or someone is hurt`))),
+      h('div.stat', h('span', 'Mana'), bar((v.mana || 0) / 100, '#8fb4ff'), h('span', Math.floor(v.mana || 0))),
+      h('div.spells', Object.entries(SPELLS).map(([id, sp]) => {
+        const ok = canCast(g, v, id);
+        return h('button.btn.sm.spell', {
+          disabled: ok !== true,
+          title: `${sp.desc} (${sp.mana} mana${sp.minSkill ? `, magic ${sp.minSkill}+` : ''})${ok === true ? '' : ` · ${ok}`}`,
+          onclick: () => { const r = castSpell(g, v, id); if (r.error) this.hint(r.error, 1800); else play('ability'); this.updateInspector(true); },
+        }, icon(sp.icon, 16), sp.label, h('span.spell-cost', sp.mana));
+      })));
+  }
+
+  /** A short conversation with a villager. */
+  talkModal(v) {
+    const g = this.game;
+    const lines = h('div.talk-lines');
+    const add = (who, text) => { lines.append(h(`div.talk-line.${who}`, text)); lines.scrollTop = lines.scrollHeight; };
+    const first = talkTo(g, v, 'how');
+    add('them', first);
+    const m = modal([
+      h('div.row', { style: { gap: '12px' } }, h('div.portrait', icon(villagerSprite({ ...v, role: displayRole(v) }), 56)),
+        h('div', h('h2', { style: { margin: 0 } }, fullName(v)), h('div.faint', `${professionLabel(v)} · age ${Math.floor(v.age)}`))),
+      lines,
+      h('div.talk-topics', TOPICS.map(([id, label]) => h('button.btn.sm', { onclick: () => { add('you', label); add('them', talkTo(g, v, id)); } }, label))),
+      h('div.row', h('div.spacer'), h('button.btn.ghost', { onclick: () => m.close() }, 'Goodbye')),
+    ]);
   }
 
   /** The building's special action: button, cost and recharge timer. */

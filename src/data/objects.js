@@ -70,7 +70,7 @@ let peopleSprites = false;
 export const setPeopleSprites = on => { peopleSprites = !!on; };
 const JOB_PROFESSION = {
   gather: 'gatherer', chop: 'woodcutter', mine: 'miner', farm: 'farmer', fish: 'fisher', hunt: 'hunter', build: 'builder',
-  smith: 'smith', spy: 'spy', recruit: 'recruit', warrior: 'warrior', scout: 'scout', explore: 'explorer',
+  smith: 'smith', spy: 'spy', recruit: 'recruit', warrior: 'warrior', scout: 'scout', explore: 'explorer', mage: 'mage',
 };
 const OFFICE_PROFESSION = { steward: 'noble', master_builder: 'builder', marshal: 'knight', spymaster: 'spy', treasurer: 'clerk', high_priest: 'priest' };
 const FIGHTING_JOBS = new Set(['warrior', 'recruit', 'scout', 'spy']);
@@ -79,8 +79,6 @@ function professionSprite(v) {
   const sx = v.sex === 'f' ? 'f' : 'm';
   if (v.age < 12) return `people/child_${sx}`;
   if (v.ruling) return null;                                  // kings and queens keep their royal sprites
-  // the rare genius studies the stars: they wear a wizard's robe (unless they are off fighting)
-  if (!v.office && v.traits?.includes('genius') && v.age >= 16 && !FIGHTING_JOBS.has(v.job)) return `people/mage_${sx}`;
   let prof = v.office ? OFFICE_PROFESSION[v.office] : JOB_PROFESSION[v.job];
   // a warrior with no weapon handed out yet has nothing to carry: they look like a recruit
   if (prof === 'warrior' && !v.office && !v.armed) prof = 'recruit';

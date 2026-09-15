@@ -94,6 +94,19 @@ window.SHEETS = {
       "dock", "buoy", "anchor", "ship_wheel", "treasure_chest", "sea_serpent"
     ]
   },
+  magic: {
+    title: "Sheet 11 - Magic & Moods",
+    folder: "magic",
+    mode: "sprite",
+    names: [
+      "fireball", "heal_light", "blessing", "arcane_ward", "lightning_bolt", "portal",
+      "mana_crystal", "mana_potion", "spellbook", "wizard_staff", "magic_wand", "rune_circle",
+      "frost_blast", "poison_cloud", "shield_rune", "arcane_burst", "wisp", "crystal_ball",
+      "talent_star", "proud", "rebel", "rebel_flag", "broken_chains", "duel",
+      "talk_dots", "talk_alert", "talk_love", "talk_question", "talk_angry", "talk_music",
+      "family_crest", "cradle", "wedding_rings", "family_tree", "flower_grave", "laurel"
+    ]
+  },
   nature: {
     title: "Sheet 3 - Tiles & Nature",
     folder: "nature",

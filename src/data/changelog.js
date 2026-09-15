@@ -1,6 +1,17 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Talents, pride, magic and talking',
+    changes: [
+      'No more Calling picker: everyone is born with one or two natural talents (often their parents\' talents) that decide their trade and grow fast',
+      'Some are born Gifted: they learn three times as fast, but grow proud unless respected. Full pride means rebellion: honour them, chain them, duel them or exile them',
+      'Magic: the rare Magic talent makes Wizards. They study at a Mage Tower, build mana and cast Healing Light, Fireball, Bless the Harvest, Arcane Ward and Lightning Storm',
+      'Villagers talk: speech bubbles and little conversations, and a Talk button to ask how they are, what they think of you and what is going on',
+      'Family names: households share a surname, children take after their parents (traits both parents share almost always pass on)',
+      'Births are paced: mothers rest between babies and families raise up to six children, so villages grow steadily instead of exploding',
+    ],
+  },
+  {
     title: 'Trades that work, tools and a warrior king',
     changes: [
       'Fixed: every newcomer was becoming a Gatherer. Villages are repaired once: people get the trade, skill and tool they should have had',

@@ -120,11 +120,13 @@ export class Renderer {
 
     this.drawGhost(g);
     this.drawParticles(g);
+    this.drawBeams(g);
     this.drawLighting(g, ox, oy, s);
     this.drawWeather(g, dt);
 
     // screen-space overlays
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.drawBubbles(g, ox, oy, s);
     this.drawFloaters(g, ox, oy, s);
   }
 
@@ -379,6 +381,65 @@ export class Renderer {
     ctx.fillRect(gh.tx * TILE, gh.ty * TILE, def.size * TILE, def.size * TILE);
     ctx.strokeRect(gh.tx * TILE + 0.5, gh.ty * TILE + 0.5, def.size * TILE - 1, def.size * TILE - 1);
     drawSprite(ctx, `buildings/${gh.type}`, (gh.tx + def.size / 2) * TILE, (gh.ty + def.size) * TILE - 2, def.size * TILE * 1.12, { alpha: 0.7 });
+  }
+
+  /** Spell beams: a glowing line that fades in half a second. */
+  drawBeams(g) {
+    const beams = g.fx.beams;
+    if (!beams?.length) return;
+    const { ctx } = this;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    for (const b of beams) {
+      const a = Math.max(0, b.life / b.max);
+      ctx.strokeStyle = b.color;
+      ctx.globalAlpha = a * 0.35;
+      ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke();
+      ctx.globalAlpha = a;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** Speech bubbles over villagers' heads (only when zoomed in enough to read them). */
+  drawBubbles(g, ox, oy, s) {
+    if (this.camera.zoom < 1.5 || g.visiting) return;
+    const { ctx } = this;
+    const t = performance.now();
+    const W = this.canvas.width / this.dpr, H = this.canvas.height / this.dpr;
+    ctx.font = '600 11px Rubik, "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    let drawn = 0;
+    const placed = [];   // bubbles already drawn this frame, so neighbours stack instead of overlapping
+    for (const v of g.state.villagers) {
+      const b = v._say;
+      if (!b || v.away || t < (b.from || 0) || t > b.until) continue;
+      const x = (v.x * s + ox) / this.dpr;
+      let y = ((v.y - TILE * (v.age < 12 ? 0.8 : 1.15)) * s + oy) / this.dpr;
+      if (x < -80 || y < -40 || x > W + 80 || y > H + 40) continue;
+      const alpha = Math.min(1, (t - (b.from || b.until - 4200)) / 180, (b.until - t) / 300);
+      const w = Math.min(190, ctx.measureText(b.text).width + 14), h = 20;
+      for (let tries = 0; tries < 4 && placed.some(p => Math.abs(p.x - x) < (p.w + w) / 2 && Math.abs(p.y - y) < h + 3); tries++) y -= h + 4;
+      placed.push({ x, y, w });
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.fillStyle = '#fff6e2';
+      ctx.strokeStyle = '#2a1a10';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(x - w / 2, y - h - 6, w, h, 7);
+      ctx.moveTo(x - 4, y - 6.5); ctx.lineTo(x, y); ctx.lineTo(x + 4, y - 6.5);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#2a1a10';
+      ctx.fillText(b.text, x, y - h / 2 - 6, w - 10);
+      if (++drawn >= 24) break;
+    }
+    ctx.globalAlpha = 1;
+    ctx.textBaseline = 'alphabetic';
   }
 
   drawParticles(g) {

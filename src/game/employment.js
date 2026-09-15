@@ -104,23 +104,7 @@ export function fitness(v, job) {
   return s + v.hp * 0.02 + (v.happy || 0) * 0.02 - (v.sick ? 8 : 0);
 }
 
-const OFFICE_FIT = {
-  steward: { skills: ['farm', 'gather', 'build'], traits: ['clever', 'honest', 'loyal'] },
-  master_builder: { skills: ['build', 'chop'], traits: ['hardworking', 'clever'] },
-  marshal: { skills: ['combat'], traits: ['brave', 'strong', 'loyal'] },
-  spymaster: { skills: ['stealth'], traits: ['sly', 'clever'] },
-  treasurer: { skills: ['craft'], traits: ['clever', 'honest'] },
-  high_priest: { skills: [], traits: ['kind', 'honest', 'wise'] },
-};
-
-/** The best villager to appoint to a court office (not already serving, adult, at home). */
-export function bestForOffice(g, key) {
-  const fit = OFFICE_FIT[key] || { skills: [], traits: [] };
-  const score = v => fit.skills.reduce((n, s) => n + (v.skills?.[s] || 0) * 10, 0) + fit.traits.filter(t => v.traits?.includes(t)).length * 12
-    - (v.traits?.includes('lazy') ? 8 : 0) - (v.traits?.includes('greedy') && key === 'treasurer' ? 15 : 0) + Math.min(v.age, 50) * 0.2;
-  return g.state.villagers.filter(v => v.age >= ADULT_AGE && !v.away && !v.office && !v.ruling && !v.jailed && !v.traitor)
-    .sort((a, b) => score(b) - score(a))[0] || null;
-}
+export { bestForOffice } from './court.js';
 
 /** Auto pick: move the single best available person into a job. Returns them, or null. */
 export function autoPick(g, job) {

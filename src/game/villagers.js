@@ -3,7 +3,8 @@ import {
   WALK_SPEED, MAX_SKILL,
 } from '../core/constants.js';
 import { clamp, pick, chance } from '../core/rng.js';
-import { MALE_NAMES, FEMALE_NAMES, BIRTH_TRAITS } from '../data/traits.js';
+import { MALE_NAMES, FEMALE_NAMES, BIRTH_TRAITS, SURNAMES } from '../data/traits.js';
+import { talentLearnMult } from './talents.js';
 import { OBJECTS, CREATURES } from '../data/objects.js';
 import { BUILDINGS, sizeOf } from '../data/buildings.js';
 import { rollFate } from './fate.js';
@@ -27,11 +28,12 @@ export const JOBS = {
   smith:   { label: 'Smith',      icon: 'items/sword',         desc: 'Crafts weapons at a Craft Hut, Blacksmith or Weaponsmith' },
   scout:   { label: 'Scout',      icon: 'effects/marker_flag', desc: 'Watches the borders. Warns the King of attacks earlier' },
   explore: { label: 'Explorer',   icon: 'nature/tree_pine',    desc: 'Ventures into the wild. Great rewards… or death' },
+  mage:    { label: 'Wizard',     icon: 'effects/magic_orb',   desc: 'Born with the gift of magic. Studies at a Mage Tower and casts spells' },
 };
 
 const ITEM_NAMES = { axe: 'Axe', pickaxe: 'Pickaxe', hoe: 'Hoe', hammer: 'Hammer', bow: 'Bow', spear_t: 'Fishing spear' };
 const TOOL = { train: 'items/sword', craft: 'items/hammer', chop: 'items/axe', mine: 'items/pickaxe', deepmine: 'items/pickaxe', farm: 'items/hoe', build: 'items/hammer', hunt: 'items/spear', fight: 'items/sword', fish: 'items/spear', explore: 'items/sword' };
-const WORK_TIME = { spytrain: 8, train: 8, craft: 8, chop: 5, mine: 6, deepmine: 7, gather: 3, farm: 7, fish: 6, hunt: 2.5, explore: 4, heal: 4, eat: 1.5 };
+const WORK_TIME = { study: 8, spytrain: 8, train: 8, craft: 8, chop: 5, mine: 6, deepmine: 7, gather: 3, farm: 7, fish: 6, hunt: 2.5, explore: 4, heal: 4, eat: 1.5 };
 const JOB_ROLE = { farm: 'farmer', mine: 'miner', hunt: 'hunter', warrior: 'warrior', scout: 'scout', smith: 'blacksmith' };
 
 let idCounter = 0;
@@ -41,9 +43,10 @@ export function makeVillager(state, { sex, age = 20, parents = null } = {}) {
   return {
     id: `v${Date.now().toString(36)}${(idCounter++).toString(36)}${Math.floor(Math.random() * 1000)}`,
     name: pick(sex === 'f' ? FEMALE_NAMES : MALE_NAMES),
+    surname: pick(SURNAMES),
     sex, age, x: 0, y: 0,
     hp: 100, hunger: 80, happy: 60,
-    skills: { chop: 0, mine: 0, gather: 0, farm: 0, fish: 0, hunt: 0, build: 0, craft: 0, combat: 0, stealth: 0 },
+    skills: { chop: 0, mine: 0, gather: 0, farm: 0, fish: 0, hunt: 0, build: 0, craft: 0, combat: 0, stealth: 0, magic: 0 },
     traits: Math.random() < 0.3 ? [pick(BIRTH_TRAITS)] : [],
     job: 'idle', partner: null, parents, gen: 1, sick: 0, role: null,
     inv: { pack: {}, coins: 0 }, kills: 0, calling: null, trained: false,
@@ -94,6 +97,7 @@ export function gainSkill(g, v, skill, silent = false) {
   if (v.traits.includes('genius')) rate *= 2;
   if (v.traits.includes('clever')) rate *= 1.5;
   if (v.traits.includes('ambitious')) rate *= 1.25;
+  rate *= talentLearnMult(v, skill);   // natural talents grow fast
   const before = Math.floor(v.skills[skill]);
   v.skills[skill] = Math.min(MAX_SKILL, v.skills[skill] + rate);
   if (!silent && Math.floor(v.skills[skill]) > before) {
@@ -186,11 +190,15 @@ export function dailyVillagers(g) {
     if (s.villagers.length >= g.housing) break;
     const dad = s.villagers.find(v => v.id === mom.partner);
     if (!dad) continue;
-    let p = 0.55 * fertility;
-    if (mom.happy > 65) p *= 1.4;
+    // a mother needs time between babies, and a household only raises so many children
+    if (mom.lastBirthAt != null && s.time - mom.lastBirthAt < DAY_LENGTH * 4) continue;
+    if (s.villagers.filter(c => c.parents?.includes(mom.id)).length >= 6) continue;
+    let p = 0.22 * fertility;
+    if (mom.happy > 65) p *= 1.3;
     if (mom.traits.includes('fertile') || dad.traits.includes('fertile')) p *= 1.5;
     if (s.resources.food < s.villagers.length * 2) p *= 0.4;
     if (chance(p)) {
+      mom.lastBirthAt = s.time;
       birth(g, mom, dad);
       if (chance(0.12) && s.villagers.length < g.housing) birth(g, mom, dad);   // twins
     }
@@ -198,22 +206,34 @@ export function dailyVillagers(g) {
   if (pop === 0) return;
 }
 
+// traits that cannot live in one person
+const OPPOSITE = { brave: 'coward', coward: 'brave', lazy: 'hardworking', hardworking: 'lazy', kind: 'cruel', cruel: 'kind', honest: 'greedy', greedy: 'honest', sickly: 'strong', strong: 'sickly' };
+
 function isFamily(a, b) {
   if (!a.parents || !b.parents) return false;
   return a.parents.some(p => b.parents.includes(p)) || a.parents.includes(b.id) || b.parents.includes(a.id);
 }
 
+/** Test hook: a baby for these parents, right now. */
+export const __birthForTest = (g, mom, dad) => birth(g, mom, dad);
+
 function birth(g, mom, dad) {
   const s = g.state;
   const child = makeVillager(s, { age: 0, parents: [mom.id, dad.id] });
+  child.surname = dad.surname || mom.surname || child.surname;   // the household's family name
   child.x = mom.x + 6; child.y = mom.y + 4;
   child.gen = Math.max(mom.gen || 1, dad.gen || 1) + 1;
   child.traits = [];
   ensureProfession(mom); ensureProfession(dad);
   inheritProfession(child, mom, dad);   // households pass their trade on
-  const inherit = [...mom.traits, ...dad.traits].filter(t => t !== 'blessed' && t !== 'cursed');
-  if (inherit.length && chance(0.5)) child.traits.push(pick(inherit));
-  if (chance(0.15)) { const t = pick(BIRTH_TRAITS); if (!child.traits.includes(t)) child.traits.push(t); }
+  // children take after their parents: each parent trait may pass on, a trait both share almost always does
+  const born = [...new Set([...mom.traits, ...dad.traits])].filter(t => BIRTH_TRAITS.includes(t));
+  for (const t of born) {
+    const both = mom.traits.includes(t) && dad.traits.includes(t);
+    if (chance(both ? 0.75 : 0.35) && !child.traits.includes(OPPOSITE[t])) child.traits.push(t);
+  }
+  if (child.traits.length > 3) child.traits = child.traits.sort(() => Math.random() - 0.5).slice(0, 3);
+  if (chance(0.12)) { const t = pick(BIRTH_TRAITS); if (!child.traits.includes(t) && !child.traits.includes(OPPOSITE[t])) child.traits.push(t); }
   s.villagers.push(child);
   s.stats.births = (s.stats.births || 0) + 1;
   g.puff(child, 'effects/spark', 8);
@@ -373,6 +393,14 @@ function chooseTask(g, v) {
       // trained spies keep watch in the shadows around the village
       const p = g.randomLandTile(4, 12);
       if (p) { setTask(v, { type: 'patrol', x: p.x, y: p.y, wait: 4 + Math.random() * 4 }); return; }
+      break;
+    }
+    case 'mage': {
+      // wizards study at a Mage Tower; without one they meditate near the village
+      const tower = freeWorkplace(g, v, 'magic');
+      if (tower) { setTask(v, { type: 'study', building: tower, ...standAt(g, tower) }); return; }
+      const p = g.randomLandTile(2, 7);
+      if (p) { setTask(v, { type: 'study', ...p }); return; }
       break;
     }
     case 'prisoner': {
@@ -661,6 +689,14 @@ function runTask(g, v, dt) {
       if ((t.timer -= dt) > 0) return;
       rollFate(g, t.type, v, t.target);
       consumeObject(g, obj, t.type);
+      releaseTask(v);
+      return;
+    }
+
+    case 'study': {
+      if ((t.timer -= dt) > 0) return;
+      gainSkill(g, v, 'magic', true);
+      if (t.building) { gainSkill(g, v, 'magic'); v.mana = Math.min(100, (v.mana || 0) + 10); }
       releaseTask(v);
       return;
     }
