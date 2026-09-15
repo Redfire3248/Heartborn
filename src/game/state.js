@@ -16,7 +16,7 @@ export function newState({ uid, name, villageName }) {
     owner: { uid, name, villageName },
     time: 90 * 0.3,          // dawn of day one
     center: start,
-    resources: { food: 25, wood: 10, stone: 0, coal: 0, iron: 0, weapons: 0, bombs: 0, gold: 0, gems: 0, science: 0, influence: 20 },
+    resources: { food: 25, wood: 15, stone: 10, coal: 0, iron: 0, weapons: 0, bombs: 0, gold: 0, gems: 0, science: 0, influence: 20 },
     karma: 0,
     era: 0,
     villagers: [],
@@ -29,6 +29,9 @@ export function newState({ uid, name, villageName }) {
     modifiers: [{ id: 'founding_spirit', work: 0.5, join: 0.25, happy: 10, until: 90 * 3 }],
     goals: { claimed: [], chests: [] },
     finds: [],
+    tradeFix: 1,
+    toolsGiven: 1,
+    skillsGiven: 1,
     incoming: [],
     court: {},
     tutorial: { step: 0, done: false },
@@ -41,19 +44,25 @@ export function newState({ uid, name, villageName }) {
     camera: { x: start.x, y: start.y, zoom: 2 },
   };
 
-  const jobs = ['gather', 'chop', 'build'];
-  const people = [
-    makeVillager(state, { sex: 'm', age: 22 }),
-    makeVillager(state, { sex: 'f', age: 20 }),
-    makeVillager(state, { sex: 'm', age: 24 }),
+  // the founders: a warrior who will be king, a blacksmith and a woodcutter, each with the tools of their trade
+  const founders = [
+    { sex: 'm', age: 26, profession: 'warrior', job: 'warrior', skill: ['combat', 5], pack: { sword: 1 }, trained: true, traits: ['brave'] },
+    { sex: 'm', age: 24, profession: 'smith', job: 'smith', skill: ['craft', 4], pack: { hammer: 1 } },
+    { sex: 'f', age: 21, profession: 'chop', job: 'chop', skill: ['chop', 4], pack: { axe: 1 } },
   ];
-  people.forEach((v, i) => {
+  founders.forEach((f, i) => {
+    const v = makeVillager(state, { sex: f.sex, age: f.age });
     v.x = start.x + (i - 1) * TILE;
     v.y = start.y + TILE * 0.5;
-    v.job = jobs[i];
-    v.traits = [];
+    v.job = f.job;
+    v.profession = f.profession;
+    v.skills[f.skill[0]] = f.skill[1];
+    v.inv.pack = { ...f.pack };
+    v.trained = !!f.trained;
+    v.traits = f.traits || [];
     state.villagers.push(v);
   });
+  state.ruler = { heirId: state.villagers[0].id };   // the warrior is crowned first
   return state;
 }
 

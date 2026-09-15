@@ -14,10 +14,25 @@ export const PROFESSIONS = {
 const WEIGHTS = { gather: 16, chop: 14, mine: 12, farm: 14, fish: 6, hunt: 8, build: 12, smith: 6, warrior: 5, scout: 3, spy: 1, explore: 3 };
 const CALLING_TRADE = { soldier: 'warrior', farmer: 'farm', crafter: 'smith', hunter: 'hunt', scholar: 'build', priest: 'gather', leader: 'build' };
 
+// the skill each trade is born with (spies are born sneaky, soldiers born to fight)
+export const TRADE_SKILL = { gather: 'gather', chop: 'chop', mine: 'mine', farm: 'farm', fish: 'fish', hunt: 'hunt', build: 'build', smith: 'craft', warrior: 'combat', scout: 'stealth', spy: 'stealth', explore: 'combat' };
+const ADULT = 16;
+
+/** Give someone the skill of their trade: a head start as a child, a real working skill as an adult. */
+export function grantTradeSkill(v) {
+  const skill = TRADE_SKILL[v.profession];
+  if (!skill || !v.skills) return;
+  const adult = (v.age ?? 20) >= ADULT;
+  const level = adult ? 3 + Math.random() * 2 : 1 + Math.random();
+  v.skills[skill] = Math.max(v.skills[skill] || 0, Math.round(level * 10) / 10);
+  if (adult && v.profession === 'warrior') v.trained = true;   // soldiers by trade are trained soldiers
+  if (adult && v.profession === 'spy') v.spyTrained = true;
+}
+
 export const VERSATILE = 'versatile';
 export const isVersatile = v => !!v.traits?.includes(VERSATILE) || !!v.robot;
 
-function randomTrade() {
+export function randomTrade() {
   const total = Object.values(WEIGHTS).reduce((a, b) => a + b, 0);
   let r = Math.random() * total;
   for (const [k, w] of Object.entries(WEIGHTS)) if ((r -= w) < 0) return k;
@@ -30,6 +45,7 @@ const makeVersatile = v => { if (!isVersatile(v)) v.traits = [...(v.traits || []
 export function ensureProfession(v, { versatileChance = 0.18 } = {}) {
   if (v.profession && PROFESSIONS[v.profession]) return v.profession;
   v.profession = PROFESSIONS[v.job] ? v.job : v.job === 'recruit' ? 'warrior' : randomTrade();
+  grantTradeSkill(v);
   if (chance(versatileChance)) makeVersatile(v);
   return v.profession;
 }
@@ -39,6 +55,7 @@ export function inheritProfession(child, mom, dad) {
   const parents = [mom, dad].filter(Boolean);
   const followParent = parents.length && chance(0.7);
   child.profession = followParent ? pick(parents).profession || randomTrade() : randomTrade();
+  grantTradeSkill(child);
   const versatileParents = parents.filter(isVersatile).length;
   if (chance(0.1 + versatileParents * 0.15)) makeVersatile(child);
 }
@@ -48,18 +65,22 @@ export function shareHousehold(members) {
   const [first, ...rest] = members;
   if (!first) return;
   ensureProfession(first);
-  for (const m of rest) if (chance(0.65)) m.profession = first.profession;
+  for (const m of rest) if (chance(0.65)) { m.profession = first.profession; grantTradeSkill(m); }
 }
 
 /** A child's calling decides their trade (Leaders learn a bit of everything). */
 export function professionFromCalling(v) {
   if (!v.calling || !CALLING_TRADE[v.calling]) return;
   v.profession = CALLING_TRADE[v.calling];
+  grantTradeSkill(v);
   if (v.calling === 'leader') makeVersatile(v);
 }
 
 // anyone can rest or forage for food; spies are recruited and trained at a Spy Den, not born to it
-const ALWAYS = new Set(['idle', 'gather', 'spy']);
+const ALWAYS = new Set(['idle', 'gather', 'spy', 'mine']);   // anyone can swing a pickaxe
+
+/** The tool (an item) each trade works with. The smith makes them. */
+export const TRADE_TOOL = { chop: 'axe', mine: 'pickaxe', farm: 'hoe', build: 'hammer', smith: 'hammer', hunt: 'bow', fish: 'spear_t' };
 
 export function canDoJob(v, job) {
   if (ALWAYS.has(job) || isVersatile(v)) return true;

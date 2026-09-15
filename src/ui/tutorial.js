@@ -14,6 +14,7 @@ export const STEPS = [
   { title: 'Look around', text: 'Drag the ground (or use W A S D) to move the camera. Scroll the mouse wheel (or Q / E) to zoom. Press H any time to jump back home.', next: true },
   { title: 'Open the Build menu', text: 'Click the hammer on the left, or press B.', dock: 'build', done: (g, hud) => hud.panel === 'build' },
   { title: 'Light a Campfire', text: 'Pick Campfire and click an open grass tile. The campfire is the heart of your village.', dock: 'build', done: g => has(g, 'campfire') },
+  { title: "The blacksmith's workshop", text: 'Place a Craft Hut. Your blacksmith makes tools there: people with the right tool work much faster.', dock: 'build', done: g => has(g, 'craft_hut') },
   { title: 'Give them shelter', text: 'Place a Tent near the fire. Homes let your people have children. Tip: hold and drag to place several at once.', dock: 'build', done: g => has(g, 'tent') },
   { title: 'Somewhere to store things', text: 'Place a Stockpile so resources don’t go to waste.', dock: 'build', done: g => has(g, 'stockpile') },
   { title: 'Watch them build', text: 'Your villagers build on their own. Wait for the Campfire to be finished.', done: g => has(g, 'campfire', true) },

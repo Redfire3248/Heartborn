@@ -239,7 +239,7 @@ function startGame(user, game, { online = true } = {}) {
   game.on('extinct', () => extinctScreen(() => { document.querySelector('.modal-bg')?.remove(); restart(); }));
   if (game.day === 0 && !game.state.buildings.length) {
     game.announce(`${game.state.owner.villageName} is founded`);
-    app.hud.hint('Open Build (B) and place a Campfire and a Tent. Your people will do the rest.', 9000);
+    app.hud.hint('Open Build (B) and place a Campfire, then a Craft Hut for your blacksmith. Your people will do the rest.', 9000);
   }
 }
 

@@ -2,7 +2,7 @@ import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, 
 import { iconUrl } from '../core/assets.js';
 import { TILE, ADULT_AGE, MAP_W, MAP_H, RESOURCES, DAY_LENGTH } from '../core/constants.js';
 import { BUILDINGS, ERAS, CATEGORIES, sizeOf } from '../data/buildings.js';
-import { OFFICES, officeUnlocked, officialOf, appoint, dismiss, setOfficeOption } from '../game/court.js';
+import { OFFICES, officeUnlocked, officialOf, appoint, dismiss, setOfficeOption, TRADE_WORKPLACE } from '../game/court.js';
 import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
 import { TRAITS } from '../data/traits.js';
 import { JOBS, assignJob, displayRole } from '../game/villagers.js';
@@ -16,13 +16,16 @@ import { rally, standDown, tributeCost, payWarbandTribute, scoutSummary } from '
 import { leaderboard } from '../net/save.js';
 import { fmtRes, travelMs, fmtMinutes, realmPos } from '../net/multiplayer.js';
 import { openRealmMap } from './realmMap.js';
+
+// phones and tablets: no right-click, no Esc key
+const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 import { computeBridges, bridgeAt } from '../game/bridges.js';
 import { activeGoals, claimGoal, rewardText, goalsLeftInEra } from '../game/goals.js';
 import { findAt, collectFind } from '../game/finds.js';
 import { describeBuilding, effectBadges } from '../data/describe.js';
 import { Tutorial } from './tutorial.js';
 import { abilityOf, abilityCooldown, canUseAbility, useAbility } from '../game/abilities.js';
-import { canDoJob, isVersatile, professionLabel } from '../game/professions.js';
+import { canDoJob, isVersatile, professionLabel, PROFESSIONS } from '../game/professions.js';
 import { hasOffice, employmentOf, setTarget, applyNow, applyPreset, moveWorkers, autoPick, bestForOffice, STAFFABLE, JOB_SKILL } from '../game/employment.js';
 import { empireOf, empirePower, empireTitle, empireAction, ACTIONS as EMPIRE_ACTIONS, PERSONALITIES, STATUS } from '../game/empire.js';
 import { openProfile, friendsPanel } from './social.js';
@@ -156,6 +159,14 @@ export class HUD {
         this.onBackToMenu?.();
       },
     }, h('span.back-arrow', '‹'), h('span.home-label', 'Back')));
+    // jump the camera back to the village (the H key, for phones)
+    this.root.append(h('button.card.center-btn', {
+      title: 'Back to your village (H)',
+      onclick: () => { if (this.visiting) { this.onReturnHome(); return; } this.follow = null; this.input.panTo(this.game.center.x, this.game.center.y); },
+    }, pxIcon('target'), h('span.home-label', 'Village')));
+    // what right-click / Esc do on a computer, as buttons (phones have neither)
+    this.els.touchBar = h('div.touch-bar');
+    this.root.append(this.els.touchBar);
     this.drawMinimapBase();
 
     this.els.threats = h('div.threats');
@@ -226,6 +237,7 @@ export class HUD {
     if (this.els.season.textContent !== seasonText) this.els.season.textContent = seasonText;
 
     this.updateInspector();
+    this.updateTouchBar();
     this.updateGoals();
     this.updateThreats();
     this.drawMinimapDots();
@@ -252,6 +264,25 @@ export class HUD {
     else if (k === 'l') this.togglePanel('log');
     else if (k === 'm') this.togglePanel('world');
     else if (k === 'h') { this.follow = null; this.input.panTo(this.game.center.x, this.game.center.y); }
+  }
+
+  /** Cancel / Done / Undo buttons while placing or demolishing: the on-screen right-click and Esc. */
+  updateTouchBar() {
+    const mode = this.buildType ? `build:${this.buildType}` : this.demolishMode ? 'demolish' : '';
+    const key = `${mode}|${this.undoStack?.length ? 1 : 0}`;
+    if (this._touchKey === key) return;
+    this._touchKey = key;
+    const bar = this.els.touchBar;
+    bar.hidden = !mode;
+    if (!mode) { bar.replaceChildren(); return; }
+    const undo = this.undoStack?.length ? h('button.btn', { onclick: () => this.undo() }, 'Undo') : null;
+    bar.replaceChildren(...[
+      h('span.touch-label', this.buildType ? `Placing ${BUILDINGS[this.buildType].name}` : 'Demolishing'),
+      undo,
+      this.buildType
+        ? h('button.btn.danger', { onclick: () => this.cancelBuild() }, 'Cancel')
+        : h('button.btn.primary', { onclick: () => this.toggleDemolish(false) }, 'Done'),
+    ].filter(Boolean));
   }
 
   // ------------------------------------------------------------ goals
@@ -475,7 +506,7 @@ export class HUD {
     this.demolishDrag = null;
     this.renderer.ghost = null;
     this.planTip?.remove();
-    if (on) this.hint('🗑 Demolish — click a building or drag a box over many · X / Esc / right-click to stop');
+    if (on) this.hint(TOUCH ? 'Demolish: tap a building or drag a box over many · tap Done to stop' : '🗑 Demolish — click a building or drag a box over many · X / Esc / right-click to stop');
     else this.hintEl?.remove();
   }
 
@@ -595,7 +626,7 @@ export class HUD {
     this.buildType = type;
     this.lastBuild = type;
     this.select(null);
-    this.hint(`Placing ${BUILDINGS[type].name} — click to build · drag to fill an area · Right-click/Esc to cancel`);
+    this.hint(TOUCH ? `Placing ${BUILDINGS[type].name}: tap to build · drag to fill an area · tap Cancel to stop` : `Placing ${BUILDINGS[type].name} — click to build · drag to fill an area · Right-click/Esc to cancel`);
   }
 
   cancelBuild() {
@@ -618,7 +649,7 @@ export class HUD {
   clearHint(el) { if (el && this.hintEl === el) { el.remove(); this.hintEl = null; } }
 
   startBuildHintRestore() {
-    if (this.buildType && !this.root.contains(this.hintEl)) this.hint(`Placing ${BUILDINGS[this.buildType].name} — click or drag to build · Right-click/Esc to cancel`);
+    if (this.buildType && !this.root.contains(this.hintEl)) this.hint(TOUCH ? `Placing ${BUILDINGS[this.buildType].name}: tap or drag to build · tap Cancel to stop` : `Placing ${BUILDINGS[this.buildType].name} — click or drag to build · Right-click/Esc to cancel`);
   }
 
   // ------------------------------------------------------------ panels
@@ -859,10 +890,24 @@ export class HUD {
         h('span.chip', icon('items/sword', 16), `${Math.floor(g.state.resources.weapons)} weapons`)));
       const steward = officialOf(g, 'steward');
       const manual = adults.filter(v => v.manual).length;
+      // what the Steward cannot fix alone: people whose trade has no workplace
+      const short = Object.entries(g.state.court?.steward?.shortages || {}).filter(([, n]) => n > 0);
+      const shortText = short.map(([trade, n]) => {
+        const w = TRADE_WORKPLACE[trade];
+        // suggest the workplace you can build that fits the most workers
+        const type = w.build.filter(t => BUILDINGS[t] && BUILDINGS[t].era <= g.state.era).sort((a, b) => (BUILDINGS[b].slots || 1) - (BUILDINGS[a].slots || 1))[0] || w.build[0];
+        const per = BUILDINGS[type]?.slots || 1;
+        const need = Math.ceil(n / per);
+        const who = n === 1 ? PROFESSIONS[trade] : trade === 'spy' ? 'Spies' : `${PROFESSIONS[trade]}s`;
+        return `${n} ${who} need ${need} more ${BUILDINGS[type]?.name || type}${need === 1 ? '' : 's'}`;
+      });
       body.append(steward
-        ? h('div.law.active', h('div', h('b', `Steward ${steward.name} manages jobs`), h('div.faint', `${manual} villager${manual === 1 ? '' : 's'} follow your personal orders instead.`)),
+        ? h('div.law.active', h('div',
+            h('b', `Steward ${steward.name} puts everyone to work in their trade`),
+            h('div.faint', `${manual} villager${manual === 1 ? '' : 's'} follow your personal orders instead. Jacks of all trades fill the gaps.`),
+            shortText.length ? h('div.steward-short', `Gathering food until there is room: ${shortText.join(' · ')}.`) : null),
           manual ? h('button.btn.sm', { onclick: () => { for (const v of adults) v.manual = false; g._courtTimers = {}; g.emit('change'); } }, 'Hand all to Steward') : null)
-        : h('div.faint', 'Tip: appoint a Steward in the Court (C) and jobs will be assigned for you.'));
+        : h('div.faint', 'Tip: appoint a Steward in the Court (C) and everyone will work in their trade.'));
       body.append(this.employmentCard());
       const office = hasOffice(g);
       const targets = employmentOf(g).targets;

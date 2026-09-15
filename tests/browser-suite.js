@@ -104,6 +104,55 @@ export async function run() {
     ok(texts.size > 1, 'repeated choice gives varied outcomes', `${texts.size} distinct`);
   });
 
+  await step('founders, trade skills, tools, miners and succession', async () => {
+    const P = await import('/src/game/professions.js');
+    const V = await import('/src/game/villagers.js');
+    const C = await import('/src/game/court.js');
+    const g0 = new Game(newState({ uid: 't', name: 'T', villageName: 'T' }));
+    const [king, smith, cutter] = g0.state.villagers;
+    ok(king.ruling && king.profession === 'warrior' && king.trained && king.inv.pack.sword, 'the first ruler is a trained warrior with a sword');
+    ok(smith.profession === 'smith' && smith.inv.pack.hammer && cutter.profession === 'chop' && cutter.inv.pack.axe, 'a blacksmith and a woodcutter start with their tools');
+    const g = freshGame({ era: 1, people: 0 });
+    const spy = g.addWanderer(); spy.age = 25; spy.traits = []; spy.profession = null; spy.job = 'spy'; P.ensureProfession(spy);
+    ok(spy.skills.stealth >= 3, `a spy by trade is already a trained spy (stealth ${spy.skills.stealth})`);
+    const farmer = g.addWanderer(); farmer.age = 25; farmer.traits = []; farmer.profession = 'farm';
+    ok(P.canDoJob(farmer, 'mine'), 'anyone can become a miner');
+    build(g, 'campfire');
+    const hut = build(g, 'craft_hut');
+    delete farmer.inv.pack.hoe;
+    const worker = g.addWanderer(); worker.age = 25; worker.profession = 'smith'; worker.traits = ['versatile'];
+    g.state.resources.wood = 99; g.state.resources.stone = 99;
+    worker._task = { type: 'craft', building: hut, phase: 'work', timer: 0, x: worker.x, y: worker.y };
+    const before = g.state.villagers.filter(v => v.profession && P.TRADE_TOOL[v.profession] && !v.inv.pack[P.TRADE_TOOL[v.profession]]).length;
+    for (let i = 0; i < 3 && worker._task; i++) g.step(0.1);
+    const after = g.state.villagers.filter(v => v.profession && P.TRADE_TOOL[v.profession] && !v.inv.pack[P.TRADE_TOOL[v.profession]]).length;
+    ok(after === before - 1, 'the smith forges a tool for someone without one', `${before} → ${after}`);
+    ok(V.toolFor({ _task: { type: 'chop', phase: 'work' }, inv: { pack: {} } }) === null, 'nobody swings a tool they do not have');
+    const cand = g.state.villagers.filter(v => !v.ruling && v.age >= 16);
+    C.appoint(g, 'steward', cand[0]);
+    V.killVillager(g, cand[0], 'fell in battle');
+    g._courtTimers = {}; for (let i = 0; i < 12; i++) g.step(0.1);
+    ok(C.officialOf(g, 'steward') && C.officialOf(g, 'steward') !== cand[0], 'a dead official is replaced at once', C.officialOf(g, 'steward')?.name);
+  });
+
+  await step('Steward puts people to work in their trades', async () => {
+    const C = await import('/src/game/court.js');
+    const g = freshGame({ era: 2, people: 0 });
+    build(g, 'campfire');
+    const trades = ['farm', 'farm', 'farm', 'farm', 'farm', 'farm', 'chop', 'chop', 'mine', 'smith', 'fish', 'build'];
+    for (const t of trades) { const v = g.addWanderer(); v.age = 25; v.traits = []; v.profession = t; v.job = 'gather'; }
+    const jack = g.addWanderer(); jack.age = 25; jack.traits = ['versatile']; jack.job = 'gather';
+    build(g, 'farm');   // one farm: room for a few farmers only
+    const farmRoom = C.slots(g, 'farm');
+    const { shortages } = C.workTrades(g, C.managed(g), 'balanced');
+    const byJob = j => g.state.villagers.filter(v => v.job === j).length;
+    ok(byJob('chop') >= 2 && byJob('mine') >= 1 && byJob('build') >= 1, 'woodcutters, miners and builders work their trades', JSON.stringify({ chop: byJob('chop'), mine: byJob('mine'), build: byJob('build') }));
+    ok(byJob('farm') >= Math.min(6, farmRoom) && shortages.farm === 6 - Math.min(6, farmRoom), `farmers fill the farm (${farmRoom} places), the rest are reported`, JSON.stringify(shortages));
+    ok(shortages.smith === 1 && shortages.fish === 1, 'smith without a forge and fisher without a hut are reported', JSON.stringify(shortages));
+    ok(!g.state.villagers.some(v => v.profession === 'chop' && v.job === 'gather'), 'nobody with a trade is sent gathering when their trade has work');
+    ok(jack.job !== 'gather' || g.state.resources.food < g.state.villagers.length * 4, 'the Jack of all trades is sent where hands are needed', jack.job);
+  });
+
   await step('goals: progress, claim rewards, era chest', async () => {
     const G = await import('/src/game/goals.js');
     const g = freshGame({ era: 0, people: 3, resources: false });
@@ -256,8 +305,9 @@ export async function run() {
     g.state.resources.food = 10;
     g.simulate(90 * 2);
     ok(g.state.villagers.some(x => x.job === 'warrior' || x.job === 'recruit'), 'Marshal raises an army');
-    ok(g.state.villagers.filter(x => (x.job === 'warrior' || x.job === 'recruit')).every(x => x.calling === 'soldier' || x.trained || x.traits.includes('brave')),
-      'Marshal only enlists soldiers, trained fighters or brave volunteers');
+    const enlisted = g.state.villagers.filter(x => (x.job === 'warrior' || x.job === 'recruit'));
+    ok(enlisted.every(x => x.calling === 'soldier' || x.trained || x.traits.includes('brave') || x.profession === 'warrior' || x.traits.includes('versatile')),
+      'Marshal only enlists soldiers, trained fighters or brave volunteers', enlisted.filter(x => !(x.calling === 'soldier' || x.trained || x.traits.includes('brave') || x.profession === 'warrior')).map(x => `${x.name}:${x.profession}`).join(', '));
     ok(g.state.villagers.filter(x => ['farm', 'gather', 'fish'].includes(x.job)).length >= 2, 'Steward sends people to find food');
     ok(g.state.buildings.length > 8, 'Master Builder orders new buildings', `${g.state.buildings.length} buildings`);
     dismiss(g, 'steward');

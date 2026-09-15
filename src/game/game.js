@@ -15,7 +15,7 @@ import { dailyTraitors, dailyMachines, updateBombDefense } from './intrigue.js';
 import { dailyEmpire } from './empire.js';
 import { updateEmployment } from './employment.js';
 import { updateFinds } from './finds.js';
-import { ensureProfession, shareHousehold, canDoJob } from './professions.js';
+import { ensureProfession, shareHousehold, canDoJob, randomTrade, TRADE_TOOL, grantTradeSkill } from './professions.js';
 import { dailyPeople, ensureRuler, rulerEffects, carriedLuck } from './dynasty.js';
 import { LAW_CATEGORIES, NO_LAW_EFFECTS, DEFAULT_LAWS, LAW_COST, lawOption } from '../data/laws.js';
 
@@ -37,6 +37,20 @@ export class Game {
     ensureRuler(this);
     // everyone gets a trade (older saves keep what they do today as their trade)
     for (const v of state.villagers) ensureProfession(v);
+    // one-time repair: a bug made every newcomer a Gatherer; give them the trade they should have had
+    // tools became useful: villages from before get a tool for everyone, once
+    if (!state.toolsGiven) {
+      state.toolsGiven = 1;
+      for (const v of state.villagers) if (TRADE_TOOL[v.profession]) { v.inv ||= { pack: {}, coins: 0 }; v.inv.pack ||= {}; v.inv.pack[TRADE_TOOL[v.profession]] ||= 1; }
+    }
+    if (!state.skillsGiven) {
+      state.skillsGiven = 1;
+      for (const v of state.villagers) if (!v.ruling && !v.office) grantTradeSkill(v);
+    }
+    if (!state.tradeFix) {
+      state.tradeFix = 1;
+      for (const v of state.villagers) if (v.profession === 'gather' && !v.office && !v.ruling) v.profession = randomTrade();
+    }
     // older saves: buildings keep the footprint they were built with
     for (const b of state.buildings) if (!b.size) b.size = OLD_SIZES[b.type] ?? BUILDINGS[b.type]?.size ?? 1;
   }
@@ -397,9 +411,10 @@ export class Game {
     const v = makeVillager(this.state, { age: opts.child ? 6 + Math.random() * 4 : 16 + Math.random() * 20 });
     v.x = c.x + (Math.random() - 0.5) * TILE * 4;
     v.y = c.y + (Math.random() - 0.5) * TILE * 4;
-    v.job = opts.child ? 'idle' : 'gather';
+    v.job = 'idle';   // not "gather": a trade is picked from the current job, which made every newcomer a Gatherer
     if (!opts.child) {   // newcomers bring a trade and start working in it
       const trade = ensureProfession(v);
+      if (TRADE_TOOL[trade] && Math.random() < 0.5) { v.inv ||= { pack: {}, coins: 0 }; v.inv.pack[TRADE_TOOL[trade]] = 1; }   // some bring their own tools
       v.job = trade === 'warrior' ? (v.trained ? 'warrior' : 'gather') : trade;
     }
     this.state.villagers.push(v);

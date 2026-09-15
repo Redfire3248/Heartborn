@@ -3,7 +3,8 @@ import { clamp } from '../core/rng.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { assignJob } from './villagers.js';
 import { isTrained } from './dynasty.js';
-import { canDoJob } from './professions.js';
+import { canDoJob, ensureProfession, isVersatile } from './professions.js';
+import { bestForOffice } from './employment.js';
 
 /*
  * The Court: villagers you appoint to run the realm for you.
@@ -12,7 +13,7 @@ import { canDoJob } from './professions.js';
 export const OFFICES = {
   steward: {
     name: 'Steward', icon: 'characters/elder', requires: ['campfire'],
-    desc: 'Assigns jobs to everyone you have not given orders to: builders, farmers, smiths, woodcutters and miners.',
+    desc: 'Puts everyone you have not given orders to to work in their own trade, sends Jacks of all trades where hands are needed, and tells you which workplaces are missing.',
     options: { focus: [['balanced', 'Balanced'], ['food', 'Food first'], ['wood', 'Wood'], ['stone', 'Stone & ore'], ['growth', 'Growth']] },
   },
   master_builder: {
@@ -136,8 +137,11 @@ export function updateCourt(g, dt) {
     if (!c?.id) continue;
     const official = officialOf(g, key);
     if (!official) {
+      // the official died (or left): the realm appoints the best successor at once
       c.id = null;
-      g.log(`The office of ${OFFICES[key].name} stands empty.`, 'bad');
+      const heir = bestForOffice(g, key);
+      if (heir && !appoint(g, key, heir).error) g.log(`The ${OFFICES[key].name} is gone. ${heir.name} takes up the office.`, 'event');
+      else g.log(`The office of ${OFFICES[key].name} stands empty: nobody is fit to serve.`, 'bad');
       g.recalc();
       g.emit('change');
       continue;
@@ -174,8 +178,69 @@ export function distribute(g, pool, targets) {
   return moved;
 }
 
-function slots(g, kind) {
+export function slots(g, kind) {
   return g.builtBuildings().filter(b => BUILDINGS[b.type].workplace === kind).reduce((n, b) => n + (BUILDINGS[b.type].slots || 1), 0);
+}
+
+// trades that need a workplace, and what to build when there are too few
+export const TRADE_WORKPLACE = {
+  farm: { kind: 'farm', build: ['farm', 'orchard'] },
+  fish: { kind: 'fish', build: ['fishing_hut', 'harbor'] },
+  smith: { kind: 'smith', build: ['craft_hut', 'blacksmith', 'weaponsmith'] },
+  spy: { kind: 'spytrain', build: ['spy_den'] },
+};
+
+/**
+ * Put people to work in their own trade. Trades that need a workplace (farms, fishing huts, forges) only take
+ * as many as there are places; the rest gather food until more are built. Jacks of all trades fill the gaps.
+ * Returns { moved, shortages: { trade: people without a place } }.
+ */
+export function workTrades(g, pool, focus = 'balanced') {
+  const s = g.state;
+  const room = {};
+  for (const [trade, w] of Object.entries(TRADE_WORKPLACE)) room[trade] = slots(g, w.kind);
+  const trainingPlace = g.builtBuildings().some(b => BUILDINGS[b.type].workplace === 'train');
+  const shortages = {};
+  const plan = new Map();
+  const flexible = [];
+
+  // people who already work in a limited trade keep their place first, so nobody is shuffled around
+  const ordered = [...pool].sort((a, b) => (b.job === ensureProfession(b)) - (a.job === ensureProfession(a)));
+  for (const v of ordered) {
+    if (isVersatile(v)) { flexible.push(v); continue; }
+    const trade = ensureProfession(v);
+    let job = trade;
+    if (trade === 'warrior') job = v.trained ? null : trainingPlace ? 'recruit' : 'gather';   // trained soldiers are the Marshal's
+    if (!job) continue;
+    if (room[job] != null) {
+      if (room[job] > 0) room[job]--;
+      else { shortages[job] = (shortages[job] || 0) + 1; job = 'gather'; }
+    }
+    plan.set(v, job);
+  }
+
+  // Jacks of all trades go where the realm needs hands most
+  const r = s.resources, pop = s.villagers.length;
+  const hungry = r.food < pop * 4 || focus === 'food' || focus === 'growth';
+  const unbuilt = s.buildings.filter(b => !b.built).length;
+  const count = {};
+  for (const j of plan.values()) count[j] = (count[j] || 0) + 1;
+  for (const v of flexible) {
+    let job;
+    if (unbuilt && (count.build || 0) < Math.min(unbuilt * 2, 6)) job = 'build';          // unfinished construction first
+    else if (hungry && room.farm > 0) { job = 'farm'; room.farm--; }
+    else if (hungry && room.fish > 0) { job = 'fish'; room.fish--; }
+    else if (hungry) job = 'gather';
+    else if (focus === 'stone') job = 'mine';
+    else if (focus === 'wood') job = 'chop';
+    else job = (count.chop || 0) <= (count.mine || 0) ? 'chop' : 'mine';
+    count[job] = (count[job] || 0) + 1;
+    plan.set(v, job);
+  }
+
+  let moved = 0;
+  for (const [v, job] of plan) if (v.job !== job && assignJob(g, v, job, true)) moved++;
+  return { moved, shortages };
 }
 
 const RUN = {
@@ -186,38 +251,9 @@ const RUN = {
     if (g.hasBuilding('employment_office') && s.employment?.on && Object.values(s.employment.targets || {}).some(n => n > 0)) return;
     const pool = managed(g);
     if (!pool.length) return;
-    const pop = s.villagers.length;
-    const r = s.resources;
-    const targets = {};
-    let left = pool.length;
-    const give = (job, n) => { n = Math.max(0, Math.min(left, Math.floor(n))); if (n) { targets[job] = (targets[job] || 0) + n; left -= n; } };
-
-    const unbuilt = s.buildings.filter(b => !b.built).length;
-    give('build', unbuilt ? Math.min(3, 1 + Math.floor(unbuilt / 2)) : 0);
-
-    const hungry = r.food < pop * 4;
-    const foodShare = c.focus === 'food' ? 0.5 : c.focus === 'growth' ? 0.42 : hungry ? 0.45 : 0.3;
-    const foodWorkers = Math.ceil(pool.length * foodShare);
-    const farm = Math.min(slots(g, 'farm'), foodWorkers);
-    const fish = Math.min(slots(g, 'fish'), foodWorkers - farm);
-    give('farm', farm);
-    give('fish', fish);
-    give('gather', Math.max(0, foodWorkers - farm - fish));
-
-    const warriors = s.villagers.filter(v => v.job === 'warrior').length;
-    const needWeapons = r.weapons < Math.max(4, warriors + 2) || s.court?.marshal?.id;
-    const smithSlots = slots(g, 'smith');
-    if (smithSlots && needWeapons) give('smith', 1);
-
-    const miningSpots = slots(g, 'mine') + 2;
-    const woodW = c.focus === 'wood' ? 0.7 : c.focus === 'stone' ? 0.3 : 0.55;
-    const wood = Math.ceil(left * woodW);
-    give('chop', wood);
-    give('mine', Math.min(left, miningSpots + (c.focus === 'stone' ? 3 : 0)));
-    give('chop', left);   // anyone still free cuts wood
-
-    const moved = distribute(g, pool, targets);
-    if (moved >= 2) g.log(`Steward: reassigned ${moved} villagers.`, 'info');
+    const { moved, shortages } = workTrades(g, pool, c.focus);
+    c.shortages = shortages;
+    if (moved >= 2) g.log(`Steward: put ${moved} villagers to work in their trades.`, 'info');
   },
 
   // (recruits are left to finish their training)
@@ -237,6 +273,10 @@ const RUN = {
     if (!g.hasBuilding('campfire') && !s.buildings.some(b => b.type === 'campfire') && tryTypes(['campfire'])) return;
     if (c.plan !== 'economy' && g.housing - pop <= 3 && tryTypes(['house', 'hut', 'tent'])) return;
     if (c.plan === 'homes') return;
+    // workplaces for people whose trade has nowhere to work (the Steward reports them)
+    const short = Object.entries(s.court?.steward?.shortages || {}).sort((a, b) => b[1] - a[1]);
+    const roomiest = list => [...list].filter(t => BUILDINGS[t]).sort((a, b) => (BUILDINGS[b].slots || 1) - (BUILDINGS[a].slots || 1));
+    for (const [trade, n] of short) if (n >= 2 && TRADE_WORKPLACE[trade] && tryTypes(roomiest(TRADE_WORKPLACE[trade].build))) return;
     const farms = s.buildings.filter(b => BUILDINGS[b.type].workplace === 'farm').length;
     if (s.resources.food < pop * 5 && farms < Math.ceil(pop / 5) && tryTypes(['orchard', 'farm'])) return;
     const full = Object.entries(g.caps).some(([k, cap]) => s.resources[k] >= cap * 0.9);

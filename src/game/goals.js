@@ -21,6 +21,7 @@ const B = (id, era, type, n, reward, text) => ({ id, era, text: text || (n > 1 ?
 export const GOALS = [
   // ---- Primitive: the first fire and a camp (Village needs a Campfire, a Stockpile and 6 people)
   B('fire', 0, 'campfire', 1, { food: 30, wood: 20 }, 'Light a Campfire'),
+  B('workshop', 0, 'craft_hut', 1, { wood: 30, stone: 15 }, "Build the blacksmith's workshop (Craft Hut)"),
   B('stockpile', 0, 'stockpile', 1, { wood: 30, stone: 10 }),
   B('tents', 0, 'tent', 2, { wood: 30 }),
   { id: 'trees', era: 0, text: 'Cut down 15 trees', need: 15, have: g => stat(g, 'treesCut'), reward: { wood: 60 }, icon: 'items/axe' },

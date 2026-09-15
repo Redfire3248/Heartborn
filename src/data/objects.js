@@ -81,7 +81,9 @@ function professionSprite(v) {
   if (v.ruling) return null;                                  // kings and queens keep their royal sprites
   // the rare genius studies the stars: they wear a wizard's robe (unless they are off fighting)
   if (!v.office && v.traits?.includes('genius') && v.age >= 16 && !FIGHTING_JOBS.has(v.job)) return `people/mage_${sx}`;
-  const prof = v.office ? OFFICE_PROFESSION[v.office] : JOB_PROFESSION[v.job];
+  let prof = v.office ? OFFICE_PROFESSION[v.office] : JOB_PROFESSION[v.job];
+  // a warrior with no weapon handed out yet has nothing to carry: they look like a recruit
+  if (prof === 'warrior' && !v.office && !v.armed) prof = 'recruit';
   if (prof) return `people/${prof}_${sx}`;
   if (v.age >= 55) return `people/elder_${sx}`;
   return null;

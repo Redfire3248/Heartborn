@@ -10,7 +10,7 @@ import { rollFate } from './fate.js';
 import { damageCreature } from './creatures.js';
 import { isTrained, has, onVillagerGone, addItem } from './dynasty.js';
 import { CALLINGS } from '../data/people.js';
-import { canDoJob, professionLabel, ensureProfession, inheritProfession, professionFromCalling } from './professions.js';
+import { canDoJob, professionLabel, ensureProfession, inheritProfession, professionFromCalling, TRADE_TOOL, grantTradeSkill } from './professions.js';
 
 export const JOBS = {
   idle:    { label: 'Idle',       icon: 'effects/emote_sleep', desc: 'Wanders, helps build, gathers when hungry' },
@@ -29,6 +29,7 @@ export const JOBS = {
   explore: { label: 'Explorer',   icon: 'nature/tree_pine',    desc: 'Ventures into the wild. Great rewards… or death' },
 };
 
+const ITEM_NAMES = { axe: 'Axe', pickaxe: 'Pickaxe', hoe: 'Hoe', hammer: 'Hammer', bow: 'Bow', spear_t: 'Fishing spear' };
 const TOOL = { train: 'items/sword', craft: 'items/hammer', chop: 'items/axe', mine: 'items/pickaxe', deepmine: 'items/pickaxe', farm: 'items/hoe', build: 'items/hammer', hunt: 'items/spear', fight: 'items/sword', fish: 'items/spear', explore: 'items/sword' };
 const WORK_TIME = { spytrain: 8, train: 8, craft: 8, chop: 5, mine: 6, deepmine: 7, gather: 3, farm: 7, fish: 6, hunt: 2.5, explore: 4, heal: 4, eat: 1.5 };
 const JOB_ROLE = { farm: 'farmer', mine: 'miner', hunt: 'hunter', warrior: 'warrior', scout: 'scout', smith: 'blacksmith' };
@@ -62,7 +63,29 @@ export function displayRole(v) {
 
 export function toolFor(v) {
   const t = v._task;
-  return t && t.phase === 'work' ? TOOL[t.type] : null;
+  if (!t || t.phase !== 'work') return null;
+  if (t.type === 'fight' || t.type === 'explore') return weaponOf(v);
+  if (t.type === 'train') return null;   // recruits drill with the wooden practice sword they already carry
+  const need = TASK_TOOL[t.type];
+  if (need && !v.inv?.pack?.[need]) return null;   // no tool of their own: bare hands
+  return TOOL[t.type];
+}
+
+// the item a task needs; with it work goes faster, without it slower
+const TASK_TOOL = { chop: 'axe', mine: 'pickaxe', deepmine: 'pickaxe', farm: 'hoe', build: 'hammer', craft: 'hammer', hunt: 'bow', fish: 'spear_t' };
+export const hasToolFor = (v, taskType) => !TASK_TOOL[taskType] || !!v.inv?.pack?.[TASK_TOOL[taskType]];
+
+// what someone without a real weapon grabs in a fight: the tool of their trade, or bare fists
+const IMPROVISED = { chop: 'items/axe', mine: 'items/pickaxe', build: 'items/hammer', farm: 'items/hoe', hunt: 'items/bow', fish: 'items/spear', smith: 'items/hammer' };
+
+/** The weapon a villager really has: a forged weapon, one from their pack, or an improvised tool. */
+export function weaponOf(v) {
+  if (v.armed) return 'items/sword';
+  const pack = v.inv?.pack || {};
+  if (pack.sword) return 'items/sword';
+  if (pack.spear) return 'items/spear';
+  const tool = TRADE_TOOL[v.profession];
+  return tool && pack[tool] ? IMPROVISED[v.profession] || null : null;
 }
 
 export function gainSkill(g, v, skill, silent = false) {
@@ -115,6 +138,7 @@ export function dailyVillagers(g) {
       if (isTrained(v)) v.trained = true;
       professionFromCalling(v);
       const trade = ensureProfession(v);   // grown-ups start working in their household's trade
+      grantTradeSkill(v);                  // the childhood head start becomes a real working skill
       v.job = trade === 'warrior' && !v.trained ? 'recruit' : trade;
       if (v.calling) g.log(`${v.name} comes of age as a ${calling.label.toLowerCase()}.`, 'good');
     }
@@ -302,9 +326,10 @@ function chooseTask(g, v) {
     return;
   }
 
-  const unbuilt = s.buildings.filter(b => !b.built);
+  // construction sites builders can reach (a site nobody can walk to is skipped for a while, so it can't stall the rest)
+  const unbuilt = s.buildings.filter(b => !b.built && !(b._noPathUntil > s.time));
   if (unbuilt.length && (v.job === 'build' || v.job === 'idle')) {
-    const b = nearestOf(v, unbuilt, b => g.buildingCenter(b));
+    const b = pickSite(g, v, unbuilt);
     setTask(v, { type: 'build', building: b, ...standAt(g, b) });
     return;
   }
@@ -402,11 +427,24 @@ function chooseTask(g, v) {
   }
   // nothing to do: help build, else hang around the fire
   if (unbuilt.length) {
-    const b = nearestOf(v, unbuilt, b => g.buildingCenter(b));
+    const b = pickSite(g, v, unbuilt);
     setTask(v, { type: 'build', building: b, ...standAt(g, b) });
     return;
   }
   wander(g, v, 5);
+}
+
+/** Nearest construction site, but spread out: each builder already working a site makes it count as further away. */
+function pickSite(g, v, sites) {
+  const crew = new Map();
+  for (const x of g.state.villagers) if (x !== v && x._task?.type === 'build') crew.set(x._task.building, (crew.get(x._task.building) || 0) + 1);
+  let best = null, bd = Infinity;
+  for (const b of sites) {
+    const c = g.buildingCenter(b);
+    const d = Math.hypot(c.x - v.x, c.y - v.y) + (crew.get(b) || 0) * TILE * 4;
+    if (d < bd) { bd = d; best = b; }
+  }
+  return best;
 }
 
 function tryGather(g, v) { return tryObject(g, v, 'gather', 40); }
@@ -546,6 +584,11 @@ function runTask(g, v, dt) {
   if (t.phase === 'move') {
     let r = moveTo(g, v, t.x, t.y, dt);
     if (r === 'fail' && (t.type === 'eat' || t.type === 'rest')) r = 'arrived';   // eat/sleep where you stand
+    if (r === 'fail' && t.type === 'build' && t.building) {
+      const c = g.buildingCenter(t.building), size = sizeOf(t.building);
+      if (Math.hypot(c.x - v.x, c.y - v.y) < (size / 2 + 3) * TILE) r = 'arrived';   // close enough: build from here
+      else t.building._noPathUntil = s.time + 30;                                    // unreachable for now: try other sites
+    }
     if (r === 'fail') { v._cooldown = 1; return releaseTask(v); }
     if (r !== 'arrived') return;
     t.phase = 'work';
@@ -650,6 +693,16 @@ function runTask(g, v, dt) {
         return releaseTask(v);
       }
       g.spend(recipe.cost);
+      // tools first: someone working without the tool of their trade gets one
+      const needy = s.villagers.find(x => x.age >= ADULT_AGE && !x.away && TRADE_TOOL[x.profession] && !x.inv?.pack?.[TRADE_TOOL[x.profession]]);
+      if (needy) {
+        const tool = TRADE_TOOL[needy.profession];
+        addItem(needy, tool, 1);
+        gainSkill(g, v, 'craft', true);
+        g.float(v.x, v.y - TILE, `${ITEM_NAMES[tool] || tool} for ${needy.name}`, '#ffd76a');
+        releaseTask(v);
+        return;
+      }
       rollFate(g, 'craft', v, t.building);
       releaseTask(v);
       return;
@@ -718,7 +771,8 @@ function workSpeed(g, v) {
   m *= Math.max(0.3, 1 + g.law.work + (g.ruler?.work || 0));
   const t = v._task;
   if (t) m *= 1 + (v.skills[t.type === 'deepmine' ? 'mine' : t.type] || 0) * 0.06;
-  if (t?.type === 'build') m *= 1 + (g.bonus.build || 0);
+  if (t?.type === 'build') m *= (1 + (g.bonus.build || 0)) * (v.profession === 'build' ? 2.5 : 1.3);   // builders by trade are much faster
+  if (t && TASK_TOOL[t.type]) m *= hasToolFor(v, t.type) ? 1.25 : 0.8;   // the right tool makes all the difference
   m *= 1 + (g.workBonus || 0);
   if (v.robot) m *= 1.2;
   return m;

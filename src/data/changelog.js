@@ -1,6 +1,36 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Trades that work, tools and a warrior king',
+    changes: [
+      'Fixed: every newcomer was becoming a Gatherer. Villages are repaired once: people get the trade, skill and tool they should have had',
+      'The Steward puts everyone to work in their own trade and says which workplaces are missing; the Master Builder builds them',
+      'Construction no longer stalls: builders skip sites they cannot reach and spread out; builders by trade build 2.5x faster',
+      'Tools matter: 25% faster with the tool of your trade, slower without; smiths forge tools before weapons',
+      'People are born with the skill of their trade: spies are real spies, soldiers are trained',
+      'Anyone can become a miner',
+      'New villages start with a warrior king (with a sword), a blacksmith and a woodcutter; first goals: Campfire, then the Craft Hut',
+      'No more swords from nowhere: people fight with the weapon or tool they actually carry',
+      'When an official dies, the best person takes over the office at once',
+      'Phones: Cancel / Done / Undo buttons while building or demolishing, and a Village button to jump home',
+    ],
+  },
+  {
+    title: 'Trades that work, tools and a warrior king',
+    changes: [
+      'Fixed: every newcomer was becoming a Gatherer. Villages are repaired once: people get the trade, skill and tool they should have had',
+      'The Steward puts everyone to work in their own trade and says which workplaces are missing; the Master Builder builds them',
+      'Construction no longer stalls: builders skip sites they cannot reach and spread out; builders by trade build 2.5x faster',
+      'Tools matter: 25% faster with the tool of your trade, slower without; smiths forge tools before weapons',
+      'People are born with the skill of their trade: spies are real spies, soldiers are trained',
+      'Anyone can become a miner',
+      'New villages start with a warrior king (with a sword), a blacksmith and a woodcutter; first goals: Campfire, then the Craft Hut',
+      'No more swords from nowhere: people fight with the weapon or tool they actually carry',
+      'When an official dies, the best person takes over the office at once',
+      'Phones: Cancel / Done / Undo buttons while building or demolishing, and a Village button to jump home',
+    ],
+  },
+  {
     title: 'Goals, finds and a faster start',
     changes: [
       'Goals: always three things to do next, with progress bars and rewards to claim; they lead you through every era',
