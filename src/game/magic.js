@@ -9,11 +9,11 @@ import { damageCreature } from './creatures.js';
  */
 
 export const SPELLS = {
-  heal: { label: 'Healing Light', mana: 30, minSkill: 0, icon: 'effects/plus_heal', desc: 'Heals the most hurt person nearby (+50 health) and cures sickness.' },
-  fireball: { label: 'Fireball', mana: 25, minSkill: 1, icon: 'effects/flame', desc: 'Hurls fire at the nearest hostile creature.' },
-  bless: { label: 'Bless the Harvest', mana: 50, minSkill: 3, icon: 'effects/magic_orb', desc: 'Food now, and everyone works faster for a day.' },
-  ward: { label: 'Arcane Ward', mana: 60, minSkill: 4, icon: 'units/energy_shield', desc: '+15 defense for the village for a day.' },
-  storm: { label: 'Lightning Storm', mana: 80, minSkill: 6, icon: 'effects/lightning', desc: 'Lightning strikes every hostile creature near the village.' },
+  heal: { label: 'Healing Light', mana: 30, minSkill: 0, icon: 'magic/heal_light', desc: 'Heals the most hurt person nearby (+50 health) and cures sickness.' },
+  fireball: { label: 'Fireball', mana: 25, minSkill: 1, icon: 'magic/fireball', desc: 'Hurls fire at the nearest hostile creature.' },
+  bless: { label: 'Bless the Harvest', mana: 50, minSkill: 3, icon: 'magic/blessing', desc: 'Food now, and everyone works faster for a day.' },
+  ward: { label: 'Arcane Ward', mana: 60, minSkill: 4, icon: 'magic/arcane_ward', desc: '+15 defense for the village for a day.' },
+  storm: { label: 'Lightning Storm', mana: 80, minSkill: 6, icon: 'magic/lightning_bolt', desc: 'Lightning strikes every hostile creature near the village.' },
 };
 
 export const isWizard = v => v.job === 'mage' && v.age >= ADULT_AGE && !v.away && !v.jailed;
@@ -55,14 +55,14 @@ export function castSpell(g, v, id) {
       x.hp = Math.min(Math.max(100, x.hp), x.hp + 50 * power);
       x.sick = 0;
       beam(g, v, x, '#9dff8a');
-      g.puff(x, 'effects/plus_heal', 6, 16);
+      g.puff(x, 'magic/heal_light', 4, 16);
       text = x === v ? `${v.name} heals their own wounds` : `${v.name} heals ${x.name}`;
       break;
     }
     case 'fireball': {
       const c = hostilesNear(g, v.x, v.y, 12).sort((a, b) => Math.hypot(a.x - v.x, a.y - v.y) - Math.hypot(b.x - v.x, b.y - v.y))[0];
       beam(g, v, c, '#ff8a3a');
-      g.puff(c, 'effects/flame', 8, 18);
+      g.puff(c, 'magic/fireball', 5, 18);
       damageCreature(g, c, Math.round(30 * power), v);
       text = `${v.name} casts Fireball`;
       break;
@@ -72,20 +72,20 @@ export function castSpell(g, v, id) {
       g.addResource('food', food);
       g.state.modifiers.push({ id: 'blessed_harvest', work: 0.15, happy: 5, until: g.state.time + DAY_LENGTH });
       g.recalc();
-      g.puff(g.center, 'effects/magic_orb', 14, 60);
+      g.puff(g.center, 'magic/blessing', 10, 60);
       text = `${v.name} blesses the harvest: +${food} food, faster work for a day`;
       break;
     }
     case 'ward': {
       g.state.modifiers.push({ id: 'arcane_ward', defense: 15, until: g.state.time + DAY_LENGTH });
       g.recalc();
-      g.puff(g.center, 'effects/ice_crystal', 16, 70);
+      g.puff(g.center, 'magic/arcane_ward', 8, 70);
       text = `${v.name} raises an Arcane Ward: +15 defense for a day`;
       break;
     }
     case 'storm': {
       const targets = hostilesNear(g, g.center.x, g.center.y, 16);
-      for (const c of targets) { beam(g, { x: c.x, y: c.y - TILE * 6 }, c, '#bfe3ff'); g.puff(c, 'effects/lightning', 3, 6); damageCreature(g, c, Math.round(45 * power), v); }
+      for (const c of targets) { beam(g, { x: c.x, y: c.y - TILE * 6 }, c, '#bfe3ff'); g.puff(c, 'magic/lightning_bolt', 3, 6); damageCreature(g, c, Math.round(45 * power), v); }
       g.fx.shake = 1.5;
       text = `${v.name} calls down a Lightning Storm on ${targets.length} monster${targets.length === 1 ? '' : 's'}`;
       break;

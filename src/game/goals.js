@@ -1,4 +1,4 @@
-import { BUILDINGS, ERAS } from '../data/buildings.js';
+import { BUILDINGS, ERAS, buildingSprite } from '../data/buildings.js';
 import { addItem } from './dynasty.js';
 
 /*
@@ -16,7 +16,7 @@ function eraGoal(era, reward) {
   return { id: `era${era}`, era: era - 1, text: `Reach the ${ERAS[era].name} era`, need: 1, have: g => (g.state.era >= era ? 1 : 0), reward, icon: 'items/star_rank' };
 }
 
-const B = (id, era, type, n, reward, text) => ({ id, era, text: text || (n > 1 ? `Build ${n} ${BUILDINGS[type].name}s` : `Build a ${BUILDINGS[type].name}`), need: n, have: g => built(g, type), reward, icon: `buildings/${type}` });
+const B = (id, era, type, n, reward, text) => ({ id, era, text: text || (n > 1 ? `Build ${n} ${BUILDINGS[type].name}s` : `Build a ${BUILDINGS[type].name}`), need: n, have: g => built(g, type), reward, icon: buildingSprite(type), type });
 
 export const GOALS = [
   // ---- Primitive: the first fire and a camp (Village needs a Campfire, a Stockpile and 6 people)
@@ -34,6 +34,7 @@ export const GOALS = [
   { id: 'baby', era: 1, text: 'Welcome a baby', need: 1, have: g => stat(g, 'births'), reward: { food: 50, influence: 10 }, icon: 'items/baby' },
   B('well', 1, 'well', 1, { food: 40, stone: 20 }),
   B('shrine', 1, 'shrine', 1, { influence: 20 }),
+  B('shipyard', 1, 'shipyard', 1, { wood: 40, bombs: 5 }, 'Build a Shipyard and set sail'),
   { id: 'warriors2', era: 1, text: 'Have 2 warriors', need: 2, have: g => jobCount(g, 'warrior'), reward: { weapons: 6 }, icon: 'items/sword' },
   { id: 'food150', era: 1, text: 'Store 150 food', need: 150, have: g => res(g, 'food'), reward: { stone: 40 }, icon: 'items/icon_food' },
   { id: 'pop16', era: 1, text: 'Grow to 16 people', need: 16, have: pop, reward: { gold: 40, influence: 15 }, icon: 'items/population' },
@@ -81,7 +82,7 @@ export const GOALS = [
   B('ai_core', 6, 'ai_core', 1, { science: 1000 }),
   B('spaceport', 6, 'spaceport', 1, { gems: 50, gold: 1000 }),
   { id: 'pop200', era: 6, text: 'Grow to 200 people', need: 200, have: pop, reward: { gems: 40, influence: 200 }, icon: 'items/population' },
-].filter(goal => !goal.icon.startsWith('buildings/') || BUILDINGS[goal.icon.slice(10)]);
+].filter(goal => !goal.type || BUILDINGS[goal.type]);
 
 const SHOWN = 3;
 

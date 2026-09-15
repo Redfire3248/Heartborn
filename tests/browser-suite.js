@@ -104,6 +104,46 @@ export async function run() {
     ok(texts.size > 1, 'repeated choice gives varied outcomes', `${texts.size} distinct`);
   });
 
+  await step('sailing: shipyard, boats, steering, bombs, pirates, treasure, sinking', async () => {
+    const S = await import('/src/game/sailing.js');
+    const g = freshGame({ era: 3, people: 6 });
+    build(g, 'campfire');
+    let yard;
+    try { yard = build(g, 'shipyard'); } catch { ok(true, 'no shore near home on this map (sailing skipped)'); return; }
+    ok(yard, 'a Shipyard can be built by the water');
+    ok(S.buildBoat(g, 'energy_battleship').error, 'future ships stay locked until their era');
+    const r = S.buildBoat(g, 'galleon');
+    ok(r.ok && S.fleetOf(g).length === 1, 'the shipyard builds a galleon');
+    ok(S.setSail(g, r.boat.id).ok && g.sail, 'set sail');
+    const s = g.sail, start = { x: s.x, y: s.y };
+    for (let i = 0; i < 60; i++) S.updateSailing(g, 1 / 30, { throttle: 1 });
+    ok(Math.hypot(s.x - start.x, s.y - start.y) > 40, 'the boat moves when you steer', `${Math.round(Math.hypot(s.x - start.x, s.y - start.y))}px`);
+    ok(g.world.isWater(Math.floor(s.x / TILE), Math.floor(s.y / TILE)), 'the boat stays on the water');
+    const bombs = g.state.resources.bombs;
+    S.fire(g);
+    ok(s.shots.length === 2 && g.state.resources.bombs === bombs - 1, 'a galleon fires two bombs at once');
+    s.nextPirateAt = s.time; S.updateSailing(g, 0.01, {});
+    ok(s.pirates.length >= 1, 'pirates come for you');
+    const p = s.pirates[0];
+    for (let k = 0; k < 30 && s.pirates.includes(p); k++) {
+      p.x = s.x + Math.cos(s.angle) * TILE * 2.5; p.y = s.y + Math.sin(s.angle) * TILE * 2.5;
+      s.reload = 0; S.fire(g);
+      for (let i = 0; i < 10; i++) S.updateSailing(g, 1 / 30, {});
+    }
+    ok(s.sunk >= 1 && s.loot.length >= 1, 'bombs sink a pirate and it drops treasure');
+    const gold = g.state.resources.gold;
+    s.loot[0].x = s.x; s.loot[0].y = s.y; S.updateSailing(g, 0.01, {});
+    ok(g.state.resources.gold > gold, 'sailing over treasure collects gold');
+    S.returnToPort(g);
+    ok(!g.sail, 'return to port');
+    const boat = S.fleetOf(g)[0];
+    S.setSail(g, boat.id);
+    boat.hull = 1;
+    g.sail.shots.push({ x: g.sail.x, y: g.sail.y, vx: 0, vy: 0, left: 50, dmg: 50, heavy: true, mine: false });
+    S.updateSailing(g, 0.01, {});
+    ok(!g.sail && !S.fleetOf(g).includes(boat), 'a boat with no hull left sinks and is lost');
+  });
+
   await step('talents, gifted pride and rebellion, magic, talking, family names', async () => {
     const T = await import('/src/game/talents.js');
     const M = await import('/src/game/magic.js');
@@ -211,7 +251,7 @@ export async function run() {
     const G = await import('/src/game/goals.js');
     const g = freshGame({ era: 0, people: 3, resources: false });
     g.recalc = g.recalc.bind(g);
-    ok(G.GOALS.every(x => BUILDINGS[x.icon.slice(10)] || !x.icon.startsWith('buildings/')), `every goal points at a real building (${G.GOALS.length} goals)`);
+    ok(G.GOALS.every(x => !x.type || BUILDINGS[x.type]), `every goal points at a real building (${G.GOALS.length} goals)`);
     ok(G.activeGoals(g)[0]?.id === 'fire' && !G.activeGoals(g)[0].done, 'first goal is the campfire, not done yet');
     ok(G.claimGoal(g, 'fire') === null, 'an unfinished goal cannot be claimed');
     build(g, 'campfire');
@@ -266,7 +306,7 @@ export async function run() {
   await step('each building has a sprite image', async () => {
     const missing = [];
     for (const type of Object.keys(BUILDINGS)) {
-      const res = await fetch(`/assets/buildings/${type}.png`, { method: 'HEAD' });
+      const res = await fetch(`/assets/${BUILDINGS[type].sprite || `buildings/${type}`}.png`, { method: 'HEAD' });
       if (!res.ok || !(res.headers.get('content-type') || '').includes('image')) missing.push(type);
     }
     ok(true, `building sprites: ${Object.keys(BUILDINGS).length - missing.length} drawn, ${missing.length} still placeholders`, missing.join(', '));

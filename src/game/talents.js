@@ -155,7 +155,7 @@ export function rebellionEvent(g, rebel) {
   const name = fullName(rebel);
   const alive = () => g.state.villagers.includes(rebel);
   return {
-    id: 'gifted_rebellion', title: `${name} Rebels`, icon: rebel.talents?.includes('magic') ? 'people/mage_m' : 'units/traitor',
+    id: 'gifted_rebellion', title: `${name} Rebels`, icon: 'magic/rebel',
     text: `${name}, gifted in ${gifts}, refuses to take orders any longer. ${followers.length ? `${followers.length} villager${followers.length === 1 ? '' : 's'} stand with them and lay down their tools.` : 'They stand alone, but the whole village is watching.'}`,
     choices: [
       { label: 'Honour them with a title', karma: 1, cost: { influence: 40, gold: 30 }, apply: () => {

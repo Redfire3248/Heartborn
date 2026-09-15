@@ -1,7 +1,7 @@
 import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo } from './dom.js';
 import { iconUrl } from '../core/assets.js';
 import { TILE, ADULT_AGE, MAP_W, MAP_H, RESOURCES, DAY_LENGTH } from '../core/constants.js';
-import { BUILDINGS, ERAS, CATEGORIES, sizeOf } from '../data/buildings.js';
+import { BUILDINGS, ERAS, CATEGORIES, sizeOf, buildingSprite } from '../data/buildings.js';
 import { OFFICES, officeUnlocked, officialOf, appoint, dismiss, setOfficeOption, TRADE_WORKPLACE } from '../game/court.js';
 import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
 import { TRAITS } from '../data/traits.js';
@@ -22,6 +22,7 @@ const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)'
 import { computeBridges, bridgeAt } from '../game/bridges.js';
 import { talentLabel, fullName, EGO_PROUD } from '../game/talents.js';
 import { SPELLS, canCast, castSpell } from '../game/magic.js';
+import { BOATS, fleetOf, buildBoat, setSail, returnToPort, repairBoat, updateSailing, fire } from '../game/sailing.js';
 import { TOPICS, talkTo } from '../game/talk.js';
 import { activeGoals, claimGoal, rewardText, goalsLeftInEra } from '../game/goals.js';
 import { findAt, collectFind } from '../game/finds.js';
@@ -167,6 +168,11 @@ export class HUD {
       title: 'Back to your village (H)',
       onclick: () => { if (this.visiting) { this.onReturnHome(); return; } this.follow = null; this.input.panTo(this.game.center.x, this.game.center.y); },
     }, pxIcon('target'), h('span.home-label', 'Village')));
+    // sailing: status, Fire, Return to port, and a steering pad for touch screens
+    this.sailInput = { throttle: 0, turn: 0, fire: false };
+    this.els.sailBar = h('div.sail-bar', { hidden: true });
+    this.root.append(this.els.sailBar);
+
     // what right-click / Esc do on a computer, as buttons (phones have neither)
     this.els.touchBar = h('div.touch-bar');
     this.root.append(this.els.touchBar);
@@ -198,6 +204,14 @@ export class HUD {
         c.x += (this.follow.x - c.x) * Math.min(1, dt * 5);
         c.y += (this.follow.y - c.y) * Math.min(1, dt * 5);
       }
+    }
+    if (g.sail) {
+      const k = this.input.keys, t = this.sailInput;
+      const throttle = (k.has('w') || k.has('arrowup') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0) || t.throttle;
+      const turn = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0) || t.turn;
+      if (!g.paused && !g.pendingEvent) updateSailing(g, dt, { throttle, turn, fire: k.has(' ') || t.fire });
+      const c = this.renderer.camera;
+      if (g.sail) { c.x += (g.sail.x - c.x) * Math.min(1, dt * 4); c.y += (g.sail.y - c.y) * Math.min(1, dt * 4); }
     }
     this.tickTimer -= dt;
     if (this.tickTimer > 0) return;
@@ -241,6 +255,7 @@ export class HUD {
 
     this.updateInspector();
     this.updateTouchBar();
+    this.updateSailBar();
     this.updateGoals();
     this.updateThreats();
     this.drawMinimapDots();
@@ -255,6 +270,7 @@ export class HUD {
     const k = e.key.toLowerCase();
     if (k === 'v') { this.openMap(); return; }
     if (k === 'escape' && this.visiting) { this.onReturnHome(); return; }
+    if (this.game.sail) { if (k === 'escape') returnToPort(this.game); if (k === ' ') e.preventDefault?.(); return; }   // the helm takes the keys
     if (k === 'escape') { if (this.demolishMode) this.toggleDemolish(false); else if (this.buildType) this.cancelBuild(); else if (this.game.selected) this.select(null); else this.closePanel(); }
     else if (k === 'z' && (e.ctrlKey || e.metaKey)) { e.preventDefault?.(); this.undo(); }
     else if (k === 'x') this.toggleDemolish();
@@ -789,7 +805,7 @@ export class HUD {
     const tools = h('div.build-tools',
       h(`button.btn.sm${this.demolishMode ? '.danger' : ''}`, { title: 'Click or drag a box over buildings to remove them (X)', onclick: () => { this.toggleDemolish(); this.refreshPanel(); } }, this.demolishMode ? '🗑 Demolishing… (X)' : '🗑 Demolish (X)'),
       this.undoStack?.length ? h('button.btn.sm', { title: 'Undo the last build or demolish (Ctrl+Z)', onclick: () => { this.undo(); this.refreshPanel(); } }, pxIcon('undo'), 'Undo') : null,
-      this.lastBuild && BUILDINGS[this.lastBuild] ? h('button.btn.sm', { title: 'Build it again (R)', onclick: () => this.startBuild(this.lastBuild) }, icon(`buildings/${this.lastBuild}`, 18), `Again (R)`) : null);
+      this.lastBuild && BUILDINGS[this.lastBuild] ? h('button.btn.sm', { title: 'Build it again (R)', onclick: () => this.startBuild(this.lastBuild) }, icon(buildingSprite(this.lastBuild), 18), `Again (R)`) : null);
     return [this.head('items/hammer', 'Build', `${ERAS[g.state.era].name} era`), tabs, h('div.build-search-row', search, tools), body];
   }
 
@@ -812,7 +828,7 @@ export class HUD {
         h('div.unlock-head', h('b', `🔓 ${E.name} era`), h('span.faint', left ? `${left} thing${left === 1 ? '' : 's'} left` : 'Ready — it unlocks at dawn')),
         h('div.unlock-items', items.map(i => h(`div.unlock-item${i.done ? '.done' : ''}`,
           h('span.unlock-check', i.done ? '✓' : '○'),
-          i.type ? icon(`buildings/${i.type}`, 22) : h('span', i.icon),
+          i.type ? icon(buildingSprite(i.type), 22) : h('span', i.icon),
           h('span', i.text),
           i.frac != null && !i.done ? bar(Math.min(1, i.frac), '#ffcf5a') : null)))));
     }
@@ -833,7 +849,7 @@ export class HUD {
         this.startBuild(type);
       },
     },
-    h('div.thumb', icon(`buildings/${type}`, 56), count ? h('span.bcount', `×${count}`) : null),
+    h('div.thumb', icon(buildingSprite(type), 56), count ? h('span.bcount', `×${count}`) : null),
     h('div.bcard-main',
       h('div.name', def.name),
       h('div.badges', effectBadges(type).map(b => h(`span.badge-fx${b.good ? '' : '.warn'}`, { title: b.tip }, h('i', b.icon), b.label === '' ? null : b.label))),
@@ -1537,9 +1553,9 @@ export class HUD {
       v.talents?.length ? h('div.talents', h('span.faint', 'Natural talents'),
         ...v.talents.map((t, i) => h(`span.chip${i === 0 ? '.good' : ''}`, { title: i === 0 ? 'Main talent: decides their trade' : 'Second talent' }, `${i === 0 ? '★ ' : ''}${talentLabel(t)}`))) : null,
       v.gifted && !v.ruling ? h('div.stat', { title: 'Gifted people grow proud unless they are respected (an office, a knighthood, Discipline). At full pride they rebel.' },
-        h('span', (v.ego || 0) >= EGO_PROUD ? 'Pride!' : 'Pride'), bar((v.ego || 0) / 100, (v.ego || 0) >= EGO_PROUD ? '#ff7a4a' : '#c9a0ff'), h('span', Math.round(v.ego || 0))) : null,
+        h('span', icon('magic/proud', 14), (v.ego || 0) >= EGO_PROUD ? ' Pride!' : ' Pride'), bar((v.ego || 0) / 100, (v.ego || 0) >= EGO_PROUD ? '#ff7a4a' : '#c9a0ff'), h('span', Math.round(v.ego || 0))) : null,
       h('div.row', { style: { flexWrap: 'wrap', gap: '4px' } },
-        h('button.btn.sm', { onclick: () => this.talkModal(v) }, pxIcon('people'), 'Talk')),
+        h('button.btn.sm', { onclick: () => this.talkModal(v) }, icon('magic/talk_dots', 16), 'Talk')),
       v.job === 'mage' ? this.spellCard(v) : null,
       h('div.traits', v.traits.filter(t => t !== 'gifted').length
         ? v.traits.filter(t => t !== 'gifted').map(t => h(`span.chip.${TRAITS[t]?.good ? 'good' : 'bad'}`, { title: TRAITS[t]?.desc }, `${TRAITS[t]?.earned ? '★ ' : ''}${TRAITS[t]?.label || t}`))
@@ -1606,11 +1622,68 @@ export class HUD {
     ];
   }
 
+  /** Shipyard: build boats, repair them, and set sail. */
+  shipyardCard() {
+    const g = this.game;
+    const fleet = fleetOf(g);
+    const eraName = e => ERAS[e]?.name || '';
+    return h('div.ability',
+      h('div.ability-head', icon('boats/ship_wheel', 30), h('div', h('div.ability-name', 'Your fleet'), h('div.faint', 'Steer with W A S D (or the arrows), Space fires bombs, Esc returns to port'))),
+      fleet.length ? h('div.fleet', fleet.map(b => {
+        const def = BOATS[b.type];
+        return h('div.fleet-row', icon(`boats/${b.type}`, 34),
+          h('div.fleet-info', h('b', b.name), h('div.stat', h('span', 'Hull'), bar(b.hull / def.hull, '#6fdc5a'), h('span', `${Math.ceil(b.hull)}/${def.hull}`))),
+          b.hull < def.hull ? h('button.btn.sm', { onclick: () => { const r = repairBoat(g, b.id); if (r.error) this.hint(r.error, 1800); this.updateInspector(true); } }, 'Repair') : null,
+          h('button.btn.sm.primary', { onclick: () => { const r = setSail(g, b.id); if (r.error) { this.hint(r.error, 2000); return; } play('ability'); this.select(null); this.closePanel(); this.renderer.camera.zoom = Math.max(this.renderer.camera.zoom, 1.8); this.hint('Set sail! Steer with W A S D, Space fires bombs, Esc returns to port.', 5000); } }, 'Set sail'));
+      })) : h('div.faint', 'No boats yet. Build one below.'),
+      h('div.boat-list', Object.entries(BOATS).map(([type, def]) => {
+        const locked = def.era > g.state.era;
+        return h(`div.boat-card${locked ? '.locked' : ''}`, { title: def.desc },
+          icon(`boats/${type}`, 40),
+          h('div.boat-info', h('b', def.name), h('span.faint', locked ? `${eraName(def.era)} era` : `Hull ${def.hull} · ${def.guns} gun${def.guns === 1 ? '' : 's'} · speed ${def.speed}`), locked ? null : costChips(def.cost, g.state.resources)),
+          locked ? null : h('button.btn.sm', { onclick: () => { const r = buildBoat(g, type); if (r.error) this.hint(r.error, 1800); else play('build'); this.updateInspector(true); } }, 'Build'));
+      })));
+  }
+
+  /** While sailing: the ship's status and controls. */
+  updateSailBar() {
+    const g = this.game, s = g.sail, bar2 = this.els.sailBar;
+    if (!s) { if (!bar2.hidden) { bar2.hidden = true; bar2.replaceChildren(); this._sailKey = null; this.els.sailPad?.remove(); this.els.sailPad = null; } return; }
+    const boat = fleetOf(g).find(b => b.id === s.boatId);
+    const def = BOATS[s.type];
+    const key = [Math.ceil(boat?.hull || 0), Math.floor(g.state.resources.bombs || 0), s.pirates.length, s.gold, s.atEdge].join('|');
+    if (key === this._sailKey) return;
+    const first = !this._sailKey;
+    this._sailKey = key;
+    bar2.hidden = false;
+    const hold = (prop, value) => ({
+      onpointerdown: e => { e.preventDefault(); this.sailInput[prop] = value; },
+      onpointerup: () => { this.sailInput[prop] = 0; }, onpointerleave: () => { this.sailInput[prop] = 0; }, onpointercancel: () => { this.sailInput[prop] = 0; },
+    });
+    const status = h('div.sail-status',
+      icon(`boats/${s.type}`, 34),
+      h('div', h('b', boat?.name || def.name), h('div.stat', h('span', 'Hull'), bar((boat?.hull || 0) / def.hull, '#6fdc5a'), h('span', Math.ceil(boat?.hull || 0)))),
+      h('span.chip', icon('boats/sea_bomb', 16), `${Math.floor(g.state.resources.bombs || 0)} bombs`),
+      s.pirates.length ? h('span.chip.bad', `${s.pirates.length} pirate${s.pirates.length === 1 ? '' : 's'}`) : null,
+      s.gold ? h('span.chip.good', `+${s.gold} gold`) : null);
+    const actions = h('div.sail-actions',
+      s.atEdge ? h('button.btn.sm', { onclick: () => this.openMap() }, 'Sail to another land') : null,
+      h('button.btn.sm.ghost', { onclick: () => returnToPort(g) }, 'Return to port'));
+    const pad = h('div.sail-pad',
+      h('button.pad.left', hold('turn', -1), '◄'),
+      h('div.pad-col', h('button.pad', hold('throttle', 1), '▲'), h('button.pad', hold('throttle', -1), '▼')),
+      h('button.pad.right', hold('turn', 1), '►'),
+      h('button.pad.fire', { onpointerdown: e => { e.preventDefault(); this.sailInput.fire = true; fire(g); }, onpointerup: () => { this.sailInput.fire = false; }, onpointerleave: () => { this.sailInput.fire = false; } }, 'FIRE'));
+    bar2.replaceChildren(status, actions);
+    // the steering pad lives in the bottom corners and is built once, so held buttons are never interrupted
+    if (!this.els.sailPad) { this.els.sailPad = pad; this.root.append(pad); }
+  }
+
   /** Mana and spells for a wizard. */
   spellCard(v) {
     const g = this.game;
     return h('div.ability',
-      h('div.ability-head', icon('people/mage_' + (v.sex === 'f' ? 'f' : 'm'), 30), h('div', h('div.ability-name', 'Magic'), h('div.faint', `Magic skill ${Math.floor(v.skills.magic || 0)} · wizards cast on their own when monsters come or someone is hurt`))),
+      h('div.ability-head', icon('magic/spellbook', 30), h('div', h('div.ability-name', 'Magic'), h('div.faint', `Magic skill ${Math.floor(v.skills.magic || 0)} · wizards cast on their own when monsters come or someone is hurt`))),
       h('div.stat', h('span', 'Mana'), bar((v.mana || 0) / 100, '#8fb4ff'), h('span', Math.floor(v.mana || 0))),
       h('div.spells', Object.entries(SPELLS).map(([id, sp]) => {
         const ok = canCast(g, v, id);
@@ -1672,7 +1745,7 @@ export class HUD {
     const workers = g.state.villagers.filter(v => v._task?.building === b || (v._workAt?.id === b.id && g.state.time - v._workAt.t < 20)).length;
     return [
       h('div.row', { style: { gap: '12px' } },
-        h('div.portrait', icon(`buildings/${b.type}`, 72)),
+        h('div.portrait', icon(buildingSprite(b.type), 72)),
         h('div.col', { style: { gap: '2px' } },
           h('div.title', def.name),
           b.built ? (b.blightUntil > g.state.time ? h('span.chip.bad', 'Blighted') : h('span.chip.good', 'Built')) : h('span.chip', `Building ${Math.floor(b.progress * 100)}%`))),
@@ -1680,6 +1753,7 @@ export class HUD {
       h('div.muted', def.desc),
       def.slots ? h('span.chip', `👷 ${workers}/${def.slots} working now`) : null,
       this.abilityCard(b),
+      b.type === 'shipyard' && b.built ? this.shipyardCard() : null,
       h('ul.effects', describeBuilding(b.type).filter(e => !e.text.startsWith('Ability')).map(e => h(`li${e.good ? '' : '.warn'}`, h('span', e.icon), e.text))),
       h('div.row', h('div.spacer'),
         (() => {

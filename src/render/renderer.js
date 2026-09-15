@@ -1,8 +1,9 @@
 import { TILE } from '../core/constants.js';
-import { drawSprite } from '../core/assets.js';
+import { drawSprite, sprite } from '../core/assets.js';
+import { BOATS, fleetOf } from '../game/sailing.js';
 import { TerrainPainter } from './terrain.js';
 import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
-import { BUILDINGS, sizeOf } from '../data/buildings.js';
+import { BUILDINGS, sizeOf, buildingSprite } from '../data/buildings.js';
 import { displayRole, toolFor } from '../game/villagers.js';
 import { maxHp } from '../game/creatures.js';
 import { FIND_KINDS } from '../game/finds.js';
@@ -118,6 +119,7 @@ export class Renderer {
     items.sort((a, b) => a.y - b.y);
     for (const it of items) it.draw();
 
+    this.drawSea(g);
     this.drawGhost(g);
     this.drawParticles(g);
     this.drawBeams(g);
@@ -248,13 +250,13 @@ export class Renderer {
       ctx.fill();
     }
     if (!b.built) {
-      drawSprite(ctx, `buildings/${b.type}`, x, y, size, { alpha: 0.22 });
+      drawSprite(ctx, buildingSprite(b.type), x, y, size, { alpha: 0.22 });
       drawSprite(ctx, 'buildings/construction', x, y, Math.max(TILE, size * 0.8));
       bar(ctx, x - TILE * 0.6, y + 2, TILE * 1.2, b.progress, '#ffd76a');
       return;
     }
     const blighted = b.blightUntil > g.state.time;
-    drawSprite(ctx, `buildings/${b.type}`, x, y, size, { tint: blighted ? '#553311' : null });
+    drawSprite(ctx, buildingSprite(b.type), x, y, size, { tint: blighted ? '#553311' : null });
     if (b.type === 'campfire' || b.type === 'blacksmith') {
       const flick = Math.sin(this.time * 14) * 0.5 + Math.sin(this.time * 23) * 0.5;
       if (Math.random() < 0.08) g.fx.particles.push({ x: x + (Math.random() - 0.5) * 6, y: y - TILE * 0.6, vx: 0, vy: -18, sprite: 'effects/smoke', size: 6 + flick, life: 1.2, max: 1.2, rot: 0 });
@@ -371,7 +373,7 @@ export class Renderer {
         ctx.lineWidth = 1;
         ctx.fillRect(sp.tx * TILE, sp.ty * TILE, def.size * TILE, def.size * TILE);
         ctx.strokeRect(sp.tx * TILE + 0.5, sp.ty * TILE + 0.5, def.size * TILE - 1, def.size * TILE - 1);
-        if (sp.ok) drawSprite(ctx, `buildings/${gh.type}`, (sp.tx + def.size / 2) * TILE, (sp.ty + def.size) * TILE - 2, def.size * TILE * 1.12, { alpha: sp.afford ? 0.6 : 0.3 });
+        if (sp.ok) drawSprite(ctx, buildingSprite(gh.type), (sp.tx + def.size / 2) * TILE, (sp.ty + def.size) * TILE - 2, def.size * TILE * 1.12, { alpha: sp.afford ? 0.6 : 0.3 });
       }
       return;
     }
@@ -380,7 +382,50 @@ export class Renderer {
     ctx.lineWidth = 1;
     ctx.fillRect(gh.tx * TILE, gh.ty * TILE, def.size * TILE, def.size * TILE);
     ctx.strokeRect(gh.tx * TILE + 0.5, gh.ty * TILE + 0.5, def.size * TILE - 1, def.size * TILE - 1);
-    drawSprite(ctx, `buildings/${gh.type}`, (gh.tx + def.size / 2) * TILE, (gh.ty + def.size) * TILE - 2, def.size * TILE * 1.12, { alpha: 0.7 });
+    drawSprite(ctx, buildingSprite(gh.type), (gh.tx + def.size / 2) * TILE, (gh.ty + def.size) * TILE - 2, def.size * TILE * 1.12, { alpha: 0.7 });
+  }
+
+  /** A boat sprite (drawn pointing right) turned to face its heading, centred on its position. */
+  drawShip(key, x, y, angle, length, alpha = 1) {
+    const s = sprite(key);
+    if (!s) return;
+    const { box } = s;
+    const scale = length / box.w;
+    const { ctx } = this;
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.translate(x, y);
+    // a soft shadow on the water
+    ctx.fillStyle = 'rgba(0, 20, 40, 0.28)';
+    ctx.beginPath(); ctx.ellipse(2, 4, length * 0.5, length * 0.2, angle, 0, Math.PI * 2); ctx.fill();
+    ctx.rotate(angle);
+    if (Math.cos(angle) < 0) ctx.scale(1, -1);   // keep the sails upright when heading left
+    ctx.drawImage(s.img, box.x, box.y, box.w, box.h, -box.w * scale / 2, -box.h * scale / 2, box.w * scale, box.h * scale);
+    ctx.restore();
+  }
+
+  /** Sailing: the player's boat, pirates, flying bombs, wake and floating treasure. */
+  drawSea(g) {
+    const s = g.sail;
+    if (!s || g.visiting) return;
+    const { ctx } = this;
+    for (const w of s.wake) {
+      ctx.fillStyle = `rgba(230, 250, 255, ${w.life / 1.2 * 0.5})`;
+      ctx.beginPath(); ctx.ellipse(w.x, w.y, 6 + (1.2 - w.life) * 10, 3 + (1.2 - w.life) * 4, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    for (const l of s.loot) {
+      const bob = Math.sin(this.time * 3 + l.x) * 2;
+      drawSprite(ctx, 'boats/treasure_chest', l.x, l.y + 8 + bob, TILE * 0.8);
+    }
+    for (const p of s.pirates) {
+      this.drawShip(p.sprite, p.x, p.y, p.angle, TILE * 1.9);
+      bar(ctx, p.x - 14, p.y - TILE * 1.1, 28, p.hull / p.max, '#ff5a4a');
+    }
+    const boat = fleetOf(g).find(b => b.id === s.boatId);
+    const def = BOATS[s.type];
+    this.drawShip(`boats/${s.type}`, s.x, s.y + Math.sin(this.time * 2.5) * 1.2, s.angle, TILE * (1.5 + def.guns * 0.12));
+    if (boat) bar(ctx, s.x - 16, s.y - TILE * 1.1, 32, boat.hull / def.hull, '#6fdc5a');
+    for (const b of s.shots) drawSprite(ctx, b.heavy ? 'boats/sea_bomb' : 'nature/rock', b.x, b.y + 6, TILE * (b.heavy ? 0.45 : 0.3), { rot: this.time * 8 });
   }
 
   /** Spell beams: a glowing line that fades in half a second. */

@@ -1,6 +1,16 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Set sail!',
+    changes: [
+      'Build a Shipyard by the water (Village era), then build boats: Rowboat, Longship, Galleon, Ironclad, Battleship and the Energy Battleship',
+      'Take the helm yourself: W/S or the arrows for speed, A/D to steer, Space fires bombs (a steering pad and FIRE button on phones)',
+      'Pirates hunt you at sea: sink them for floating treasure, but your boat can be sunk and lost too. Repair damaged boats at the Shipyard',
+      'Sail to the edge of your waters to reach the World Map and other lands',
+      'New magic art: spells, the spellbook, pride and rebel icons, talk bubbles',
+    ],
+  },
+  {
     title: 'Talents, pride, magic and talking',
     changes: [
       'No more Calling picker: everyone is born with one or two natural talents (often their parents\' talents) that decide their trade and grow fast',

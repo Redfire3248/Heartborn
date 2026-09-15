@@ -46,6 +46,7 @@ export const BUILDINGS = {
   bank:       { name: 'Bank',        era: 3, size: 2, cost: { stone: 100, gold: 40 },           work: 46, interest: 0.05, desc: '5% daily interest on gold.' },
   temple:     { name: 'Temple',      era: 3, size: 2, cost: { stone: 120, gold: 30, gems: 5 },  work: 50, fate: 0.2, influence: 5, desc: '+20% good fate, daily influence.' },
   castle:     { name: 'Castle',      era: 3, size: 3, cost: { stone: 200, iron: 40, gold: 50 }, work: 80, housing: 25, defense: 40, light: 6, desc: 'Seat of a kingdom. Crowns a king.' },
+  shipyard:   { name: 'Shipyard',    era: 1, size: 2, cost: { wood: 60, stone: 15 },            work: 30, nearWater: true, sprite: 'boats/dock', desc: 'Build boats here and set sail: steer your own ship, fire bombs at pirates and sea serpents, bring home treasure. Must be next to water.' },
   harbor:     { name: 'Harbor',      era: 3, size: 2, cost: { wood: 120, iron: 20 },            work: 44, workplace: 'fish', slots: 4, nearWater: true, gold: 3, desc: 'Big fishing and daily trade gold.' },
   wall_stone: { name: 'Stone Wall',  era: 3, size: 1, cost: { stone: 15 },                      work: 10, defense: 3, desc: 'Strong wall segment.' },
   gate_stone: { name: 'Stone Gate',  era: 3, size: 1, cost: { stone: 30, iron: 5 },             work: 16, defense: 3, desc: 'Strong gate.' },
@@ -159,6 +160,8 @@ export const BUILDING_ORDER = Object.keys(BUILDINGS);
 export const OLD_SIZES = { house: 1, tenement: 2, arcology: 3 };
 /** Footprint of a placed building (tiles per side). */
 export const sizeOf = b => b.size || BUILDINGS[b.type].size;
+/** The sprite a building is drawn with (most use their own; a few borrow art from other sheets). */
+export const buildingSprite = type => BUILDINGS[type]?.sprite || `buildings/${type}`;
 
 // Build menu groups
 export const CATEGORIES = [
@@ -168,7 +171,7 @@ export const CATEGORIES = [
 ];
 const CAT = {
   homes: 'campfire tent stockpile hut house granary warehouse workshop palace',
-  food: 'farm windmill fishing_hut harbor orchard pasture hunters_lodge apiary bakery brewery',
+  food: 'farm windmill fishing_hut harbor shipyard orchard pasture hunters_lodge apiary bakery brewery',
   industry: 'lumber_mill mine_entrance blacksmith quarry charcoal_kiln smelter carpenter',
   military: 'barracks watchtower wall_wood gate_wood wall_stone gate_stone craft_hut weaponsmith armory training_ground guard_post siege_workshop stone_tower fortress',
   civic: 'employment_office well market tavern stable healer_hut school town_hall courthouse jail inn bathhouse hospital bank prison embassy secret_vault tenement clock_tower railway_station museum hospital_modern holo_park cloning_vat arcology',
