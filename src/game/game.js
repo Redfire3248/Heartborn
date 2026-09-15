@@ -14,6 +14,7 @@ import { updateCourt } from './court.js';
 import { dailyTraitors, dailyMachines, updateBombDefense, updateStrikes } from './intrigue.js';
 import { ensureBody } from './body.js';
 import { updateHomes } from './homes.js';
+import { updateAutoPick } from './autopick.js';
 import { dailyEmpire } from './empire.js';
 import { updateEmployment } from './employment.js';
 import { updateFinds } from './finds.js';
@@ -127,6 +128,7 @@ export class Game {
     updateMagic(this, dt);
     updateTalk(this, dt);
     updateHomes(this, dt);
+    updateAutoPick(this, dt);
 
     if (!this.offline && !this.pendingEvent && s.time >= s.nextEventAt) this.triggerRandomEvent();
     if (s.modifiers.length) {
@@ -573,6 +575,7 @@ export class Game {
     this.spend(LAW_COST);
     s.laws = { ...DEFAULT_LAWS, ...(s.laws || {}), [category]: id };
     s.lawChangedAt = { ...(s.lawChangedAt || {}), [category]: s.time };
+    if (s.lawAuto) s.lawAuto[category] = false;   // your own decree: auto-pick leaves this category alone from now on
     // sudden change unsettles people for a moment
     for (const v of s.villagers) v.happy = clamp(v.happy - 4, 0, 100);
     this.recalc();

@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Auto-pick',
+    changes: [
+      'When something unlocks, the best choice is made for you: a new court office gets the best person for it (once the village has enough workers to spare them)',
+      'New laws: if you have not set that category yourself, the best law for your village is enacted for free. It weighs work, happiness, luck, newcomers, defence and karma, so a good ruler is not handed Tyranny or Forced Labour',
+      'Laws you decree yourself are never changed',
+      'Switch Auto-pick on or off at the top of the Rule panel',
+    ],
+  },
+  {
     title: 'See your enemies coming',
     changes: [
       'Enemies inside your land that are off screen show as red dots on the edge of the screen, pointing their way, with a count for groups; armies pulse and dragons and other bosses are bigger',

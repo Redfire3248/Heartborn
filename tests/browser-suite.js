@@ -29,6 +29,7 @@ function freshGame({ era = 0, people = 12, resources = true } = {}) {
   const g = new Game(newState({ uid: 'test', name: 'Tester', villageName: 'Testhold' }));
   g.state.era = era;
   g.state.nextEventAt = Infinity;
+  g.state.autoPick = false;   // tests control appointments and laws themselves (auto-pick has its own test)
   if (resources) Object.assign(g.state.resources, rich());
   for (let i = 0; i < people; i++) g.addWanderer();
   for (const v of g.state.villagers) v.age = Math.max(v.age, 20);
@@ -238,6 +239,31 @@ export async function run() {
     ok(Ho.residents(g, family).length === 3, 'the house lists its residents');
   });
 
+  await step('auto-pick makes the best choice when something unlocks', async () => {
+    const A = await import('/src/game/autopick.js');
+    const C = await import('/src/game/court.js');
+    const g = freshGame({ era: 2, people: 12 });
+    build(g, 'campfire');
+    A.runAutoPick(g);
+    const before = { ...g.state.laws };
+    ok(g.state.laws?.government && g.state.laws.government !== 'council', 'a better government is picked once one unlocks', JSON.stringify(g.state.laws));
+    ok(g.state.laws?.government !== 'tyranny', 'a good ruler is not given a cruel law');
+    ok(!!C.officialOf(g, 'steward'), 'the Steward office is filled as soon as it unlocks');
+    ok(!C.officialOf(g, 'high_priest'), 'offices that are still locked stay empty');
+    build(g, 'shrine');
+    A.runAutoPick(g);
+    ok(!!C.officialOf(g, 'high_priest'), 'building a Shrine unlocks the High Priest, and the best person is appointed');
+    // a law you set yourself is never changed
+    g.state.resources.influence = 999;
+    g.state.lawChangedAt = {};
+    g.enactLaw('economy', 'rationing');
+    build(g, 'market');
+    A.runAutoPick(g);
+    ok(g.state.laws.economy === 'rationing', 'your own decree stays, even when something better unlocks');
+    g.state.autoPick = false;
+    ok(before && !A.autoPickOn(g), 'auto-pick can be switched off');
+  });
+
   await step('people can fight and kill people of their own village', async () => {
     const V = await import('/src/game/villagers.js');
     const H = await import('/src/game/hero.js');
@@ -260,12 +286,14 @@ export async function run() {
     const me = g.state.villagers.find(v => v.ruling);
     const victim = g.state.villagers.find(v => v !== me && v !== a && v.age >= 16) || c;
     H.startLead(g, me);
+    for (const o of g.state.villagers) if (o !== me) o.x = me.x + 400;   // nobody else in reach
     victim.x = me.x + 12; victim.y = me.y; victim.hp = 1;
     H.updateHero(g, 1 / 30, { act: true });
     ok(g.state.villagers.includes(victim), 'a peaceful avatar never strikes people');
     H.setViolent(g, true);
     g.state.creatures = [];
     g.hero.actCd = 0; g.hero.cd = 0;
+    for (const o of g.state.villagers) if (o !== me) o.x = me.x + 400;   // nobody else in reach
     victim.x = me.x + 12; victim.y = me.y; victim.hp = 1;
     H.updateHero(g, 1 / 30, { act: true });
     ok(!g.state.villagers.includes(victim), 'in Hostile mode your avatar can kill your own people');
@@ -761,6 +789,7 @@ export async function run() {
     const P = await import('/src/game/professions.js');
     const g = new Game(newState({ uid: 'p', name: 'P', villageName: 'Tradeton' }));
     g.state.nextEventAt = Infinity;
+  g.state.autoPick = false;   // tests control appointments and laws themselves (auto-pick has its own test)
     for (let i = 0; i < 30; i++) g.addWanderer();
     const all = g.state.villagers.filter(v => !v.ruling);
     ok(all.every(v => P.PROFESSIONS[v.profession]), 'everyone has a trade');

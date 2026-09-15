@@ -13,6 +13,7 @@ import { CALLINGS, RULER_TYPES, ITEMS } from '../data/people.js';
 import { accuse, punishTraitor, throwBomb, counterIntel, isSpy, hasMissiles, hasOrbital, MISSILE_COST, strikeOwnLand, strikeRadius } from '../game/intrigue.js';
 import { openAimMap } from './aimMap.js';
 import { BODY, bodyStat } from '../game/body.js';
+import { autoPickOn, runAutoPick } from '../game/autopick.js';
 import { homeOf, residents } from '../game/homes.js';
 import { itemAt, pickUp, moveItem, dropFromPack } from '../game/groundItems.js';
 const BADGE_TRAITS = ['gifted', 'knighted', 'versatile'];   // already shown as badges at the top of a profile
@@ -1246,7 +1247,7 @@ export class HUD {
     this.deedsTab ??= 'laws';
     const tabs = h('div.tabs', [['laws', 'Laws'], ['powers', 'Powers']].map(([id, label]) =>
       h(`button${this.deedsTab === id ? '.on' : ''}`, { onclick: () => { this.deedsTab = id; this.refreshPanel(); } }, label)));
-    if (this.deedsTab === 'laws') return [this.head('items/scroll', 'Rule the Realm', 'Your laws decide what your civilization becomes'), tabs, this.lawsBody()];
+    if (this.deedsTab === 'laws') return [this.head('items/scroll', 'Rule the Realm', 'Your laws decide what your civilization becomes'), tabs, this.autoPickToggle(), this.lawsBody()];
     const body = h('div.side-body');
     body.append(h('div.faint', 'Your powers as guide. Good deeds raise karma (luck, happiness, wanderers). Evil deeds pay now — and invite curses, ghosts and rebellion.'));
     for (const d of DEEDS) {
@@ -1842,6 +1843,15 @@ export class HUD {
       people.length
         ? h('div.traits', people.map(v => h('span.chip', { style: { cursor: 'pointer' }, onclick: () => this.select({ kind: 'villager', ref: v }) }, ``)))
         : h('div.faint', 'Families without a home move in on their own.'));
+  }
+
+  /** Auto-pick on/off: when a law or office unlocks, the best choice is made for you. */
+  autoPickToggle() {
+    const g = this.game;
+    const on = autoPickOn(g);
+    return h('div.law.active', { style: { alignItems: 'center' } },
+      h('div', { style: { flex: 1 } }, h('b', 'Auto-pick'), h('div.faint', 'When a law or court office unlocks, the best choice is made for you. Laws you set yourself are never changed.')),
+      h('label.toggle', h('input', { type: 'checkbox', checked: on, onchange: ev => { g.state.autoPick = ev.target.checked; if (ev.target.checked) runAutoPick(g); this.refreshPanel(); } }), h('span', on ? 'On' : 'Off')));
   }
 
   /** Missile Silo / Orbital Cannon: aim a strike at your own land. Strikes abroad are aimed from a realm's profile. */
