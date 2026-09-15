@@ -324,6 +324,23 @@ export async function run() {
     const plain = g.spawnCreature('wolf', me.x + 2100, me.y); plain._eliteRolled = true;
     const C = await import('/src/game/creatures.js');
     ok(C.maxHp(elite) > C.maxHp(plain), 'elites have more health');
+    // beasts that fight their own way
+    g.state.creatures = [];
+    me.hp = 300; hero.iframes = 0; hero.stagger = 0;
+    const gob = g.spawnCreature('goblin', me.x + TILE * 4, me.y, { hunting: g.state.time + 999 }); gob._eliteRolled = true; gob._specialCd = 0;
+    let rocks = 0;
+    for (let i = 0; i < 90; i++) { g.step(1 / 30); rocks = Math.max(rocks, g.enemyShots?.length || 0); }
+    ok(rocks > 0, 'goblins throw rocks from a distance');
+    g.state.creatures = []; g.enemyShots = [];
+    const boar = g.spawnCreature('boar', me.x + TILE * 4, me.y); boar._eliteRolled = true;
+    C.damageCreature(g, boar, 1, me);
+    const before = me.hp; hero.iframes = 0; hero.stagger = 0;
+    for (let i = 0; i < 150; i++) g.step(1 / 30);
+    ok(me.hp < before, 'a boar you hit charges you');
+    g.state.creatures = [];
+    const slime = g.spawnCreature('slime', me.x + TILE * 20, me.y); slime._eliteRolled = true;
+    C.damageCreature(g, slime, 1e6, me);
+    ok(g.state.creatures.filter(c => c.t === 'slime' && c.tiny).length === 2, 'a slime splits in two when slain');
     H.endLead(g);
   });
 

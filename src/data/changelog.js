@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Beasts that fight their own way',
+    changes: [
+      'Goblins keep their distance and throw rocks: they wind up first (the red !), so dash aside, block or parry',
+      'Boars are peaceful until you hit one: then it paws the ground and charges in a straight line, again and again. Dodge and it runs into things and is dazed',
+      'Slimes split into two little slimes when you slay them',
+      'Your blows interrupt a charge or a throw',
+    ],
+  },
+  {
     title: 'Combos, treasure and elites',
     changes: [
       'Combos: swing again right after a swing to chain three blows. The third is a finisher: 60% more damage, a bigger slash, a longer stun and a big knockback',

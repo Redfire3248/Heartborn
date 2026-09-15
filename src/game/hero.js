@@ -191,7 +191,7 @@ function hitCreature(g, v, c, dmg, crit, w) {
   const push = TILE * (w.stun ? 11 : 7) * (crit ? 1.4 : 1) * (w.finisher ? 1.6 : 1) * (CREATURES[c.t]?.boss ? 0.2 : 1);
   c._kbx = Math.cos(a) * push; c._kby = Math.sin(a) * push;
   if (w.stun && !CREATURES[c.t]?.boss) c._stunned = Math.max(c._stunned || 0, 1 + w.stun);
-  c._windup = 0;   // a hit interrupts their attack
+  c._windup = 0; c._charge = null; c._throw = null;   // a hit interrupts their attack, charge or throw
   // flash solid white and reel for a moment (bosses shake it off faster)
   c._whiteFlash = 0.16;
   c._stunned = Math.max(c._stunned || 0, CREATURES[c.t]?.boss ? 0.35 : 1);

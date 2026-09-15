@@ -54,6 +54,18 @@ export function updateCreature(g, c, dt) {
     return;
   }
 
+  // a boar you hurt turns on you: it charges again and again until it calms down
+  if (c.angry > 0) {
+    c.angry -= dt;
+    const foe = g.state.villagers.find(v => v.id === g.hero?.id) || null;
+    if (foe && Math.hypot(foe.x - c.x, foe.y - c.y) < TILE * 14) {
+      if (special(g, c, def, foe, dt)) return;
+      if (Math.hypot(foe.x - c.x, foe.y - c.y) > TILE * 2.2) { step(g, c, foe.x, foe.y, def.speed * dt, def); return; }
+      step(g, c, c.x + (c.x - foe.x), c.y + (c.y - foe.y), def.speed * 0.8 * dt, def);   // back off to charge again
+      return;
+    }
+  }
+
   if (def.hostile) {
     // wild predators guard a territory; raiders march on the village
     c.hx ??= c.x; c.hy ??= c.y;
@@ -91,6 +103,7 @@ export function updateCreature(g, c, dt) {
         }
       }
     }
+    if (target && special(g, c, def, target, dt)) return;   // charges, thrown rocks
     if (target) {
       const d = Math.hypot(target.x - c.x, target.y - c.y);
       if (d > TILE * 0.75) {
@@ -154,6 +167,84 @@ export function updateCreature(g, c, dt) {
   wander(g, c, dt, def, false);
 }
 
+// ------------------------------------------------------------------ special attacks
+
+/**
+ * Some beasts fight their own way. Boars paw the ground, then charge in a straight line.
+ * Goblins keep their distance and throw rocks. Both warn you first (the red !), so you can dodge or guard.
+ * Returns true while the special move is running.
+ */
+function special(g, c, def, target, dt) {
+  const d = Math.hypot(target.x - c.x, target.y - c.y);
+  c._specialCd = (c._specialCd ?? 2 + Math.random() * 2) - dt;
+  // a charge in progress: rush straight on, hurting the first person in the way
+  if (c._charge) {
+    const ch = c._charge;
+    if (ch.wind > 0) { ch.wind -= dt; c._windup = ch.wind; c._flip = ch.dx < 0; return true; }
+    c._windup = 0;
+    const sp = def.speed * 3.2 * dt;
+    const nx = c.x + ch.dx * sp, ny = c.y + ch.dy * sp;
+    ch.t -= dt;
+    if (!g.world.walkable(nx, ny) || ch.t <= 0) { c._charge = null; c._stunned = ch.t > 0 ? 1 : 0.3; return true; }   // ran into something: dazed
+    c.x = nx; c.y = ny; c._walking = true;
+    if (Math.random() < dt * 20) g.anim('combat/dust', c.x - ch.dx * 10, c.y, { size: 18, dur: 0.3 });
+    const hit = g.state.villagers.find(v => !v.away && Math.hypot(v.x - c.x, v.y - c.y) < TILE * 0.7);
+    if (hit) {
+      c._charge = null;
+      c._cd = 1.5;
+      strikeVillager(g, c, hit, def.damage * 1.6 * (c.scale || 1));
+      return true;
+    }
+    return true;
+  }
+  if (c._specialCd > 0) return false;
+  if (c.t === 'boar' && d > TILE * 2 && d < TILE * 7) {
+    const a = Math.atan2(target.y - c.y, target.x - c.x);
+    c._charge = { dx: Math.cos(a), dy: Math.sin(a), wind: 0.7, t: Math.min(1.6, d / (def.speed * 3.2) + 0.3) };   // long enough to run right through where you stood
+    c._specialCd = 4 + Math.random() * 2;
+    return true;
+  }
+  if (c.t === 'goblin' && d > TILE * 2.2 && d < TILE * 8) {
+    c._throw = (c._throw ?? 0.5) - dt;   // winding up the throw
+    c._windup = Math.max(0, c._throw);
+    c._flip = target.x < c.x;
+    if (c._throw > 0) return true;
+    c._throw = null;
+    c._specialCd = 2.2 + Math.random() * 1.5;
+    const a = Math.atan2(target.y - c.y, target.x - c.x) + (Math.random() - 0.5) * 0.15;
+    (g.enemyShots ||= []).push({ x: c.x, y: c.y - 10, vx: Math.cos(a) * TILE * 7, vy: Math.sin(a) * TILE * 7, left: TILE * 9, dmg: def.damage * 0.8 * (c.scale || 1), from: c });
+    return true;
+  }
+  return false;
+}
+
+/** A blow from a beast to a villager (the person you play can dodge, block or parry it). */
+function strikeVillager(g, c, target, dmg) {
+  dmg = dmg / (1 + g.defense / 50) * toughness(target);
+  if (g.hero?.id === target.id) dmg = damageHero(g, target, dmg, c);
+  if (!dmg) return;
+  target.hp -= dmg;
+  target._hurtFlash = 0.25;
+  g.fx.shake = Math.max(g.fx.shake, 0.6);
+  if (target.hp <= 0 && !knockOutHero(g, target)) killVillager(g, target, `was slain by ${/^[aeiou]/.test(c.t) ? 'an' : 'a'} ${c.t.replace('_', ' ')}`);
+}
+
+/** Rocks thrown by goblins fly until they hit someone or fall. */
+export function updateEnemyShots(g, dt) {
+  if (!g.enemyShots?.length) return;
+  for (const s of g.enemyShots) {
+    const mx = s.vx * dt, my = s.vy * dt;
+    s.x += mx; s.y += my; s.left -= Math.hypot(mx, my);
+    const hit = g.state.villagers.find(v => !v.away && Math.hypot(v.x - s.x, v.y - 10 - s.y) < TILE * 0.5);
+    if (hit) {
+      s.left = 0;
+      strikeVillager(g, s.from || { x: s.x - s.vx, y: s.y - s.vy, t: 'goblin' }, hit, s.dmg);
+      g.anim('combat/hit', s.x, s.y, { size: 18, dur: 0.2 });
+    }
+  }
+  g.enemyShots = g.enemyShots.filter(s => s.left > 0);
+}
+
 export function damageCreature(g, c, dmg, by) {
   const def = CREATURES[c.t];
   if (c.hp == null) c.hp = maxHp(c);
@@ -162,6 +253,7 @@ export function damageCreature(g, c, dmg, by) {
   if (def.armor && by) dmg *= by.armed || heroArmed || by.inv?.pack?.sword || by.inv?.pack?.spear ? 1 - def.armor * 0.6 : 1 - def.armor;
   c.hp -= dmg;
   c._hurtFlash = 0.25;
+  if (c.t === 'boar' && c.hp > 0) { c.angry = 25; c._specialCd = Math.min(c._specialCd ?? 1, 1.2); }
   if (c.hp > 0) return;
   remove(g, c);
   if (c.bounty) payBounty(g, c, by);
@@ -169,6 +261,12 @@ export function damageCreature(g, c, dmg, by) {
   const battle = c.attackId && g.state.battles?.[c.attackId];
   if (battle) battle.killed = (battle.killed || 0) + 1;
   g.anim('combat/poof', c.x, c.y - 8, { size: def.size * TILE * 1.3, dur: 0.4 });
+  if (c.t === 'slime' && !c.tiny) {   // a slime splits into two little ones
+    for (const side of [-1, 1]) {
+      const s = g.spawnCreature('slime', c.x + side * 10, c.y, { tiny: true, _eliteRolled: true, scale: (c.scale || 1) * 0.6, hx: c.x, hy: c.y });
+      if (s) { s.hp = null; s._kbx = side * TILE * 5; s._kby = -TILE; }
+    }
+  }
   const reward = BIG_KILLS[c.t];
   const parts = [];
   if (def.food && !def.hostile) parts.push(`+${g.addResource('food', irange(...def.food))} food`);

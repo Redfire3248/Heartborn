@@ -142,6 +142,7 @@ export class Renderer {
 
     this.drawSea(g);
     this.drawGhost(g);
+    for (const sh of g.enemyShots || []) drawSprite(this.ctx, 'nature/rock', sh.x, sh.y + 4, TILE * 0.35, { rot: this.time * 12 });   // thrown rocks
     this.drawParticles(g);
     this.drawBeams(g);
     this.drawStrikes(g);

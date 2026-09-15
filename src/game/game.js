@@ -7,7 +7,7 @@ import { BUILDINGS, ERAS, sizeOf, OLD_SIZES } from '../data/buildings.js';
 import { OBJECTS, CREATURES, setSpriteEra } from '../data/objects.js';
 import { EVENTS } from '../data/events.js';
 import { updateVillager, makeVillager, dailyVillagers, killVillager } from './villagers.js';
-import { updateCreature } from './creatures.js';
+import { updateCreature, updateEnemyShots } from './creatures.js';
 import { FateContext } from './fate.js';
 import { updateWar, maybeScheduleWarband } from './war.js';
 import { updateCourt } from './court.js';
@@ -122,6 +122,7 @@ export class Game {
 
     for (const v of [...s.villagers]) updateVillager(this, v, dt);
     for (const c of [...s.creatures]) updateCreature(this, c, dt);
+    updateEnemyShots(this, dt);
     updateWar(this, dt);
     updateCourt(this, dt);
     updateEmployment(this, dt);
