@@ -220,6 +220,8 @@ function startGame(user, game, { online = true } = {}) {
     onBackToMenu: async () => { await save(true).catch(() => {}); app.mp?.stop(); location.reload(); },
     onSwitchWorld: async () => { await save(true).catch(() => {}); forgetWorld(); app.mp?.stop(); location.reload(); },
     onVisit: uid => visitRealm(uid),
+    // out on the Open Sea the screen shows the shared ocean (your village keeps running at home)
+    onSeaView: seaGame => { app.visit = seaGame; },
     onReturnHome: () => returnHome(),
   });
   app.console = null;

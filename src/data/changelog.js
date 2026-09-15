@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'The Open Sea',
+    changes: [
+      'Sail to the edge of your waters and enter the Open Sea: one shared ocean where every player in your world can sail at the same time',
+      'See other players\' ships live, with their captain, village and hull',
+      'Fight them: your bombs fly on their screen too, and a ship with no hull left sinks and is lost. Sinking another player\'s ship pays gold',
+      'Pirates still roam the Open Sea, and rocky islets break up the waves',
+    ],
+  },
+  {
     title: 'The helm, a living map and invasions by sea',
     changes: [
       'Sailing controls on screen: a ship\'s wheel to steer, a brass engine telegraph (FULL / HALF / SLOW / STOP / BACK), a compass with your speed, and a cannon button that glows as it reloads',

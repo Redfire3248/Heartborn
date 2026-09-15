@@ -417,6 +417,21 @@ export class Renderer {
       const bob = Math.sin(this.time * 3 + l.x) * 2;
       drawSprite(ctx, 'boats/treasure_chest', l.x, l.y + 8 + bob, TILE * 0.8);
     }
+    // other players' ships, with their captain and village
+    for (const o of s.others?.values() || []) {
+      this.drawShip(`boats/${o.type}`, o.x, o.y, o.a, TILE * (1.5 + (BOATS[o.type]?.guns || 1) * 0.12));
+      bar(ctx, o.x - 16, o.y - TILE * 1.1, 32, (o.hull || 0) / (o.max || 1), '#ff9a4a');
+      ctx.save();
+      ctx.font = '600 9px Rubik, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(10, 8, 16, .9)';
+      ctx.fillStyle = '#ffd9a8';
+      const label = `${o.name} · ${o.village}`;
+      ctx.strokeText(label, o.x, o.y - TILE * 1.3);
+      ctx.fillText(label, o.x, o.y - TILE * 1.3);
+      ctx.restore();
+    }
     for (const p of s.pirates) {
       this.drawShip(p.sprite, p.x, p.y, p.angle, TILE * 1.9);
       bar(ctx, p.x - 14, p.y - TILE * 1.1, 28, p.hull / p.max, '#ff5a4a');

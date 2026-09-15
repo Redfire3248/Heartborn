@@ -85,6 +85,24 @@
             }
           }
         },
+        "sea": {
+          ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && auth != null",
+          "$uid": {
+            ".write": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && auth != null && auth.uid === $uid"
+          }
+        },
+        "seaShots": {
+          ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && auth != null",
+          "$id": {
+            ".write": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && auth != null && ((!data.exists() && newData.child('from').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('from').val() === auth.uid))"
+          }
+        },
+        "seaSunk": {
+          ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && auth != null",
+          "$id": {
+            ".write": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && auth != null && ((!data.exists() && newData.child('victim').val() === auth.uid) || (data.exists() && !newData.exists() && (data.child('by').val() === auth.uid || data.child('victim').val() === auth.uid)))"
+          }
+        },
         "visits": {
           "$host": {
             ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null && auth.uid === $host)",

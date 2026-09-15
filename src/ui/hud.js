@@ -22,7 +22,7 @@ const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)'
 import { computeBridges, bridgeAt } from '../game/bridges.js';
 import { talentLabel, fullName, EGO_PROUD } from '../game/talents.js';
 import { SPELLS, canCast, castSpell } from '../game/magic.js';
-import { BOATS, fleetOf, buildBoat, setSail, returnToPort, repairBoat, updateSailing, fire, RELOAD, seaLift } from '../game/sailing.js';
+import { BOATS, fleetOf, buildBoat, setSail, returnToPort, repairBoat, updateSailing, fire, RELOAD, seaLift, enterOpenSea } from '../game/sailing.js';
 import { TOPICS, talkTo } from '../game/talk.js';
 import { activeGoals, claimGoal, rewardText, goalsLeftInEra } from '../game/goals.js';
 import { findAt, collectFind } from '../game/finds.js';
@@ -66,8 +66,10 @@ const DOCK_GROUPS = [
 const groupOf = id => DOCK_GROUPS.find(g => g?.tabs.some(t => t[0] === id));
 
 export class HUD {
-  constructor({ game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu }) {
-    Object.assign(this, { game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu });
+  constructor({ game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu, onSeaView }) {
+    Object.assign(this, { game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu, onSeaView });
+    // ships at sea talk to other players through the multiplayer layer
+    if (mp) game.seaNet = { publish: (s, boat) => mp.publishShip(s, boat), shot: b => mp.sendShot(b), sunk: (by, boat) => mp.reportSunk(by, boat), leave: () => mp.leaveSea() };
     this.root = document.getElementById('ui');
     this.panel = null;
     this.buildType = null;
@@ -1683,10 +1685,11 @@ export class HUD {
   updateSailBar() {
     const g = this.game, s = g.sail, bar2 = this.els.sailBar;
     this.root.classList.toggle('at-sea', !!s);   // the map corner and village buttons step aside for the helm
+    if (!s?.arena && this._seaView) { this._seaView = false; this.onSeaView?.(null); }
     if (!s) { if (!bar2.hidden) { bar2.hidden = true; bar2.replaceChildren(); this._sailKey = null; this.els.helm?.remove(); this.els.helm = null; Object.assign(this.sailInput, { throttle: 0, turn: 0, fire: false, wheel: 0 }); } return; }
     const boat = fleetOf(g).find(b => b.id === s.boatId);
     const def = BOATS[s.type];
-    const key = [Math.ceil(boat?.hull || 0), Math.floor(g.state.resources.bombs || 0), s.pirates.length, s.gold, s.atEdge].join('|');
+    const key = [Math.ceil(boat?.hull || 0), Math.floor(g.state.resources.bombs || 0), s.pirates.length, s.gold, s.atEdge, !!s.arena, s.others?.size || 0].join('|');
     if (key === this._sailKey) return;
     const first = !this._sailKey;
     this._sailKey = key;
@@ -1695,10 +1698,12 @@ export class HUD {
       icon(`boats/${s.type}`, 34),
       h('div', h('b', boat?.name || def.name), h('div.stat', h('span', 'Hull'), bar((boat?.hull || 0) / def.hull, '#6fdc5a'), h('span', Math.ceil(boat?.hull || 0)))),
       h('span.chip', icon('boats/sea_bomb', 16), `${Math.floor(g.state.resources.bombs || 0)} bombs`),
+      s.arena ? h('span.chip', { style: { borderColor: '#5aa9d6', color: '#9fd4ff' } }, `Open Sea · ${s.others.size} other ship${s.others.size === 1 ? '' : 's'}`) : null,
       s.pirates.length ? h('span.chip.bad', `${s.pirates.length} pirate${s.pirates.length === 1 ? '' : 's'}`) : null,
       s.gold ? h('span.chip.good', `+${s.gold} gold`) : null);
     const actions = h('div.sail-actions',
-      s.atEdge ? h('button.btn.sm', { onclick: () => this.openMap() }, 'Sail to another land') : null,
+      s.atEdge && !s.arena ? h('button.btn.sm.primary', { onclick: () => this.enterSea() }, 'Enter the Open Sea') : null,
+      s.atEdge && !s.arena ? h('button.btn.sm', { onclick: () => this.openMap() }, 'World Map') : null,
       h('button.btn.sm.ghost', { onclick: () => returnToPort(g) }, 'Return to port'));
     bar2.replaceChildren(status, actions);
     // the helm is built once, so a held wheel or cannon is never interrupted by a status update
@@ -1751,6 +1756,20 @@ export class HUD {
     const helm = h('div.helm', h('div.helm-left', wheel, lever, compass), cannon);
     Object.assign(this.els, { helmWheel: wheelImg, helmKnob: knob, helmNotches: notches, helmNeedle: needle, helmSpeed: speed, helmCannon: cannon });
     return helm;
+  }
+
+  /** Out past your waters: the shared ocean where other players' ships sail. */
+  enterSea() {
+    const g = this.game;
+    const me = realmPos(this.user.uid);
+    const seaGame = enterOpenSea(g, Math.atan2(me.y - 50, me.x - 50));   // arrive on your island's side of the ocean
+    if (!seaGame) return;
+    this._seaView = true;
+    this.onSeaView?.(seaGame);
+    this.mp?.enterSea();
+    play('ability');
+    this.hint(this.mp ? 'The Open Sea: other players\' ships sail here. Sink them for gold, or sail to the edge to go home.' : 'The Open Sea (offline: only pirates out here).', 6000);
+    this._sailKey = null;
   }
 
   /** W / S move the telegraph one notch. */

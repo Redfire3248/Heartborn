@@ -1015,3 +1015,6 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .invade-route span { font-size: 12px; color: var(--dim); text-align: center; }
 .invade-route.on { border-color: var(--gold); background: rgba(255, 207, 90, .1); box-shadow: 0 0 0 1px var(--gold); }
 .invade-route:disabled { opacity: .45; cursor: not-allowed; }
+
+/* at sea, messages float above the helm */
+.at-sea .hint { bottom: auto !important; top: 190px; }

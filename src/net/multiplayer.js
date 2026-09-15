@@ -10,7 +10,7 @@ import { RAID_SHIELD_MS, ADULT_AGE } from '../core/constants.js';
 import { clamp } from '../core/rng.js';
 import { trySpot, DUST_SECONDS, spawnArmy, tributeCost, rally } from '../game/war.js';
 import { returnHome } from '../game/villagers.js';
-import { seaLift } from '../game/sailing.js';
+import { seaLift, seaUpdate, seaIncomingShot, BOATS } from '../game/sailing.js';
 import { isTrained } from '../game/dynasty.js';
 import { isSpy, destroyBuildings, sufferStrike, hasMissiles, hasOrbital, MISSILE_COST } from '../game/intrigue.js';
 
@@ -156,6 +156,7 @@ export class Multiplayer {
   }
 
   stop() {
+    this.leaveSea?.();
     clearInterval(this.presenceTimer);
     clearInterval(this.warTimer);
     for (const u of this.unsubs) u();
@@ -191,6 +192,72 @@ export class Multiplayer {
   }
 
   // ---------------- offers ----------------
+  // ================================================================ the Open Sea
+  /**
+   * Ships at sea are shared live: sea/{uid} is each captain's ship (position, heading, hull),
+   * seaShots/{id} are bombs in flight (every client flies them; the ship that gets hit applies the damage),
+   * seaSunk/{id} tells a captain they sank someone.
+   */
+  enterSea() {
+    if (this.seaUnsubs) return;
+    const g = this.g;
+    this.seaUnsubs = [];
+    const mine = ref(rtdb, `${this.w}sea/${this.uid}`);
+    onDisconnect(mine).remove();
+    this.seaUnsubs.push(onValue(ref(rtdb, `${this.w}sea`), snap => {
+      const all = snap.val() || {};
+      const now = Date.now();
+      for (const [uid, d] of Object.entries(all)) if (uid !== this.uid && now - (d.ts || 0) < 15_000) seaUpdate(g, uid, d);
+      for (const uid of [...(g.sail?.others?.keys() || [])]) if (!all[uid] || now - (all[uid].ts || 0) >= 15_000) seaUpdate(g, uid, null);
+    }));
+    const since = Date.now() - 2000;
+    this.seaUnsubs.push(onChildAdded(ref(rtdb, `${this.w}seaShots`), snap => {
+      const shot = snap.val();
+      if (shot && shot.from !== this.uid && (shot.ts || 0) > since) seaIncomingShot(g, shot);
+    }));
+    this.seaUnsubs.push(onChildAdded(ref(rtdb, `${this.w}seaSunk`), snap => {
+      const e = snap.val();
+      if (!e || (e.ts || 0) < since) return;
+      if (e.by === this.uid) {
+        const gold = 80 + g.state.era * 40;
+        g.addResource('gold', gold);
+        if (g.sail) { g.sail.sunk++; g.sail.gold += gold; }
+        g.log(`You sank ${e.victimName}'s ${e.ship}! +${gold} gold`, 'good');
+        g.announce(`You sank ${e.victimName}'s ship!`);
+        remove(snap.ref).catch(() => {});
+      }
+    }));
+    this.lastSeaPublish = 0;
+  }
+
+  /** Our ship's position, a few times a second. */
+  publishShip(s, boat) {
+    if (!this.seaUnsubs) this.enterSea();
+    const now = Date.now();
+    if (now - this.lastSeaPublish < 200) return;
+    this.lastSeaPublish = now;
+    set(ref(rtdb, `${this.w}sea/${this.uid}`), {
+      x: Math.round(s.x), y: Math.round(s.y), a: Math.round(s.angle * 100) / 100, type: s.type,
+      hull: Math.max(0, Math.ceil(boat.hull)), max: BOATS[s.type].hull, name: this.name, village: this.g.state.owner.villageName, ts: now,
+    }).catch(() => {});
+  }
+
+  sendShot(shot) {
+    const r = push(ref(rtdb, `${this.w}seaShots`));
+    set(r, { from: this.uid, x: Math.round(shot.x), y: Math.round(shot.y), vx: Math.round(shot.vx), vy: Math.round(shot.vy), dmg: shot.dmg, ts: Date.now() }).catch(() => {});
+    setTimeout(() => remove(r).catch(() => {}), 4000);   // bombs only live a moment
+  }
+
+  reportSunk(byUid, boat) {
+    push(ref(rtdb, `${this.w}seaSunk`), { victim: this.uid, victimName: this.name, by: byUid, ship: BOATS[boat.type]?.name || 'ship', ts: Date.now() }).catch(() => {});
+  }
+
+  leaveSea() {
+    for (const u of this.seaUnsubs || []) u();
+    this.seaUnsubs = null;
+    remove(ref(rtdb, `${this.w}sea/${this.uid}`)).catch(() => {});
+  }
+
   /**
    * Ask another ruler to let us visit their land. Resolves 'yes' | 'no' | 'timeout' | 'offline'.
    * visits/{host}/{guest} = { status: 'ask' | 'yes' | 'no', name, villageName, ts }

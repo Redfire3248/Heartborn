@@ -2,6 +2,10 @@ import { TILE, MAP_W, MAP_H } from '../core/constants.js';
 import { clamp, chance, pick } from '../core/rng.js';
 import { CREATURES } from '../data/objects.js';
 import { damageCreature } from './creatures.js';
+import { World, T } from './world.js';
+import { Game } from './game.js';
+import { SAVE_VERSION, DAY_LENGTH } from '../core/constants.js';
+import { DEFAULT_LAWS } from '../data/laws.js';
 
 /*
  * Sailing: build boats at a Shipyard, then take the helm yourself.
@@ -78,7 +82,7 @@ export function setSail(g, boatId) {
   if (boat.awayUntil > Date.now()) return { error: 'This boat is away carrying an invasion' };
   const spot = launchSpot(g);
   if (!spot) return { error: 'The shipyard has no open water' };
-  g.sail = { boatId, type: boat.type, x: spot.x, y: spot.y, angle: spot.angle, speed: 0, reload: 0, shots: [], pirates: [], loot: [], nextPirateAt: 20, time: 0, sunk: 0, gold: 0, wake: [] };
+  g.sail = { boatId, type: boat.type, x: spot.x, y: spot.y, angle: spot.angle, speed: 0, reload: 0, shots: [], pirates: [], loot: [], nextPirateAt: 20, time: 0, sunk: 0, gold: 0, wake: [], others: new Map() };
   g.log(`The ${boat.name} sets sail!`, 'event');
   g.emit('change');
   return { ok: true };
@@ -88,7 +92,8 @@ export function returnToPort(g) {
   const s = g.sail;
   if (!s) return;
   const boat = fleetOf(g).find(b => b.id === s.boatId);
-  g.log(`The ${boat?.name || 'boat'} returns to port${s.sunk ? ` after sinking ${s.sunk} pirate${s.sunk === 1 ? '' : 's'}` : ''}${s.gold ? ` with ${s.gold} gold of treasure` : ''}.`, 'good');
+  g.log(`The ${boat?.name || 'boat'} returns to port${s.sunk ? ` after sinking ${s.sunk} ship${s.sunk === 1 ? '' : 's'}` : ''}${s.gold ? ` with ${s.gold} gold of treasure` : ''}.`, 'good');
+  if (s.arena) g.seaNet?.leave();
   g.sail = null;
   g.emit('change');
 }
@@ -107,7 +112,8 @@ export function repairBoat(g, boatId) {
   return { ok: true, cost };
 }
 
-const waterAt = (g, x, y) => g.world.isWater(Math.floor(x / TILE), Math.floor(y / TILE));
+const seaWorld = g => (g.sail?.arena && g.sail.seaGame ? g.sail.seaGame.world : g.world);
+const waterAt = (g, x, y) => seaWorld(g).isWater(Math.floor(x / TILE), Math.floor(y / TILE));
 
 export function fire(g) {
   const s = g.sail;
@@ -120,7 +126,9 @@ export function fire(g) {
   for (let i = 0; i < def.guns; i++) {
     const spread = (i - (def.guns - 1) / 2) * 0.12;
     const a = s.angle + spread;
-    s.shots.push({ x: s.x + Math.cos(a) * TILE * 0.7, y: s.y + Math.sin(a) * TILE * 0.7, vx: Math.cos(a) * BOMB_SPEED, vy: Math.sin(a) * BOMB_SPEED, left: BOMB_RANGE, dmg: heavy ? 30 : 8, heavy, mine: true });
+    const shot = { x: s.x + Math.cos(a) * TILE * 0.7, y: s.y + Math.sin(a) * TILE * 0.7, vx: Math.cos(a) * BOMB_SPEED, vy: Math.sin(a) * BOMB_SPEED, left: BOMB_RANGE, dmg: heavy ? 30 : 8, heavy, mine: true };
+    s.shots.push(shot);
+    if (s.arena) g.seaNet?.shot(shot);
   }
   s.reload = RELOAD;
   return true;
@@ -149,6 +157,10 @@ export function updateSailing(g, dt, controls = {}) {
   for (const w of s.wake) w.life -= dt;
   s.wake = s.wake.filter(w => w.life > 0);
   if (controls.fire) fire(g);
+  if (s.arena) {
+    for (const o of s.others.values()) { o.x += (o.tx - o.x) * Math.min(1, dt * 6); o.y += (o.ty - o.y) * Math.min(1, dt * 6); const d = Math.atan2(Math.sin(o.ta - o.a), Math.cos(o.ta - o.a)); o.a += d * Math.min(1, dt * 6); }
+    g.seaNet?.publish(s, boat);
+  }
 
   // pirates show up after a while, tougher in later eras
   if (s.time >= s.nextPirateAt && s.pirates.length < 2 + Math.floor(g.state.era / 2)) {
@@ -193,10 +205,15 @@ export function updateSailing(g, dt, controls = {}) {
     if (b.mine) {
       const p = s.pirates.find(p => Math.hypot(p.x - b.x, p.y - b.y) < TILE * 0.9);
       if (p) { p.hull -= b.dmg; b.left = -1; g.puff(p, 'effects/explosion', 6, 20); g.fx.shake = 0.4; continue; }
-      const c = g.state.creatures.find(c => CREATURES[c.t]?.hostile && Math.hypot(c.x - b.x, c.y - b.y) < TILE * 0.9);
+      if (s.arena) {
+        const o = [...s.others.values()].find(o => Math.hypot(o.x - b.x, o.y - b.y) < TILE * 0.9);
+        if (o) { b.left = -1; g.puff({ x: o.x, y: o.y }, 'effects/explosion', 6, 20); continue; }
+      }
+      const c = s.arena ? null : g.state.creatures.find(c => CREATURES[c.t]?.hostile && Math.hypot(c.x - b.x, c.y - b.y) < TILE * 0.9);
       if (c) { damageCreature(g, c, b.dmg); b.left = -1; g.puff(c, 'effects/explosion', 5, 16); continue; }
     } else if (Math.hypot(s.x - b.x, s.y - b.y) < TILE * 0.8) {
       boat.hull -= b.dmg;
+      if (b.from) s.lastHitBy = b.from;   // another player's bomb
       b.left = -1;
       g.puff({ x: s.x, y: s.y }, 'effects/explosion', 6, 20);
       g.fx.shake = 0.8;
@@ -235,9 +252,96 @@ export function updateSailing(g, dt, controls = {}) {
     g.puff({ x: s.x, y: s.y }, 'boats/sinking_ship', 1, 2);
     g.puff({ x: s.x, y: s.y }, 'boats/debris', 4, 20);
     g.state.fleet = fleetOf(g).filter(b => b !== boat);
+    if (s.arena && s.lastHitBy) g.seaNet?.sunk(s.lastHitBy, boat);
+    if (s.arena) g.seaNet?.leave();
     g.log(`The ${boat.name} was sunk! The crew swim home, but the ship is lost.`, 'bad', { x: s.x, y: s.y });
     g.announce(`The ${boat.name} sank`);
     g.sail = null;
     g.emit('change');
   }
+}
+
+// ------------------------------------------------------------------ the Open Sea (shared with other players)
+
+const OPEN_SEA_SEED = 424242;
+let openSeaWorld = null;
+
+/** The same ocean for everyone: deep water, shallows and a scatter of rocky islets. */
+function oceanWorld() {
+  if (openSeaWorld) return openSeaWorld;
+  const w = new World(OPEN_SEA_SEED);
+  w.tiles.fill(T.deep_water);
+  let seed = OPEN_SEA_SEED;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  for (let i = 0; i < 14; i++) {
+    const cx = 10 + rnd() * (w.w - 20), cy = 10 + rnd() * (w.h - 20), r = 1.5 + rnd() * 3;
+    for (let y = Math.floor(cy - r - 3); y <= cy + r + 3; y++) for (let x = Math.floor(cx - r - 3); x <= cx + r + 3; x++) {
+      if (!w.inBounds(x, y)) continue;
+      const d = Math.hypot(x - cx, y - cy);
+      if (d < r * 0.55) w.tiles[y * w.w + x] = T.stone_path ?? T.sand;
+      else if (d < r) w.tiles[y * w.w + x] = T.sand;
+      else if (d < r + 2.5 && w.tiles[y * w.w + x] === T.deep_water) w.tiles[y * w.w + x] = T.water;
+    }
+  }
+  w.version++;
+  openSeaWorld = w;
+  return w;
+}
+
+/** A view-only game that draws the Open Sea (the real village keeps running at home). */
+export function makeSeaGame(home) {
+  const world = oceanWorld();
+  const state = {
+    version: SAVE_VERSION, seed: OPEN_SEA_SEED, createdAt: 0, updatedAt: 0,
+    owner: { uid: 'sea', name: 'The Open Sea', villageName: 'The Open Sea' },
+    time: home.state.time, center: { x: world.w * TILE / 2, y: world.h * TILE / 2 },
+    resources: {}, karma: 0, era: home.state.era, villagers: [], buildings: [], objects: [], creatures: [],
+    stats: {}, log: [], modifiers: [], incoming: [], battles: {}, laws: { ...DEFAULT_LAWS }, lawChangedAt: {},
+    nextEventAt: Infinity, lastDay: 0, shieldUntil: 0, camera: { x: 0, y: 0, zoom: 2 }, fleet: home.state.fleet,
+  };
+  const g = new Game(state);
+  g.world = world;
+  g.offline = true;
+  g.visiting = false;
+  g.newDay = () => {};
+  g.update = () => {};           // nothing lives here; the time of day follows home
+  g.fx = home.fx;                // explosions and splashes from home show up at sea
+  Object.defineProperty(g, 'sail', { get: () => home.sail });
+  Object.defineProperty(g, 'darkness', { get: () => home.darkness });
+  return g;
+}
+
+/** Sail out of your waters onto the Open Sea, where other players' ships are. */
+export function enterOpenSea(g, spawnAngle = 0) {
+  const s = g.sail;
+  if (!s || s.arena) return null;
+  const seaGame = makeSeaGame(g);
+  const w = seaGame.world;
+  // arrive on the side of the ocean that faces your island on the World Map
+  let x = w.w / 2 + Math.cos(spawnAngle) * w.w * 0.38, y = w.h / 2 + Math.sin(spawnAngle) * w.h * 0.38;
+  for (let r = 0; r < 20 && !w.isWater(Math.floor(x), Math.floor(y)); r++) { x += (w.w / 2 - x) * 0.1; y += (w.h / 2 - y) * 0.1; }
+  Object.assign(s, { arena: true, seaGame, x: x * TILE, y: y * TILE, angle: spawnAngle + Math.PI, speed: 0, shots: [], pirates: [], loot: [], wake: [], others: new Map(), nextPirateAt: s.time + 40, atEdge: false });
+  g.log('You sail out onto the Open Sea. Other rulers\' ships may be out here...', 'event');
+  return seaGame;
+}
+
+/** Network updates about other ships (called by the multiplayer layer). */
+export function seaUpdate(g, uid, data) {
+  const s = g.sail;
+  if (!s?.arena) return;
+  if (!data) { s.others.delete(uid); return; }
+  const o = s.others.get(uid);
+  if (o) Object.assign(o, { tx: data.x, ty: data.y, ta: data.a, hull: data.hull, max: data.max, type: data.type, name: data.name, village: data.village });
+  else s.others.set(uid, { uid, x: data.x, y: data.y, a: data.a, tx: data.x, ty: data.y, ta: data.a, hull: data.hull, max: data.max, type: data.type, name: data.name, village: data.village });
+}
+
+/** A bomb fired by another player: it flies here too, and may hit us. */
+export function seaIncomingShot(g, shot) {
+  const s = g.sail;
+  if (!s?.arena) return;
+  const age = Math.max(0, (Date.now() - (shot.ts || Date.now())) / 1000);
+  const x = shot.x + shot.vx * age, y = shot.y + shot.vy * age;
+  const left = BOMB_RANGE - Math.hypot(shot.vx, shot.vy) * age;
+  if (left <= 0) return;
+  s.shots.push({ x, y, vx: shot.vx, vy: shot.vy, left, dmg: shot.dmg, heavy: true, mine: false, from: shot.from });
 }
