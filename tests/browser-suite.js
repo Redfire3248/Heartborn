@@ -188,6 +188,12 @@ export async function run() {
     if (b) { const gold = g.state.resources.gold; Cr.damageCreature(g, b, 1e6, other); ok(g.state.resources.gold > gold, 'killing the bounty pays gold'); }
     H.endLead(g);
     ok(!g.hero, 'you can stop leading');
+    const pick = g.state.villagers.find(o => !o.ruling && o.age >= 16);
+    const av = H.setAvatar(g, pick);
+    ok(av.ok && g.hero.id === pick.id && g.state.avatarId === pick.id, 'any villager can be made your avatar');
+    H.endLead(g);
+    ok(H.startLead(g).hero === pick, 'the Avatar button plays as your chosen villager again');
+    H.endLead(g);
   });
 
   await step('strength, speed and stamina really matter', async () => {
@@ -207,6 +213,29 @@ export async function run() {
     const mom = a, dad = { ...b, body: { strength: 10, speed: 10, stamina: 10 } };
     for (let i = 0; i < 8; i++) { const before = g.state.villagers.length; V.__birthForTest(g, mom, dad); kids.push(g.state.villagers[before]); }
     ok(kids.every(k => k.body.strength >= 7), 'children of strong parents are born strong', kids.map(k => k.body.strength).join(','));
+  });
+
+  await step('households share a home that is reserved for them', async () => {
+    const Ho = await import('/src/game/homes.js');
+    const V = await import('/src/game/villagers.js');
+    const g = freshGame({ era: 2, people: 2 });
+    build(g, 'campfire');
+    const [a, b] = g.state.villagers;
+    a.sex = 'f'; b.sex = 'm'; a.age = b.age = 28; a.partner = b.id; b.partner = a.id; a.lastBirthAt = -1e9;
+    V.__birthForTest(g, a, b);
+    const kid = g.state.villagers.find(v => v.parents?.includes(a.id));
+    const loner = g.addWanderer(); loner.age = 30; loner.partner = null; loner.parents = null; loner.arrivedWith = null;
+    for (let i = 0; i < Ho.households(g).length + 1; i++) build(g, 'tent');
+    Ho.assignHomes(g);
+    ok(a.homeId && a.homeId === b.homeId && b.homeId === kid.homeId, 'a couple and their child share one home', `${a.homeId} ${b.homeId} ${kid?.homeId}`);
+    ok(loner.homeId && loner.homeId !== a.homeId, 'someone from another household gets a different home');
+    const family = g.state.buildings.find(x => x.id === a.homeId);
+    ok(family.family === (a.age >= b.age ? a.surname : b.surname) || !!family.family, 'the house is reserved in the family name', family.family);
+    const newcomer = g.addWanderer(); newcomer.partner = null; newcomer.parents = null; newcomer.arrivedWith = null;
+    Ho.assignHomes(g);
+    ok(newcomer.homeId !== a.homeId, 'a stranger never moves into a family\'s reserved home, even with beds to spare');
+    ok(a.homeId === family.id, 'families keep their home when the village reshuffles');
+    ok(Ho.residents(g, family).length === 3, 'the house lists its residents');
   });
 
   await step('fast lives, and workers carry what they gather home', async () => {

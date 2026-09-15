@@ -1,6 +1,17 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Family homes and your own avatar',
+    changes: [
+      'Households live together: a couple, their children and unmarried grown children share one home, and families who arrived together stay together',
+      'Homes are reserved for their family: a house shows Home of the Fisher family with every resident, and strangers never move into it, even with beds to spare',
+      'Families keep their home; newlyweds move into one of their own when a house is free; a family too big for its house takes a second one nearby, grown children first',
+      'Castles, Tenements and Arcologies are split into flats for many families',
+      'At night people walk to their own home; the profile shows where someone lives',
+      'Play as anyone: tap Play as in a villager''s profile to make them your avatar and walk, fight, chop and mine as them. The Avatar button (G) plays as them again',
+    ],
+  },
+  {
     title: 'Strength, Speed and Stamina',
     changes: [
       'Everyone is born with Strength, Speed and Stamina (1 to 10), shown as bars in their profile. Children take after their parents; Strong, Nimble and Hardworking people are born with more',

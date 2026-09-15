@@ -13,6 +13,7 @@ import { updateWar, maybeScheduleWarband } from './war.js';
 import { updateCourt } from './court.js';
 import { dailyTraitors, dailyMachines, updateBombDefense, updateStrikes } from './intrigue.js';
 import { ensureBody } from './body.js';
+import { updateHomes } from './homes.js';
 import { dailyEmpire } from './empire.js';
 import { updateEmployment } from './employment.js';
 import { updateFinds } from './finds.js';
@@ -125,6 +126,7 @@ export class Game {
     updateFinds(this, dt);
     updateMagic(this, dt);
     updateTalk(this, dt);
+    updateHomes(this, dt);
 
     if (!this.offline && !this.pendingEvent && s.time >= s.nextEventAt) this.triggerRandomEvent();
     if (s.modifiers.length) {

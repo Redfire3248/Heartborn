@@ -66,6 +66,7 @@ export function shareHousehold(members) {
   const [first, ...rest] = members;
   if (!first) return;
   ensureProfession(first);
+  for (const m of members) m.arrivedWith = first.id;   // they arrived as one household and will share a home
   for (const m of rest) {
     if (first.surname) m.surname = first.surname;   // one household, one family name
     // families share a trade, but the gift of magic is not handed around a household

@@ -7,6 +7,7 @@ import { MALE_NAMES, FEMALE_NAMES, BIRTH_TRAITS, SURNAMES } from '../data/traits
 import { talentLearnMult } from './talents.js';
 import { upgradeSpeed } from './upgrades.js';
 import { inspired } from './hero.js';
+import { homeOf, shelterFor } from './homes.js';
 import { rollBody, speedMult, strengthMult, hungerMult, bodyWorkMult, trainBody } from './body.js';
 import { OBJECTS, CREATURES } from '../data/objects.js';
 import { BUILDINGS, sizeOf } from '../data/buildings.js';
@@ -352,7 +353,8 @@ function chooseTask(g, v) {
   if (v.age < ADULT_AGE) { wander(g, v, 4); return; }
 
   if (g.isNight && v.job !== 'warrior') {
-    const home = nearestBuilding(g, v, b => BUILDINGS[b.type].housing || b.type === 'campfire', 40);
+    // your own family's home; without one, any free bed or the campfire
+    const home = homeOf(g, v) || shelterFor(g, v) || nearestBuilding(g, v, b => BUILDINGS[b.type].housing || b.type === 'campfire', 40);
     const pos = home ? standAt(g, home) : { x: v.x, y: v.y };
     setTask(v, { type: 'rest', ...pos });
     return;

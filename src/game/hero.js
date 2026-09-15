@@ -1,4 +1,4 @@
-import { TILE, WALK_SPEED, DAY_LENGTH } from '../core/constants.js';
+import { TILE, WALK_SPEED, DAY_LENGTH, ADULT_AGE } from '../core/constants.js';
 import { CREATURES, OBJECTS } from '../data/objects.js';
 import { damageCreature } from './creatures.js';
 import { collectFind } from './finds.js';
@@ -32,20 +32,31 @@ export const heroOf = g => {
   return v;
 };
 
-/** Who leads: the ruler, or (if there is none at home) the strongest adult. */
-function leader(g) {
+/** Who you play as: your chosen avatar, else the ruler, else the strongest adult at home. */
+export function avatarOf(g) {
   const s = g.state;
-  return s.villagers.find(v => v.ruling && !v.away) || [...s.villagers].filter(v => !v.away && v.age >= 16).sort((a, b) => (b.skills.combat || 0) - (a.skills.combat || 0))[0] || null;
+  return s.villagers.find(v => v.id === s.avatarId && !v.away) || s.villagers.find(v => v.ruling && !v.away) || [...s.villagers].filter(v => !v.away && v.age >= 16).sort((a, b) => (b.skills.combat || 0) - (a.skills.combat || 0))[0] || null;
 }
 
-export function startLead(g, v = leader(g)) {
+export function startLead(g, v = avatarOf(g)) {
   if (!v) return { error: 'Nobody at home can lead' };
+  if (v.away) return { error: `${v.name} is away` };
+  if (v.age < ADULT_AGE) return { error: 'Children cannot be your avatar' };
   if (g.sail) return { error: 'Return to port first' };
+  const prev = g.hero;
   v._task = null;
-  g.hero = { id: v.id, cd: 0, actCd: 0, swing: 0, inspire: 0, kills: 0, finds: 0, chopped: 0, bountyAt: g.state.time + 20 };
-  g.log(`${v.name} walks among the people. Lead the way!`, 'event', v);
+  g.hero = { id: v.id, cd: 0, actCd: 0, swing: 0, inspire: 0, kills: prev?.kills || 0, finds: prev?.finds || 0, chopped: prev?.chopped || 0, bountyAt: prev?.bountyAt ?? g.state.time + 20 };
+  g.log(v.ruling ? `${v.name} walks among the people. Lead the way!` : `You take the form of ${v.name} the ${v.profession || 'villager'}.`, 'event', v);
   g.emit('change');
   return { ok: true, hero: v };
+}
+
+/** Choose a villager as your avatar, and start playing as them right away. */
+export function setAvatar(g, v) {
+  if (!v || v.age < ADULT_AGE) return { error: 'Children cannot be your avatar' };
+  const r = startLead(g, v);
+  if (r.ok) g.state.avatarId = v.id;
+  return r;
 }
 
 export function endLead(g, died = false) {

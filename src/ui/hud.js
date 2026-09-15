@@ -13,9 +13,10 @@ import { CALLINGS, RULER_TYPES, ITEMS } from '../data/people.js';
 import { accuse, punishTraitor, throwBomb, counterIntel, isSpy, hasMissiles, hasOrbital, MISSILE_COST, strikeOwnLand, strikeRadius } from '../game/intrigue.js';
 import { openAimMap } from './aimMap.js';
 import { BODY, bodyStat } from '../game/body.js';
+import { homeOf, residents } from '../game/homes.js';
 const BODY_COLOR = { strength: '#ff8a5a', speed: '#7fd4ff', stamina: '#8fe07a' };
 const BODY_TIP = { strength: 'Heavy work (chopping, mining, building, farming, forging) and fighting go faster and hit harder', speed: 'Walks and runs faster', stamina: 'Works harder, gets hungry more slowly and takes less damage' };
-import { startLead, endLead, heroOf, updateHero, bountyOf, compass } from '../game/hero.js';
+import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, avatarOf } from '../game/hero.js';
 import { makeVisitGame } from '../game/visit.js';
 import { LAW_CATEGORIES, DEFAULT_LAWS, LAW_COST, describeEffects } from '../data/laws.js';
 import { rally, standDown, tributeCost, payWarbandTribute, scoutSummary } from '../game/war.js';
@@ -182,8 +183,8 @@ export class HUD {
     }, pxIcon('target'), h('span.home-label', 'Village')));
     // lead in person: walk your ruler around yourself
     this.leadInput = { mx: 0, my: 0, act: false };
-    this.root.append(h('button.card.lead-btn', { title: 'Lead in person: walk, fight and gather yourself (G)', onclick: () => this.toggleLead() },
-      icon('items/crown_leader', 20), h('span.home-label', 'Lead')));
+    this.root.append(h('button.card.lead-btn', { title: 'Play as your avatar: walk, fight and gather yourself (G). Pick any villager with Play as in their profile.', onclick: () => this.toggleLead() },
+      icon('items/crown_leader', 20), h('span.home-label', 'Avatar')));
     this.els.heroBar = h('div.card.hero-bar', { hidden: true });
     this.els.heroPad = h('div.hero-pad', { hidden: true });
     this.root.append(this.els.heroBar, this.els.heroPad);
@@ -342,6 +343,14 @@ export class HUD {
       : `You are ${r.hero.name}. WASD to walk, Space to strike, chop and mine. Walk over finds to pick them up. People near you work 50% faster. G or Esc to stop.`, 7000);
   }
 
+  playAs(v) {
+    const r = setAvatar(this.game, v);
+    if (r.error) { this.hint(r.error, 2500); return; }
+    this.select(null);
+    this.closePanel?.();
+    this.hint(matchMedia('(pointer: coarse)').matches ? `You are now ${v.name}. Drag the stick to walk, ACT to strike, chop and mine.` : `You are now ${v.name}. WASD to walk, Space to strike, chop and mine. G or Esc to stop.`, 6000);
+  }
+
   updateHeroBar() {
     const g = this.game;
     const v = !this.visiting && heroOf(g);
@@ -360,7 +369,7 @@ export class HUD {
     const dist = bounty ? Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE) : 0;
     bar.replaceChildren(
       h('div.hero-top', icon('items/crown_leader', 22), h('b', v.name), bar100(v.hp), h('div.spacer'),
-        h('button.btn.sm', { onclick: () => endLead(g) }, 'Stop leading')),
+        h('button.btn.sm', { onclick: () => endLead(g) }, 'Stop')),
       h('div.hero-deeds', `${hero.kills} slain · ${hero.finds} finds · ${hero.chopped} gathered`),
       bounty
         ? h('div.hero-bounty', icon('items/icon_gold', 16), `Bounty: ${bounty.bounty.name}, ${bounty.bounty.gold} gold · ${dist < 3 ? 'right here!' : `${dist} tiles ${compass(bounty.x - v.x, bounty.y - v.y)}`}`)
@@ -1705,7 +1714,8 @@ export class HUD {
           h('div.faint', `${v.sex === 'f' ? '♀' : '♂'} Age ${Math.floor(v.age)} · Gen ${v.gen || 1}${g.state.ruler?.dynasty && (v.ruling || v.parents?.includes(g.state.ruler.id)) ? ` · House ${g.state.ruler.dynasty}` : ''}`),
           h('div', { style: { fontSize: '13px' } }, v.sick ? '🤒 ' : '', task),
           partner ? h('div.faint', `♥ ${partner.name}`) : null,
-          parents.length ? h('div.faint', `Child of ${parents.join(' & ')}`) : null)),
+          parents.length ? h('div.faint', `Child of ${parents.join(' & ')}`) : null,
+          (() => { const home = homeOf(g, v); return h('div.faint', home ? `Home: ${BUILDINGS[home.type].name}${home.family ? ` of the ${home.family} family` : ''}` : 'No home of their own yet'); })())),
       badges.length ? h('div.traits', badges) : null,
       // natural talents: what they were born good at (they learn these fast)
       v.talents?.length ? h('div.talents', h('span.faint', 'Natural talents'),
@@ -1713,7 +1723,8 @@ export class HUD {
       v.gifted && !v.ruling ? h('div.stat', { title: 'Gifted people grow proud unless they are respected (an office, a knighthood, Discipline). At full pride they rebel.' },
         h('span', icon('magic/proud', 14), (v.ego || 0) >= EGO_PROUD ? ' Pride!' : ' Pride'), bar((v.ego || 0) / 100, (v.ego || 0) >= EGO_PROUD ? '#ff7a4a' : '#c9a0ff'), h('span', Math.round(v.ego || 0))) : null,
       h('div.row', { style: { flexWrap: 'wrap', gap: '4px' } },
-        h('button.btn.sm', { onclick: () => this.talkModal(v) }, icon('magic/talk_dots', 16), 'Talk')),
+        h('button.btn.sm', { onclick: () => this.talkModal(v) }, icon('magic/talk_dots', 16), 'Talk'),
+        v.age >= ADULT_AGE && !v.away && g.hero?.id !== v.id ? h('button.btn.sm.primary', { title: 'Make them your avatar: move and act as them (WASD / stick)', onclick: () => this.playAs(v) }, icon('items/crown_leader', 16), g.state.avatarId === v.id ? 'Play (your avatar)' : 'Play as') : null),
       v.job === 'mage' ? this.spellCard(v) : null,
       h('div.traits', v.traits.filter(t => t !== 'gifted').length
         ? v.traits.filter(t => t !== 'gifted').map(t => h(`span.chip.${TRAITS[t]?.good ? 'good' : 'bad'}`, { title: TRAITS[t]?.desc }, `${TRAITS[t]?.earned ? '★ ' : ''}${TRAITS[t]?.label || t}`))
@@ -1780,6 +1791,19 @@ export class HUD {
           if (await confirmModal(`Sacrifice ${v.name}?`, `The gods grant +40 influence and great luck for 2 days. −15 karma.${v.ruling ? ' Sacrificing your own ruler will throw the realm into chaos.' : ''}`, { okLabel: 'Sacrifice', okClass: 'evil' })) this.float(sacrificeVillager(g, v));
         } }, '🩸 Sacrifice')),
     ];
+  }
+
+  /** Who lives in a house: the family it is reserved for, and every resident. */
+  homeCard(b) {
+    const g = this.game;
+    const people = residents(g, b);
+    const cap = BUILDINGS[b.type].housing;
+    const title = b.family ? `Home of the ${b.family} family` : b.families?.length ? `Flats: the ${b.families.slice(0, 4).join(', ')}${b.families.length > 4 ? '...' : ''} families` : 'Empty: free for the next family';
+    return h('div.home-card',
+      h('div.row', h('b', title), h('div.spacer'), h('span.chip', `Beds ${people.length}/${cap}`)),
+      people.length
+        ? h('div.traits', people.map(v => h('span.chip', { style: { cursor: 'pointer' }, onclick: () => this.select({ kind: 'villager', ref: v }) }, ``)))
+        : h('div.faint', 'Families without a home move in on their own.'));
   }
 
   /** Missile Silo / Orbital Cannon: aim a strike at your own land. Strikes abroad are aimed from a realm's profile. */
@@ -2041,6 +2065,7 @@ export class HUD {
       !b.built ? bar(b.progress, '#ffd76a') : null,
       h('div.muted', def.desc),
       def.slots ? h('span.chip', `👷 ${workers}/${def.slots} working now`) : null,
+      def.housing && b.type !== 'campfire' && b.built ? this.homeCard(b) : null,
       this.abilityCard(b),
       b.type === 'shipyard' && b.built ? this.shipyardCard() : null,
       def.missile && b.built ? this.strikeCard(!!def.orbital) : null,
