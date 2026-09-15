@@ -6,6 +6,7 @@ export const CHANGELOG = [
       'Fixed: your avatar always showed a sword. People now hold the weapon or tool they really have: a spear from the armoury until a smithy forges swords, their own tool, or nothing',
       'People wear the clothes of their trade: change someone\'s trade and their look changes with it (soldiers, spies and wizards still look like their job; a Jack of all trades dresses for the job at hand)',
       'Admin: person trade=farm also puts them to work in that trade',
+      'Multiplayer: the Missile Silo and Orbital Cannon have an Aim at another realm button: pick a player, then aim on a map of their land',
     ],
   },
   {

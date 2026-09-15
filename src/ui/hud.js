@@ -1847,7 +1847,25 @@ export class HUD {
       h('b', orbital ? 'Orbital strike' : 'Missile strike'),
       h('div.faint', `Fire at a spot you choose on our own land: clear monsters, raiders, forest and rocks, or flatten what you no longer want (${strikeRadius(orbital)} tile blast). Strike another realm from their profile: Covert operations.`),
       costChips(MISSILE_COST, g.state.resources),
-      h('button.btn.danger', { onclick: () => this.aimOwnStrike(orbital) }, 'Aim at our land'));
+      h('div.row', { style: { flexWrap: 'wrap', gap: '6px' } },
+        h('button.btn.danger', { onclick: () => this.aimOwnStrike(orbital) }, 'Aim at our land'),
+        this.mp ? h('button.btn.danger', { onclick: () => this.pickStrikeTarget(orbital) }, 'Aim at another realm') : null));
+  }
+
+  /** Multiplayer: choose whose land to strike, then aim on their map. */
+  pickStrikeTarget(orbital) {
+    const me = this.user?.uid;
+    const realms = (this.mp?.players || []).filter(p => p.uid !== me && p.villageName)
+      .sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0) || String(a.villageName).localeCompare(b.villageName));
+    const m = modal([
+      h('h2', orbital ? 'Orbital strike: choose a realm' : 'Missile: choose a realm'),
+      realms.length
+        ? h('div.col', { style: { gap: '6px', maxHeight: '50vh', overflowY: 'auto' } }, realms.map(p => h('button.choice', {
+          onclick: () => { m.close(); this.aimStrike(p, orbital); },
+        }, h('span.label', p.villageName), h('span.faint', `${p.name || ''}${p.online ? ' · online' : ''}${p.missileShield ? ' · has a Shield Generator' : ''}`))))
+        : h('div.muted', 'No other realms in this world yet.'),
+      h('div.row', h('div.spacer'), h('button.btn.ghost', { onclick: () => m.close() }, 'Cancel')),
+    ]);
   }
 
   aimOwnStrike(orbital) {
