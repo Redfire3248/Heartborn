@@ -7,6 +7,7 @@ import { MALE_NAMES, FEMALE_NAMES, BIRTH_TRAITS, SURNAMES } from '../data/traits
 import { talentLearnMult } from './talents.js';
 import { upgradeSpeed } from './upgrades.js';
 import { inspired } from './hero.js';
+import { rollBody, speedMult, strengthMult, hungerMult, bodyWorkMult, trainBody } from './body.js';
 import { OBJECTS, CREATURES } from '../data/objects.js';
 import { BUILDINGS, sizeOf } from '../data/buildings.js';
 import { rollFate } from './fate.js';
@@ -42,7 +43,7 @@ let idCounter = 0;
 
 export function makeVillager(state, { sex, age = 20, parents = null } = {}) {
   sex ||= Math.random() < 0.5 ? 'm' : 'f';
-  return {
+  const v = {
     id: `v${Date.now().toString(36)}${(idCounter++).toString(36)}${Math.floor(Math.random() * 1000)}`,
     name: pick(sex === 'f' ? FEMALE_NAMES : MALE_NAMES),
     surname: pick(SURNAMES),
@@ -54,6 +55,8 @@ export function makeVillager(state, { sex, age = 20, parents = null } = {}) {
     inv: { pack: {}, coins: 0 }, kills: 0, calling: null, trained: false,
     born: state.time,
   };
+  rollBody(v);   // strength, speed and stamina
+  return v;
 }
 
 /** Role shown by the sprite: royalty, or a job look once skilled. */
@@ -102,6 +105,7 @@ export function gainSkill(g, v, skill, silent = false) {
   rate *= talentLearnMult(v, skill);   // natural talents grow fast
   const before = Math.floor(v.skills[skill]);
   v.skills[skill] = Math.min(MAX_SKILL, v.skills[skill] + rate);
+  trainBody(v, skill);
   if (!silent && Math.floor(v.skills[skill]) > before) {
     g.float(v.x, v.y - TILE * 1.4, `${skill} ${Math.floor(v.skills[skill])}!`, '#7fd4ff');
     g.puff(v, 'effects/spark', 5, 10);
@@ -235,6 +239,7 @@ function birth(g, mom, dad) {
     const both = mom.traits.includes(t) && dad.traits.includes(t);
     if (chance(both ? 0.75 : 0.35) && !child.traits.includes(OPPOSITE[t])) child.traits.push(t);
   }
+  rollBody(child, [mom, dad]);   // built like their parents
   if (child.traits.length > 3) child.traits = child.traits.sort(() => Math.random() - 0.5).slice(0, 3);
   if (chance(0.12)) { const t = pick(BIRTH_TRAITS); if (!child.traits.includes(t) && !child.traits.includes(OPPOSITE[t])) child.traits.push(t); }
   s.villagers.push(child);
@@ -261,7 +266,7 @@ export function updateVillager(g, v, dt) {
 
   // needs
   if (v.robot) { v.hunger = 100; v.happy = 60; }
-  v.hunger = Math.max(0, v.hunger - (HUNGER_PER_DAY / DAY_LENGTH) * dt * (v.age < ADULT_AGE ? 0.6 : 1) * (has(v, 'glutton') ? 1.5 : 1) * (v.robot ? 0 : 1));
+  v.hunger = Math.max(0, v.hunger - (HUNGER_PER_DAY / DAY_LENGTH) * dt * (v.age < ADULT_AGE ? 0.6 : 1) * (has(v, 'glutton') ? 1.5 : 1) * hungerMult(v) * (v.robot ? 0 : 1));
   if (v.hunger <= 0) {
     v.hp -= (30 / DAY_LENGTH) * dt;
     v.happy = Math.max(0, v.happy - dt * 0.2);
@@ -601,6 +606,7 @@ function runTask(g, v, dt) {
           if (has(v, 'knighted')) dmg *= 1.25;
           if (v.traits.includes('brave')) dmg *= 1.5;
           if (v.age >= ELDER_AGE) dmg *= 0.6;
+          dmg *= strengthMult(v);
           gainSkill(g, v, 'combat');
           damageCreature(g, c, dmg, v);
         }
@@ -884,7 +890,8 @@ export function walkSpeed(g, v) {
   if (v.age >= ELDER_AGE) sp *= 0.7;
   if (v.sick) sp *= 0.7;
   if (v.hunger <= 0) sp *= 0.7;
-  if (has(v, 'nimble')) sp *= 1.2;
+  if (has(v, 'nimble')) sp *= 1.1;
+  sp *= speedMult(v);   // quick people really are quicker
   return sp;
 }
 
@@ -904,7 +911,8 @@ function workSpeed(g, v) {
   if (t) m *= 1 + (v.skills[t.type === 'deepmine' ? 'mine' : t.type] || 0) * 0.06;
   if (t?.type === 'build') m *= (1 + (g.bonus.build || 0)) * (v.profession === 'build' ? 2.5 : 1.3);   // builders by trade are much faster
   if (t && TASK_TOOL[t.type]) m *= hasToolFor(v, t.type) ? 1.25 : 0.8;   // the right tool makes all the difference
-  if (t) m *= upgradeSpeed(g, t.type);   // the position's upgrades (+10% a level)
+  if (t) m *= upgradeSpeed(g, t.type);
+  if (t) m *= bodyWorkMult(v, t.type);   // strong arms for heavy work, stamina for everything   // the position's upgrades (+10% a level)
   m *= 1 + (g.workBonus || 0);
   if (v.robot) m *= 1.2;
   return m;

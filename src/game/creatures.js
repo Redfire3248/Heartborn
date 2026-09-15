@@ -4,6 +4,7 @@ import { CREATURES } from '../data/objects.js';
 import { killVillager } from './villagers.js';
 import { has } from './dynasty.js';
 import { payBounty } from './hero.js';
+import { toughness } from './body.js';
 
 const BIG_KILLS = {
   bandit:        { gold: [3, 8], text: 'A bandit was defeated!' },
@@ -74,6 +75,7 @@ export function updateCreature(g, c, dt) {
           c._attack = 0.25;
           let dmg = def.damage * (c.scale || 1) / (1 + g.defense / 50);
           if (target.armed && g.hasBuilding('armory')) dmg *= 0.7;   // shield and mail
+          dmg *= toughness(target);   // stamina shrugs off wounds
           target.hp -= dmg;
           if (target.hp > 0 && target.hp < 15 && !has(target, 'scarred') && Math.random() < 0.3) {
             target.traits.push('scarred');

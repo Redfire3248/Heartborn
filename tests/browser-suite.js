@@ -190,6 +190,25 @@ export async function run() {
     ok(!g.hero, 'you can stop leading');
   });
 
+  await step('strength, speed and stamina really matter', async () => {
+    const B = await import('/src/game/body.js');
+    const V = await import('/src/game/villagers.js');
+    const g = freshGame({ era: 1, people: 4 });
+    build(g, 'campfire');
+    ok(g.state.villagers.every(v => v.body && v.body.strength >= 1 && v.body.speed <= 10), 'everyone has a body: strength, speed and stamina');
+    const [a, b] = g.state.villagers.filter(v => !v.ruling);
+    a.body = { strength: 10, speed: 10, stamina: 10 };
+    b.body = { strength: 1, speed: 1, stamina: 1 };
+    ok(V.walkSpeed(g, a) > V.walkSpeed(g, b) * 1.6, 'fast people walk much faster', `${V.walkSpeed(g, a).toFixed(1)} vs ${V.walkSpeed(g, b).toFixed(1)}`);
+    ok(B.bodyWorkMult(a, 'chop') > B.bodyWorkMult(b, 'chop') * 1.5, 'strong, tireless people chop much faster');
+    ok(B.hungerMult(a) < B.hungerMult(b), 'stamina means slower hunger');
+    const kids = [];
+    a.sex = 'f'; b.sex = 'm'; a.age = 25; b.age = 25;
+    const mom = a, dad = { ...b, body: { strength: 10, speed: 10, stamina: 10 } };
+    for (let i = 0; i < 8; i++) { const before = g.state.villagers.length; V.__birthForTest(g, mom, dad); kids.push(g.state.villagers[before]); }
+    ok(kids.every(k => k.body.strength >= 7), 'children of strong parents are born strong', kids.map(k => k.body.strength).join(','));
+  });
+
   await step('fast lives, and workers carry what they gather home', async () => {
     const g = freshGame({ era: 1, people: 4, resources: false });
     build(g, 'campfire'); build(g, 'stockpile');

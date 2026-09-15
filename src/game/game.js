@@ -12,6 +12,7 @@ import { FateContext } from './fate.js';
 import { updateWar, maybeScheduleWarband } from './war.js';
 import { updateCourt } from './court.js';
 import { dailyTraitors, dailyMachines, updateBombDefense, updateStrikes } from './intrigue.js';
+import { ensureBody } from './body.js';
 import { dailyEmpire } from './empire.js';
 import { updateEmployment } from './employment.js';
 import { updateFinds } from './finds.js';
@@ -40,7 +41,7 @@ export class Game {
     this.recalc();
     ensureRuler(this);
     // everyone gets a trade (older saves keep what they do today as their trade)
-    for (const v of state.villagers) ensureProfession(v);
+    for (const v of state.villagers) { ensureProfession(v); ensureBody(v); }   // body stats arrived later: older villagers get theirs once
     // one-time repair: a bug made every newcomer a Gatherer; give them the trade they should have had
     // tools became useful: villages from before get a tool for everyone, once
     if (!state.toolsGiven) {

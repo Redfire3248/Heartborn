@@ -1,6 +1,17 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Strength, Speed and Stamina',
+    changes: [
+      'Everyone is born with Strength, Speed and Stamina (1 to 10), shown as bars in their profile. Children take after their parents; Strong, Nimble and Hardworking people are born with more',
+      'Speed: quick people really walk faster (up to 1.3x, slow ones 0.76x) and take quicker steps',
+      'Strength: chopping, mining, building, farming, forging, hunting and fighting go up to 25% faster and hit harder; strong people swing their tools faster and stand a little bigger',
+      'Stamina: up to 10% faster at any work, slower hunger and fewer wounds from beasts',
+      'Hard work builds the body: labourers slowly grow stronger, fighters stronger and tougher. Your ruler in Lead mode uses their Strength and Speed too',
+      'Admin: person strength=10 speed=10 stamina=10 (or body=*)',
+    ],
+  },
+  {
     title: 'Lead in person',
     changes: [
       'Press Lead (or G) to become your ruler: walk with WASD or the on-screen stick, Space or ACT to strike, chop trees and break rocks (double yield)',

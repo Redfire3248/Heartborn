@@ -12,6 +12,9 @@ import { rulerOf, rulerTypeOf, rulerTitle, setHeir, setCalling, encourage, ENCOU
 import { CALLINGS, RULER_TYPES, ITEMS } from '../data/people.js';
 import { accuse, punishTraitor, throwBomb, counterIntel, isSpy, hasMissiles, hasOrbital, MISSILE_COST, strikeOwnLand, strikeRadius } from '../game/intrigue.js';
 import { openAimMap } from './aimMap.js';
+import { BODY, bodyStat } from '../game/body.js';
+const BODY_COLOR = { strength: '#ff8a5a', speed: '#7fd4ff', stamina: '#8fe07a' };
+const BODY_TIP = { strength: 'Heavy work (chopping, mining, building, farming, forging) and fighting go faster and hit harder', speed: 'Walks and runs faster', stamina: 'Works harder, gets hungry more slowly and takes less damage' };
 import { startLead, endLead, heroOf, updateHero, bountyOf, compass } from '../game/hero.js';
 import { makeVisitGame } from '../game/visit.js';
 import { LAW_CATEGORIES, DEFAULT_LAWS, LAW_COST, describeEffects } from '../data/laws.js';
@@ -1718,6 +1721,8 @@ export class HUD {
       statRow('Health', v.hp, v.hp > 40 ? '#6fdc5a' : '#ff5a4a'),
       statRow('Hunger', v.hunger, '#ffb44a'),
       statRow('Happy', v.happy, '#ffd76a'),
+      h('h3', 'Body'),
+      ...Object.entries(BODY).map(([k, label]) => h('div.stat', { title: BODY_TIP[k] }, h('span', label), bar(bodyStat(v, k) / 10, BODY_COLOR[k]), h('span', bodyStat(v, k).toFixed(1)))),
 
       h('h3', 'Inventory'),
       h('div.inv', slot('Tool', eq.tool), slot('Weapon', eq.weapon), slot('Armor', eq.armor),

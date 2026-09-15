@@ -4,6 +4,7 @@ import { damageCreature } from './creatures.js';
 import { collectFind } from './finds.js';
 import { gainSkill } from './villagers.js';
 import { has } from './dynasty.js';
+import { speedMult, strengthMult } from './body.js';
 
 /*
  * Lead in person: take control of your ruler and walk the land yourself.
@@ -68,7 +69,7 @@ function heroDamage(g, v) {
   else if (pack.spear || pack.axe || pack.pickaxe || pack.hammer) dmg *= 1.3;
   if (has(v, 'knighted')) dmg *= 1.25;
   if (has(v, 'veteran')) dmg *= 1.3;
-  return dmg;
+  return dmg * strengthMult(v);
 }
 
 function nearestHostile(g, v, range) {
@@ -149,7 +150,7 @@ export function updateHero(g, dt, controls = {}) {
   if (len > 1) { mx /= len; my /= len; }
   v._walking = len > 0.1;
   if (v._walking) {
-    const sp = WALK_SPEED * 2.1 * dt;
+    const sp = WALK_SPEED * 2.1 * speedMult(v) * dt;
     const nx = v.x + mx * sp, ny = v.y + my * sp;
     const ok = (x, y) => g.world.walkable(x, y) && !g.buildingAt(Math.floor(x / TILE), Math.floor(y / TILE))?.built;
     if (ok(nx, ny)) { v.x = nx; v.y = ny; }

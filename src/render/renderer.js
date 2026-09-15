@@ -5,6 +5,7 @@ import { TerrainPainter } from './terrain.js';
 import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
 import { BUILDINGS, sizeOf, buildingSprite } from '../data/buildings.js';
 import { displayRole, toolFor, carryIcon, weaponOf } from '../game/villagers.js';
+import { speedMult, bodyWorkMult, bodyStat } from '../game/body.js';
 import { maxHp } from '../game/creatures.js';
 import { FIND_KINDS } from '../game/finds.js';
 
@@ -278,16 +279,20 @@ export class Renderer {
   drawVillager(g, v) {
     const { ctx } = this;
     const child = v.age < 12;
-    const size = TILE * (child ? 0.62 : 0.92);
+    // strong people are a little bigger
     const t = this.time + (v.id.charCodeAt(1) || 0);
     const task = v._task;
     const working = task && task.phase === 'work' && !['rest', 'eat', 'wait'].includes(task.type) && task.type !== 'wander';
+    const size = TILE * (child ? 0.62 : 0.92 * (0.94 + bodyStat(v, 'strength') * 0.012));
+    // quick people take quicker steps; strong, tireless people swing their tools faster
+    const stepRate = 11 * speedMult(v);
+    const swingRate = 9 * (working ? bodyWorkMult(v, task.type) : 1);
     let offsetY = 0, rot = 0, squash = 0;
     if (v._walking) {
-      offsetY = -Math.abs(Math.sin(t * 11)) * 3;
-      rot = Math.sin(t * 11) * 0.07;
+      offsetY = -Math.abs(Math.sin(t * stepRate)) * 3;
+      rot = Math.sin(t * stepRate) * 0.07;
     } else if (working) {
-      offsetY = -Math.abs(Math.sin(t * 9)) * 1.2;   // small effort hop while swinging a tool
+      offsetY = -Math.abs(Math.sin(t * swingRate)) * 1.2;   // small effort hop while swinging a tool
     }
     const role = displayRole(v);
     const key = villagerSprite({ ...v, role });
@@ -304,7 +309,7 @@ export class Renderer {
 
     const tool = hero ? (hero.swing > 0 || v._walking ? weaponOf(v) || toolFor(v) || 'items/sword' : null) : working ? toolFor(v) : null;
     if (tool) {
-      const swing = hero ? (hero.swing > 0 ? 1 - hero.swing / 0.22 * 2 : Math.sin(t * 11) * 0.2) : Math.sin(t * 9);
+      const swing = hero ? (hero.swing > 0 ? 1 - hero.swing / 0.22 * 2 : Math.sin(t * stepRate) * 0.2) : Math.sin(t * swingRate);
       const dir = v._flip ? -1 : 1;
       ctx.save();
       ctx.translate(v.x + dir * size * 0.32, v.y - size * 0.45);
@@ -315,7 +320,7 @@ export class Renderer {
 
     // carrying work home: a bundle bobbing above their head
     const load = carryIcon(v);
-    if (load) drawSprite(ctx, load, v.x + (v._flip ? 3 : -3), v.y - size * 0.92 + Math.abs(Math.sin(t * 11)) * -2, TILE * 0.42);
+    if (load) drawSprite(ctx, load, v.x + (v._flip ? 3 : -3), v.y - size * 0.92 + Math.abs(Math.sin(t * stepRate)) * -2, TILE * 0.42);
     if (v.hp < 99) bar(ctx, v.x - 8, v.y - size - 4, 16, v.hp / 100, v.hp > 40 ? '#6fdc5a' : '#ff5a4a');
     if (v._emote) drawSprite(ctx, v._emote.key, v.x + 6, v.y - size - 2 + Math.sin(this.time * 4) * 1.5, 12);
     if (hero || g.selected?.ref === v || this.camera.zoom >= 3.2) label(ctx, v.name, v.x, v.y + 7);
