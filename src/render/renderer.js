@@ -374,10 +374,6 @@ export class Renderer {
     if (load) drawSprite(ctx, load, v.x + (v._flip ? 3 : -3), v.y - size * 0.92 + Math.abs(Math.sin(t * stepRate)) * -2, TILE * 0.42);
     if (v.hp < 99) bar(ctx, v.x - 8, v.y - size - 4, 16, v.hp / 100, v.hp > 40 ? '#6fdc5a' : '#ff5a4a');
     if (v._emote) drawSprite(ctx, v._emote.key, v.x + 6, v.y - size - 2 + Math.sin(this.time * 4) * 1.5, 12);
-    if (hero?.blocking) {   // guard up: a shield in front of you
-      const a = hero.facing ?? 0;
-      drawSprite(ctx, 'items/shield', v.x + Math.cos(a) * 10, v.y - 10 + Math.sin(a) * 8, TILE * 0.55, { alpha: 0.95 });
-    }
     if (hero || g.selected?.ref === v || this.camera.zoom >= 3.2) label(ctx, v.name, v.x, v.y + 7);
   }
 

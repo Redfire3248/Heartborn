@@ -5,6 +5,7 @@ export const CHANGELOG = [
     changes: [
       'New boy and girl hero art with sword and shield: walking in four directions with both legs moving, sword attacks down, up and to the side, a lunging dash, a shield block with sparks, and a flinch when hit',
       'The hero stands as tall as your villagers',
+      'Blocking shows only the hero raising their own shield (no extra shield icon on top)',
       'Removed the Peaceful / Hostile switch: your avatar only fights beasts and raiders',
     ],
   },
