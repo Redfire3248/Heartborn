@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Upgrade your workers',
+    changes: [
+      'Upgrade a position in the Jobs panel: every level makes everyone in it work 10% faster, up to level 10 (twice as fast)',
+      'Builders build faster with each upgrade; woodcutters, miners, farmers, fishers, hunters, gatherers and smiths can be upgraded too',
+      'Each level costs more wood, stone and gold (iron from level 5, science from level 8); the next cost is shown right under the job',
+    ],
+  },
+  {
     title: 'Playtest fixes',
     changes: [
       'Smiths stop forging when the armoury is full (a test village had 671 weapons and no stone left); they mine or gather instead, and still make tools for anyone who needs one',

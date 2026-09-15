@@ -5,6 +5,7 @@ import {
 import { clamp, pick, chance } from '../core/rng.js';
 import { MALE_NAMES, FEMALE_NAMES, BIRTH_TRAITS, SURNAMES } from '../data/traits.js';
 import { talentLearnMult } from './talents.js';
+import { upgradeSpeed } from './upgrades.js';
 import { OBJECTS, CREATURES } from '../data/objects.js';
 import { BUILDINGS, sizeOf } from '../data/buildings.js';
 import { rollFate } from './fate.js';
@@ -899,6 +900,7 @@ function workSpeed(g, v) {
   if (t) m *= 1 + (v.skills[t.type === 'deepmine' ? 'mine' : t.type] || 0) * 0.06;
   if (t?.type === 'build') m *= (1 + (g.bonus.build || 0)) * (v.profession === 'build' ? 2.5 : 1.3);   // builders by trade are much faster
   if (t && TASK_TOOL[t.type]) m *= hasToolFor(v, t.type) ? 1.25 : 0.8;   // the right tool makes all the difference
+  if (t) m *= upgradeSpeed(g, t.type);   // the position's upgrades (+10% a level)
   m *= 1 + (g.workBonus || 0);
   if (v.robot) m *= 1.2;
   return m;

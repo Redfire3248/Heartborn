@@ -22,6 +22,7 @@ const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)'
 import { computeBridges, bridgeAt } from '../game/bridges.js';
 import { talentLabel, fullName, EGO_PROUD } from '../game/talents.js';
 import { SPELLS, canCast, castSpell } from '../game/magic.js';
+import { UPGRADES, MAX_LEVEL, PER_LEVEL, jobLevel, upgradeCost, upgradeJob } from '../game/upgrades.js';
 import { BOATS, fleetOf, buildBoat, setSail, returnToPort, repairBoat, updateSailing, fire, RELOAD, seaLift, enterOpenSea } from '../game/sailing.js';
 import { TOPICS, talkTo } from '../game/talk.js';
 import { activeGoals, claimGoal, rewardText, goalsLeftInEra } from '../game/goals.js';
@@ -951,9 +952,19 @@ export class HUD {
           type: 'number', min: 0, placeholder: 'auto', value: targets[job] ?? '', title: 'Target: the office keeps this many people in this job',
           onchange: e => { setTarget(g, job, e.target.value); applyNow(g); this.refreshPanel(); },
         });
+        // upgrading the position: everyone in it works 10% faster per level
+        const level = jobLevel(g, job);
+        const canUp = !!UPGRADES[job] && level < MAX_LEVEL;
+        const upCost = UPGRADES[job] ? upgradeCost(g, job) : null;
+        const upBtn = UPGRADES[job] ? h(`button.btn.sm.upgrade-btn${canUp && g.canAfford(upCost) ? '.ready' : ''}`, {
+          disabled: !canUp,
+          title: canUp ? `Upgrade ${UPGRADES[job].label} to level ${level + 1}: ${Math.round((level + 1) * PER_LEVEL * 100)}% faster work. Costs ${Object.entries(upCost).map(([k, n]) => `${n} ${k}`).join(', ')}` : 'Top level reached',
+          onclick: () => { const r = upgradeJob(g, job); if (r.error) this.hint(r.error, 1800); else { play('ability'); this.refreshPanel(); } },
+        }, canUp ? `Upgrade · Lv ${level + 1}` : 'MAX') : null;
         body.append(h('div.job-row',
           icon(def.icon, 36),
-          h('div', h('div', { style: { fontWeight: 700 } }, def.label), h('div.faint', def.desc)),
+          h('div', h('div', { style: { fontWeight: 700 } }, def.label, level ? h('span.job-level', ` Lv ${level} · +${Math.round(level * PER_LEVEL * 100)}%`) : null), h('div.faint', def.desc),
+            UPGRADES[job] && canUp ? h('div.job-upgrade-cost', costChips(upCost, g.state.resources)) : null),
           h('div.job-controls',
             h('div.stepper',
               h('button', { title: 'Remove (Shift ×10, Ctrl ×100)', onclick: e => { const n = moveWorkers(g, job, -step(e)); if (!n) this.hint(`Nobody works as ${def.label}`, 1200); } }, '−'),
@@ -963,6 +974,7 @@ export class HUD {
               title: `Auto pick: move the most skilled person into ${def.label}`,
               onclick: () => { const v = autoPick(g, job); this.hint(v ? `⭐ ${v.name} (${JOB_SKILL[job] || 'skill'} ${Math.floor(v.skills[JOB_SKILL[job]] || 0)}) is now a ${def.label}` : 'Nobody available', 1800); },
             }, '⭐'),
+            upBtn,
             office && STAFFABLE.includes(job) ? target : null)));
       }
     } else {

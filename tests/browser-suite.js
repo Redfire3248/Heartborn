@@ -104,6 +104,22 @@ export async function run() {
     ok(texts.size > 1, 'repeated choice gives varied outcomes', `${texts.size} distinct`);
   });
 
+  await step('job upgrades: builders build faster with every level', async () => {
+    const U = await import('/src/game/upgrades.js');
+    const g = freshGame({ era: 3, people: 2 });
+    ok(U.upgradeSpeed(g, 'build') === 1, 'no upgrades: normal speed');
+    const gold = g.state.resources.gold;
+    for (let i = 0; i < 3; i++) U.upgradeJob(g, 'build');
+    ok(U.jobLevel(g, 'build') === 3 && Math.abs(U.upgradeSpeed(g, 'build') - 1.3) < 1e-9, 'three upgrades: builders work 30% faster');
+    ok(g.state.resources.gold < gold, 'upgrades cost resources');
+    ok(U.upgradeSpeed(g, 'chop') === 1, 'upgrading builders does not speed up woodcutters');
+    for (let i = 0; i < 20; i++) U.upgradeJob(g, 'build');
+    ok(U.jobLevel(g, 'build') === U.MAX_LEVEL && U.upgradeJob(g, 'build').error, `stops at level ${U.MAX_LEVEL}`);
+    const broke = freshGame({ era: 3, people: 2, resources: false });
+    Object.assign(broke.state.resources, { wood: 0, stone: 0, gold: 0 });
+    ok(U.upgradeJob(broke, 'build').error && U.jobLevel(broke, 'build') === 0, 'cannot upgrade without the resources');
+  });
+
   await step('fast lives, and workers carry what they gather home', async () => {
     const g = freshGame({ era: 1, people: 4, resources: false });
     build(g, 'campfire'); build(g, 'stockpile');
@@ -367,6 +383,8 @@ export async function run() {
     build(g2, 'campfire'); build(g2, 'craft_hut'); build(g2, 'powder_mill');
     const smiths = g2.state.villagers.filter(x => !x.ruling).slice(0, 3);
     smiths.forEach(s => assignJob(g2, s, 'smith'));
+    g2.state.resources.weapons = 2;   // an empty armoury: smiths only forge when weapons are needed
+    for (const x of g2.state.villagers) { x.inv ||= { pack: {} }; x.inv.pack.hammer = 1; x.inv.pack.axe = 1; x.inv.pack.pickaxe = 1; x.inv.pack.hoe = 1; x.inv.pack.bow = 1; x.inv.pack.spear_t = 1; }   // nobody needs tools
     const w0 = g2.state.resources.weapons, b0 = g2.state.resources.bombs;
     g2.simulate(90);
     ok(g2.state.resources.weapons > w0, 'smiths forge weapons', `${w0} → ${g2.state.resources.weapons}`);

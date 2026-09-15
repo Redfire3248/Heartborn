@@ -1018,3 +1018,9 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 
 /* at sea, messages float above the helm */
 .at-sea .hint { bottom: auto !important; top: 190px; }
+
+/* job upgrades */
+.job-level { font: 700 11px var(--num); color: var(--gold); margin-left: 4px; }
+.job-upgrade-cost { margin-top: 3px; transform: scale(.9); transform-origin: left center; }
+.upgrade-btn { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.upgrade-btn.ready { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 0 1px rgba(255, 207, 90, .35); }
