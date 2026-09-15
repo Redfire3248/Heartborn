@@ -17,6 +17,8 @@ import { leaderboard } from '../net/save.js';
 import { fmtRes, travelMs, fmtMinutes, realmPos } from '../net/multiplayer.js';
 import { openRealmMap } from './realmMap.js';
 import { computeBridges, bridgeAt } from '../game/bridges.js';
+import { activeGoals, claimGoal, rewardText, goalsLeftInEra } from '../game/goals.js';
+import { findAt, collectFind } from '../game/finds.js';
 import { describeBuilding, effectBadges } from '../data/describe.js';
 import { Tutorial } from './tutorial.js';
 import { abilityOf, abilityCooldown, canUseAbility, useAbility } from '../game/abilities.js';
@@ -145,7 +147,7 @@ export class HUD {
     this.mini = h('canvas', { width: MAP_W * MINI_SCALE, height: MAP_H * MINI_SCALE });
     // clicking the minimap opens the World Map
     this.mini.addEventListener('click', () => this.openMap());
-    this.root.append(h('div.card.minimap', { title: 'Open the World Map (M)' }, this.mini));
+    this.root.append(h('div.card.minimap', { title: 'Open the World Map (V)' }, this.mini));
     // back to the main screen (saves first); while visiting, back takes you home first
     this.root.append(h('button.card.home-btn', {
       title: 'Back to the main screen',
@@ -158,6 +160,16 @@ export class HUD {
 
     this.els.threats = h('div.threats');
     this.root.append(this.els.threats);
+
+    // goals tracker
+    // phones start with the goals folded away (the header still shows how many are ready)
+    let collapsed = matchMedia('(max-width: 760px)').matches;
+    try { const saved = localStorage.getItem('hb-goals-collapsed'); if (saved != null) collapsed = saved === '1'; } catch {}
+    this.els.goalsHead = h('button.goals-head', { onclick: () => this.toggleGoals() });
+    this.els.goalsList = h('div.goals-list');
+    this.els.goals = h(`div.card.goals${collapsed ? '.collapsed' : ''}`, this.els.goalsHead, this.els.goalsList);
+    this.root.append(this.els.goals);
+
     this.tutorial = new Tutorial(this);
 
   }
@@ -214,6 +226,7 @@ export class HUD {
     if (this.els.season.textContent !== seasonText) this.els.season.textContent = seasonText;
 
     this.updateInspector();
+    this.updateGoals();
     this.updateThreats();
     this.drawMinimapDots();
     if (this.panel === 'jobs' || this.panel === 'deeds' || this.panel === 'build') this.softRefresh();
@@ -241,6 +254,74 @@ export class HUD {
     else if (k === 'h') { this.follow = null; this.input.panTo(this.game.center.x, this.game.center.y); }
   }
 
+  // ------------------------------------------------------------ goals
+  toggleGoals() {
+    const on = this.els.goals.classList.toggle('collapsed');
+    try { localStorage.setItem('hb-goals-collapsed', on ? '1' : '0'); } catch {}
+  }
+
+  /** Rebuild the rows only when the set of goals (or which are done) changes; otherwise just move the bars. */
+  updateGoals() {
+    const g = this.game;
+    const box = this.els.goals;
+    box.hidden = !!this.visiting;
+    if (this.visiting) return;
+    // on phones the status bar wraps to different heights: sit just below it
+    if (innerWidth <= 760) {
+      const top = `${Math.round((this.root.querySelector('.statusbar')?.getBoundingClientRect().bottom || 118) + 6)}px`;
+      if (box.style.top !== top) box.style.top = top;
+    } else if (box.style.top) box.style.top = '';
+    const goals = activeGoals(g);
+    const { era, done, total } = goalsLeftInEra(g);
+    const headText = `Goals · ${ERAS[era].name} ${done}/${total}`;
+    const ready = goals.filter(x => x.done).length;
+    const headKey = headText + ready;
+    if (this._goalsHead !== headKey) {
+      this._goalsHead = headKey;
+      this.els.goalsHead.replaceChildren(...[icon('items/star_rank', 20), h('span', headText), ready ? h('span.goals-ready', `${ready} ready`) : null, h('span.goals-caret', '▾')].filter(Boolean));
+    }
+    const key = goals.map(x => x.id + (x.done ? '!' : '')).join();
+    if (this._goalsKey !== key) {
+      this._goalsKey = key;
+      this.goalRows = {};
+      this.els.goalsList.replaceChildren(...(goals.length ? goals.map(goal => {
+        const fill = h('i');
+        const count = h('span.goal-count');
+        const row = h(`div.goal${goal.done ? '.done' : ''}`,
+          icon(goal.icon, 26),
+          h('div.goal-body',
+            h('div.goal-text', goal.text),
+            h('div.goal-bar', fill),
+            h('div.goal-reward', rewardText(goal.reward))),
+          goal.done
+            ? h('button.btn.sm.primary.goal-claim', { onclick: () => this.claimGoal(goal.id) }, 'Claim')
+            : count);
+        this.goalRows[goal.id] = { fill, count };
+        return row;
+      }) : [h('div.faint', { style: { padding: '4px 2px' } }, 'Every goal done. You rule a legend.')]));
+    }
+    for (const goal of goals) {
+      const r = this.goalRows?.[goal.id];
+      if (!r) continue;
+      const pct = `${Math.round((goal.have / goal.need) * 100)}%`;
+      if (r.fill.style.width !== pct) r.fill.style.width = pct;
+      const text = `${fmt(goal.have)}/${fmt(goal.need)}`;
+      if (r.count.textContent !== text) r.count.textContent = text;
+    }
+  }
+
+  claimGoal(id) {
+    const r = claimGoal(this.game, id);
+    if (!r) return;
+    play('complete');
+    const c = this.game.center;
+    this.game.float(c.x, c.y - TILE * 2, `Goal complete! ${rewardText(r.goal.reward)}`, '#ffcf5a');
+    this.game.puff({ x: c.x, y: c.y - TILE }, 'effects/coin', 14, 40);
+    if (r.chest) play('ability');   // the game announces the chest itself
+    this._goalsKey = null;
+    this.updateGoals();
+  }
+
   // ------------------------------------------------------------ world interaction
   onHover(tx, ty) {
     this.renderer.hoverTile = { tx, ty };
@@ -262,6 +343,13 @@ export class HUD {
       play('build');
       // walls and gates stay in placement mode so you can draw lines of them
       if (!shift && !this.buildType.startsWith('wall') && !this.buildType.startsWith('gate')) this.cancelBuild();
+      return;
+    }
+    // something to pick up
+    const find = findAt(g, w.x, w.y);
+    if (find) {
+      const r = collectFind(g, find);
+      if (r) { play('coin'); this.hint(r.text, 2500); }
       return;
     }
     // stepping onto a bridge: cross into the neighbour's land

@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Goals, finds and a faster start',
+    changes: [
+      'Goals: always three things to do next, with progress bars and rewards to claim; they lead you through every era',
+      'Finish every goal of an era to open its chest: gold, gems, influence and an Ancient Relic',
+      'Finds: treasure, supply crates, wild harvests, lost travellers and relics turn up around the village; click them before they fade',
+      'New villages start with Founding Spirit: faster work, happier people and more wanderers for three days',
+    ],
+  },
+  {
     title: 'Bridges, visits with permission, Chamfer coasts',
     changes: [
       'Wooden bridges on your coast point to neighbouring lands: step on one to ask to visit, intrude with an army or send a spy',

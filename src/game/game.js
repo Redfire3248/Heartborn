@@ -14,6 +14,7 @@ import { updateCourt } from './court.js';
 import { dailyTraitors, dailyMachines, updateBombDefense } from './intrigue.js';
 import { dailyEmpire } from './empire.js';
 import { updateEmployment } from './employment.js';
+import { updateFinds } from './finds.js';
 import { ensureProfession, shareHousehold, canDoJob } from './professions.js';
 import { dailyPeople, ensureRuler, rulerEffects, carriedLuck } from './dynasty.js';
 import { LAW_CATEGORIES, NO_LAW_EFFECTS, DEFAULT_LAWS, LAW_COST, lawOption } from '../data/laws.js';
@@ -84,6 +85,7 @@ export class Game {
     updateCourt(this, dt);
     updateEmployment(this, dt);
     updateBombDefense(this, dt);
+    updateFinds(this, dt);
 
     if (!this.offline && !this.pendingEvent && s.time >= s.nextEventAt) this.triggerRandomEvent();
     if (s.modifiers.length) {
@@ -241,6 +243,7 @@ export class Game {
     combat += mod('combat');
     spot += mod('spot');
     health += mod('health');
+    join += mod('join');
     this.workBonus = workBonus;
     this.housing = housing;
     this.caps = Object.fromEntries(CAPPED.map(k => [k, k === 'weapons' || k === 'bombs' ? 40 + weaponStorage + Math.floor(storage / 10) : storage + (k === 'food' ? foodStorage : 0)]));

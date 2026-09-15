@@ -111,6 +111,9 @@ export class Renderer {
     for (const v of g.state.villagers) {
       if (!v.away && inView(v.x, v.y)) items.push({ y: v.y, draw: () => this.drawVillager(g, v) });
     }
+    if (!g.visiting) for (const f of g.state.finds || []) {
+      if (inView(f.x, f.y)) items.push({ y: f.y, draw: () => this.drawFind(g, f) });
+    }
     items.sort((a, b) => a.y - b.y);
     for (const it of items) it.draw();
 
@@ -190,6 +193,32 @@ export class Renderer {
     ctx.beginPath();
     ctx.ellipse(x, y - 1, w * 0.4, w * 0.13, 0, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  /** A find waiting to be collected: bobbing sprite on a pulsing golden glow, fading out near the end. */
+  drawFind(g, f) {
+    const { ctx } = this;
+    const left = f.until - g.state.time;
+    const fade = Math.min(1, left / 20) * Math.min(1, (g.state.time - f.born) / 1.5);
+    const t = this.time * 3 + f.x;
+    const pulse = 0.5 + Math.sin(t) * 0.5;
+    ctx.save();
+    ctx.globalAlpha = fade;
+    // glow ring on the ground
+    ctx.fillStyle = `rgba(255, 207, 90, ${0.18 + pulse * 0.17})`;
+    ctx.beginPath();
+    ctx.ellipse(f.x, f.y, TILE * (0.42 + pulse * 0.08), TILE * (0.18 + pulse * 0.04), 0, 0, Math.PI * 2);
+    ctx.fill();
+    // blinking pixel sparkles
+    ctx.fillStyle = '#fff6c8';
+    for (let i = 0; i < 3; i++) {
+      const a = t * 0.7 + i * 2.1, on = Math.sin(t * 1.7 + i * 2) > 0.2;
+      if (on) ctx.fillRect(f.x + Math.cos(a) * TILE * 0.45 - 1.5, f.y - TILE * 0.5 + Math.sin(a) * TILE * 0.3 - 1.5, 3, 3);
+    }
+    ctx.restore();
+    const kind = { treasure: 'items/icon_gold', crate: 'items/icon_wood', berries: 'items/icon_food', traveller: 'people/explorer_m', relic: 'items/relic' }[f.kind];
+    const person = f.kind === 'traveller';
+    drawSprite(ctx, kind, f.x, f.y - (person ? 0 : 4 + Math.sin(t) * 3), person ? TILE * 0.95 : TILE * 0.6, { alpha: fade });
   }
 
   drawObject(o, x, y) {

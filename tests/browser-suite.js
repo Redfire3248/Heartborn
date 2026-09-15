@@ -104,6 +104,62 @@ export async function run() {
     ok(texts.size > 1, 'repeated choice gives varied outcomes', `${texts.size} distinct`);
   });
 
+  await step('goals: progress, claim rewards, era chest', async () => {
+    const G = await import('/src/game/goals.js');
+    const g = freshGame({ era: 0, people: 3, resources: false });
+    g.recalc = g.recalc.bind(g);
+    ok(G.GOALS.every(x => BUILDINGS[x.icon.slice(10)] || !x.icon.startsWith('buildings/')), `every goal points at a real building (${G.GOALS.length} goals)`);
+    ok(G.activeGoals(g)[0]?.id === 'fire' && !G.activeGoals(g)[0].done, 'first goal is the campfire, not done yet');
+    ok(G.claimGoal(g, 'fire') === null, 'an unfinished goal cannot be claimed');
+    build(g, 'campfire');
+    const food = g.state.resources.food;
+    const r = G.claimGoal(g, 'fire');
+    ok(r && g.state.resources.food === food + 30, 'claiming gives the reward', `${food} → ${g.state.resources.food}`);
+    ok(G.claimGoal(g, 'fire') === null, 'a goal pays out only once');
+    // finish the whole first era: its chest opens once
+    for (const x of G.GOALS.filter(x => x.era === 0)) g.state.goals.claimed.includes(x.id) || g.state.goals.claimed.push(x.id);
+    g.state.goals.claimed.pop();
+    const last = G.GOALS.filter(x => x.era === 0).at(-1);
+    g.state.era = 1;
+    const res = G.claimGoal(g, last.id);
+    ok(res?.chest?.gold > 0, 'finishing every goal of an era opens its chest', JSON.stringify(res?.chest));
+  });
+
+  await step('finds turn up and can be collected', async () => {
+    const F = await import('/src/game/finds.js');
+    const g = freshGame({ era: 1, people: 6 });
+    build(g, 'campfire');
+    g.state.nextFindAt = g.state.time;
+    F.updateFinds(g, 0.1);
+    ok(g.state.finds.length === 1, 'a find appears', JSON.stringify(g.state.finds.map(f => f.kind)));
+    const f = g.state.finds[0];
+    ok(F.findAt(g, f.x, f.y - 10) === f, 'clicking near it finds it');
+    const r = F.collectFind(g, f);
+    ok(r && !g.state.finds.length, 'collecting it removes it and gives something', r?.text);
+    for (const kind of Object.keys(F.FIND_KINDS)) {
+      const got = F.FIND_KINDS[kind].collect(g);
+      ok(got?.text, `find "${kind}" works`, got?.text);
+    }
+    g.state.finds = [{ id: 'x', kind: 'crate', x: 0, y: 0, until: g.state.time - 1, born: 0 }];
+    F.updateFinds(g, 0.1);
+    ok(!g.state.finds.some(x => x.id === 'x'), 'old finds fade away');
+  });
+
+  await step('anyone can train as a spy; bridges reach the coast', async () => {
+    const P = await import('/src/game/professions.js');
+    const g = freshGame({ era: 3, people: 4 });
+    const v = g.state.villagers[0];
+    v.traits = v.traits.filter(t => t !== 'versatile');
+    v.profession = 'farm';
+    ok(P.canDoJob(v, 'spy'), 'a farmer can become a spy');
+    const Br = await import('/src/game/bridges.js');
+    const players = ['a1', 'b22', 'c333', 'd4444'].map((uid, i) => ({ uid, name: `R${i}`, villageName: `L${i}`, online: true }));
+    const bridges = Br.computeBridges(g.world, 'me', players);
+    ok(bridges.length >= 1, `bridges are built towards neighbours (${bridges.length})`);
+    ok(bridges.every(b => g.world.isWater(b.tiles.at(-1).tx, b.tiles.at(-1).ty)), 'each bridge ends over water');
+    ok(Br.bridgeAt(bridges, bridges[0].tiles[1].tx, bridges[0].tiles[1].ty) === bridges[0], 'clicking a bridge tile finds the bridge');
+  });
+
   await step('each building has a sprite image', async () => {
     const missing = [];
     for (const type of Object.keys(BUILDINGS)) {

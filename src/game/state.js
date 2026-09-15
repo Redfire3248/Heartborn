@@ -25,7 +25,10 @@ export function newState({ uid, name, villageName }) {
     creatures,
     stats: { births: 0, deaths: 0, treesCut: 0, raidsWon: 0, raidsLost: 0, events: 0, maxPop: 3, relics: 0 },
     log: [],
-    modifiers: [],
+    // a new village's founding spirit: faster work and more wanderers for the first three days
+    modifiers: [{ id: 'founding_spirit', work: 0.5, join: 0.25, happy: 10, until: 90 * 3 }],
+    goals: { claimed: [], chests: [] },
+    finds: [],
     incoming: [],
     court: {},
     tutorial: { step: 0, done: false },
@@ -64,6 +67,9 @@ export function deserialize(json) {
   // future migrations go here, keyed on state.version
   state.version = SAVE_VERSION;
   state.modifiers ||= [];
+  state.goals ||= { claimed: [], chests: [] };
+  state.goals.chests ||= [];
+  state.finds ||= [];
   state.incoming ||= [];
   state.court ||= {};
   state.tutorial ||= { step: 0, done: true };   // saves from before the tutorial skip it
