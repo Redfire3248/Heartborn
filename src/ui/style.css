@@ -1039,7 +1039,15 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .lead-btn { position: fixed; right: 10px; bottom: 310px; z-index: 10; display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 12px; color: var(--text); cursor: pointer; font: inherit; font-size: 14px; }
 .lead-btn:hover { border-color: var(--gold); }
 .leading .lead-btn { border-color: var(--gold); box-shadow: 0 0 12px rgba(255, 215, 106, .45); }
-.hero-bar { position: fixed; left: 50%; transform: translateX(-50%); top: 108px; z-index: 12; width: min(420px, calc(100vw - 32px)); padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; }
+.hero-bar { position: fixed; left: 84px; top: 70px; z-index: 12; width: 230px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+.hero-bar > * { pointer-events: auto; }
+.hero-vitals { padding: 7px 10px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
+.hero-vitals:hover { border-color: var(--gold); }
+.hero-points { margin-left: auto; padding: 0 6px; border-radius: 8px; background: var(--gold); color: #2a1a08; font-weight: 700; font-size: 11px; animation: missile-pulse .6s infinite alternate; }
+.hero-questcard { padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; }
+.hero-quest-head { display: flex; align-items: center; gap: 6px; width: 100%; padding: 0; border: 0; background: none; color: var(--text); font: inherit; cursor: pointer; }
+.hero-quest-head b { margin-right: auto; }
+.leading .goals { top: auto; bottom: 90px; }
 .hero-top { display: flex; align-items: center; gap: 8px; }
 .hero-hp { width: 80px; height: 8px; border-radius: 4px; background: rgba(0,0,0,.45); overflow: hidden; }
 .hero-hp > div { height: 100%; background: linear-gradient(90deg, #4fd35a, #9cf07a); }
@@ -1051,7 +1059,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .hero-act { position: fixed; right: 22px; bottom: calc(104px + env(safe-area-inset-bottom)); z-index: 14; width: 92px; height: 92px; border-radius: 50%; border: 3px solid #ffb3aa; background: radial-gradient(circle at 35% 30%, #ec6a5e, #8f2a23); color: #fff; font: inherit; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; touch-action: none; box-shadow: 0 4px 0 #0b0712; }
 .hero-act.down { transform: translateY(3px); box-shadow: 0 1px 0 #0b0712; }
 @media (pointer: coarse), (max-width: 760px) { .leading .hero-pad { display: block; } .leading .minimap, .leading .goals, .leading .touch-bar, .leading .home-btn, .leading .center-btn { display: none !important; } }
-@media (max-width: 760px) { .lead-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 198px); right: 6px; padding: 6px 10px; } .hero-bar { top: 96px; } }
+@media (max-width: 760px) { .lead-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 198px); right: 6px; padding: 6px 10px; } .hero-bar { top: 150px; left: 6px; width: 172px; } .hero-hearts img { width: 14px; height: 14px; } }
 .at-sea .lead-btn { display: none !important; }
 .home-card { display: flex; flex-direction: column; gap: 6px; padding: 8px; margin: 6px 0; border-radius: 10px; background: rgba(255, 215, 106, .07); border: 1px solid rgba(255, 215, 106, .25); }
 
@@ -1093,3 +1101,8 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .char-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.2); }
 .hero-hearts { display: flex; flex-wrap: wrap; gap: 1px; min-height: 18px; }
 .hero-hearts img { image-rendering: pixelated; }
+.gc-item-label img, .gc-gear img { vertical-align: middle; margin-right: 6px; image-rendering: pixelated; }
+.gc-gear-list { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 6px 12px; }
+.gc-gear { display: flex; align-items: center; gap: 8px; }
+.gc-gear-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 3px 10px; margin: 2px 0 8px 8px; }
+.hero-bar.abroad-bar { left: 50%; transform: translateX(-50%); top: 108px; width: min(420px, calc(100vw - 32px)); padding: 8px 12px; gap: 4px; pointer-events: auto; }

@@ -1,4 +1,7 @@
-import { h } from './dom.js';
+import { h, icon } from './dom.js';
+import { CATALOG, RARITY, makeGear, takeGear, equip, rpgOf } from '../game/rpg.js';
+import { gearIconKey } from '../render/gearArt.js';
+import { heroOf } from '../game/hero.js';
 import { EVENTS } from '../data/events.js';
 import { CREATURES } from '../data/objects.js';
 import { ERAS } from '../data/buildings.js';
@@ -41,7 +44,7 @@ const ARG_SPECS = {
   reset: ['player', ['confirm']], chat: [['15', 'clear', 'del']], skip: ['number'], era: [['up', '*', '0', '1', '2', '3', '4', '5']],
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
-  item: ['item', 'number', 'villager'], drop: ['item', 'number'], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
+  item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
   build: ['building', 'number'], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
@@ -173,7 +176,9 @@ export class AdminConsole {
       case 'player': return [me, star('every player'), ...players];
       case 'target': return [me, star('every village'), { value: 'all', label: 'all', detail: 'every online player' }, ...players];
       case 'res': return [{ value: '*', label: '*', detail: 'every resource' }, ...RESOURCES.map(r => ({ value: r, label: r, detail: 'resource' }))];
-      case 'item': return [star('every item'), { value: 'list', label: 'list', detail: 'show every item' }, ...Object.entries(ITEMS).map(([k, i]) => ({ value: k, label: k, detail: i.label }))];
+      case 'item': return [star('every item'), { value: 'list', label: 'list', detail: 'show every item' }, ...Object.entries(ITEMS).map(([k, i]) => ({ value: k, label: k, detail: i.label, icon: i.icon }))];
+      case 'gear': return [star('one of everything'), ...Object.keys(CATALOG).map(slot => ({ value: slot, label: slot, detail: `every ${slot}` })),
+        ...Object.entries(CATALOG).flatMap(([slot, list]) => Object.entries(list).filter(([, d]) => d.icon !== null && !d.noLoot).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${slot}`, icon: gearIconKey({ base: k, slot, icon: d.icon }) })))];
       case 'villager': return [{ value: 'selected', label: 'selected', detail: 'the villager you clicked' }, star('everyone'), { value: 'all', label: 'all', detail: 'everyone' },
         ...this.game.state.villagers.slice(0, 200).map(v => ({ value: v.name, label: v.name, detail: `${v.job} · ${Math.floor(v.age)}` }))];
       case 'personopt': return [
@@ -237,7 +242,7 @@ export class AdminConsole {
     this.menu.classList.toggle('hidden', !items.length);
     this.menu.replaceChildren(h('div.gc-count', `${items.length} option${items.length === 1 ? '' : 's'} · ↑↓ to browse · Tab to complete`), ...items.map((o, i) => h(`div.gc-item${i === this.sugIndex ? '.on' : ''}`, {
       onmousedown: e => { e.preventDefault(); this.sugIndex = i; this.accept(); },
-    }, h('span.gc-item-label', o.online ? h('b.dot-on') : null, o.label), h('span.gc-item-detail', o.detail))));
+    }, h('span.gc-item-label', o.icon ? icon(o.icon, 18) : null, o.online ? h('b.dot-on') : null, o.label), h('span.gc-item-detail', o.detail))));
     this.menu.querySelector('.gc-item.on')?.scrollIntoView({ block: 'nearest' });
     this.renderGhost();
   }
@@ -628,6 +633,45 @@ const COMMANDS = {
       for (const v of people) for (const k of keys) addItem(v, k, n);
       g.emit('change');
       this.print(`✓ ${n} × ${keys.length > 1 ? `every item (${keys.length})` : ITEMS[key].label} → ${people.length === 1 ? people[0].name : `${people.length} villagers`}`, 'ok');
+    },
+  },
+
+  gear: {
+    usage: 'gear <kind|slot|*> [legendary|epic|rare|common|*] [count] [equip]', desc: 'Give yourself weapons, shields, helmets, armour and trinkets (gear list shows them all with their pictures)',
+    run([kind, rarityArg = 'common', count = '1', flag]) {
+      const g = this.game;
+      if (!kind || kind === 'list') {
+        for (const [slot, list] of Object.entries(CATALOG)) {   // every kind, with its picture
+          this.print(slot.toUpperCase(), 'accent');
+          this.out.append(h('div.gc-gear-grid', Object.entries(list).filter(([, d]) => d.icon !== null && !d.noLoot).map(([k, d]) => h('div.gc-gear', { title: d.name },
+            icon(gearIconKey({ base: k, slot, icon: d.icon }) || 'items/relic', 26), h('b', k), h('span.gc-item-detail', d.dmg ? `${d.dmg} dmg` : d.block ? `blocks ${Math.round(d.block * 100)}%` : d.armor ? `${Math.round(d.armor * 100)}% armour` : Object.keys(d.bonus || {}).join(', '))))));
+        }
+        this.out.scrollTop = this.out.scrollHeight;
+        return;
+      }
+      if (flag === undefined && ['equip'].includes(count)) { flag = count; count = '1'; }
+      const names = ['common', 'rare', 'epic', 'legendary'];
+      const rarities = rarityArg === '*' ? [0, 1, 2, 3] : [Math.max(0, names.indexOf(rarityArg)) + (/^\d$/.test(rarityArg) ? Number(rarityArg) : 0)];
+      const kinds = kind === '*' ? Object.values(CATALOG).flatMap(list => Object.keys(list))
+        : CATALOG[kind] ? Object.keys(CATALOG[kind])
+          : [kind];
+      const valid = kinds.filter(k => Object.values(CATALOG).some(list => list[k] && list[k].icon !== null && !list[k].noLoot));
+      if (!valid.length) throw new Error(`unknown gear "${kind}" (try: gear list)`);
+      const n = Math.max(1, Math.floor(Number(count) || 1));
+      const v = heroOf(g);
+      const given = [];
+      for (const k of valid) for (const r of rarities) for (let i = 0; i < n; i++) {
+        const it = makeGear(g, k, r);
+        takeGear(g, it, v);
+        if (flag === 'equip') equip(g, it.id);
+        given.push(it);
+      }
+      g.emit('change');
+      // show what arrived, with pictures
+      const rows = given.slice(0, 12).map(it => h('div.gc-gear', icon(gearIconKey(it) || 'items/relic', 22), h('b', { style: { color: RARITY[it.rarity].color } }, it.name), h('span.gc-item-detail', it.dmg ? ` damage` : it.block ? `blocks ${Math.round(it.block * 100)}%` : it.armor ? `${Math.round(it.armor * 100)}% armour` : '')));
+      this.print(`✓ ${given.length} piece${given.length === 1 ? '' : 's'} of gear${flag === 'equip' ? ' (equipped)' : ''}${given.length > 12 ? `, showing 12` : ''}`, 'ok');
+      this.out.append(h('div.gc-gear-list', rows));
+      this.out.scrollTop = this.out.scrollHeight;
     },
   },
 

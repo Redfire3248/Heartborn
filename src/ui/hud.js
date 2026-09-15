@@ -389,6 +389,8 @@ export class HUD {
       if (!bar.hidden) { bar.hidden = true; pad.hidden = true; bar.replaceChildren(); pad.replaceChildren(); this._heroKey = null; Object.assign(this.leadInput, { mx: 0, my: 0, act: false, dash: false, block: false }); }
       return;
     }
+    bar.classList.toggle('card', !!abroad);   // abroad it is one card; at home it splits into small cards
+    bar.classList.toggle('abroad-bar', !!abroad);
     if (abroad) { this.updateAbroadBar(abroad, v); return; }
     const hero = g.hero;
     const r = rpgOf(g);
@@ -399,7 +401,7 @@ export class HUD {
     // the bars move every frame; the rest only rebuilds when something changes
     const els = this.els;
     const fill = (el, frac) => { if (el) el.style.width = `${Math.max(0, Math.min(100, frac * 100))}%`; };
-    const key = [v.id, r.level, r.points, w.name, r.quests.map(q => q.id + q.have).join(), bounty ? bounty.bounty.name + Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE / 3) : ''].join('|');
+    const key = [v.id, r.level, r.points, w.name, this._questsOpen, r.quests.map(q => q.id + q.have).join(), bounty ? bounty.bounty.name + Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE / 3) : ''].join('|');
     if (key !== this._heroKey) {
       this._heroKey = key;
       const dist = bounty ? Math.round(Math.hypot(bounty.x - v.x, bounty.y - v.y) / TILE) : 0;
@@ -407,20 +409,24 @@ export class HUD {
       this._heartsKey = null;
       els.heroSt = h('div');
       els.heroXp = h('div');
+      // split into small cards down the left side: you (health, stamina, level) and your quests
+      const questsOpen = this._questsOpen ?? !matchMedia('(max-width: 760px)').matches;
       bar.replaceChildren(
-        h('div.hero-top',
-          h('span.hero-level', `Lv ${r.level}`), h('b', v.name),
-          gearIconKey(w) ? icon(gearIconKey(w), 18) : null, h('span.faint', w.name),
-          h('div.spacer'),
-          h(`button.btn.sm${r.points ? '.primary' : ''}`, { title: 'Character sheet (G)', onclick: () => this.characterSheet() }, r.points ? `Character (+${r.points})` : 'Character')),
-        h('div.hero-bars',
+        h('div.card.hero-vitals', { title: 'Open your character (G)', onclick: () => this.characterSheet() },
+          h('div.hero-top',
+            h('span.hero-level', `Lv ${r.level}`), h('b', v.name),
+            gearIconKey(w) ? icon(gearIconKey(w), 16) : '',
+            r.points ? h('span.hero-points', `+${r.points}`) : ''),
           els.heroHp,
           h('div.hero-meter.st', { title: 'Stamina: attacks, dashes and blocking use it' }, els.heroSt),
           h('div.hero-meter.xp', { title: 'Experience' }, els.heroXp)),
-        h('div.hero-quests', r.quests.map(q => h('div.hero-quest', h('span', q.text), h('span.faint', `${q.have}/${q.need}`)))),
-        bounty
-          ? h('div.hero-bounty', icon('items/icon_gold', 16), `Bounty: ${bounty.bounty.name}, ${bounty.bounty.gold} gold · ${dist < 3 ? 'right here!' : `${dist} tiles ${compass(bounty.x - v.x, bounty.y - v.y)}`}`)
-          : '');
+        h('div.card.hero-questcard',
+          h('button.hero-quest-head', { onclick: () => { this._questsOpen = !questsOpen; this._heroKey = null; } },
+            h('b', 'Quests'), h('span.faint', `${r.quests.filter(q => q.have >= q.need).length ? 'done! · ' : ''}${r.quests.length}`), h('span.faint', questsOpen ? '▾' : '▸')),
+          questsOpen ? h('div.hero-quests', r.quests.map(q => h('div.hero-quest', h('span', q.text), h('span.faint', `${q.have}/${q.need}`)))) : '',
+          bounty
+            ? h('div.hero-bounty', icon('items/icon_gold', 14), questsOpen ? `${bounty.bounty.name}, ${bounty.bounty.gold} gold · ${dist < 3 ? 'right here!' : `${dist} tiles ${compass(bounty.x - v.x, bounty.y - v.y)}`}` : `${dist} tiles`)
+            : ''));
     }
     // health as hearts, Zelda style: one heart per 20 health, halves in between
     const hearts = Math.ceil(st.maxHp / 20);
@@ -461,7 +467,7 @@ export class HUD {
         statRow('vigor', 'Vigor', '+12 health per point'),
         statRow('agility', 'Agility', '+8 stamina, faster swings and movement, more crits'),
         h('h3', 'Equipped'),
-        h('div.char-gears', gearCard('weapon', 'Weapon'), gearCard('shield', 'Shield'), gearCard('armor', 'Armour'), gearCard('trinket', 'Trinket')),
+        h('div.char-gears', gearCard('weapon', 'Weapon'), gearCard('shield', 'Shield'), gearCard('helmet', 'Helmet'), gearCard('armor', 'Armour'), gearCard('trinket', 'Trinket')),
         h('h3', `Bag (${r.bag.length})`),
         r.bag.length
           ? h('div.char-bag', r.bag.map(it => h('div.char-item', { style: { borderColor: RARITY[it.rarity].color } },
@@ -472,7 +478,7 @@ export class HUD {
           : h('div.faint', 'Monsters drop weapons, armour and trinkets. Bosses and bounties always drop something good.'),
         h('div.faint', { style: { marginTop: '8px' } }, 'Controls: WASD move · Space attack · Shift dash · hold Q block (block right as a blow lands to parry) · phones use the on-screen buttons'));
     };
-    const gearText = it => it.slot === 'shield' ? `blocks ${Math.round((it.block || 0) * 100)}%${it.armor ? ` · +${Math.round(it.armor * 100)}% armour` : ''}` : it.slot === 'weapon' ? `${it.dmg} damage` : it.slot === 'armor' ? `${Math.round(it.armor * 100)}% armour` : Object.entries(it.bonus || {}).map(([k, n]) => k === 'hp' ? `+${n} health` : `+${Math.round(n * 100)}% ${k === 'dmg' ? 'damage' : k}`).join(', ');
+    const gearText = it => it.slot === 'shield' ? `blocks ${Math.round((it.block || 0) * 100)}%${it.armor ? ` · +${Math.round(it.armor * 100)}% armour` : ''}` : it.slot === 'weapon' ? `${it.dmg} damage` : it.slot === 'armor' || it.slot === 'helmet' ? `${Math.round(it.armor * 100)}% armour` : Object.entries(it.bonus || {}).map(([k, n]) => k === 'hp' ? `+${n} health` : `+${Math.round(n * 100)}% ${k === 'dmg' ? 'damage' : k}`).join(', ');
     const body = h('div.char-sheet');
     const m = modal([body, h('div.row', h('div.spacer'), h('button.btn', { onclick: () => m.close() }, 'Close'))], { cls: 'char-modal' });
     render();

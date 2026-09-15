@@ -100,17 +100,19 @@ window.SHEETS = {
     mode: "sprite",
     names: ["boy_body_front", "boy_body_back", "boy_body_side", "girl_body_front", "girl_body_back", "girl_body_side"]
   },
-  weapons: {
-    title: "Swords and shields you hold, all pointing up and to the right",
+  arsenal: {
+    title: "Arsenal, 49 weapons shields helmets armour and trinkets in 7 columns",
     folder: "gear",
     mode: "sprite",
+    cols: 7,
     names: [
-      "rapier", "greatsword", "katana", "cutlass", "broadsword", "scimitar",
-      "rapier_rare", "greatsword_rare", "katana_rare", "cutlass_rare", "broadsword_rare", "scimitar_rare",
-      "rapier_epic", "greatsword_epic", "katana_epic", "cutlass_epic", "broadsword_epic", "scimitar_epic",
-      "buckler", "round_shield_iron", "kite_shield_red", "tower_shield", "heater_shield", "spiked_shield",
-      "buckler_rare", "round_shield_rare", "kite_shield_rare", "tower_shield_rare", "heater_shield_rare", "spiked_shield_rare",
-      "buckler_epic", "round_shield_epic", "kite_shield_epic", "tower_shield_epic", "heater_shield_epic", "spiked_shield_epic"
+      "short_sword", "broadsword", "rapier", "katana", "scimitar", "cutlass", "claymore",
+      "flame_sword", "frost_sword", "thunder_sword", "shadow_blade", "holy_sword", "dagger", "twin_daggers",
+      "hand_axe", "great_axe", "mace", "morning_star", "flail", "spiked_club", "war_scythe",
+      "lance", "halberd", "trident", "longbow", "crossbow", "magic_staff", "buckler",
+      "heater_shield", "tower_shield", "spiked_shield", "bone_shield", "crystal_shield", "holy_shield", "dragon_shield",
+      "padded_armor", "studded_leather", "scale_mail", "dragon_armor", "leather_cap", "iron_helmet", "horned_helmet",
+      "knight_helmet", "wizard_hat", "royal_crown", "iron_boots", "iron_gauntlets", "royal_cape", "lucky_charm"
     ]
   },
   heroAll: {

@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Arsenal and a tidier screen',
+    changes: [
+      'Over 60 kinds of gear: short swords, katanas, rapiers, claymores, flame, frost, thunder, shadow and holy swords, daggers, axes, maces, flails, halberds, tridents, longbows, crossbows and magic staffs; bucklers to tower, bone, crystal, holy and dragon shields; padded to dragon armour; and helmets, a new gear slot (leather cap, iron, horned and knight helmets, wizard hat, royal crown)',
+      'Rare kinds only drop at Epic or Legendary; everything shows in your hands, your Character sheet and on the ground',
+      'Admin: gear <kind|slot|*> [legendary|epic|rare|common|*] [count] [equip] gives gear, e.g. gear katana legendary equip. gear list shows every kind with its picture, and the suggestions show pictures too',
+      'Your health, stamina and level sit in a small card on the left, with your quests in their own card below it (tap Quests to fold it). Tap the first card to open your Character',
+    ],
+  },
+  {
     title: 'You are the King',
     changes: [
       'You always play as your ruler, drawn as the King with your sword and shield in hand',
