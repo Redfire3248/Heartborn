@@ -4,7 +4,8 @@ export const CHANGELOG = [
     title: 'Hits that land',
     changes: [
       'Anything you hit flashes solid white and is stunned for a second, with little stars circling its head (bosses shake it off faster). A stunned enemy cannot attack',
-      'When you get hit you flash white and reel for a moment',
+      'When you get hit you flash white, reel for a moment and are pushed back from the blow',
+      'Knockback: what you hit slides away from your swing (heavy weapons and crits send it further, bosses barely move), and villagers are shoved back when monsters hit them',
     ],
   },
   {

@@ -25,6 +25,12 @@ export function updateCreature(g, c, dt) {
   c._walking = false;
   if (c._hurtFlash) c._hurtFlash = Math.max(0, c._hurtFlash - dt);
   if (c._whiteFlash > 0) c._whiteFlash -= dt;
+  if (c._kbx || c._kby) {   // sliding back from a blow (even while stunned)
+    const nx = c.x + c._kbx * dt, ny = c.y + c._kby * dt;
+    if (CREATURES[c.t]?.flying || g.world.walkable(nx, ny)) { c.x = nx; c.y = ny; } else { c._kbx = -c._kbx * 0.3; c._kby = -c._kby * 0.3; }
+    const k = Math.exp(-9 * dt); c._kbx *= k; c._kby *= k;
+    if (Math.hypot(c._kbx, c._kby) < 4) c._kbx = c._kby = 0;
+  }
   if (c._stunned > 0) { c._stunned -= dt; c._windup = 0; return; }
 
   const s = g.state;
@@ -106,6 +112,10 @@ export function updateCreature(g, c, dt) {
           }
           target.hp -= dmg;
           if (target.hp <= 0 && knockOutHero(g, target)) return;
+          if (g.hero?.id !== target.id && dmg > 0) {   // villagers are shoved back by the blow too
+            const a = Math.atan2(target.y - c.y, target.x - c.x), push = Math.min(14, 5 + dmg * 0.4);
+            if (g.world.walkable(target.x + Math.cos(a) * push, target.y + Math.sin(a) * push)) { target.x += Math.cos(a) * push; target.y += Math.sin(a) * push; }
+          }
           if (target.hp > 0 && target.hp < 15 && !has(target, 'scarred') && Math.random() < 0.3) {
             target.traits.push('scarred');
             g.log(`${target.name} barely survived and will carry the scars.`, 'bad');

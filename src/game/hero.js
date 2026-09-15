@@ -169,10 +169,10 @@ function hitCreature(g, v, c, dmg, crit, w) {
   g.hitStop = crit ? 0.09 : 0.05;
   g.float(c.x + (Math.random() - 0.5) * 10, c.y - TILE * 0.9, String(Math.round(dmg)), crit ? '#ffd76a' : '#ffffff');
 
-  // knockback, and heavy weapons stagger
+  // knockback: sent sliding away from the blow (heavier weapons send them further; bosses barely budge)
   const a = Math.atan2(c.y - v.y, c.x - v.x);
-  const push = (w.stun ? 14 : 7) * (CREATURES[c.t]?.boss ? 0.2 : 1);
-  if (g.world.walkable(c.x + Math.cos(a) * push, c.y + Math.sin(a) * push)) { c.x += Math.cos(a) * push; c.y += Math.sin(a) * push; }
+  const push = TILE * (w.stun ? 11 : 7) * (crit ? 1.4 : 1) * (CREATURES[c.t]?.boss ? 0.2 : 1);
+  c._kbx = Math.cos(a) * push; c._kby = Math.sin(a) * push;
   if (w.stun && !CREATURES[c.t]?.boss) c._stunned = Math.max(c._stunned || 0, 1 + w.stun);
   c._windup = 0;   // a hit interrupts their attack
   // flash solid white and reel for a moment (bosses shake it off faster)
@@ -222,7 +222,10 @@ export function damageHero(g, v, dmg, from = null) {
   }
   dmg *= 1 - heroStats(g).armor;
   h.sinceHit = 0;
-  if (dmg > 0) { v._whiteFlash = 0.16; h.stagger = 0.35; }   // you flash white and reel for a moment too
+  if (dmg > 0) {   // you flash white, reel for a moment and are pushed back from the blow
+    v._whiteFlash = 0.16; h.stagger = 0.35;
+    if (from) { const a = Math.atan2(v.y - from.y, v.x - from.x); const push = TILE * Math.min(9, 4 + dmg * 0.15); h.kbx = Math.cos(a) * push; h.kby = Math.sin(a) * push; }
+  }
   return dmg;
 }
 
@@ -348,6 +351,12 @@ export function updateHero(g, dt, controls = {}) {
       const sp = WALK_SPEED * 2.1 * speedMult(v) * st.speed * (blocking ? guardSlow : 1) * dt;
       moveBy(mx * sp, my * sp);
     }
+  }
+  // knockback slides you and fades quickly
+  if (h.kbx || h.kby) {
+    moveBy(h.kbx * dt, h.kby * dt);
+    const k = Math.exp(-9 * dt); h.kbx *= k; h.kby *= k;
+    if (Math.hypot(h.kbx, h.kby) < 4) h.kbx = h.kby = 0;
   }
   for (const p of h.trail || []) p.life -= dt;
   if (h.trail?.length) h.trail = h.trail.filter(p => p.life > 0);
