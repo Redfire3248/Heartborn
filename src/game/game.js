@@ -209,7 +209,7 @@ export class Game {
     maybeScheduleWarband(this);
 
     // wanderers join happy, famous villages
-    const joinChance = 0.2 + this.joinBonus + (this.hasBuilding('tavern') ? 0.1 : 0) + (s.karma > 30 ? 0.06 : 0) + this.law.join;
+    const joinChance = 0.2 + this.joinBonus + (this.hasBuilding('tavern') ? 0.1 : 0) + (s.karma > 30 ? 0.06 : 0) + this.law.join + (s.villagers.length < 10 ? 0.35 : 0);   // a small camp draws wanderers in
     if (s.villagers.length < this.housing && chance(joinChance)) {
       const n = Math.min(this.housing - s.villagers.length, chance(0.35) ? 2 + Math.floor(Math.random() * 2) : 1);
       const v = this.addWanderer();
@@ -490,9 +490,15 @@ export class Game {
     const s = this.state;
     s.nextEventAt = s.time + DAY_LENGTH * (1 + Math.random() * 1.5);
     const pop = s.villagers.length;
-    const pool = EVENTS.filter(e => (!e.minPop || pop >= e.minPop) && (!e.condition || e.condition(this)));
+    const seen = (s.recentEvents ||= {});
+    const allowed = EVENTS.filter(e => (!e.minPop || pop >= e.minPop) && (!e.condition || e.condition(this)));
+    // the same story doesn't come back for a while
+    const fresh = allowed.filter(e => !(seen[e.id] > s.time - DAY_LENGTH * 8));
+    const pool = fresh.length ? fresh : allowed;
     if (!pool.length) return;
-    this.startEvent(weighted(pool));
+    const ev = weighted(pool);
+    seen[ev.id] = s.time;
+    this.startEvent(ev);
   }
 
   startEvent(event) {

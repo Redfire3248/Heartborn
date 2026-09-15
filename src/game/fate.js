@@ -132,7 +132,9 @@ export class FateContext {
 
   lose(res, frac) {
     const r = this.state.resources;
-    const lost = Math.floor(r[res] * frac);
+    // a share of the stores, but never a ruinous amount for a big, rich village
+    const cap = 40 + this.pop * 5 + this.state.era * 30;
+    const lost = Math.floor(Math.min(r[res] * frac, cap));
     r[res] -= lost;
     return lost;
   }

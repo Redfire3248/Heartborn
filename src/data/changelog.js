@@ -1,6 +1,18 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Playtest fixes',
+    changes: [
+      'Smiths stop forging when the armoury is full (a test village had 671 weapons and no stone left); they mine or gather instead, and still make tools for anyone who needs one',
+      'When stone runs out but food is plentiful, gatherers go and break rocks',
+      'A small camp draws wanderers in much faster, so the first days are livelier',
+      'The same event no longer comes back within a few days',
+      'Thefts and tributes take a share of your stores, but never a crippling amount',
+      'Steadier population: parents are at least 16, families raise up to four children, and big villages grow more slowly',
+      'Science from learning: School +2, Monastery +1, Observatory +3, Library +5, University +8, Printing Press +8 a day; new goals point you to the School and Library',
+    ],
+  },
+  {
     title: 'Fast lives, visible work',
     changes: [
       'People age much faster: children grow up in about three game days and a whole life passes in about an hour, so you watch generations rise',

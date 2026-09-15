@@ -36,13 +36,13 @@ export const BUILDINGS = {
   stable:      { name: 'Stable',      era: 2, size: 2, cost: { wood: 50 },                      work: 28, speed: 0.15, desc: 'Villagers move 15% faster.' },
   fishing_hut: { name: 'Fishing Hut', era: 2, size: 1, cost: { wood: 30 },                      work: 22, workplace: 'fish', slots: 2, nearWater: true, desc: 'Steady food all year. Must be next to water.' },
   healer_hut:  { name: 'Healer Hut',  era: 2, size: 1, cost: { wood: 30, stone: 15 },           work: 26, heal: true, health: 1, desc: 'Cures sickness and heals the wounded.' },
-  school:      { name: 'School',      era: 2, size: 1, cost: { wood: 40, stone: 30, gold: 5 },   work: 32, learn: 0.5, desc: 'Skills grow 50% faster.' },
+  school:      { name: 'School',      era: 2, size: 1, cost: { wood: 40, stone: 30, gold: 5 },   work: 32, learn: 0.5, daily: { science: 2 }, desc: 'Skills grow 50% faster. +2 science a day.' },
   watchtower:  { name: 'Watchtower',  era: 2, size: 1, cost: { wood: 35, stone: 10 },           work: 24, defense: 5, light: 4, desc: 'Spots threats. Adds defense.' },
   wall_wood:   { name: 'Wooden Wall', era: 2, size: 1, cost: { wood: 8 },                       work: 6,  defense: 1, desc: 'Each segment adds a little defense.' },
   gate_wood:   { name: 'Wooden Gate', era: 2, size: 1, cost: { wood: 15 },                      work: 10, defense: 1, desc: 'Gate for your walls.' },
 
   // ---- Kingdom ----
-  library:    { name: 'Library',     era: 3, size: 2, cost: { wood: 60, stone: 80, gold: 20 },  work: 44, learn: 0.5, influence: 3, desc: 'Knowledge: faster skills, daily influence.' },
+  library:    { name: 'Library',     era: 3, size: 2, cost: { wood: 60, stone: 80, gold: 20 },  work: 44, learn: 0.5, influence: 3, daily: { science: 5 }, desc: 'Knowledge: faster skills, +5 science and +3 influence a day.' },
   bank:       { name: 'Bank',        era: 3, size: 2, cost: { stone: 100, gold: 40 },           work: 46, interest: 0.05, desc: '5% daily interest on gold.' },
   temple:     { name: 'Temple',      era: 3, size: 2, cost: { stone: 120, gold: 30, gems: 5 },  work: 50, fate: 0.2, influence: 5, desc: '+20% good fate, daily influence.' },
   castle:     { name: 'Castle',      era: 3, size: 3, cost: { stone: 200, iron: 40, gold: 50 }, work: 80, housing: 25, defense: 40, light: 6, desc: 'Seat of a kingdom. Crowns a king.' },
@@ -91,9 +91,9 @@ export const BUILDINGS = {
   // ---- Faith & knowledge
   chapel:          { name: 'Chapel',           era: 1, size: 1, cost: { wood: 30, stone: 20 },              work: 22, fate: 0.05, happy: 4, desc: 'A small house of prayer: +5% luck. Unlocks the High Priest.' },
   cathedral:       { name: 'Cathedral',        era: 3, size: 3, cost: { stone: 250, gold: 60, gems: 10 },   work: 120, fate: 0.25, influence: 4, happy: 8, desc: 'Towering faith: +25% luck, +4 influence a day.' },
-  monastery:       { name: 'Monastery',        era: 2, size: 2, cost: { wood: 50, stone: 60 },              work: 40, learn: 0.3, fate: 0.05, desc: 'Monks teach and pray: skills grow 30% faster.' },
-  observatory:     { name: 'Observatory',      era: 2, size: 1, cost: { stone: 50, gems: 2 },               work: 30, spot: 0.2, learn: 0.1, desc: 'Watch the horizon: armies spotted far more often.' },
-  university:      { name: 'University',       era: 3, size: 2, cost: { stone: 120, gold: 40 },             work: 60, learn: 0.8, influence: 3, desc: 'Scholars everywhere: skills grow 80% faster.' },
+  monastery:       { name: 'Monastery',        era: 2, size: 2, cost: { wood: 50, stone: 60 },              work: 40, learn: 0.3, fate: 0.05, daily: { science: 1 }, desc: 'Monks teach and pray: skills grow 30% faster, +1 science a day.' },
+  observatory:     { name: 'Observatory',      era: 2, size: 1, cost: { stone: 50, gems: 2 },               work: 30, spot: 0.2, learn: 0.1, daily: { science: 3 }, desc: 'Watch the horizon and the stars: armies spotted far more often, +3 science a day.' },
+  university:      { name: 'University',       era: 3, size: 2, cost: { stone: 120, gold: 40 },             work: 60, learn: 0.8, influence: 3, daily: { science: 8 }, desc: 'Scholars everywhere: skills grow 80% faster, +8 science a day.' },
   mage_tower:      { name: 'Mage Tower',       era: 3, size: 1, cost: { stone: 100, gems: 8 },              work: 50, fate: 0.15, influence: 6, defense: 6, workplace: 'magic', slots: 2, desc: 'Wizards study here (faster mana and magic). Arcane wards: +15% luck, +6 influence a day.' },
 
   // ================= intrigue, gunpowder and the modern ages =================
@@ -108,7 +108,7 @@ export const BUILDINGS = {
   // ---- Industrial age
   factory:          { name: 'Factory',           era: 4, size: 2, cost: { stone: 150, iron: 80, coal: 40 },  work: 70, bonus: { build: 0.4, chop: 0.2, mine: 0.2 }, daily: { weapons: 3 }, desc: 'Mass production: faster building and 3 weapons a day.' },
   steel_mill:       { name: 'Steel Mill',        era: 4, size: 2, cost: { stone: 120, coal: 60 },            work: 60, daily: { iron: 8 }, desc: '+8 iron every day.' },
-  printing_press:   { name: 'Printing Press',    era: 3, size: 1, cost: { wood: 60, stone: 40, iron: 10 },   work: 40, daily: { science: 4 }, influence: 2, desc: 'Books spread ideas: +4 science a day.' },
+  printing_press:   { name: 'Printing Press',    era: 3, size: 1, cost: { wood: 60, stone: 40, iron: 10 },   work: 40, daily: { science: 8 }, influence: 2, desc: 'Books spread ideas: +8 science a day.' },
   railway_station:  { name: 'Railway Station',   era: 4, size: 2, cost: { stone: 120, iron: 100 },           work: 70, speed: 0.3, join: 0.08, desc: 'Everyone moves 30% faster and newcomers arrive by train.' },
   tenement:         { name: 'Tenement',          era: 4, size: 3, cost: { stone: 140, wood: 60 },            work: 60, housing: 30, happy: -3, desc: 'Cramped housing for 30.' },
   clock_tower:      { name: 'Clock Tower',       era: 4, size: 1, cost: { stone: 100, iron: 20 },            work: 50, work_bonus: 0.1, happy: 6, desc: 'Ordered days: everyone works 10% faster.' },

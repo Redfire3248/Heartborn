@@ -186,14 +186,15 @@ export function dailyVillagers(g) {
 
   // births
   const fertility = s.modifiers.reduce((m, x) => m + (x.fertility || 0), 1);
-  for (const mom of s.villagers.filter(v => v.sex === 'f' && v.partner && v.age >= ADULT_AGE && v.age < 45)) {
+  for (const mom of s.villagers.filter(v => v.sex === 'f' && v.partner && v.age >= 16 && v.age < 42)) {
     if (s.villagers.length >= g.housing) break;
     const dad = s.villagers.find(v => v.id === mom.partner);
     if (!dad) continue;
     // a mother needs time between babies, and a household only raises so many children
-    if (mom.lastBirthAt != null && s.time - mom.lastBirthAt < DAY_LENGTH * 4) continue;
-    if (s.villagers.filter(c => c.parents?.includes(mom.id)).length >= 6) continue;
-    let p = 0.22 * fertility;
+    if (mom.lastBirthAt != null && s.time - mom.lastBirthAt < DAY_LENGTH * 6) continue;
+    if (s.villagers.filter(c => c.parents?.includes(mom.id)).length >= 4) continue;
+    // with fast lives, children soon become parents: big villages grow more slowly so growth stays steady
+    let p = 0.26 * fertility * (30 / (30 + pop));
     if (mom.happy > 65) p *= 1.3;
     if (mom.traits.includes('fertile') || dad.traits.includes('fertile')) p *= 1.5;
     if (s.resources.food < s.villagers.length * 2) p *= 0.4;
@@ -358,7 +359,11 @@ function chooseTask(g, v) {
 
   switch (v.job) {
     case 'chop': if (tryObject(g, v, 'chop', 45)) return; break;
-    case 'gather': if (tryGather(g, v)) return; break;
+    case 'gather':
+      // plenty of food but no stone: foragers go and break rocks instead
+      if (s.resources.stone < 25 && s.resources.food > Math.max(60, s.villagers.length * 8) && tryObject(g, v, 'mine', 50)) return;
+      if (tryGather(g, v)) return;
+      break;
     case 'mine': {
       const mine = freeWorkplace(g, v, 'mine');
       if (mine) { setTask(v, { type: 'deepmine', building: mine, ...standAt(g, mine) }); return; }
@@ -422,8 +427,9 @@ function chooseTask(g, v) {
         setTask(v, { type: 'wander', x: c.x + (Math.random() - 0.5) * TILE * 3, y: c.y + (Math.random() - 0.5) * TILE * 3, wait: 5 + Math.random() * 5 });
         return;
       }
-      const forge = freeWorkplace(g, v, 'smith');
+      const forge = !(v._cooldown > 0) && freeWorkplace(g, v, 'smith');
       if (forge) { setTask(v, { type: 'craft', building: forge, ...standAt(g, forge) }); return; }
+      if (s.resources.stone < 40 && tryObject(g, v, 'mine', 50)) return;
       if (tryGather(g, v)) return;
       break;
     }
@@ -741,6 +747,12 @@ function runTask(g, v, dt) {
     }
 
     case 'craft': {
+      if (t.phase === 'work' && !t._checked) {
+        t._checked = true;
+        const warriors = s.villagers.filter(x => x.job === 'warrior' || x.job === 'recruit').length;
+        const toolsWanted = s.villagers.some(x => x.age >= ADULT_AGE && TRADE_TOOL[x.profession] && !x.inv?.pack?.[TRADE_TOOL[x.profession]]);
+        if (!toolsWanted && (s.resources.weapons || 0) >= Math.max(12, warriors * 2 + 10)) { v._cooldown = 8; g.float(v.x, v.y - TILE, 'Armoury is full', '#c9b28a'); return releaseTask(v); }
+      }
       if (Math.random() < dt * 5) g.puff({ x: t.x, y: t.y - 10 }, 'effects/spark', 1, 10);   // hammer on hot iron
       if ((t.timer -= dt) > 0) return;
       const recipe = BUILDINGS[t.building.type]?.recipe;
