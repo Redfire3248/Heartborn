@@ -345,7 +345,7 @@ export class Renderer {
     const hero = g.hero?.id === v.id ? g.hero : null;
     if (hero) this.drawHeroRing(g, v, hero);
     this.shadow(v.x, v.y, size * 0.8);
-    const tint = v._hurtFlash > 0 ? '#ff2020' : v.sick ? '#4fbf3f' : null;
+    const tint = v._whiteFlash > 0 ? '#ffffff' : v._hurtFlash > 0 ? '#ff2020' : v.sick ? '#4fbf3f' : null;
     // you: the animated hero (boy or girl), walking and swinging in four directions
     if (hero && !v.disguised) this.drawHero(g, v, hero, key, size, tint);
     else drawSprite(ctx, key, v.x, v.y, size, { flip: v._flip, offsetY, rot, squash, tint });
@@ -431,7 +431,7 @@ export class Renderer {
     // layering: facing away, your gear is in front of the body; otherwise the shield arm is behind and the sword in front
     if (facing !== 'up') { if (!hero.blocking) drawShield(); }
     else { drawShield(); drawWeapon(); }
-    drawSprite(ctx, body, bx, by, size * (body.startsWith('hero/') ? 1.1 : 1), { flip: side < 0, tint, offsetY: bob, squash: sq, rot: lean });
+    drawSprite(ctx, body, bx, by, size * (body.startsWith('hero/') ? 1.1 : 1), { flip: side < 0, tint, solid: v._whiteFlash > 0, offsetY: bob, squash: sq, rot: lean });
     if (facing !== 'up') { drawWeapon(); if (hero.blocking) drawShield(); }
   }
 
@@ -473,7 +473,7 @@ export class Renderer {
     if (c._attack) squash = -0.15;
     this.shadow(c.x, c.y, size * (def.flying ? 0.5 : 0.8));
     const alpha = c.t === 'ghost' ? 0.75 : 1;
-    drawSprite(ctx, c.sprite || def.sprite, c.x, c.y, size, { flip: c._flip, offsetY, rot, squash, alpha, tint: c._hurtFlash > 0 ? '#ffffff' : def.tint || null });
+    drawSprite(ctx, c.sprite || def.sprite, c.x, c.y, size, { flip: c._flip, offsetY: offsetY + (c._stunned > 0 && !c._whiteFlash ? Math.sin(this.time * 40) * 0.8 : 0), rot, squash, alpha, tint: c._whiteFlash > 0 ? '#ffffff' : c._hurtFlash > 0 ? '#ffffff' : def.tint || null, solid: c._whiteFlash > 0 });
     if (def.hostile) {
       const max = maxHp(c);
       const hp = c.hp ?? max;
@@ -481,6 +481,12 @@ export class Renderer {
       if (c.attackId || c.t === 'invader') drawSprite(ctx, 'effects/marker_war', c.x, c.y - size + offsetY - 6, 9);
       if (c.t === 'forest_spirit' || c.t === 'dragon') {
         if (Math.random() < 0.1) g.fx.particles.push({ x: c.x + (Math.random() - 0.5) * size, y: c.y + offsetY - size * Math.random(), vx: 0, vy: -10, sprite: c.t === 'dragon' ? 'effects/flame' : 'effects/leaf', size: 6, life: 0.8, max: 0.8, rot: 0 });
+      }
+    }
+    if (c._stunned > 0.15 && !def.boss) {   // dazed: little stars circling the head
+      for (let i = 0; i < 3; i++) {
+        const a = this.time * 6 + i * 2.1;
+        drawSprite(ctx, 'effects/spark', c.x + Math.cos(a) * size * 0.35, c.y - size + offsetY - 2 + Math.sin(a) * 3, 7);
       }
     }
     if (c._windup > 0) {   // winding up a blow: a red warning, time to dodge or block

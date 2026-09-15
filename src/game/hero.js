@@ -173,8 +173,11 @@ function hitCreature(g, v, c, dmg, crit, w) {
   const a = Math.atan2(c.y - v.y, c.x - v.x);
   const push = (w.stun ? 14 : 7) * (CREATURES[c.t]?.boss ? 0.2 : 1);
   if (g.world.walkable(c.x + Math.cos(a) * push, c.y + Math.sin(a) * push)) { c.x += Math.cos(a) * push; c.y += Math.sin(a) * push; }
-  if (w.stun && !CREATURES[c.t]?.boss) c._stunned = Math.max(c._stunned || 0, w.stun);
+  if (w.stun && !CREATURES[c.t]?.boss) c._stunned = Math.max(c._stunned || 0, 1 + w.stun);
   c._windup = 0;   // a hit interrupts their attack
+  // flash solid white and reel for a moment (bosses shake it off faster)
+  c._whiteFlash = 0.16;
+  c._stunned = Math.max(c._stunned || 0, CREATURES[c.t]?.boss ? 0.35 : 1);
   if (had && !g.state.creatures.includes(c)) { g.hero.kills++; onHeroKill(g, c, v); }
 }
 
@@ -219,6 +222,7 @@ export function damageHero(g, v, dmg, from = null) {
   }
   dmg *= 1 - heroStats(g).armor;
   h.sinceHit = 0;
+  if (dmg > 0) { v._whiteFlash = 0.16; h.stagger = 0.35; }   // you flash white and reel for a moment too
   return dmg;
 }
 
@@ -290,6 +294,9 @@ export function updateHero(g, dt, controls = {}) {
   const st = heroStats(g);
   h.cd -= dt; h.actCd -= dt; h.swing = Math.max(0, h.swing - dt);
   h.atkCd = (h.atkCd || 0) - dt; h.dashCd = (h.dashCd || 0) - dt; h.iframes = Math.max(0, (h.iframes || 0) - dt);
+  h.stagger = Math.max(0, (h.stagger || 0) - dt);
+  if (v._whiteFlash > 0) v._whiteFlash -= dt;
+  if (h.stagger > 0) controls = { ...controls, mx: 0, my: 0, act: false, dash: false };   // reeling from a hit
   h.sinceHit = (h.sinceHit ?? 99) + dt; h.sinceAttack = (h.sinceAttack ?? 99) + dt;
   if (h.arc) { h.arc.t -= dt; if (h.arc.t <= 0) h.arc = null; }
   if (h.atkAnim) h.atkAnim.t += dt;

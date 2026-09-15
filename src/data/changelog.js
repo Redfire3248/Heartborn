@@ -1,6 +1,13 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Hits that land',
+    changes: [
+      'Anything you hit flashes solid white and is stunned for a second, with little stars circling its head (bosses shake it off faster). A stunned enemy cannot attack',
+      'When you get hit you flash white and reel for a moment',
+    ],
+  },
+  {
     title: 'Your sword and shield, in your hands',
     changes: [
       'The hero is drawn from pieces: your body plus the actual sword and shield you carry, animated in code. Swap your gear and you see it swing and guard at once',

@@ -179,7 +179,7 @@ export function drawSprite(ctx, key, x, y, size, opts = {}) {
   const box = opts.full ? { x: 0, y: 0, w: s.img.width, h: s.img.height } : s.box;
   const scale = size / Math.max(box.w, box.h);
   const w = box.w * scale, h = box.h * scale;
-  const src = opts.tint ? tintedImage(key, s, opts.tint) : s.img;
+  const src = opts.tint ? tintedImage(key, s, opts.tint, opts.solid) : s.img;
 
   ctx.save();
   ctx.translate(x, y + (opts.offsetY || 0));
@@ -197,8 +197,9 @@ export function drawTile(ctx, key, x, y, size) {
   if (s) ctx.drawImage(s.img, x, y, size, size);
 }
 
-function tintedImage(key, s, tint) {
-  const id = key + tint;
+/** A recoloured copy of a sprite: a light wash, or (solid) a flat silhouette like a hit flash. */
+function tintedImage(key, s, tint, solid = false) {
+  const id = key + tint + (solid ? '!' : '');
   let c = tinted.get(id);
   if (c) return c;
   c = document.createElement('canvas');
@@ -206,7 +207,7 @@ function tintedImage(key, s, tint) {
   const ctx = c.getContext('2d');
   ctx.drawImage(s.img, 0, 0);
   ctx.globalCompositeOperation = 'source-atop';
-  ctx.globalAlpha = 0.45;
+  ctx.globalAlpha = solid ? 1 : 0.45;
   ctx.fillStyle = tint;
   ctx.fillRect(0, 0, c.width, c.height);
   tinted.set(id, c);

@@ -24,7 +24,8 @@ export function updateCreature(g, c, dt) {
   if (c.hp == null) c.hp = maxHp(c);
   c._walking = false;
   if (c._hurtFlash) c._hurtFlash = Math.max(0, c._hurtFlash - dt);
-  if (c._stunned > 0) { c._stunned -= dt; return; }
+  if (c._whiteFlash > 0) c._whiteFlash -= dt;
+  if (c._stunned > 0) { c._stunned -= dt; c._windup = 0; return; }
 
   const s = g.state;
 
