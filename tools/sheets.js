@@ -94,6 +94,48 @@ window.SHEETS = {
       "dock", "buoy", "anchor", "ship_wheel", "treasure_chest", "sea_serpent"
     ]
   },
+  heroWalk: {
+    title: "Hero walk, boy rows 1-3 and girl rows 4-6",
+    folder: "hero",
+    mode: "sprite",
+    anim: true,
+    names: [
+      "boy_walk_down_0", "boy_walk_down_1", "boy_walk_down_2", "boy_walk_down_3", "boy_walk_down_4", "boy_walk_down_5",
+      "boy_walk_up_0", "boy_walk_up_1", "boy_walk_up_2", "boy_walk_up_3", "boy_walk_up_4", "boy_walk_up_5",
+      "boy_walk_side_0", "boy_walk_side_1", "boy_walk_side_2", "boy_walk_side_3", "boy_walk_side_4", "boy_walk_side_5",
+      "girl_walk_down_0", "girl_walk_down_1", "girl_walk_down_2", "girl_walk_down_3", "girl_walk_down_4", "girl_walk_down_5",
+      "girl_walk_up_0", "girl_walk_up_1", "girl_walk_up_2", "girl_walk_up_3", "girl_walk_up_4", "girl_walk_up_5",
+      "girl_walk_side_0", "girl_walk_side_1", "girl_walk_side_2", "girl_walk_side_3", "girl_walk_side_4", "girl_walk_side_5"
+    ]
+  },
+  heroAttack: {
+    title: "Hero sword attack, boy rows 1-3 and girl rows 4-6",
+    folder: "hero",
+    mode: "sprite",
+    anim: true,
+    names: [
+      "boy_attack_down_0", "boy_attack_down_1", "boy_attack_down_2", "boy_attack_down_3", "boy_attack_down_4", "boy_attack_down_5",
+      "boy_attack_up_0", "boy_attack_up_1", "boy_attack_up_2", "boy_attack_up_3", "boy_attack_up_4", "boy_attack_up_5",
+      "boy_attack_side_0", "boy_attack_side_1", "boy_attack_side_2", "boy_attack_side_3", "boy_attack_side_4", "boy_attack_side_5",
+      "girl_attack_down_0", "girl_attack_down_1", "girl_attack_down_2", "girl_attack_down_3", "girl_attack_down_4", "girl_attack_down_5",
+      "girl_attack_up_0", "girl_attack_up_1", "girl_attack_up_2", "girl_attack_up_3", "girl_attack_up_4", "girl_attack_up_5",
+      "girl_attack_side_0", "girl_attack_side_1", "girl_attack_side_2", "girl_attack_side_3", "girl_attack_side_4", "girl_attack_side_5"
+    ]
+  },
+  heroMoves: {
+    title: "Hero dash, block and hurt, boy rows 1-3 and girl rows 4-6",
+    folder: "hero",
+    mode: "sprite",
+    anim: true,
+    names: [
+      "boy_dash_side_0", "boy_dash_side_1", "boy_dash_side_2", "boy_dash_side_3", "boy_dash_side_4", "boy_dash_side_5",
+      "boy_block_side_0", "boy_block_side_1", "boy_block_side_2", "boy_block_side_3", "boy_block_side_4", "boy_block_side_5",
+      "boy_hurt_down_0", "boy_hurt_down_1", "boy_hurt_down_2", "boy_hurt_down_3", "boy_hurt_down_4", "boy_hurt_down_5",
+      "girl_dash_side_0", "girl_dash_side_1", "girl_dash_side_2", "girl_dash_side_3", "girl_dash_side_4", "girl_dash_side_5",
+      "girl_block_side_0", "girl_block_side_1", "girl_block_side_2", "girl_block_side_3", "girl_block_side_4", "girl_block_side_5",
+      "girl_hurt_down_0", "girl_hurt_down_1", "girl_hurt_down_2", "girl_hurt_down_3", "girl_hurt_down_4", "girl_hurt_down_5"
+    ]
+  },
   heroBoy: {
     title: "Sheet 12 - Boy hero, walking and sword attacks (animation rows of 6 frames)",
     folder: "hero",

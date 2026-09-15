@@ -343,7 +343,16 @@ export class Renderer {
     const tint = v._hurtFlash > 0 ? '#ff2020' : v.sick ? '#4fbf3f' : null;
     // you: the animated hero (boy or girl), walking and swinging in four directions
     const frame = hero ? this.heroFrame(v, hero) : null;
-    if (frame) drawSprite(ctx, frame.key, v.x, v.y + 2, size * 1.25, { flip: frame.flip, tint, full: true });
+    if (frame) {
+      // motion on top of the frames: a bounce with every step, a stretch when dashing, a lunge on the swing
+      const step = this.time * 12 * speedMult(v);
+      const bob = hero.dash ? -3 : v._walking ? -Math.abs(Math.sin(step)) * 3 : Math.sin(this.time * 2.5) * 0.6;
+      const sq = hero.dash ? -0.12 : v._walking ? Math.cos(step * 2) * 0.04 : 0;
+      const atk = hero.atkAnim && hero.atkAnim.t < hero.atkAnim.dur ? hero.atkAnim.t / hero.atkAnim.dur : 0;
+      const lunge = atk ? Math.sin(Math.min(1, atk * 1.6) * Math.PI) * 4 : 0;
+      const a = hero.facing ?? 0;
+      drawSprite(ctx, frame.key, v.x + Math.cos(a) * lunge, v.y + 2 + Math.sin(a) * lunge * 0.5, size * 1.25, { flip: frame.flip, tint, full: true, offsetY: bob, squash: sq, rot: hero.dash ? (Math.cos(a) >= 0 ? 0.18 : -0.18) : 0 });
+    }
     else drawSprite(ctx, key, v.x, v.y, size, { flip: v._flip, offsetY, rot, squash, tint });
 
     const tool = frame ? null : hero ? (hero.swing > 0 || v._walking ? heldItem(g, v) : null) : working ? toolFor(v, g) : null;
@@ -378,8 +387,15 @@ export class Renderer {
     const dir = Math.abs(dx) >= Math.abs(dy) * 0.85 ? 'side' : dy < 0 ? 'up' : 'down';
     let anim = 'walk', n = 0;
     const atk = hero.atkAnim;
+    const has = k => !!sprite(`hero/${who}_${k}_0`);
+    // dash, guard and flinch have their own frames once that sheet is in (side view for dash and block)
+    if (hero.dash && has('dash_side')) return { key: `hero/${who}_dash_side_${Math.min(5, Math.floor((1 - hero.dash.t / 0.18) * 6))}`, flip: dx < 0 };
+    if (hero.blocking && has('block_side')) return { key: `hero/${who}_block_side_${Math.min(3, Math.floor((this.time - (hero._blockDrawAt ??= this.time)) * 12))}`, flip: dx < 0 };
+    hero._blockDrawAt = undefined;
+    if (v._hurtFlash > 0 && has('hurt_down')) return { key: `hero/${who}_hurt_down_${Math.min(5, Math.floor((0.25 - v._hurtFlash) / 0.25 * 6))}`, flip: false };
     if (atk && atk.t < atk.dur) { anim = 'attack'; n = Math.min(5, Math.floor(atk.t / atk.dur * 6)); }
-    else if (v._walking) n = Math.floor(this.time * 10 * speedMult(v)) % 6;
+    else if (hero.dash) n = Math.floor(this.time * 30) % 6;   // a burst of quick steps
+    else if (v._walking) n = Math.floor(this.time * 12 * speedMult(v)) % 6;
     const key = `hero/${who}_${anim}_${dir}_${n}`;
     if (!sprite(key)) return null;   // art not loaded yet: fall back to the villager look
     return { key, flip: dir === 'side' && dx < 0 };
@@ -434,7 +450,9 @@ export class Renderer {
     // dash afterimages
     for (const tr of hero.trail || []) {
       ctx.globalAlpha = Math.max(0, tr.life / 0.25) * 0.35;
-      drawSprite(ctx, villagerSprite({ ...v, role: displayRole(v) }), tr.x, tr.y, TILE * 0.92, { flip: v._flip, tint: '#9fd4ff' });
+      const f = this.heroFrame(v, hero);
+      if (f) drawSprite(ctx, f.key, tr.x, tr.y + 2, TILE * 0.92 * 1.25, { flip: f.flip, tint: '#9fd4ff', full: true });
+      else drawSprite(ctx, villagerSprite({ ...v, role: displayRole(v) }), tr.x, tr.y, TILE * 0.92, { flip: v._flip, tint: '#9fd4ff' });
     }
     ctx.globalAlpha = 1;
     // the swing: a bright arc in front of you

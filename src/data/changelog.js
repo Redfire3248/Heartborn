@@ -1,6 +1,17 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Hero animation fixes',
+    changes: [
+      'The attack animation plays on every press, even with nothing to hit (and still chops and mines)',
+      'A swing always finishes before the next one starts',
+      'The hero sprite already draws its slash, so the extra slash effect on top is gone',
+      'Walking has real motion: a bounce with every step and a livelier step rate; the swing lunges forward',
+      'Dash is visible: you lean and stretch into it, legs blur and afterimages of your hero trail behind',
+      'Ready for the next art: dash, block and hurt frames are used automatically once that sheet is uploaded',
+    ],
+  },
+  {
     title: 'A real hero: animations and punchy combat',
     changes: [
       'You are drawn as an animated hero: a boy or a girl (matching your avatar), walking and swinging a sword in four directions',

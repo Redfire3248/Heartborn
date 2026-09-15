@@ -113,30 +113,34 @@ function attack(g, v, st) {
   const w = heroWeapon(g, v);
   const nearFoe = nearestHostile(g, v, TILE * Math.max(3, w.ranged ? w.range : 3));
   const nearPerson = h.violent ? nearestPerson(g, v, TILE * 2.5) : null;
-  // nothing to fight close by: the same button chops, mines and gathers
+  const swingTime = Math.max(0.3, Math.min(0.45, w.speed * 0.8));
+  // nothing to fight close by: you still swing (the animation always plays), and the swing chops, mines and gathers
   if (!nearFoe && !nearPerson) {
-    if (h.actCd <= 0) { h.actCd = ACT_COOLDOWN; if (work(g, v)) questProgress(g, 'gather', { v }); }
+    if (h.actCd > 0) return;
+    h.actCd = Math.max(ACT_COOLDOWN, swingTime);
+    h.atkCd = swingTime;
+    h.atkAnim = { t: 0, dur: swingTime };
+    if (work(g, v)) questProgress(g, 'gather', { v });
     return;
   }
   const cost = w.ranged ? 6 : 8;
   if (h.stamina < cost) { if (!h._tiredAt || g.state.time - h._tiredAt > 1) { h._tiredAt = g.state.time; g.float(v.x, v.y - TILE * 1.3, 'Out of breath', '#ffb3aa'); } return; }
   h.stamina -= cost;
   h.sinceAttack = 0;
-  h.atkCd = w.speed / Math.max(0.6, st.speed);
+  h.atkCd = Math.max(swingTime, w.speed / Math.max(0.6, st.speed));   // let the swing finish before the next
   h.swing = 0.22;
   // aim: where you are going, or straight at the closest foe when you stand still
   const target = nearFoe || nearPerson;
   if (target && (!h._movedAt || g.state.time - h._movedAt > 0.15 || angleDiff(h.facing, Math.atan2(target.y - v.y, target.x - v.x)) < 1.2)) h.facing = Math.atan2(target.y - v.y, target.x - v.x);
   const crit = Math.random() < st.crit;
-  h.atkAnim = { t: 0, dur: Math.max(0.24, Math.min(0.42, w.speed * 0.7)) };
+  h.atkAnim = { t: 0, dur: swingTime };
   const dmg = w.dmg * st.dmgMult * strengthMult(v) * (crit ? 1.8 : 1);
   if (w.ranged) {
     (h.arrows ||= []).push({ x: v.x, y: v.y - 8, vx: Math.cos(h.facing) * TILE * 14, vy: Math.sin(h.facing) * TILE * 14, left: TILE * w.range, dmg, crit });
     return;
   }
   h.arc = { angle: h.facing, width: w.arc, range: w.range * TILE, t: 0.16, max: 0.16, crit };
-  const reachPx = w.range * TILE;
-  g.anim(crit ? 'combat/crit_slash' : 'combat/slash', v.x + Math.cos(h.facing) * reachPx * 0.55, v.y - 10 + Math.sin(h.facing) * reachPx * 0.55, { size: reachPx * 1.2, dur: 0.22, rot: h.facing });
+  // (the hero's own attack frames draw the slash, so no extra slash effect on top)
   let hits = 0;
   for (const c of [...g.state.creatures]) {
     if (!CREATURES[c.t]?.hostile && !CREATURES[c.t]?.food) continue;
