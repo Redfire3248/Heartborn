@@ -16,7 +16,7 @@ const BIG_KILLS = {
   bear:          { text: 'A great bear was brought down.' },
 };
 
-export const maxHp = c => Math.round(CREATURES[c.t].hp * (c.scale || 1) * (c.elite ? 1.8 : 1));
+export const maxHp = c => Math.round(CREATURES[c.t].hp * (c.scale || 1) * (c.hpMult || 1) * (c.elite ? 1.8 : 1));
 
 export function updateCreature(g, c, dt) {
   const def = CREATURES[c.t];
@@ -121,7 +121,7 @@ export function updateCreature(g, c, dt) {
         if (c._cd <= 0) {
           c._cd = 1.2;
           c._attack = 0.25;
-          let dmg = def.damage * (c.scale || 1) / (1 + g.defense / 50);
+          let dmg = def.damage * (c.scale || 1) * (c.dmgMult || 1) / (1 + g.defense / 50);
           if (target.armed && g.hasBuilding('armory')) dmg *= 0.7;   // shield and mail
           dmg *= toughness(target);   // stamina shrugs off wounds
           if (g.hero?.id === target.id) {
@@ -192,7 +192,7 @@ function special(g, c, def, target, dt) {
     if (hit) {
       c._charge = null;
       c._cd = 1.5;
-      strikeVillager(g, c, hit, def.damage * 1.6 * (c.scale || 1));
+      strikeVillager(g, c, hit, def.damage * 1.6 * (c.scale || 1) * (c.dmgMult || 1));
       return true;
     }
     return true;
@@ -212,7 +212,7 @@ function special(g, c, def, target, dt) {
     c._throw = null;
     c._specialCd = 2.2 + Math.random() * 1.5;
     const a = Math.atan2(target.y - c.y, target.x - c.x) + (Math.random() - 0.5) * 0.15;
-    (g.enemyShots ||= []).push({ x: c.x, y: c.y - 10, vx: Math.cos(a) * TILE * 7, vy: Math.sin(a) * TILE * 7, left: TILE * 9, dmg: def.damage * 0.8 * (c.scale || 1), from: c });
+    (g.enemyShots ||= []).push({ x: c.x, y: c.y - 10, vx: Math.cos(a) * TILE * 7, vy: Math.sin(a) * TILE * 7, left: TILE * 9, dmg: def.damage * 0.8 * (c.scale || 1) * (c.dmgMult || 1), from: c });
     return true;
   }
   return false;

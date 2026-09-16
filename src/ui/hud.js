@@ -24,6 +24,7 @@ const BODY_COLOR = { strength: '#ff8a5a', speed: '#7fd4ff', stamina: '#8fe07a' }
 const BODY_TIP = { strength: 'Heavy work (chopping, mining, building, farming, forging) and fighting go faster and hit harder', speed: 'Walks and runs faster', stamina: 'Works harder, gets hungry more slowly and takes less damage' };
 import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, avatarOf } from '../game/hero.js';
 import { makeVisitGame } from '../game/visit.js';
+import { makeDungeonGame, leaveSurface, returnFromDungeon, bossOf } from '../game/dungeon.js';
 import { LAW_CATEGORIES, DEFAULT_LAWS, LAW_COST, describeEffects } from '../data/laws.js';
 import { rally, standDown, tributeCost, payWarbandTribute, scoutSummary } from '../game/war.js';
 import { leaderboard, getProfile } from '../net/save.js';
@@ -80,8 +81,8 @@ const DOCK_GROUPS = [
 const groupOf = id => DOCK_GROUPS.find(g => g?.tabs.some(t => t[0] === id));
 
 export class HUD {
-  constructor({ game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu, onSeaView, onAbroad }) {
-    Object.assign(this, { game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu, onSeaView, onAbroad });
+  constructor({ game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu, onSeaView, onAbroad, onDungeon }) {
+    Object.assign(this, { game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu, onSeaView, onAbroad, onDungeon });
     // ships at sea talk to other players through the multiplayer layer
     if (mp) game.seaNet = { publish: (s, boat) => mp.publishShip(s, boat), shot: b => mp.sendShot(b), sunk: (by, boat) => mp.reportSunk(by, boat), leave: () => mp.leaveSea() };
     this.root = document.getElementById('ui');
@@ -99,6 +100,7 @@ export class HUD {
     game.on('event', ev => this.showEvent(ev));
     game.on('change', () => this.requestRefresh());
     game.on('scoutReport', r => this.showScoutReport(r));
+    game.on('dungeon', e => this.enterDungeon(e));
     if (mp) {
       mp.on('chat', () => this.panel === 'world' && this.worldTab === 'chat' && this.refreshPanel());
       mp.on('players', () => this.panel === 'world' && this.worldTab === 'players' && this.refreshPanel());
@@ -242,7 +244,7 @@ export class HUD {
     }
     // the person you control: your avatar at home, or your visitor / spy in another land
     const abroad = this.visiting && this.abroad?.land?.hero ? this.abroad : null;
-    const hg = abroad ? abroad.land : !this.visiting ? g : null;
+    const hg = abroad ? abroad.land : this.dungeon && !this.visiting ? this.dungeon : !this.visiting ? g : null;
     if (hg?.hero) {
       const k = this.input.keys, t = this.leadInput;
       const mx = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0) + t.mx;
@@ -255,6 +257,7 @@ export class HUD {
       this._potionHeld = potionDown;
       this._dashHeld = dashDown;
       if (abroad || (!g.paused && !g.pendingEvent)) updateHero(hg, dt, { mx, my, act: !abroad && (k.has(' ') || t.act), dash: !abroad && dash, potion: !abroad && potion, block: !abroad && (k.has('q') || t.block) });
+      if (hg === this.dungeon) this.tickDungeon();
       const v = heroOf(hg);
       const c = this.renderer.camera;
       // the camera always stays on you
@@ -381,7 +384,8 @@ export class HUD {
 
   updateHeroBar() {
     const abroad = this.visiting && this.abroad?.land?.hero ? this.abroad : null;
-    const g = abroad ? abroad.land : this.game;
+    const g = abroad ? abroad.land : this.dungeon || this.game;
+    this.updateDungeonCard();
     const v = (abroad || !this.visiting) && heroOf(g);
     const bar = this.els.heroBar, pad = this.els.heroPad;
     this.root.classList.toggle('leading', !!v);
@@ -2804,6 +2808,72 @@ export class HUD {
     ctx.lineWidth = 1.5 / MINI_SCALE;
     ctx.strokeRect(cam.x / TILE - vw / 2, cam.y / TILE - vh / 2, vw, vh);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
+  // ------------------------------------------------------------ dungeons
+  /** Down the cave mouth (or the stairs to a deeper floor). */
+  enterDungeon(entrance, depth = 1) {
+    if (this.visiting || this.game.sail) return;
+    const prev = this.dungeon;
+    const dg = makeDungeonGame(this.game, { depth, entrance: entrance || prev?.dungeon.entrance });
+    if (prev) {   // carry your hero's wounds down the stairs
+      const was = heroOf(prev), now = heroOf(dg);
+      if (was && now) now.hp = was.hp;
+      Object.assign(dg.hero, { kills: prev.hero?.kills || 0, finds: prev.hero?.finds || 0 });
+    } else leaveSurface(this.game, dg);
+    this.dungeon = dg;
+    this._dungeonKey = null;
+    this.onDungeon?.(dg);
+    const v = heroOf(dg);
+    if (v) Object.assign(this.renderer.camera, { x: v.x, y: v.y, zoom: Math.max(2.2, this.renderer.camera.zoom) });
+    this.announce(depth === 1 ? 'You enter the dungeon' : `Floor ${depth}`);
+    if (depth === 1) this.hint('Find the key to open the boss door, beware the spikes, and slay the boss. The stairs you came down lead home.', 8000);
+    play('ability');
+  }
+
+  leaveDungeon({ knockedOut = false } = {}) {
+    const dg = this.dungeon;
+    if (!dg) return;
+    this.dungeon = null;
+    this._dungeonKey = null;
+    returnFromDungeon(this.game, dg, { knockedOut });
+    this.onDungeon?.(null);
+    const v = heroOf(this.game);
+    if (v) Object.assign(this.renderer.camera, { x: v.x, y: v.y });
+    if (knockedOut) { this.announce('You were knocked out!'); this.hint('You were carried out of the dungeon and woke up at home.', 5000); }
+    else this.announce('Back in the daylight');
+  }
+
+  tickDungeon() {
+    const dg = this.dungeon, d = dg.dungeon;
+    const home = this.game.state.villagers.find(x => x.id === d.homeHeroId);
+    if (home?.away) home.away.until = Date.now() + 120_000;   // still below (if the page closes, they come home by themselves)
+    const ev = d.event;
+    if (!ev) return;
+    d.event = null;
+    if (ev === 'knockout') this.leaveDungeon({ knockedOut: true });
+    else if (ev === 'exit') this.leaveDungeon();
+    else if (ev === 'down') this.enterDungeon(null, d.depth + 1);
+  }
+
+  /** Floor, key and boss health while you are below. */
+  updateDungeonCard() {
+    const dg = this.dungeon;
+    if (!dg) { this.els.dungeonCard?.remove(); this.els.dungeonCard = null; return; }
+    const d = dg.dungeon, boss = bossOf(dg);
+    const bossPct = boss ? Math.max(0, Math.round(boss.hp / maxHp(boss) * 100)) : 0;
+    const key = [d.depth, d.hasKey, d.open, d.cleared, bossPct].join('|');
+    if (key === this._dungeonKey && this.els.dungeonCard) return;
+    this._dungeonKey = key;
+    const card = h('div.card.dungeon-card',
+      h('div.dungeon-title', `Dungeon · Floor ${d.depth}`),
+      h('div.dungeon-row',
+        h('span.dungeon-key' + (d.hasKey ? '.got' : ''), icon('gear/key', 18), d.open ? 'Door open' : d.hasKey ? 'Key found' : 'Find the key'),
+        d.cleared ? h('span.faint', 'Stairs down are open') : null),
+      boss && !d.cleared ? h('div.dungeon-boss', h('span', CREATURES[boss.t]?.name || boss.t.replace('_', ' ')), h('div.dungeon-bossbar', h('i', { style: { width: `${bossPct}%` } }))) : null,
+      h('button.btn.sm', { onclick: () => this.leaveDungeon() }, 'Leave dungeon'));
+    if (this.els.dungeonCard) this.els.dungeonCard.replaceWith(card); else this.root.append(card);
+    this.els.dungeonCard = card;
   }
 
   destroy() {

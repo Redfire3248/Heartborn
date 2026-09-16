@@ -7,7 +7,7 @@ import { gainSkill } from './villagers.js';
 import { has } from './dynasty.js';
 import { speedMult, strengthMult } from './body.js';
 import { heroStats, heroWeapon, onHeroKill, questProgress, updateQuests, rpgOf, SHIELDS } from './rpg.js';
-import { updateTreasure, chestNear, openChest, drinkPotion } from './treasure.js';
+import { updateTreasure, chestNear, openChest, drinkPotion, entranceNear } from './treasure.js';
 
 /*
  * Lead in person: take control of your ruler and walk the land yourself.
@@ -118,6 +118,9 @@ function attack(g, v, st) {
   const swingTime = Math.max(0.3, Math.min(0.45, w.speed * 0.8));
   // nothing to fight close by: you still swing (the animation always plays), and the swing chops, mines and gathers
   // a chest in reach and no foe close: the swing breaks it open
+  // a cave mouth in reach: the swing takes you down into the dungeon
+  const cave = !nearFoe && entranceNear(g, v.x, v.y);
+  if (cave) { h.atkCd = swingTime; h.atkAnim = { t: 0, dur: swingTime }; g.emit('dungeon', cave); return; }
   const chest = !nearFoe && chestNear(g, v.x, v.y);
   if (chest) {
     h.atkCd = swingTime; h.atkAnim = { t: 0, dur: swingTime };
@@ -259,6 +262,7 @@ export function knockOutHero(g, v) {
   h.iframes = 3; h.dash = null; h.arrows = [];
   const lost = Math.floor((g.state.resources.gold || 0) * 0.1);
   g.state.resources.gold -= lost;
+  if (g.dungeon) { g.dungeon.event = 'knockout'; h.iframes = 3; return true; }   // carried back up to the surface
   g.announce('You were knocked out!');
   g.log(`You were knocked out and woke up at home${lost ? `, ${lost} gold poorer` : ''}.`, 'bad');
   g.fx.shake = 2;
@@ -415,7 +419,7 @@ export function updateHero(g, dt, controls = {}) {
     for (const o of g.state.villagers) if (o._task?.phase === 'work' && inspired(g, o) && Math.random() < 0.35) g.puff({ x: o.x, y: o.y - TILE }, 'effects/spark', 1, 4);
   }
 
-  updateBounties(g, v);
+  if (!g.dungeon) updateBounties(g, v);
 }
 
 // ------------------------------------------------------------------ bounties

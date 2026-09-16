@@ -1,6 +1,18 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Dungeons',
+    changes: [
+      'Dark caves now appear in the wilds around your land. Walk up to a cave and strike it to go down',
+      'Every floor is a new maze of rooms and corridors in the dark, lit only by torches and the glow around you. Monsters wait in every room',
+      'Find the key to open the locked boss door. Watch out for spike traps that pop up and down: dash over them or time your step',
+      'Slay the boss (a Cave Troll or a Forest Spirit) for its big chest, gold and experience. Then take the stairs down to a deeper floor with tougher monsters and better loot',
+      'The stairs you came down lead home. If you are knocked out, you wake up at home. Your realm keeps living while you are below, and everything you find is yours',
+      'A card at the top shows your floor, the key and the boss health, with a Leave dungeon button',
+      'Admin: dungeon [floor] goes straight down to any floor; dungeon leave comes back up',
+    ],
+  },
+  {
     title: 'Analyze your gear, hunt anything',
     changes: [
       'Analyze: in your Character sheet, tap Analyze on any weapon, shield, helmet, armour or trinket. It floats in a glow of its rarity while a scan passes over it, then its stats fill in one by one (compared with what you wear) and its special abilities are revealed',

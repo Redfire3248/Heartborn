@@ -19,8 +19,9 @@ export const pickupsOf = g => (g.pickups ||= []);   // hearts and potions on the
 export function updateTreasure(g, dt, hero) {
   const s = g.state;
   if (g.offline || g.visiting) return;
+  if (!g.dungeon) updateEntrances(g);
   s.nextChestAt ??= s.time + 40;
-  if (s.time >= s.nextChestAt) {
+  if (!g.dungeon && s.time >= s.nextChestAt) {
     s.nextChestAt = s.time + 80 + Math.random() * 80;
     if (chestsOf(g).filter(c => !c.boss).length < MAX_CHESTS) {
       const p = g.randomLandTile(8, 22);
@@ -93,4 +94,21 @@ export function drinkPotion(g, hero) {
   g.anim('combat/parry', hero.x, hero.y - 12, { size: 30, dur: 0.3 });
   g.emit('change');
   return true;
+}
+
+// ------------------------------------------------------------------ dungeon entrances
+
+const MAX_ENTRANCES = 2;
+export const entrancesOf = g => (g.state.dungeons ||= []);
+export const entranceNear = (g, x, y, reach = TILE * 1.6) => entrancesOf(g).find(e => Math.hypot(e.x - x, e.y - y) < reach) || null;
+
+/** A couple of cave mouths are always somewhere in the wilds. */
+export function updateEntrances(g) {
+  const list = entrancesOf(g);
+  if (list.length >= MAX_ENTRANCES || g.dungeon || g.visiting) return;
+  const p = g.randomLandTile(12, 26);
+  if (!p || list.some(e => Math.hypot(e.x - p.x, e.y - p.y) < TILE * 10)) return;
+  if (g.buildingAt?.(Math.floor(p.x / TILE), Math.floor(p.y / TILE))) return;
+  list.push({ id: `dg${Math.floor(g.state.time * 1000).toString(36)}`, x: p.x, y: p.y });
+  if (list.length === 1) g.log('Adventurers speak of a dark cave in the wilds. Strike its mouth to go down.', 'event', p);
 }

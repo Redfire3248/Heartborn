@@ -11,6 +11,8 @@ import { FIND_KINDS } from '../game/finds.js';
 import { ITEMS } from '../data/people.js';
 import { heroWeapon, rpgOf, WEAPONS, SHIELDS } from '../game/rpg.js';
 import { gearIconKey, hasArt } from './gearArt.js';
+import { trapUp } from '../game/dungeon.js';
+import { T } from '../game/world.js';
 
 // hero frames leave room around the figure for swings and dashes: draw them bigger so the hero stands as tall as villagers
 const HERO_SCALE = 1.55;
@@ -82,7 +84,7 @@ export class Renderer {
     const W = canvas.width, H = canvas.height;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#0d2a4a';
+    ctx.fillStyle = g.dungeon ? '#07060a' : '#0d2a4a';
     ctx.fillRect(0, 0, W, H);
 
     const shake = g.fx.shake > 0 ? g.fx.shake * 3 : 0;
@@ -98,7 +100,8 @@ export class Renderer {
       x1: Math.ceil(((W - ox) / s) / TILE) + 2, y1: Math.ceil(((H - oy) / s) / TILE) + 3,
     };
 
-    this.drawTerrain(g, view);
+    if (g.dungeon) this.drawDungeonFloor(g, view);   // its own square rooms (the painter rounds corners into water)
+    else this.drawTerrain(g, view);
     this.drawBridges(g);
     this.drawGroundMarks(g, view);
 
@@ -131,6 +134,12 @@ export class Renderer {
       if (g.openedChests?.length) g.openedChests = g.openedChests.filter(c => c.life > 0);
       for (const p of g.pickups || []) if (inView(p.x, p.y)) items.push({ y: p.y, draw: () => this.drawPickup(p) });
     }
+    if (!g.visiting && !g.dungeon) for (const e of g.state.dungeons || []) if (inView(e.x, e.y)) items.push({ y: e.y, draw: () => this.drawCaveMouth(g, e) });
+    if (g.dungeon) {
+      const d = g.dungeon;
+      for (const t of d.torches) if (inView(t.x, t.y)) items.push({ y: t.y - TILE, draw: () => this.drawTorch(t) });
+      if (d.key) items.push({ y: d.key.y, draw: () => this.drawKey(d.key) });
+    }
     if (!g.visiting) for (const it of g.state.groundItems || []) {
       if (inView(it.x, it.y)) items.push({ y: it.y, draw: () => this.drawGroundItem(it) });
     }
@@ -147,7 +156,7 @@ export class Renderer {
     this.drawBeams(g);
     this.drawStrikes(g);
     this.drawLighting(g, ox, oy, s);
-    this.drawWeather(g, dt);
+    if (!g.dungeon) this.drawWeather(g, dt);
 
     // screen-space overlays
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -213,6 +222,111 @@ export class Renderer {
         ctx.ellipse(p.x, p.y, p.r * pulse, p.r * 0.45 * pulse, 0, 0, Math.PI * 2);
         ctx.stroke();
       }
+    }
+  }
+
+  // ------------------------------------------------------------ dungeons (drawn in code, no art needed)
+  /** Rock walls with a lit brick face, locked doors, stairs and spike traps. */
+  drawDungeonFloor(g, view) {
+    const { ctx } = this;
+    const w = g.world, d = g.dungeon, P = TILE / 8;
+    const wall = (x, y) => w.tile(x, y) === T.deep_water;
+    const isDoor = (x, y) => !d.open && d.doors.some(p => p.x === x && p.y === y);
+    const floorTile = this.terrain.tileCanvas('tile_cave_floor', 64);
+    for (let y = Math.max(0, view.y0); y <= Math.min(w.h - 1, view.y1); y++) {
+      for (let x = Math.max(0, view.x0); x <= Math.min(w.w - 1, view.x1); x++) {
+        const X = x * TILE, Y = y * TILE;
+        if (!wall(x, y)) {
+          ctx.drawImage(floorTile, X - 0.25, Y - 0.25, TILE + 0.5, TILE + 0.5);
+          if (wall(x, y - 1)) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(X, Y, TILE, P * 1.2); }   // the wall's shadow
+          continue;
+        }
+        if (isDoor(x, y)) {   // a heavy wooden door with iron bands and a golden lock
+          ctx.fillStyle = '#5a3a1e'; ctx.fillRect(X, Y, TILE, TILE);
+          ctx.fillStyle = '#6e4826'; for (let i = 0; i < 4; i++) ctx.fillRect(X + i * 2 * P + P * 0.3, Y, P * 1.4, TILE);
+          ctx.fillStyle = '#3b3b44'; ctx.fillRect(X, Y + 1.5 * P, TILE, P); ctx.fillRect(X, Y + 5.5 * P, TILE, P);
+          ctx.fillStyle = '#ffcf5a'; ctx.fillRect(X + 3 * P, Y + 3 * P, 2 * P, 2 * P);
+          ctx.fillStyle = '#2a1a0a'; ctx.fillRect(X + 3.7 * P, Y + 3.6 * P, 0.6 * P, 1 * P);
+          continue;
+        }
+        ctx.fillStyle = '#15121c'; ctx.fillRect(X - 0.5, Y - 0.5, TILE + 1, TILE + 1);
+        if (!wall(x, y + 1) || isDoor(x, y + 1)) {   // the face you see from the room below: stone bricks
+          ctx.fillStyle = '#4a4254'; ctx.fillRect(X, Y + 2 * P, TILE, 6 * P);
+          ctx.fillStyle = '#3a3344';
+          for (let row = 0; row < 3; row++) {
+            ctx.fillRect(X, Y + (2 + row * 2) * P, TILE, P * 0.35);
+            const off = (row + x) % 2 ? 0 : 4 * P;
+            ctx.fillRect(X + off, Y + (2 + row * 2) * P, P * 0.35, 2 * P);
+          }
+          ctx.fillStyle = '#6a6076'; ctx.fillRect(X, Y + 2 * P, TILE, P * 0.5);
+        } else if (!wall(x, y - 1) || !wall(x - 1, y) || !wall(x + 1, y)) {
+          ctx.fillStyle = '#2a2433'; ctx.fillRect(X, Y, TILE, TILE);   // wall tops next to the floor
+        }
+      }
+    }
+    const stairs = (p, down) => {
+      const X = p.x - TILE * 0.75, Y = p.y - TILE * 0.75, S = TILE * 1.5;
+      ctx.fillStyle = down ? '#0b0910' : '#3c3548'; ctx.fillRect(X, Y, S, S);
+      for (let i = 0; i < 5; i++) {
+        const k = down ? i : 4 - i;
+        ctx.fillStyle = `rgb(${70 + k * 18},${62 + k * 16},${84 + k * 16})`;
+        ctx.fillRect(X + (down ? i * S * 0.06 : 0), Y + i * S / 5, S - (down ? i * S * 0.12 : 0), S / 5 - P * 0.4);
+      }
+      const bob = Math.sin(this.time * 4) * 2;
+      ctx.fillStyle = down ? '#ffcf5a' : '#9fe07a';
+      ctx.beginPath();
+      const ay = p.y - TILE * 1.2 + bob, dir = down ? 1 : -1;
+      ctx.moveTo(p.x - 4, ay - 3 * dir); ctx.lineTo(p.x + 4, ay - 3 * dir); ctx.lineTo(p.x, ay + 4 * dir); ctx.fill();
+    };
+    stairs(d.exit, false);
+    if (d.stairsDown) stairs(d.stairsDown, true);
+    for (const t of d.traps) {
+      const X = t.tx * TILE, Y = t.ty * TILE, up = trapUp(g, t);
+      ctx.fillStyle = '#2b2630'; ctx.fillRect(X + P, Y + P, 6 * P, 6 * P);
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+        const sx = X + (2 + i * 2) * P, sy = Y + (2 + j * 2) * P;
+        if (up) { ctx.fillStyle = '#c9c4d6'; ctx.beginPath(); ctx.moveTo(sx - P * 0.7, sy + P * 0.6); ctx.lineTo(sx + P * 0.7, sy + P * 0.6); ctx.lineTo(sx, sy - P * 1.6); ctx.fill(); }
+        else { ctx.fillStyle = '#16131a'; ctx.fillRect(sx - P * 0.4, sy - P * 0.4, P * 0.8, P * 0.8); }
+      }
+    }
+  }
+
+  drawTorch(t) {
+    const { ctx } = this;
+    const P = TILE / 8;
+    ctx.fillStyle = '#5a3a1e'; ctx.fillRect(t.x - P * 0.5, t.y - TILE * 0.55, P, P * 3.5);
+    ctx.fillStyle = '#3b3b44'; ctx.fillRect(t.x - P, t.y - TILE * 0.55, P * 2, P * 0.8);
+    const flick = 1 + Math.sin(this.time * 14 + t.x) * 0.12;
+    drawSprite(ctx, 'effects/flame', t.x, t.y - TILE * 0.55, TILE * 0.55 * flick);
+  }
+
+  drawKey(k) {
+    const bob = Math.sin(this.time * 3) * 2;
+    this.shadow(k.x, k.y, TILE * 0.4);
+    if (Math.sin(this.time * 3) > 0.5) drawSprite(this.ctx, 'effects/spark', k.x + 6, k.y - 14 + bob, 8);
+    drawSprite(this.ctx, 'gear/key', k.x, k.y - 4 + bob, TILE * 0.6);
+  }
+
+  /** A cave mouth in the wilds: a mound of rock around a black opening. */
+  drawCaveMouth(g, e) {
+    const { ctx } = this;
+    const S = TILE * 1.8;
+    this.shadow(e.x, e.y + 2, S * 1.1);
+    ctx.fillStyle = '#5d5566';
+    ctx.beginPath(); ctx.ellipse(e.x, e.y - S * 0.25, S * 0.62, S * 0.5, 0, Math.PI, 0); ctx.lineTo(e.x + S * 0.62, e.y); ctx.lineTo(e.x - S * 0.62, e.y); ctx.fill();
+    ctx.fillStyle = '#7a7186';
+    ctx.beginPath(); ctx.ellipse(e.x - S * 0.1, e.y - S * 0.38, S * 0.45, S * 0.3, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#0a080d';
+    ctx.beginPath(); ctx.ellipse(e.x, e.y, S * 0.3, S * 0.42, 0, Math.PI, 0); ctx.fill();
+    drawSprite(ctx, 'nature/rock', e.x - S * 0.5, e.y + 2, TILE * 0.55);
+    drawSprite(ctx, 'nature/rock', e.x + S * 0.52, e.y + 3, TILE * 0.45);
+    const flick = 1 + Math.sin(this.time * 14 + e.x) * 0.12;
+    drawSprite(ctx, 'effects/flame', e.x - S * 0.36, e.y - S * 0.62, TILE * 0.4 * flick);
+    const hero = g.hero && g.state.villagers.find(v => v.id === g.hero.id);
+    if (hero && Math.hypot(hero.x - e.x, hero.y - e.y) < TILE * 4) {
+      ctx.font = 'bold 7px system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillText('Dungeon: strike to enter', e.x + 0.6, e.y - S * 0.95 + 0.6);
+      ctx.fillStyle = '#ffd76a'; ctx.fillText('Dungeon: strike to enter', e.x, e.y - S * 0.95);
     }
   }
 
@@ -823,7 +937,7 @@ export class Renderer {
 
   drawLighting(g, ox, oy, s) {
     const dark = g.darkness;
-    const tint = SEASON_TINT[g.season];
+    const tint = g.dungeon ? null : SEASON_TINT[g.season];
     const { ctx, lctx, light } = this;
     if (tint) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -835,7 +949,7 @@ export class Renderer {
     lctx.setTransform(1, 0, 0, 1, 0, 0);
     lctx.globalCompositeOperation = 'source-over';
     lctx.clearRect(0, 0, light.width, light.height);
-    lctx.fillStyle = `rgba(8,10,38,${0.68 * dark})`;
+    lctx.fillStyle = g.dungeon ? 'rgba(4,3,8,0.86)' : `rgba(8,10,38,${0.68 * dark})`;
     lctx.fillRect(0, 0, light.width, light.height);
     lctx.globalCompositeOperation = 'destination-out';
 
@@ -846,7 +960,11 @@ export class Renderer {
       const r = def.light || (def.housing ? 2.2 : 0);
       if (r) lights.push({ ...g.buildingCenter(b), r: r * TILE });
     }
-    for (const v of g.state.villagers) if (!v.away) lights.push({ x: v.x, y: v.y - 8, r: TILE * 1.1 });
+    for (const v of g.state.villagers) if (!v.away) lights.push({ x: v.x, y: v.y - 8, r: TILE * (g.dungeon ? 6 : 1.1) });
+    if (g.dungeon) {
+      for (const t of g.dungeon.torches) lights.push({ x: t.x, y: t.y - TILE * 0.4, r: TILE * 3.4 });
+      for (const p of [g.dungeon.exit, g.dungeon.stairsDown, g.dungeon.key]) if (p) lights.push({ x: p.x, y: p.y, r: TILE * 1.6 });
+    }
     const flicker = 1 + Math.sin(this.time * 12) * 0.03;
     for (const l of lights) {
       const x = l.x * s + ox, y = l.y * s + oy, r = l.r * s * flicker;

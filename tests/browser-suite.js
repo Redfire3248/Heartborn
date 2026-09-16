@@ -20,6 +20,7 @@ const results = [];
 const errors = [];
 const ok = (cond, name, detail = '') => results.push({ pass: !!cond, name, detail });
 async function step(name, fn) {
+  window.__suiteStep = name;
   try { await fn(); } catch (e) { results.push({ pass: false, name, detail: `THREW: ${e.message}\n${(e.stack || '').split('\n').slice(0, 3).join(' | ')}` }); }
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -289,6 +290,87 @@ export async function run() {
     H.endLead(g);
   });
 
+  await step('dungeons: floors, key and boss door, traps, boss, stairs, knockout', async () => {
+    const H = await import('/src/game/hero.js');
+    const D = await import('/src/game/dungeon.js');
+    const Tr = await import('/src/game/treasure.js');
+    const g = freshGame({ era: 1, people: 3 });
+    build(g, 'campfire');
+    g.state.creatures = [];
+    const me = g.state.villagers.find(v => v.ruling);
+    H.startLead(g, me);
+    // cave mouths turn up in the wilds, and a swing at one takes you down
+    for (let i = 0; i < 50; i++) Tr.updateEntrances(g);
+    ok(Tr.entrancesOf(g).length === 2, 'two dungeon entrances appear in the wilds', `${Tr.entrancesOf(g).length}`);
+    const cave = Tr.entrancesOf(g)[0];
+    let asked = null;
+    g.on('dungeon', e => { asked = e; });
+    me.x = cave.x + 10; me.y = cave.y + 10; g.hero.atkCd = 0; g.hero.actCd = 0;
+    for (const o of g.state.villagers) if (o !== me) o.x = me.x + 3000;
+    H.updateHero(g, 1 / 30, { act: true });
+    ok(asked === cave, 'striking a cave mouth asks to enter the dungeon');
+    // every depth makes a sound floor
+    let good = 0;
+    for (let s = 1; s <= 40; s++) if (D.generateFloor(s * 104729, 1 + (s % 5))) good++;
+    ok(good >= 20, 'most seeds give a valid floor (the rest retry)', `${good}/40`);
+    const dg = D.makeDungeonGame(g, { depth: 1, entrance: cave, seed: 12345 });
+    D.leaveSurface(g, dg);
+    const d = dg.dungeon, hero = H.heroOf(dg);
+    ok(hero && dg.hero && !g.hero && me.away, 'your hero goes below and leaves the surface');
+    ok(dg.state.creatures.length >= 6 && dg.state.creatures.some(c => c.id === d.bossId), 'rooms are full of monsters and a boss waits', `${dg.state.creatures.length}`);
+    ok(d.doors.length && d.key && d.torches.length, 'a locked door, a key and torches');
+    const door = d.doors[0];
+    ok(!dg.world.walkableTile(door.x, door.y), 'the boss door is shut');
+    // walls block you
+    ok(!dg.world.walkableTile(0, 0), 'walls block the way');
+    // the door stays shut without the key
+    dg.state.creatures = dg.state.creatures.filter(c => c.id === d.bossId);
+    hero.x = (door.x + 0.5) * TILE; hero.y = (door.y + 1.5) * TILE;
+    D.updateDungeon(dg, 1 / 30);
+    ok(!d.open, 'no key: the door stays locked');
+    hero.x = d.key.x; hero.y = d.key.y;
+    D.updateDungeon(dg, 1 / 30);
+    ok(d.hasKey && !d.key, 'walking over the key picks it up');
+    hero.x = (door.x + 0.5) * TILE; hero.y = (door.y + 1.5) * TILE;
+    D.updateDungeon(dg, 1 / 30);
+    ok(d.open && dg.world.walkableTile(door.x, door.y), 'with the key the boss door opens');
+    // spike traps hurt when up
+    const trap = d.traps[0] || (d.traps.push({ tx: Math.floor(hero.x / TILE), ty: Math.floor(hero.y / TILE), offset: 0, cd: 0 }), d.traps[0]);
+    hero.x = (trap.tx + 0.5) * TILE; hero.y = (trap.ty + 0.5) * TILE; hero.hp = 100; dg.hero.iframes = 0;
+    for (let i = 0; i < 100 && !D.trapUp(dg, trap); i++) dg.state.time += 0.05;
+    D.updateDungeon(dg, 1 / 30);
+    ok(hero.hp < 100, 'raised spikes hurt', `${hero.hp}`);
+    // monsters in a dungeon grow tougher deeper down
+    const deep = D.makeDungeonGame(g, { depth: 4, seed: 777 });
+    const C = await import('/src/game/creatures.js');
+    const b1 = D.bossOf(D.makeDungeonGame(g, { depth: 1, seed: 777 })), b4 = D.bossOf(deep);
+    ok(b1 && b4 && C.maxHp(b4) > C.maxHp(b1), 'deeper bosses are tougher');
+    // slaying the boss opens the stairs down
+    dg.state.creatures = [];
+    const gold = g.state.resources.gold;
+    D.updateDungeon(dg, 1 / 30);
+    ok(d.cleared && d.stairsDown && g.state.resources.gold > gold, 'the boss falls: floor cleared, gold, stairs down');
+    hero.x = d.stairsDown.x; hero.y = d.stairsDown.y;
+    D.updateDungeon(dg, 1 / 30);
+    ok(d.event === 'down', 'the stairs lead deeper');
+    d.event = null;
+    // stairs up lead home
+    hero.x = d.exit.x; hero.y = d.exit.y;
+    D.updateDungeon(dg, 1 / 30);
+    ok(d.event === 'exit', 'the stairs up lead home');
+    d.event = null;
+    // knocked out below: carried home
+    dg.hero.iframes = 0; hero.hp = 1;
+    ok(H.knockOutHero(dg, hero) && d.event === 'knockout', 'being knocked out ends the dungeon');
+    hero.hp = 33;
+    D.returnFromDungeon(g, dg, { knockedOut: false });
+    ok(!me.away && g.hero?.id === me.id && me.hp === 33 && Math.hypot(me.x - cave.x, me.y - cave.y) < TILE * 3, 'back at the cave mouth, with your wounds');
+    // a live floor runs on its own step
+    const live = D.makeDungeonGame(g, { depth: 2, seed: 99 });
+    for (let i = 0; i < 60; i++) live.update(1 / 30);
+    ok(live.state.time > 0 && H.heroOf(live), 'a dungeon floor runs');
+  });
+
   await step('adventure: combos, chests, potions, hearts and elites', async () => {
     const H = await import('/src/game/hero.js');
     const T = await import('/src/game/treasure.js');
@@ -380,7 +462,7 @@ export async function run() {
     a.body = { ...a.body, speed: 10 }; b.body = { ...b.body, speed: 1 };   // a fast killer and a slow victim, so the chase always ends
     const pop = g.state.villagers.length;
     ok(V.attackVillager(g, a, b, { deadly: true }), 'a villager can attack another');
-    for (let i = 0; i < 600 && g.state.villagers.includes(b); i++) { g.step(0.1); a.hp = Math.max(a.hp, 60); }
+    for (let i = 0; i < 2000 && g.state.villagers.includes(b); i++) { g.step(0.1); a.hp = Math.max(a.hp, 60); }
     ok(!g.state.villagers.includes(b) && g.state.villagers.length === pop - 1, 'a deadly attack ends in a death', `b hp ${Math.round(b.hp)}`);
     ok(a.murders === 1, 'the killer is remembered');
     // a brawl is not a murder

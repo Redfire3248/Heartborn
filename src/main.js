@@ -233,6 +233,8 @@ function startGame(user, game, { online = true } = {}) {
     // out on the Open Sea the screen shows the shared ocean (your village keeps running at home)
     onSeaView: seaGame => { app.visit = seaGame; },
     // in person in another land (your spy taking control there)
+    // below ground in a dungeon (your realm keeps living above)
+    onDungeon: dg => { if (dg) { if (!app.visit) app.homeCamera = { ...renderer.camera }; app.visit = dg; } else app.visit = null; },
     onAbroad: (land, profile) => { if (!app.visit) app.homeCamera = { ...renderer.camera }; app.visit = land; app.hud.setVisiting(profile); },
     onReturnHome: () => returnHome(),
   });
@@ -290,6 +292,7 @@ function returnHome() {
 async function restart() {
   const user = app.user;
   const old = app.game;
+  app.visit = null;
   app.mp?.stop();
   app.hud?.destroy();
   app.console = null;
