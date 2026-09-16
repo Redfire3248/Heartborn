@@ -1,6 +1,21 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'New tool and furniture art, a better house builder',
+    changes: [
+      'All 50 tools have their own art: pickaxes, axes, shovels, hoes, hammers, fishing rods, sickles, lantern, torch, bucket, watering can and backpack, in your hotbar and in your hands',
+      'All 49 furniture pieces have their own art inside houses, each at its proper size',
+      'Rooms look like real isometric rooms: thick walls with caps, baseboards and a floor slab',
+      'Lay floor tiles tile by tile (planks, stone, marble, checkered, carpets...) by clicking or dragging, and pick a wallpaper for each floor (wood, logs, stone, brick, striped, royal damask)',
+      'Walls and Blocks: wooden, stone, brick and plaster walls, half walls, pillars, glass walls, archways and railings to split a floor into rooms',
+      'The preview shows the real piece, see-through, over a green (fits) or red (blocked) footprint, centred on your pointer',
+      'R rotates (mirrors) the piece you are placing, or the one under your pointer. A Rotate button shows while placing, for phones',
+      'Remove tool (and the Delete key): click things to take them away, with a full refund. Tap any piece to Move, Rotate or Remove it',
+      'Search bar in the house builder: find furniture, floors and wallpapers by name',
+      'Hover over a floor tile to see its name',
+    ],
+  },
+  {
     title: 'Houses you can walk into, a hotbar and your own controls',
     changes: [
       'Walk up into the door of any home (tent to arcology) to go inside. Inside is an isometric room you build with no character: hover over anything to see it underlined with its name',

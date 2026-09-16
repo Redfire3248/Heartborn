@@ -21,7 +21,7 @@ export class Input {
     canvas.addEventListener('wheel', e => { e.preventDefault(); this.zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 1 / 1.15); }, { passive: false });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
     window.addEventListener('keydown', e => {
-      if (e.target.closest('input, textarea, select')) return;
+      if (e.target.closest?.('input, textarea, select')) return;
       this.keys.add(e.key.toLowerCase());
       this.h.onKey?.(e);
     });

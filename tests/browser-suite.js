@@ -445,17 +445,35 @@ export async function run() {
     Ho.storeItem(g, chest, me, 'axe', 1);
     Ho.removeFurniture(g, house, 0, chest, me);
     ok(me.inv.pack.axe === 2 && g.caps.wood === cap, 'picking up a chest returns its items and its storage');
+    // floors, wallpaper and wall blocks
+    const stone0 = g.state.resources.stone;
+    ok(Ho.setFloorTile(g, house, 0, 2, 5, 'marble').ok && Ho.floorTileAt(house, 0, 2, 5) === 'marble' && g.state.resources.stone < stone0, 'floor tiles can be laid (and cost)');
+    ok(Ho.setFloorTile(g, house, 0, 2, 5, 'marble').same, 'laying the same tile again is free');
+    ok(Ho.setWallpaper(g, house, 1, 'brick').ok && Ho.interiorOf(house).floors[1].wall === 'brick', 'each floor has its own wallpaper');
+    ok(Ho.placeFurniture(g, house, 0, 'block_stone', 4, 6).ok && !Ho.placeFurniture(g, house, 0, 'chair', 4, 6).ok, 'wall blocks take up their tile');
     // outside looks and saving
     house.design = 2;
     const g2 = new Game(deserialize(serialize(g.state)));
     const h2 = g2.state.buildings.find(b => b.id === house.id) || g2.state.buildings.find(b => b.type === 'house');
-    ok(h2.design === 2 && h2.interior.floors[0].items.some(i => i.type === 'bed'), 'the outside look and furniture are saved');
+    ok(h2.design === 2 && h2.interior.floors[0].items.some(i => i.type === 'bed') && h2.interior.floors[0].tiles['2,5'] === 'marble' && h2.interior.floors[1].wall === 'brick', 'the outside look, furniture, floors and wallpaper are saved');
     // the house view opens, draws, and closes
     const { HouseEditor } = await import('/src/ui/houseEditor.js');
     let closed = false;
     const ed = new HouseEditor({ game: g, building: house, hero: me, onClose: () => { closed = true; } });
     ed.render(0.016);
     ed.pointer(innerWidth / 2, innerHeight / 2);
+    // the Remove tool and the Delete key take pieces away; R mirrors what you place
+    ed.goFloor(0);
+    const lamp = Ho.placeFurniture(g, house, 0, 'lamp', 7, 7).item;
+    ed.setMode('remove'); ed.hoverItem = lamp; ed.click();
+    ok(!Ho.interiorOf(house).floors[0].items.includes(lamp), 'the Remove tool removes a piece');
+    ed.setMode('use');
+    const stool = Ho.placeFurniture(g, house, 0, 'stool', 7, 7).item;
+    ed.hoverItem = stool; window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete' }));
+    ok(!Ho.interiorOf(house).floors[0].items.includes(stool), 'the Delete key removes the piece under the pointer');
+    ed.tool = { type: 'sofa', rot: 0 }; window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r' }));
+    ok(ed.tool.rot === 1, 'R mirrors the piece you are placing');
+    ed.cancelTool();
     ed.goFloor(1); ed.render(0.016);
     ok(ed.floor === 1 && document.querySelector('.house-view'), 'the house view draws both floors');
     ed.close();

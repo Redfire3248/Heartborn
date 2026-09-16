@@ -3023,6 +3023,8 @@ export class HUD {
 
   destroy() {
     clearInterval(this.missionTimer);
+    this.houseEditor?.close();
+    this.houseEditor = null;
     this.tutorial?.destroy();
     this.root.replaceChildren();
   }

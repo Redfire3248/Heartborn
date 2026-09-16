@@ -25,61 +25,127 @@ export const DESIGNS = [
  */
 export const FURNITURE = {
   // storage
-  chest:        { name: 'Chest',          cat: 'storage', w: 1, d: 1, h: 18, color: '#9c6a3c', cost: { wood: 15 },              storage: 40,  slots: 8 },
-  big_chest:    { name: 'Iron Chest',     cat: 'storage', w: 2, d: 1, h: 20, color: '#6f7480', cost: { wood: 20, iron: 10 },    storage: 120, slots: 16 },
-  barrel:       { name: 'Barrel',         cat: 'storage', w: 1, d: 1, h: 22, color: '#8a5a32', cost: { wood: 12 },              storage: 30,  slots: 4 },
-  crates:       { name: 'Crate Stack',    cat: 'storage', w: 1, d: 1, h: 30, color: '#b08850', cost: { wood: 18 },              storage: 50,  slots: 6 },
-  shelf:        { name: 'Storage Shelf',  cat: 'storage', w: 2, d: 1, h: 44, color: '#7d5230', cost: { wood: 25 },              storage: 60,  slots: 10 },
-  wardrobe:     { name: 'Wardrobe',       cat: 'storage', w: 1, d: 1, h: 48, color: '#6b4428', cost: { wood: 30 },              storage: 30,  slots: 12 },
-  pantry:       { name: 'Pantry',         cat: 'storage', w: 2, d: 1, h: 40, color: '#a07848', cost: { wood: 30, stone: 10 },   storage: 90,  slots: 8 },
-  weapon_rack:  { name: 'Weapon Rack',    cat: 'storage', w: 2, d: 1, h: 38, color: '#5a4030', cost: { wood: 20, iron: 8 },     storage: 20,  slots: 8 },
-  vault:        { name: 'Vault',          cat: 'storage', w: 2, d: 2, h: 40, color: '#4c5260', cost: { stone: 60, iron: 40 },   storage: 300, slots: 30, era: 3 },
+  chest:        { name: 'Chest',          cat: 'storage', w: 1, d: 1, h: 40, color: '#9c6a3c', cost: { wood: 15 },              storage: 40,  slots: 8 },
+  big_chest:    { name: 'Iron Chest',     cat: 'storage', w: 2, d: 1, h: 44, color: '#6f7480', cost: { wood: 20, iron: 10 },    storage: 120, slots: 16 },
+  barrel:       { name: 'Barrel',         cat: 'storage', w: 1, d: 1, h: 46, color: '#8a5a32', cost: { wood: 12 },              storage: 30,  slots: 4 },
+  crates:       { name: 'Crate Stack',    cat: 'storage', w: 1, d: 1, h: 54, color: '#b08850', cost: { wood: 18 },              storage: 50,  slots: 6 },
+  shelf:        { name: 'Storage Shelf',  cat: 'storage', w: 1, d: 1, h: 84, color: '#7d5230', cost: { wood: 25 },              storage: 60,  slots: 10 },
+  wardrobe:     { name: 'Wardrobe',       cat: 'storage', w: 1, d: 1, h: 90, color: '#6b4428', cost: { wood: 30 },              storage: 30,  slots: 12 },
+  pantry:       { name: 'Pantry',         cat: 'storage', w: 2, d: 1, h: 80, color: '#a07848', cost: { wood: 30, stone: 10 },   storage: 90,  slots: 8 },
+  weapon_rack:  { name: 'Weapon Rack',    cat: 'storage', w: 2, d: 1, h: 64, color: '#5a4030', cost: { wood: 20, iron: 8 },     storage: 20,  slots: 8 },
+  vault:        { name: 'Vault',          cat: 'storage', w: 1, d: 1, h: 58, color: '#4c5260', cost: { stone: 60, iron: 40 },   storage: 300, slots: 30, era: 3 },
   // living
-  bed:          { name: 'Bed',            cat: 'living',  w: 1, d: 2, h: 14, color: '#c94f4f', cost: { wood: 20 } },
-  double_bed:   { name: 'Double Bed',     cat: 'living',  w: 2, d: 2, h: 14, color: '#4f78c9', cost: { wood: 35 } },
-  cradle:       { name: 'Cradle',         cat: 'living',  w: 1, d: 1, h: 14, color: '#e0c090', cost: { wood: 10 } },
-  sofa:         { name: 'Sofa',           cat: 'living',  w: 2, d: 1, h: 16, color: '#8a3f6a', cost: { wood: 20 } },
-  armchair:     { name: 'Armchair',       cat: 'living',  w: 1, d: 1, h: 16, color: '#6a8a3f', cost: { wood: 12 } },
-  table:        { name: 'Table',          cat: 'living',  w: 2, d: 1, h: 16, color: '#a0703c', cost: { wood: 15 } },
-  round_table:  { name: 'Round Table',    cat: 'living',  w: 1, d: 1, h: 16, color: '#b07a40', cost: { wood: 10 } },
-  chair:        { name: 'Chair',          cat: 'living',  w: 1, d: 1, h: 18, color: '#8a5a32', cost: { wood: 5 } },
-  stool:        { name: 'Stool',          cat: 'living',  w: 1, d: 1, h: 9,  color: '#9c6a3c', cost: { wood: 3 } },
-  desk:         { name: 'Desk',           cat: 'living',  w: 2, d: 1, h: 16, color: '#704a2a', cost: { wood: 20 } },
-  bookshelf:    { name: 'Bookshelf',      cat: 'living',  w: 1, d: 1, h: 46, color: '#5f3f24', cost: { wood: 25 } },
-  bunk_bed:     { name: 'Bunk Bed',       cat: 'living',  w: 1, d: 2, h: 44, color: '#8a5a32', cost: { wood: 30 } },
-  nightstand:   { name: 'Nightstand',     cat: 'living',  w: 1, d: 1, h: 14, color: '#7d5230', cost: { wood: 8 } },
-  bench:        { name: 'Bench',          cat: 'living',  w: 2, d: 1, h: 10, color: '#9c6a3c', cost: { wood: 10 } },
-  dresser:      { name: 'Dresser',        cat: 'storage', w: 2, d: 1, h: 26, color: '#6b4428', cost: { wood: 25 },              storage: 35,  slots: 8 },
-  cabinet:      { name: 'Cabinet',        cat: 'storage', w: 1, d: 1, h: 36, color: '#5a4030', cost: { wood: 20, iron: 2 },     storage: 40,  slots: 8 },
-  grandfather_clock: { name: 'Grandfather Clock', cat: 'decor', w: 1, d: 1, h: 52, color: '#5a3a1e', cost: { wood: 30, gold: 10 } },
-  mirror:       { name: 'Standing Mirror',cat: 'decor',   w: 1, d: 1, h: 42, color: '#b0c8d8', cost: { wood: 10, iron: 5 } },
-  banner_stand: { name: 'Banner Stand',   cat: 'decor',   w: 1, d: 1, h: 48, color: '#c03a3a', cost: { wood: 10, food: 10 } },
-  rug:          { name: 'Rug',            cat: 'decor',   w: 2, d: 2, h: 1,  color: '#b0443c', cost: { food: 10 }, flat: true },
-  round_rug:    { name: 'Round Rug',      cat: 'decor',   w: 2, d: 2, h: 1,  color: '#3c6ab0', cost: { food: 10 }, flat: true },
+  bed:          { name: 'Bed',            cat: 'living',  w: 1, d: 2, h: 62, color: '#c94f4f', cost: { wood: 20 } },
+  double_bed:   { name: 'Double Bed',     cat: 'living',  w: 2, d: 2, h: 68, color: '#4f78c9', cost: { wood: 35 } },
+  cradle:       { name: 'Cradle',         cat: 'living',  w: 1, d: 1, h: 44, color: '#e0c090', cost: { wood: 10 } },
+  sofa:         { name: 'Sofa',           cat: 'living',  w: 2, d: 1, h: 44, color: '#8a3f6a', cost: { wood: 20 } },
+  armchair:     { name: 'Armchair',       cat: 'living',  w: 1, d: 1, h: 48, color: '#6a8a3f', cost: { wood: 12 } },
+  table:        { name: 'Table',          cat: 'living',  w: 2, d: 1, h: 46, color: '#a0703c', cost: { wood: 15 } },
+  round_table:  { name: 'Round Table',    cat: 'living',  w: 1, d: 1, h: 46, color: '#b07a40', cost: { wood: 10 } },
+  chair:        { name: 'Chair',          cat: 'living',  w: 1, d: 1, h: 46, color: '#8a5a32', cost: { wood: 5 } },
+  stool:        { name: 'Stool',          cat: 'living',  w: 1, d: 1, h: 26,  color: '#9c6a3c', cost: { wood: 3 } },
+  desk:         { name: 'Desk',           cat: 'living',  w: 2, d: 1, h: 56, color: '#704a2a', cost: { wood: 20 } },
+  bookshelf:    { name: 'Bookshelf',      cat: 'living',  w: 1, d: 1, h: 88, color: '#5f3f24', cost: { wood: 25 } },
+  bunk_bed:     { name: 'Bunk Bed',       cat: 'living',  w: 1, d: 2, h: 84, color: '#8a5a32', cost: { wood: 30 } },
+  nightstand:   { name: 'Nightstand',     cat: 'living',  w: 1, d: 1, h: 36, color: '#7d5230', cost: { wood: 8 } },
+  bench:        { name: 'Bench',          cat: 'living',  w: 2, d: 1, h: 42, color: '#9c6a3c', cost: { wood: 10 } },
+  dresser:      { name: 'Dresser',        cat: 'storage', w: 2, d: 1, h: 52, color: '#6b4428', cost: { wood: 25 },              storage: 35,  slots: 8 },
+  cabinet:      { name: 'Cabinet',        cat: 'storage', w: 1, d: 1, h: 76, color: '#5a4030', cost: { wood: 20, iron: 2 },     storage: 40,  slots: 8 },
+  grandfather_clock: { name: 'Grandfather Clock', cat: 'decor', w: 1, d: 1, h: 96, color: '#5a3a1e', cost: { wood: 30, gold: 10 } },
+  mirror:       { name: 'Standing Mirror',cat: 'decor',   w: 1, d: 1, h: 72, color: '#b0c8d8', cost: { wood: 10, iron: 5 } },
+  banner_stand: { name: 'Banner Stand',   cat: 'decor',   w: 1, d: 1, h: 84, color: '#c03a3a', cost: { wood: 10, food: 10 } },
+  rug:          { name: 'Rug',            cat: 'decor',   w: 2, d: 2, h: 2,  color: '#b0443c', cost: { food: 10 }, flat: true },
+  round_rug:    { name: 'Round Rug',      cat: 'decor',   w: 2, d: 2, h: 2,  color: '#3c6ab0', cost: { food: 10 }, flat: true },
   // kitchen and bath
-  stove:        { name: 'Stove',          cat: 'kitchen', w: 1, d: 1, h: 20, color: '#555a60', cost: { stone: 15, iron: 5 } },
-  counter:      { name: 'Kitchen Counter',cat: 'kitchen', w: 2, d: 1, h: 18, color: '#c8b89a', cost: { wood: 15, stone: 5 } },
-  sink:         { name: 'Wash Basin',     cat: 'kitchen', w: 1, d: 1, h: 16, color: '#9ab0c8', cost: { stone: 10 } },
-  bathtub:      { name: 'Bathtub',        cat: 'kitchen', w: 2, d: 1, h: 12, color: '#e8eef4', cost: { stone: 20, iron: 5 } },
-  cauldron:     { name: 'Cauldron',       cat: 'kitchen', w: 1, d: 1, h: 16, color: '#34343c', cost: { iron: 8 } },
+  stove:        { name: 'Stove',          cat: 'kitchen', w: 1, d: 1, h: 62, color: '#555a60', cost: { stone: 15, iron: 5 } },
+  counter:      { name: 'Kitchen Counter',cat: 'kitchen', w: 2, d: 1, h: 58, color: '#c8b89a', cost: { wood: 15, stone: 5 } },
+  sink:         { name: 'Wash Basin',     cat: 'kitchen', w: 1, d: 1, h: 52, color: '#9ab0c8', cost: { stone: 10 } },
+  bathtub:      { name: 'Bathtub',        cat: 'kitchen', w: 2, d: 1, h: 58, color: '#e8eef4', cost: { stone: 20, iron: 5 } },
+  cauldron:     { name: 'Cauldron',       cat: 'kitchen', w: 1, d: 1, h: 46, color: '#34343c', cost: { iron: 8 } },
   // decor
-  fireplace:    { name: 'Fireplace',      cat: 'decor',   w: 2, d: 1, h: 34, color: '#7a6a60', cost: { stone: 30 }, glow: true },
-  lamp:         { name: 'Floor Lamp',     cat: 'decor',   w: 1, d: 1, h: 34, color: '#d8b060', cost: { iron: 3 }, glow: true },
-  candles:      { name: 'Candle Stand',   cat: 'decor',   w: 1, d: 1, h: 22, color: '#e8d8a0', cost: { wood: 3 }, glow: true },
-  plant:        { name: 'Potted Plant',   cat: 'decor',   w: 1, d: 1, h: 24, color: '#4f9a4a', cost: { food: 5 } },
-  flowers:      { name: 'Flower Vase',    cat: 'decor',   w: 1, d: 1, h: 16, color: '#e06a9a', cost: { food: 5 } },
-  statue:       { name: 'Statue',         cat: 'decor',   w: 1, d: 1, h: 44, color: '#b8b8c0', cost: { stone: 40 } },
-  armor_stand:  { name: 'Armour Stand',   cat: 'decor',   w: 1, d: 1, h: 42, color: '#8890a0', cost: { iron: 15 } },
-  trophy:       { name: 'Trophy Head',    cat: 'decor',   w: 1, d: 1, h: 30, color: '#8a6a4a', cost: { food: 20 } },
-  painting:     { name: 'Painting Easel', cat: 'decor',   w: 1, d: 1, h: 34, color: '#d8a040', cost: { wood: 10, gold: 5 } },
-  piano:        { name: 'Piano',          cat: 'decor',   w: 2, d: 1, h: 30, color: '#26222a', cost: { wood: 40, gold: 20 }, era: 2 },
-  globe:        { name: 'Globe',          cat: 'decor',   w: 1, d: 1, h: 24, color: '#4a8ac0', cost: { wood: 10, gold: 10 } },
-  throne:       { name: 'Throne',         cat: 'decor',   w: 1, d: 1, h: 40, color: '#d8a830', cost: { gold: 60, gems: 5 } },
+  fireplace:    { name: 'Fireplace',      cat: 'decor',   w: 2, d: 1, h: 72, color: '#7a6a60', cost: { stone: 30 }, glow: true },
+  lamp:         { name: 'Floor Lamp',     cat: 'decor',   w: 1, d: 1, h: 70, color: '#d8b060', cost: { iron: 3 }, glow: true },
+  candles:      { name: 'Candle Stand',   cat: 'decor',   w: 1, d: 1, h: 48, color: '#e8d8a0', cost: { wood: 3 }, glow: true },
+  plant:        { name: 'Potted Plant',   cat: 'decor',   w: 1, d: 1, h: 48, color: '#4f9a4a', cost: { food: 5 } },
+  flowers:      { name: 'Flower Vase',    cat: 'decor',   w: 1, d: 1, h: 34, color: '#e06a9a', cost: { food: 5 } },
+  statue:       { name: 'Statue',         cat: 'decor',   w: 1, d: 1, h: 82, color: '#b8b8c0', cost: { stone: 40 } },
+  armor_stand:  { name: 'Armour Stand',   cat: 'decor',   w: 1, d: 1, h: 82, color: '#8890a0', cost: { iron: 15 } },
+  trophy:       { name: 'Trophy Head',    cat: 'decor',   w: 1, d: 1, h: 56, color: '#8a6a4a', cost: { food: 20 } },
+  painting:     { name: 'Painting Easel', cat: 'decor',   w: 1, d: 1, h: 60, color: '#d8a040', cost: { wood: 10, gold: 5 } },
+  piano:        { name: 'Piano',          cat: 'decor',   w: 2, d: 2, h: 70, color: '#26222a', cost: { wood: 40, gold: 20 }, era: 2 },
+  globe:        { name: 'Globe',          cat: 'decor',   w: 1, d: 1, h: 46, color: '#4a8ac0', cost: { wood: 10, gold: 10 } },
+  throne:       { name: 'Throne',         cat: 'decor',   w: 1, d: 1, h: 74, color: '#d8a830', cost: { gold: 60, gems: 5 } },
+  // building blocks: walls and pillars to split a floor into rooms
+  block_wood:   { name: 'Wooden Wall',    cat: 'blocks',  w: 1, d: 1, h: 72, color: '#9c6a3c', cost: { wood: 6 }, block: 'planks' },
+  block_stone:  { name: 'Stone Wall',     cat: 'blocks',  w: 1, d: 1, h: 72, color: '#8a8a94', cost: { stone: 6 }, block: 'stones' },
+  block_brick:  { name: 'Brick Wall',     cat: 'blocks',  w: 1, d: 1, h: 72, color: '#a8563c', cost: { stone: 8 }, block: 'bricks' },
+  block_plaster:{ name: 'Plaster Wall',   cat: 'blocks',  w: 1, d: 1, h: 72, color: '#e0d4b8', cost: { stone: 4, wood: 2 }, block: 'plain' },
+  half_wall:    { name: 'Half Wall',      cat: 'blocks',  w: 1, d: 1, h: 30, color: '#c8b08a', cost: { wood: 4 }, block: 'planks' },
+  pillar:       { name: 'Pillar',         cat: 'blocks',  w: 1, d: 1, h: 80, color: '#d8d0c0', cost: { stone: 10 }, block: 'pillar' },
+  glass_wall:   { name: 'Glass Wall',     cat: 'blocks',  w: 1, d: 1, h: 72, color: '#9fd4ff', cost: { stone: 4, iron: 2 }, block: 'glass' },
+  archway:      { name: 'Archway',        cat: 'blocks',  w: 1, d: 1, h: 72, color: '#b8a888', cost: { stone: 12 }, block: 'arch' },
+  railing:      { name: 'Railing',        cat: 'blocks',  w: 1, d: 1, h: 18, color: '#8a5a32', cost: { wood: 3 }, block: 'rail' },
   // getting around
-  stairs:       { name: 'Stairs',         cat: 'stairs',  w: 1, d: 2, h: 40, color: '#8a6a4a', cost: { wood: 30 } },
+  stairs:       { name: 'Stairs',         cat: 'stairs',  w: 1, d: 2, h: 90, color: '#8a6a4a', cost: { wood: 30 } },
 };
-export const LANDING = { name: 'Stairs down', w: 1, d: 2, h: 4, color: '#5a4430' };
-export const FURNITURE_CATS = [['storage', 'Storage'], ['living', 'Living'], ['kitchen', 'Kitchen & Bath'], ['decor', 'Decor'], ['stairs', 'Stairs']];
+export const LANDING = { name: 'Stairs down', w: 1, d: 2, h: 4, color: '#5a4430', flat: true };
+export const FURNITURE_CATS = [['storage', 'Storage'], ['living', 'Living'], ['kitchen', 'Kitchen & Bath'], ['decor', 'Decor'], ['blocks', 'Walls & Blocks'], ['floors', 'Floors'], ['walls', 'Wallpaper'], ['stairs', 'Stairs']];
+
+/** Floor tiles you paint tile by tile (art: interior/floor_<key>). */
+export const FLOORINGS = {
+  planks:      { name: 'Oak Planks',      a: '#9a6e48', b: '#8e6440', cost: {} },
+  dark_planks: { name: 'Dark Planks',     a: '#6a4a30', b: '#5e4028', cost: { wood: 2 } },
+  stone:       { name: 'Stone Slabs',     a: '#8e8e96', b: '#84848c', cost: { stone: 2 } },
+  cobble:      { name: 'Cobblestone',     a: '#7a7670', b: '#6c6862', cost: { stone: 1 } },
+  marble:      { name: 'Marble',          a: '#e8e4dc', b: '#d8d2c8', cost: { stone: 3, gold: 1 } },
+  checker:     { name: 'Checkered Tiles', a: '#f0ece4', b: '#303038', cost: { stone: 2 } },
+  white_tiles: { name: 'Bathroom Tiles',  a: '#dfe8ee', b: '#c8d6e0', cost: { stone: 2 } },
+  carpet_red:  { name: 'Red Carpet',      a: '#a83a3a', b: '#9c3434', cost: { food: 2 } },
+  carpet_blue: { name: 'Blue Carpet',     a: '#3a5aa8', b: '#34529c', cost: { food: 2 } },
+};
+
+/** Wallpapers for a whole floor's back walls (art: interior/wall_<key>). */
+export const WALLPAPERS = {
+  plaster:  { name: 'Plaster',        color: null,      pattern: 'plain', cost: {} },
+  wood:     { name: 'Wood Panels',    color: '#8a5a32', pattern: 'planks', cost: { wood: 20 } },
+  log:      { name: 'Log Cabin',      color: '#7a4e2a', pattern: 'logs',   cost: { wood: 30 } },
+  stone:    { name: 'Stone',          color: '#8a8a94', pattern: 'stones', cost: { stone: 20 } },
+  brick:    { name: 'Brick',          color: '#a8563c', pattern: 'bricks', cost: { stone: 25 } },
+  red:      { name: 'Red Wallpaper',  color: '#9c3a44', pattern: 'stripes', cost: { gold: 5 } },
+  green:    { name: 'Green Wallpaper',color: '#4a7a4a', pattern: 'stripes', cost: { gold: 5 } },
+  blue:     { name: 'Blue Wallpaper', color: '#3e5a8e', pattern: 'stripes', cost: { gold: 5 } },
+  royal:    { name: 'Royal Damask',   color: '#5a3a7a', pattern: 'damask', cost: { gold: 20 } },
+};
+
+/** Paint one floor tile. Costs the flooring's price (nothing if it already is that). */
+export function setFloorTile(g, b, floor, x, y, key) {
+  const def = FLOORINGS[key];
+  const { w, d } = houseShape(b);
+  if (!def || x < 0 || y < 0 || x >= w || y >= d) return { ok: false, why: 'Not here' };
+  const f = interiorOf(b).floors[floor];
+  f.tiles ||= {};
+  const id = `${x},${y}`;
+  if ((f.tiles[id] || 'planks') === key) return { ok: true, same: true };
+  if (!Object.entries(def.cost).every(([k, n]) => (g.state.resources[k] || 0) >= n)) return { ok: false, why: 'Not enough resources' };
+  for (const [k, n] of Object.entries(def.cost)) g.state.resources[k] -= n;
+  if (key === 'planks') delete f.tiles[id]; else f.tiles[id] = key;
+  return { ok: true };
+}
+
+export const floorTileAt = (b, floor, x, y) => interiorOf(b).floors[floor]?.tiles?.[`${x},${y}`] || 'planks';
+
+/** Change the wallpaper of a whole floor. */
+export function setWallpaper(g, b, floor, key) {
+  const def = WALLPAPERS[key];
+  if (!def) return { ok: false, why: 'Unknown wallpaper' };
+  const f = interiorOf(b).floors[floor];
+  if ((f.wall || 'plaster') === key) return { ok: true, same: true };
+  if (!Object.entries(def.cost).every(([k, n]) => (g.state.resources[k] || 0) >= n)) return { ok: false, why: 'Not enough resources' };
+  for (const [k, n] of Object.entries(def.cost)) g.state.resources[k] -= n;
+  f.wall = key;
+  g.emit('change');
+  return { ok: true };
+}
 
 export const isHome = b => !!BUILDINGS[b?.type]?.housing && !!b.built;
 

@@ -1265,3 +1265,12 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 @media (max-width: 760px) { .leading .lead-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 244px); } .leading .hint { bottom: 250px; } }
 /* phones: an open menu covers the play controls */
 @media (max-width: 760px) { :has(> .side) > .hotbar-wrap, :has(> .side) > .hero-pad { display: none !important; } }
+.house-toolbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: 190px; display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: rgba(24, 18, 34, .95); }
+.house-tool-name { font-size: 13px; font-weight: 700; color: var(--gold); }
+@media (max-width: 700px) { .house-toolbar { bottom: auto; top: 186px; } }
+.house-tabrow { display: flex; gap: 6px; align-items: center; }
+.house-search { flex: 0 0 200px; min-width: 0; padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .18); background: rgba(0, 0, 0, .3); color: var(--text); font: inherit; font-size: 13px; }
+.house-search:focus { outline: none; border-color: var(--gold); }
+.house-tabrow .house-tabs { flex: 1; min-width: 0; }
+.house-empty { padding: 14px; }
+@media (max-width: 700px) { .house-tabrow { flex-direction: column; align-items: stretch; } .house-search { flex: none; } }

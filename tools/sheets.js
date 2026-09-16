@@ -324,5 +324,16 @@ window.SHEETS = {
       "bunker_style1", "bunker_style2", "bunker_style3", "bunker_style4", "arcology_style1", "arcology_style2", "arcology_style3", "arcology_style4",
       "fortress_style1", "fortress_style2", "fortress_style3", "fortress_style4", "palace_style1", "palace_style2", "palace_style3", "palace_style4"
     ]
+  },
+  houseTiles: {
+    title: "House tiles, 9 floors 9 wall panels 9 blocks in 9 columns",
+    folder: "interior",
+    mode: "sprite",
+    cols: 9,
+    names: [
+      "floor_planks", "floor_dark_planks", "floor_stone", "floor_cobble", "floor_marble", "floor_checker", "floor_white_tiles", "floor_carpet_red", "floor_carpet_blue",
+      "wall_plaster", "wall_wood", "wall_log", "wall_stone", "wall_brick", "wall_red", "wall_green", "wall_blue", "wall_royal",
+      "block_wood", "block_stone", "block_brick", "block_plaster", "half_wall", "pillar", "glass_wall", "archway", "railing"
+    ]
   }
 };

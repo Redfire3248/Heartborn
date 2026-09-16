@@ -37,6 +37,7 @@ DEFAULT_FILES = {
     "arsenal": ["Arsenal.png"],
     "toolkit": ["Toolkit.png", "Tools2.png"],
     "furniture": ["Furniture.png"],
+    "houseTiles": ["HouseTiles.png"],
     "houseStyles": ["HouseStyles.png"],
     "heroAll": ["HeroAll.png", "Hero.png"],
     "heroWalk": ["HeroWalk.png"],
@@ -93,6 +94,25 @@ def clean_mask(alpha, keep_frac=0.02):
     return keep[labels]
 
 
+def key_out_background(rgba, tol=30):
+    """AI sheets often come with a solid or near-solid background instead of transparency.
+    Pixels close to the border colour that connect to the edge of the sheet become transparent."""
+    alpha = rgba[:, :, 3]
+    if (alpha <= ALPHA_CUT).mean() > 0.2:
+        return rgba                                   # already has real transparency
+    rgb = rgba[:, :, :3].astype(np.int16)
+    border = np.concatenate([rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]])
+    bg = np.median(border, axis=0)
+    near = np.abs(rgb - bg).max(axis=2) <= tol
+    labels, _ = ndimage.label(near)
+    edge = np.unique(np.concatenate([labels[0], labels[-1], labels[:, 0], labels[:, -1]]))
+    edge = edge[edge != 0]
+    out = rgba.copy()
+    out[np.isin(labels, edge), 3] = 0
+    print(f"  removed background colour {tuple(int(v) for v in bg)}")
+    return out
+
+
 def slice_sheet(key, sheet, path, cols=None, rows=None):
     cols = cols or sheet.get("cols", 6)
     rows = rows or -(-len(sheet["names"]) // cols)   # extra rows when a sheet has more than 36 sprites
@@ -100,7 +120,8 @@ def slice_sheet(key, sheet, path, cols=None, rows=None):
     folder = OUT_DIR / sheet["folder"]
     folder.mkdir(parents=True, exist_ok=True)
     tiles = sheet.get("tileCount", 0)
-    rgba = np.array(img)
+    rgba = key_out_background(np.array(img))
+    img = Image.fromarray(rgba)
     opaque = rgba[:, :, 3] > ALPHA_CUT
 
     row_cuts = find_cuts(opaque.sum(axis=1), rows)
