@@ -15,7 +15,7 @@ import { openAimMap } from './aimMap.js';
 import { BODY, bodyStat } from '../game/body.js';
 import { autoPickOn, runAutoPick } from '../game/autopick.js';
 import { arriveAbroad, leaveAbroad, spyActions } from '../game/abroad.js';
-import { rpgOf, heroStats, heroWeapon, xpToNext, spendPoint, equip, unequip, scrapGear, RARITY } from '../game/rpg.js';
+import { rpgOf, heroStats, heroWeapon, xpToNext, spendPoint, equip, unequip, scrapGear, RARITY, CATALOG } from '../game/rpg.js';
 import { gearIconKey } from '../render/gearArt.js';
 import { homeOf, residents } from '../game/homes.js';
 import { itemAt, pickUp, moveItem, dropFromPack } from '../game/groundItems.js';
@@ -257,10 +257,8 @@ export class HUD {
       if (abroad || (!g.paused && !g.pendingEvent)) updateHero(hg, dt, { mx, my, act: !abroad && (k.has(' ') || t.act), dash: !abroad && dash, potion: !abroad && potion, block: !abroad && (k.has('q') || t.block) });
       const v = heroOf(hg);
       const c = this.renderer.camera;
-      // look around freely while placing buildings or dragging the map; moving snaps the camera back to you
-      if (this.buildType || this.demolishMode || this.input.drag?.moved) this._freeLook = true;
-      if (mx || my) this._freeLook = false;
-      if (v && !this._freeLook) { this.follow = null; c.x += (v.x - c.x) * Math.min(1, dt * 6); c.y += (v.y - c.y) * Math.min(1, dt * 6); }
+      // the camera always stays on you
+      if (v) { this.follow = null; c.x += (v.x - c.x) * Math.min(1, dt * 6); c.y += (v.y - c.y) * Math.min(1, dt * 6); }
     } else {
       this.ensureAvatar();
       if (abroad && v && this.mp && abroad.hostUid) this.mp.publishStranger(abroad.hostUid, abroad.strangerId, v, { disguised: abroad.role === 'spy' });
@@ -347,7 +345,7 @@ export class HUD {
     else if (k === 'k') this.togglePanel('deeds');
     else if (k === 'l') this.togglePanel('log');
     else if (k === 'm') this.togglePanel('world');
-    else if (k === 'h') { this.follow = null; this.input.panTo(this.game.center.x, this.game.center.y); }
+    else if (k === 'h' && !this.game.hero) { this.follow = null; this.input.panTo(this.game.center.x, this.game.center.y); }
   }
 
   // ------------------------------------------------------------ you, the avatar
@@ -445,6 +443,86 @@ export class HUD {
     els.heroSt?.parentElement?.classList.toggle('low', (hero.stamina ?? 100) < 15);
   }
 
+  /**
+   * Analyze a piece of gear: it floats in a glow of its rarity while a scan passes over it, then its name, every stat
+   * (bars fill one after another, compared with what you wear) and its special abilities are revealed.
+   */
+  analyzeGear(it) {
+    const g = this.game;
+    const def = CATALOG[it.slot]?.[it.base] || {};
+    const R = RARITY[it.rarity] || RARITY[0];
+    const worn = rpgOf(g).gear[it.slot];
+    const wornDef = worn ? CATALOG[worn.slot]?.[worn.base] || {} : null;
+    const stat = (label, value, max, text, compare, better = 'higher') => ({ label, value, max, text, compare, better });
+    const stats = [];
+    if (it.slot === 'weapon') {
+      stats.push(stat('Damage', it.dmg, 70, `${it.dmg}`, worn?.dmg));
+      stats.push(stat('Attack speed', 1 / def.speed, 4.5, `${(1 / def.speed).toFixed(1)} / sec`, wornDef?.speed ? 1 / wornDef.speed : null));
+      stats.push(stat(def.ranged ? 'Range' : 'Reach', def.range, def.ranged ? 11 : 2.2, `${def.range} tiles`, wornDef?.range));
+      if (!def.ranged) stats.push(stat('Swing width', def.arc, 2.7, `${Math.round(def.arc * 57)}°`, wornDef?.arc));
+      stats.push(stat('Damage per second', it.dmg / def.speed, 120, `${Math.round(it.dmg / def.speed)}`, worn?.dmg && wornDef?.speed ? worn.dmg / wornDef.speed : null));
+    } else if (it.slot === 'shield') {
+      stats.push(stat('Block', it.block, 1, `${Math.round(it.block * 100)}% stopped`, worn?.block));
+      stats.push(stat('Parry window', def.parry, 0.4, `${Math.round(def.parry * 1000)} ms`, wornDef?.parry));
+      stats.push(stat('Move while guarding', def.slow, 0.8, `${Math.round(def.slow * 100)}% speed`, wornDef?.slow));
+      if (it.armor) stats.push(stat('Armour', it.armor, 0.5, `+${Math.round(it.armor * 100)}%`, worn?.armor));
+    } else if (it.slot === 'armor' || it.slot === 'helmet') {
+      stats.push(stat('Armour', it.armor, it.slot === 'helmet' ? 0.2 : 0.7, `${Math.round(it.armor * 100)}% less damage`, worn?.armor));
+    }
+    for (const [k, n] of Object.entries(it.bonus || {})) {
+      const label = { dmg: 'Damage bonus', hp: 'Health bonus', speed: 'Move speed' }[k] || k;
+      stats.push(stat(label, Math.abs(n), k === 'hp' ? 60 : 0.3, k === 'hp' ? `+${n}` : `${n > 0 ? '+' : ''}${Math.round(n * 100)}%`, worn?.bonus?.[k]));
+    }
+    // special abilities, read from what the gear really does
+    const abilities = [];
+    if (def.crit) abilities.push(['Keen Edge', `+${Math.round(def.crit * 100)}% chance of a critical hit`]);
+    if (def.stun) abilities.push(['Staggering Blows', `Stuns what you hit for ${(1 + def.stun).toFixed(1)}s and knocks it further back`]);
+    if (def.ranged) abilities.push(['Ranged', `Looses shots up to ${def.range} tiles away`]);
+    if (def.thorns) abilities.push(['Thorns', `Deals ${def.thorns} damage back to anything that hits your guard`]);
+    if (def.parry >= 0.3) abilities.push(['Quick Parry', 'A long window to turn a blow aside and stagger the attacker']);
+    if (def.slow && def.slow <= 0.35) abilities.push(['Wall of Iron', 'Blocks almost everything, but you move slowly behind it']);
+    if (def.speed && def.speed <= 0.3) abilities.push(['Flurry', 'Strikes so fast your combos come out in a blur']);
+    if (def.arc >= 2.2) abilities.push(['Wide Sweep', 'Cuts through every foe in a wide arc']);
+    if (/flame/.test(it.base)) abilities.push(['Burning Blade', 'Wreathed in fire']);
+    if (/frost/.test(it.base)) abilities.push(['Frostbite', 'Its chill freezes foes in place']);
+    if (/thunder/.test(it.base)) abilities.push(['Thunderstrike', 'Crackles with lightning; crits hit harder']);
+    if (/shadow/.test(it.base)) abilities.push(['Shadowstep', 'Strikes from the dark land more critical hits']);
+    if (/holy/.test(it.base)) abilities.push(['Blessed', 'Forged for heroes; nothing hits harder']);
+    if (/dragon/.test(it.base)) abilities.push(['Dragonforged', 'Made from a dragon: tough and fierce']);
+    if (def.minRarity >= 3) abilities.push(['Legendary Relic', 'Only ever found as Legendary']);
+    if (!abilities.length) abilities.push(['Reliable', 'Honest, well made gear with no tricks']);
+
+    const iconKey = gearIconKey(it) || 'items/relic';
+    const bars = stats.map((s, i) => {
+      const pct = Math.max(3, Math.min(100, (s.value / s.max) * 100));
+      const diff = s.compare != null && worn && worn.id !== it.id ? s.value - s.compare : null;
+      return h('div.an-stat', { style: { animationDelay: `${0.9 + i * 0.12}s` } },
+        h('div.an-stat-top', h('span', s.label), h('b', s.text),
+          diff ? h(`span.an-diff.${diff > 0 ? 'up' : 'down'}`, diff > 0 ? '▲' : '▼') : ''),
+        h('div.an-bar', h('div', { style: { '--w': `${pct}%`, animationDelay: `${1.0 + i * 0.12}s`, background: `linear-gradient(90deg, ${R.color}88, ${R.color})` } })));
+    });
+    const abil = abilities.map(([name, text], i) => h('div.an-ability', { style: { animationDelay: `${1.2 + stats.length * 0.12 + i * 0.15}s` } },
+      h('span.an-ability-mark', '◆'), h('div', h('b', name), h('div.faint', text))));
+    const bg = h('div.analyze-bg', { onclick: e => { if (e.target === bg) close(); } },
+      h('div.analyze', { style: { '--rarity': R.color } },
+        h('div.an-stage',
+          h('div.an-rays'),
+          h('div.an-ring'), h('div.an-ring.two'),
+          h('div.an-item', icon(iconKey, 128)),
+          h('div.an-scan')),
+        h('div.an-body',
+          h('div.an-rarity', R.name.toUpperCase()),
+          h('h2.an-name', it.name),
+          h('div.an-kind.faint', `${def.name || it.base} · ${it.slot}`),
+          h('div.an-stats', bars),
+          h('h3.an-head', 'Special abilities'),
+          h('div.an-abilities', abil),
+          h('button.btn.an-close', { onclick: () => close() }, 'Close'))));
+    const close = () => { bg.classList.add('closing'); setTimeout(() => bg.remove(), 200); };
+    document.getElementById('ui').append(bg);
+    play('ability');
+  }
+
   /** Your character: level, points to spend, gear you wear and loot in your bag. */
   characterSheet() {
     const g = this.game;
@@ -462,7 +540,7 @@ export class HUD {
           h('div.faint', label),
           it ? h('div.row', icon(gearIconKey(it) || 'items/relic', 28), h('div', h('b', { style: { color: RARITY[it.rarity].color } }, it.name), h('div.faint', gearText(it))))
             : h('div.faint', slot === 'weapon' ? `${w.name} (what you carry)` : 'Nothing'),
-          it ? h('button.btn.sm', { onclick: () => { unequip(g, slot); render(); } }, 'Take off') : null);
+          it ? h('div.row', { style: { gap: '4px' } }, h('button.btn.sm.analyze-btn', { onclick: () => this.analyzeGear(it) }, 'Analyze'), h('button.btn.sm', { onclick: () => { unequip(g, slot); render(); } }, 'Take off')) : null);
       };
       body.replaceChildren(
         h('div.row', icon('items/crown_leader', 40), h('div', h('h2', { style: { margin: 0 } }, v?.name || 'You'), h('div.faint', `Level ${r.level} · ${r.xp}/${xpToNext(r.level)} XP · ${r.questsDone} quests done`))),
@@ -478,6 +556,7 @@ export class HUD {
           ? h('div.char-bag', r.bag.map(it => h('div.char-item', { style: { borderColor: RARITY[it.rarity].color } },
             icon(gearIconKey(it) || 'items/relic', 24),
             h('div', { style: { flex: 1 } }, h('b', { style: { color: RARITY[it.rarity].color } }, it.name), h('div.faint', gearText(it))),
+            h('button.btn.sm.analyze-btn', { onclick: () => this.analyzeGear(it) }, 'Analyze'),
             h('button.btn.sm.primary', { onclick: () => { equip(g, it.id); render(); } }, 'Equip'),
             h('button.btn.sm', { title: 'Break it down for gold', onclick: () => { const gold = scrapGear(g, it.id); this.hint(`+${gold} gold`, 1500); render(); } }, 'Scrap'))))
           : h('div.faint', 'Monsters drop weapons, armour and trinkets. Bosses and bounties always drop something good.'),

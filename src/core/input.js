@@ -66,6 +66,7 @@ export class Input {
     }
     const dx = e.clientX - this.drag.x, dy = e.clientY - this.drag.y;
     if (!this.drag.moved && Math.hypot(dx, dy) > 5) this.drag.moved = true;
+    if (this.drag.moved && this.h.isLeading?.()) return;   // you are your character: the camera stays on you
     if (this.drag.moved) {
       this.r.camera.x = this.drag.cx - dx / this.r.camera.zoom;
       this.r.camera.y = this.drag.cy - dy / this.r.camera.zoom;

@@ -373,7 +373,8 @@ export class Renderer {
     const hero = g.hero?.id === v.id ? g.hero : null;
     if (hero) this.drawHeroRing(g, v, hero);
     this.shadow(v.x, v.y, size * 0.8);
-    const tint = v._whiteFlash > 0 ? '#ffffff' : v._hurtFlash > 0 ? '#ff2020' : v.sick ? '#4fbf3f' : null;
+    const stunnedWhite = g.hero?.id === v.id && g.hero.stagger > 0 && Math.floor(this.time * 10) % 2 === 0;   // stunned: you blink white the whole time
+    const tint = v._whiteFlash > 0 || stunnedWhite ? '#ffffff' : v._hurtFlash > 0 ? '#ff2020' : v.sick ? '#4fbf3f' : null;
     // you: the animated hero (boy or girl), walking and swinging in four directions
     if (hero && !v.disguised) this.drawHero(g, v, hero, key, size, tint);
     else drawSprite(ctx, key, v.x, v.y, size, { flip: v._flip, offsetY, rot, squash, tint });
@@ -441,7 +442,7 @@ export class Renderer {
       const len = size * 0.72 * (WEAPONS[w.base]?.length || 1);
       const cx = weaponHand.x + Math.cos(blade) * len * 0.32, cy = weaponHand.y + Math.sin(blade) * len * 0.32;
       // gear icons are drawn pointing up and to the right (45 degrees): turn them to the blade direction
-      drawSprite(ctx, weaponKey, cx, cy, len, { rot: blade + Math.PI / 4, center: true, full: true, tint: v._whiteFlash > 0 ? '#ffffff' : null, solid: v._whiteFlash > 0 });
+      drawSprite(ctx, weaponKey, cx, cy, len, { rot: blade + Math.PI / 4, center: true, full: true, tint: tint === '#ffffff' ? '#ffffff' : null, solid: tint === '#ffffff' });
     };
     const drawShield = () => {
       if (!shieldKey) return;
@@ -453,13 +454,13 @@ export class Renderer {
         y += (by - size * 0.4 + dy * size * 0.18 - y) * k;
         if (hero.sinceHit < 0.15) { x += (Math.random() - 0.5) * 3; y += (Math.random() - 0.5) * 3; }
       } else hero._guardDrawAt = undefined;
-      drawSprite(ctx, shieldKey, x, y + bob * 0.5, s, { center: true, full: true, flip: side < 0, tint: v._whiteFlash > 0 ? '#ffffff' : null, solid: v._whiteFlash > 0 });
+      drawSprite(ctx, shieldKey, x, y + bob * 0.5, s, { center: true, full: true, flip: side < 0, tint: tint === '#ffffff' ? '#ffffff' : null, solid: tint === '#ffffff' });
     };
 
     // layering: facing away, your gear is in front of the body; otherwise the shield arm is behind and the sword in front
     if (facing !== 'up') { if (!hero.blocking) drawShield(); }
     else { drawShield(); drawWeapon(); }
-    drawSprite(ctx, body, bx, by, size * (body.startsWith('hero/') ? 1.1 : 1), { flip: side < 0, tint, solid: v._whiteFlash > 0, offsetY: bob, squash: sq, rot: lean });
+    drawSprite(ctx, body, bx, by, size * (body.startsWith('hero/') ? 1.1 : 1), { flip: side < 0, tint, solid: tint === '#ffffff', offsetY: bob, squash: sq, rot: lean });
     if (facing !== 'up') { drawWeapon(); if (hero.blocking) drawShield(); }
     if (hero.stagger > 0.15) {   // dazed: stars circling your head, like the enemies you stun
       for (let i = 0; i < 3; i++) {
@@ -507,7 +508,7 @@ export class Renderer {
     if (c._attack) squash = -0.15;
     this.shadow(c.x, c.y, size * (def.flying ? 0.5 : 0.8));
     const alpha = c.t === 'ghost' ? 0.75 : 1;
-    drawSprite(ctx, c.sprite || def.sprite, c.x, c.y, size, { flip: c._flip, offsetY: offsetY + (c._stunned > 0 && !c._whiteFlash ? Math.sin(this.time * 40) * 0.8 : 0), rot, squash, alpha, tint: c._whiteFlash > 0 ? '#ffffff' : c._hurtFlash > 0 ? '#ffffff' : def.tint || null, solid: c._whiteFlash > 0 });
+    drawSprite(ctx, c.sprite || def.sprite, c.x, c.y, size, { flip: c._flip, offsetY: offsetY + (c._stunned > 0 && !c._whiteFlash ? Math.sin(this.time * 40) * 0.8 : 0), rot, squash, alpha, tint: c._whiteFlash > 0 || (c._stunned > 0 && Math.floor(this.time * 10) % 2 === 0) ? '#ffffff' : c._hurtFlash > 0 ? '#ffffff' : def.tint || null, solid: c._whiteFlash > 0 || (c._stunned > 0 && Math.floor(this.time * 10) % 2 === 0) });
     if (def.hostile) {
       const max = maxHp(c);
       const hp = c.hp ?? max;

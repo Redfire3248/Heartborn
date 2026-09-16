@@ -377,6 +377,7 @@ export async function run() {
     g.state.creatures = [];
     const [a, b, c] = g.state.villagers.filter(v => !v.ruling && v.age >= 16);
     b.x = a.x + 10; b.y = a.y; b.traits = b.traits.filter(t => t !== 'brave');
+    a.body = { ...a.body, speed: 10 }; b.body = { ...b.body, speed: 1 };   // a fast killer and a slow victim, so the chase always ends
     const pop = g.state.villagers.length;
     ok(V.attackVillager(g, a, b, { deadly: true }), 'a villager can attack another');
     for (let i = 0; i < 600 && g.state.villagers.includes(b); i++) { g.step(0.1); a.hp = Math.max(a.hp, 60); }

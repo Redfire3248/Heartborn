@@ -86,10 +86,11 @@ function heroDamage(g, v) {
   return dmg * strengthMult(v);
 }
 
+/** The closest creature you can fight: any beast, hostile or not (fish in the water are out of reach). */
 function nearestHostile(g, v, range) {
   let best = null, bd = range;
   for (const c of g.state.creatures) {
-    if (!CREATURES[c.t]?.hostile) continue;
+    if (!CREATURES[c.t] || CREATURES[c.t].water) continue;
     const d = Math.hypot(c.x - v.x, c.y - v.y);
     if (d < bd) { bd = d; best = c; }
   }
@@ -159,7 +160,7 @@ function attack(g, v, st) {
   slashFx(g, v, h, w, crit || finisher, finisher ? 1.45 : 1);
   let hits = 0;
   for (const c of [...g.state.creatures]) {
-    if (!CREATURES[c.t]?.hostile && !CREATURES[c.t]?.food) continue;
+    if (!CREATURES[c.t] || CREATURES[c.t].water) continue;   // every beast can be struck
     const d = Math.hypot(c.x - v.x, c.y - v.y);
     const reach = w.range * TILE + CREATURES[c.t].size * TILE * 0.4;
     if (d > reach || (d > TILE * 0.4 && angleDiff(Math.atan2(c.y - v.y, c.x - v.x), h.facing) > w.arc / 2 + 0.25)) continue;
@@ -204,7 +205,7 @@ function updateArrows(g, v, dt) {
   for (const ar of h.arrows) {
     const sx = ar.vx * dt, sy = ar.vy * dt;
     ar.x += sx; ar.y += sy; ar.left -= Math.hypot(sx, sy);
-    const c = g.state.creatures.find(c => CREATURES[c.t]?.hostile && Math.hypot(c.x - ar.x, c.y - 8 - ar.y) < TILE * 0.6);
+    const c = g.state.creatures.find(c => CREATURES[c.t] && !CREATURES[c.t].water && Math.hypot(c.x - ar.x, c.y - 8 - ar.y) < TILE * 0.6);
     if (c) { hitCreature(g, v, c, ar.dmg, ar.crit, { stun: 0 }); ar.left = 0; }
   }
   h.arrows = h.arrows.filter(a => a.left > 0);

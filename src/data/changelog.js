@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Analyze your gear, hunt anything',
+    changes: [
+      'Analyze: in your Character sheet, tap Analyze on any weapon, shield, helmet, armour or trinket. It floats in a glow of its rarity while a scan passes over it, then its stats fill in one by one (compared with what you wear) and its special abilities are revealed',
+      'You can strike every animal now, not just hostile ones: deer, rabbits, cows, chickens and more',
+      'While you are stunned you blink white the whole time (so do stunned enemies)',
+      'The camera always stays on your King: dragging the map no longer lets you wander off into the old overview',
+    ],
+  },
+  {
     title: 'Admin: reset fixed, pictures everywhere',
     changes: [
       'Fixed: reset did not wipe a village (saves had moved into civilization slots). It now wipes every save of that player and restarts their game if they are online. reset me confirm resets your own',
