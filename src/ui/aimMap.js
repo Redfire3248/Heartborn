@@ -113,7 +113,7 @@ export function openAimMap(game, { title, orbital = false, radius: forcedRadius 
     info,
     costChips ? h('div.row.wrap', costChips) : null,
     err,
-    h('div.row', h('div.spacer'), h('button.btn.ghost', { onclick: () => m.close() }, 'Cancel'), fireBtn),
+    h('div.row', h('div.spacer'), fireBtn),
   ].filter(Boolean), { cls: 'aim-modal', onClose: () => cancelAnimationFrame(frame) });
   return { close: () => m.close(), setAim };
 }

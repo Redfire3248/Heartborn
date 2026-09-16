@@ -48,10 +48,10 @@ export function loginScreen({ user, onSignIn, onEmailSignIn, onCreateAccount, on
   const root = h('div.screen.login',
     h('div.logo',
       h('h1', 'HEARTBORN'),
-      h('div.tagline', 'Three humans. One fire. Every choice builds a civilization.')),
+      h('div.tagline', 'One hero. Endless adventure. Fight, explore, delve and build your home.')),
     card,
     installButton('button.btn.install-btn'));
-  const footer = h('div.footer-note', `A shared world of civilizations · Your realm is saved to the cloud · v${BUILD.version}`);
+  const footer = h('div.footer-note', `A pixel-art action adventure · Your hero is saved to the cloud · v${BUILD.version}`);
   ui().append(vignette, root, footer);
   let mode = 'signin';   // signin | create
 
@@ -91,9 +91,9 @@ export function loginScreen({ user, onSignIn, onEmailSignIn, onCreateAccount, on
 
       card.append(
         h('div.features',
-          h('div.feature', icon('buildings/castle', 34), 'Found a kingdom'),
-          h('div.feature', icon('items/scroll', 34), 'Rule with laws'),
-          h('div.feature', icon('items/war', 34), 'War & alliances')),
+          h('div.feature', icon('gear/sword_legendary', 34), 'Fight & loot'),
+          h('div.feature', icon('dungeon/cave_entrance', 34), 'Delve dungeons'),
+          h('div.feature', icon('ui/home', 34), 'Build your home')),
         google,
         h('div.divider', h('span', 'or')),
         form,

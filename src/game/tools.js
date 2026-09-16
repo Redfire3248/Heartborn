@@ -1,5 +1,8 @@
 import { TILE } from '../core/constants.js';
 import { rpgOf } from './rpg.js';
+import { TILES } from './world.js';
+
+const TILE_NAMES = TILES.map(k => k.replace('tile_', ''));
 
 /*
  * Your tools. They sit in your hotbar (keys 1-9): the one you hold is what your swing uses.
@@ -92,15 +95,16 @@ export function bestTool(g, kind) {
   return best;
 }
 
-const TOOL_FOR_WORK = { chop: 'axe', mine: 'pickaxe', gather: 'sickle' };
+const TOOL_FOR_WORK = { chop: 'axe', mine: 'pickaxe', gather: 'sickle', cut: 'sickle' };
 
 /** How a job goes with your tools: swings needed and how much more you get. */
 export function workWith(g, work, baseHits, held = null) {
   const kind = TOOL_FOR_WORK[work];
   const key = held ? (TOOLS[held]?.kind === kind || (work === 'gather' && TOOLS[held]?.kind === 'hoe') ? held : null) : bestTool(g, kind);
   const power = key ? TOOLS[key].power : 0;
-  let hits = key ? Math.max(1, baseHits + 1 - Math.floor((power + 1) / 3)) : baseHits + 2;
-  let yieldMult = key ? 1 + power * 0.12 : 0.6;
+  const byHand = work === 'gather' || work === 'cut';   // plants come away by hand too, a sickle is just faster
+  let hits = key ? Math.max(1, baseHits + 1 - Math.floor((power + 1) / 3)) : baseHits + (byHand ? 1 : 2);
+  let yieldMult = key ? 1 + power * 0.12 : byHand ? 1 : 0.6;
   if (work === 'gather') {
     const hoe = bestTool(g, 'hoe');
     if (hoe) yieldMult += TOOLS[hoe].power * 0.06;
@@ -125,6 +129,8 @@ export function flashTool(g, key) {
 /** Dig the bare ground with your best shovel. Returns true if you dug. */
 export function dig(g, v, key = bestTool(g, 'shovel')) {
   if (!key) return false;
+  const tile = TILE_NAMES?.[g.world.tile(Math.floor(v.x / TILE), Math.floor(v.y / TILE))];
+  if (tile && !DIGGABLE.has(tile)) return false;   // no digging through paths, cave floors or water
   const t = TOOLS[key];
   const h = g.hero;
   h._digs = (h._digs || 0) + 1;
@@ -135,9 +141,11 @@ export function dig(g, v, key = bestTool(g, 'shovel')) {
   const bonus = hasTool(g, 'backpack') ? 1.25 : 1;
   const got = [];
   const add = (res, n) => { n = Math.max(1, Math.round(n * bonus)); got.push(`+${g.addResource(res, n) ?? n} ${res}`); };
-  add('stone', 1 + Math.random() * (1 + t.power * 0.4));
-  if (Math.random() < 0.05 + t.power * 0.012) add('gold', 3 + Math.random() * (4 + t.power));
-  if (Math.random() < 0.01 + t.power * 0.006) add('gems', 1);
+  // the ground hides old coins, nuggets, gems and the odd lost tool; most holes are just dirt
+  const luck = t.power;
+  if (Math.random() < 0.28 + luck * 0.02) add('gold', 2 + Math.random() * (3 + luck));
+  if (Math.random() < 0.12 + luck * 0.01) add('food', 1 + Math.random() * 2);   // roots and tubers
+  if (Math.random() < 0.03 + luck * 0.006) add('gems', 1);
   // now and then something buried: a tool or a potion
   if (Math.random() < 0.02 + t.power * 0.003) {
     const pool = Object.keys(TOOLS).filter(k => TOOLS[k].power <= 3 + t.power / 2);
@@ -145,7 +153,7 @@ export function dig(g, v, key = bestTool(g, 'shovel')) {
     giveTool(g, found);
     got.push(`found a ${TOOLS[found].name}!`);
   }
-  g.float(v.x, v.y - TILE * 1.3, got.join('  '), '#e0c090');
+  g.float(v.x, v.y - TILE * 1.3, got.length ? got.join('  ') : 'Just dirt', got.length ? '#e0c090' : '#a89a88');
   return true;
 }
 
@@ -183,7 +191,11 @@ export const toolIconKey = key => TOOLS[key]?.icon;
 
 export const HOTBAR_SIZE = 9;
 /** What each work kind is done with. */
-export const WORK_OF_KIND = { axe: 'chop', pickaxe: 'mine', sickle: 'gather', hoe: 'gather' };
+export const WORK_OF_KIND = { axe: ['chop'], pickaxe: ['mine'], sickle: ['gather', 'cut'], hoe: ['gather'] };
+/** What a weapon or bare hands can work: picking and cutting plants. */
+export const HAND_WORK = ['gather', 'cut'];
+/** Ground you can dig in. */
+const DIGGABLE = new Set(['grass', 'grass_flowers', 'dirt', 'sand', 'snow', 'swamp', 'tilled_soil']);
 
 /**
  * Nine slots: 'weapon' (your equipped weapon), 'potion' (your health potions) or a tool key.
@@ -224,6 +236,16 @@ export function addToHotbar(g, key) {
   if (bar.some(k => TOOLS[k] && !t.utility && TOOLS[k].kind === t.kind)) return;   // you already carry a better one there
   const free = bar.indexOf(null);
   if (free >= 0) bar[free] = key;
+}
+
+/** Swap two hotbar slots (the selection follows the item you moved). */
+export function swapSlots(g, i, j) {
+  const bar = hotbarOf(g);
+  if (i === j || i < 0 || j < 0 || i >= HOTBAR_SIZE || j >= HOTBAR_SIZE) return;
+  [bar[i], bar[j]] = [bar[j], bar[i]];
+  const r = rpgOf(g);
+  if (r.hotSel === i) r.hotSel = j; else if (r.hotSel === j) r.hotSel = i;
+  g.emit?.('change');
 }
 
 /** Put something into a slot (it leaves any other slot it was in). */

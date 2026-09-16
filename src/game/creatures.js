@@ -4,6 +4,7 @@ import { CREATURES } from '../data/objects.js';
 import { killVillager } from './villagers.js';
 import { has } from './dynasty.js';
 import { payBounty, damageHero, knockOutHero } from './hero.js';
+import { onHeroKill } from './rpg.js';
 import { toughness } from './body.js';
 
 const BIG_KILLS = {
@@ -27,6 +28,7 @@ export function updateCreature(g, c, dt) {
     if (def.hostile && !def.boss && !c.bounty && c.t !== 'invader' && Math.random() < 0.1) { c.elite = true; c.scale = (c.scale || 1) * 1.3; c.hp = maxHp(c); }
   }
   if (c.hp == null) c.hp = maxHp(c);
+  if (c.t === 'invader' && c._archer == null) c._archer = Math.random() < 0.3;
   c._walking = false;
   if (c._hurtFlash) c._hurtFlash = Math.max(0, c._hurtFlash - dt);
   if (c._whiteFlash > 0) c._whiteFlash -= dt;
@@ -36,6 +38,20 @@ export function updateCreature(g, c, dt) {
     const k = Math.exp(-9 * dt); c._kbx *= k; c._kby *= k;
     if (Math.hypot(c._kbx, c._kby) < 4) c._kbx = c._kby = 0;
   }
+  // fire and bleeding keep hurting; kills still count for your hero
+  for (const key of ['_burn', '_bleed']) {
+    const e = c[key];
+    if (!e) continue;
+    if (s0(g).time >= e.until) { c[key] = null; continue; }
+    const by = g.state.villagers.find(v => v.id === e.by) || null;
+    damageCreature(g, c, e.dps * dt, by);
+    if (Math.random() < dt * 6) g.fx.particles.push({ x: c.x + (Math.random() - 0.5) * 12, y: c.y - 8 - Math.random() * 10, vx: 0, vy: key === '_burn' ? -18 : 10, sprite: key === '_burn' ? 'effects/flame' : 'effects/raindrop', size: 6, life: 0.5, max: 0.5, rot: 0 });
+    if (!g.state.creatures.includes(c)) {
+      if (by && g.hero?.id === by.id) { g.hero.kills++; onHeroKill(g, c, by); }
+      return;
+    }
+  }
+  if (c._chill && s0(g).time >= c._chill.until) c._chill = null;
   if (c._stunned > 0) { c._stunned -= dt; c._windup = 0; return; }
 
   const s = g.state;
@@ -67,6 +83,12 @@ export function updateCreature(g, c, dt) {
   }
 
   if (def.hostile) {
+    // a mimic sits still, looking like a chest, until you come close
+    if (def.ambush && !c._awake) {
+      const near = s.villagers.some(v => !v.away && Math.hypot(v.x - c.x, v.y - c.y) < TILE * def.ambush);
+      if (!near) return;
+      c._awake = true; c._windup = 0.5; g.float(c.x, c.y - TILE, 'It was a mimic!', '#ff9f7a');
+    }
     // wild predators guard a territory; raiders march on the village
     c.hx ??= c.x; c.hy ??= c.y;
     // hungry predators sometimes leave their den to hunt villagers — more often at night
@@ -197,6 +219,52 @@ function special(g, c, def, target, dt) {
     }
     return true;
   }
+  // bosses call helpers now and then
+  if (def.summons) {
+    c._summonCd = (c._summonCd ?? def.summons.every * 0.5) - dt;
+    if (c._summonCd <= 0 && g.state.creatures.length < 60) {
+      c._summonCd = def.summons.every;
+      for (let i = 0; i < def.summons.count; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const x = c.x + Math.cos(a) * TILE * 1.5, y = c.y + Math.sin(a) * TILE * 1.5;
+        if (!g.world.walkable(x, y)) continue;
+        const m = g.spawnCreature(def.summons.type, x, y, { hpMult: c.hpMult ? Math.max(1, c.hpMult * 0.5) : 1, summoned: true });
+        if (m) { m._eliteRolled = true; m.hx = c.x; m.hy = c.y; g.anim('combat/poof', x, y - 6, { size: TILE, dur: 0.35 }); }
+      }
+      g.float(c.x, c.y - TILE * 1.8, 'Calls for help!', '#ff9f7a');
+    }
+  }
+  // a ground slam: a red circle appears where you stand, then it lands
+  if (def.slam && d < TILE * def.slam.range) {
+    c._slamCd = (c._slamCd ?? def.slam.every * 0.6) - dt;
+    if (c._slamCd <= 0) {
+      c._slamCd = def.slam.every;
+      c._attack = 0.4; c._windup = def.slam.delay;
+      (g.aoes ||= []).push({ x: target.x, y: target.y, r: TILE * def.slam.radius, t: 0, delay: def.slam.delay, dmg: def.damage * def.slam.dmg * (c.scale || 1) * (c.dmgMult || 1), from: c });
+      return true;
+    }
+  }
+  // ranged attacks: arrows, bolts, knives, webs, spit, fireballs, boulders
+  const r = c._archer ? ARCHER : def.ranged;
+  if (r) {
+    if (c._aim != null) {   // winding up the shot (the red ! shows)
+      c._aim -= dt; c._windup = Math.max(0, c._aim); c._flip = target.x < c.x;
+      if (c._aim > 0) return true;
+      c._aim = null;
+      fireShots(g, c, def, r, target);
+      return true;
+    }
+    if (c._shotCd == null) c._shotCd = r.every * (0.4 + Math.random() * 0.6);
+    c._shotCd -= dt;
+    const inRange = d < TILE * r.range && d > TILE * (r.min ? r.min * 0.6 : 1.3);
+    if (c._shotCd <= 0 && inRange && g.world.clearLine(c.x, c.y, target.x, target.y)) {
+      c._shotCd = r.every * (0.85 + Math.random() * 0.3);
+      c._aim = r.windup ?? 0.45;
+      return true;
+    }
+    // archers keep their distance
+    if (r.min && d < TILE * r.min) { step(g, c, c.x + (c.x - target.x), c.y + (c.y - target.y), def.speed * 0.9 * dt, def); return true; }
+  }
   if (c._specialCd > 0) return false;
   if (c.t === 'boar' && d > TILE * 2 && d < TILE * 7) {
     const a = Math.atan2(target.y - c.y, target.x - c.x);
@@ -204,18 +272,38 @@ function special(g, c, def, target, dt) {
     c._specialCd = 4 + Math.random() * 2;
     return true;
   }
-  if (c.t === 'goblin' && d > TILE * 2.2 && d < TILE * 8) {
-    c._throw = (c._throw ?? 0.5) - dt;   // winding up the throw
-    c._windup = Math.max(0, c._throw);
-    c._flip = target.x < c.x;
-    if (c._throw > 0) return true;
-    c._throw = null;
-    c._specialCd = 2.2 + Math.random() * 1.5;
-    const a = Math.atan2(target.y - c.y, target.x - c.x) + (Math.random() - 0.5) * 0.15;
-    (g.enemyShots ||= []).push({ x: c.x, y: c.y - 10, vx: Math.cos(a) * TILE * 7, vy: Math.sin(a) * TILE * 7, left: TILE * 9, dmg: def.damage * 0.8 * (c.scale || 1) * (c.dmgMult || 1), from: c });
-    return true;
-  }
   return false;
+}
+
+/** How each kind of shot flies and what it does when it hits. */
+export const SHOTS = {
+  arrow:          { speed: 11, size: 0.5 },
+  bone_arrow:     { speed: 11, size: 0.5 },
+  rock:           { speed: 7, size: 0.35, spin: true },
+  throwing_knife: { speed: 13, size: 0.4, spin: true },
+  magic_bolt:     { speed: 6.5, size: 0.45, homing: 1.6, glow: '#c08aff' },
+  dark_orb:       { speed: 5, size: 0.5, homing: 1.2, glow: '#8a4aff' },
+  fireball:       { speed: 7.5, size: 0.55, glow: '#ff8a3a', burn: { dps: 5, secs: 2 } },
+  ice_shard:      { speed: 9, size: 0.45, glow: '#9fd4ff', slow: { k: 0.6, secs: 1.5 } },
+  poison_spit:    { speed: 6, size: 0.4, glow: '#8fe07a', poison: { dps: 3, secs: 3 } },
+  web_ball:       { speed: 6, size: 0.5, slow: { k: 0.45, secs: 2.5 } },
+  sonic_wave:     { speed: 8, size: 0.5, glow: '#d8d0ff' },
+  boulder:        { speed: 5.5, size: 0.8, spin: true },
+};
+const ARCHER = { shot: 'arrow', range: 8, min: 3, every: 2.4, dmg: 0.9 };
+
+function fireShots(g, c, def, r, target) {
+  const kind = SHOTS[r.shot] || SHOTS.arrow;
+  const n = r.count || 1;
+  const base = Math.atan2(target.y - c.y, target.x - c.x);
+  for (let i = 0; i < n; i++) {
+    const a = base + (n > 1 ? (i - (n - 1) / 2) * (r.spread || 0.3) : (Math.random() - 0.5) * 0.12);
+    (g.enemyShots ||= []).push({
+      kind: r.shot, x: c.x, y: c.y - 10, vx: Math.cos(a) * TILE * kind.speed, vy: Math.sin(a) * TILE * kind.speed,
+      left: TILE * (r.range + 2), dmg: def.damage * (r.dmg ?? 1) * (c.scale || 1) * (c.dmgMult || 1), from: c, target: kind.homing ? target : null,
+    });
+  }
+  c._attack = 0.25;
 }
 
 /** A blow from a beast to a villager (the person you play can dodge, block or parry it). */
@@ -229,17 +317,42 @@ function strikeVillager(g, c, target, dmg) {
   if (target.hp <= 0 && !knockOutHero(g, target)) killVillager(g, target, `was slain by ${/^[aeiou]/.test(c.t) ? 'an' : 'a'} ${c.t.replace('_', ' ')}`);
 }
 
-/** Rocks thrown by goblins fly until they hit someone or fall. */
+/** Shots fly until they hit someone, a wall or run out of range. Slams land after their warning. */
 export function updateEnemyShots(g, dt) {
+  for (const a of g.aoes || []) {
+    a.t += dt;
+    if (a.t < a.delay || a.done) continue;
+    a.done = true;
+    g.fx.shake = Math.max(g.fx.shake, 1.5);
+    g.anim('combat/poof', a.x, a.y - 4, { size: a.r * 2, dur: 0.4 });
+    for (const v of [...g.state.villagers]) if (!v.away && Math.hypot(v.x - a.x, v.y - a.y) < a.r) strikeVillager(g, a.from || { x: a.x, y: a.y - 1, t: 'slam' }, v, a.dmg);
+  }
+  if (g.aoes?.length) g.aoes = g.aoes.filter(a => a.t < a.delay + 0.35);
   if (!g.enemyShots?.length) return;
   for (const s of g.enemyShots) {
+    const kind = SHOTS[s.kind] || SHOTS.rock;
+    if (kind.homing && s.target && !s.target.away) {   // magic curves toward you
+      const want = Math.atan2(s.target.y - 10 - s.y, s.target.x - s.x), have = Math.atan2(s.vy, s.vx);
+      let da = want - have; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+      const turn = Math.max(-kind.homing * dt, Math.min(kind.homing * dt, da)), sp = Math.hypot(s.vx, s.vy);
+      s.vx = Math.cos(have + turn) * sp; s.vy = Math.sin(have + turn) * sp;
+    }
     const mx = s.vx * dt, my = s.vy * dt;
     s.x += mx; s.y += my; s.left -= Math.hypot(mx, my);
+    if (!g.world.walkable(s.x, s.y + 10) && !g.world.isWater(Math.floor(s.x / TILE), Math.floor((s.y + 10) / TILE))) { s.left = 0; g.anim('combat/hit', s.x, s.y, { size: 14, dur: 0.18 }); continue; }   // hits a wall
     const hit = g.state.villagers.find(v => !v.away && Math.hypot(v.x - s.x, v.y - 10 - s.y) < TILE * 0.5);
     if (hit) {
       s.left = 0;
+      const hpBefore = hit.hp;
       strikeVillager(g, s.from || { x: s.x - s.vx, y: s.y - s.vy, t: 'goblin' }, hit, s.dmg);
       g.anim('combat/hit', s.x, s.y, { size: 18, dur: 0.2 });
+      const h = g.hero;
+      if (h && h.id === hit.id && hit.hp < hpBefore) {   // what the shot leaves behind: webs slow you, poison and fire keep hurting
+        const now = g.state.time;
+        if (kind.slow) { h.slow = { k: kind.slow.k, until: now + kind.slow.secs }; g.float(hit.x, hit.y - TILE * 1.4, s.kind === 'web_ball' ? 'Webbed!' : 'Chilled!', '#d8e8ff'); }
+        if (kind.poison) { h.dot = { dps: kind.poison.dps, until: now + kind.poison.secs, color: '#8fe07a' }; g.float(hit.x, hit.y - TILE * 1.4, 'Poisoned!', '#8fe07a'); }
+        if (kind.burn) { h.dot = { dps: kind.burn.dps, until: now + kind.burn.secs, color: '#ff8a3a' }; g.float(hit.x, hit.y - TILE * 1.4, 'Burning!', '#ff8a3a'); }
+      }
     }
   }
   g.enemyShots = g.enemyShots.filter(s => s.left > 0);
@@ -309,7 +422,10 @@ function nearestVillager(g, c, range) {
   return best;
 }
 
+const s0 = g => g.state;
+
 function step(g, c, tx, ty, dist, def) {
+  if (c._chill) dist *= c._chill.k;   // chilled: half speed
   const dx = tx - c.x, dy = ty - c.y, d = Math.hypot(dx, dy);
   if (d < 1) return;
   const mx = (dx / d) * Math.min(dist, d), my = (dy / d) * Math.min(dist, d);

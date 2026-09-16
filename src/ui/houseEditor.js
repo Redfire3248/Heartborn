@@ -54,9 +54,9 @@ export class HouseEditor {
     this.label = h('div.house-floor');
     this.designRow = h('div.house-designs');
     this.modeBtns = h('div.house-modes',
-      h('button.btn.sm', { onclick: () => this.setMode('use') }, 'Use'),
-      h('button.btn.sm', { onclick: () => this.setMode('arrange') }, 'Arrange'),
-      h('button.btn.sm', { title: 'Click things to remove them (Delete key works too)', onclick: () => this.setMode('remove') }, 'Remove'));
+      h('button.btn.sm', { onclick: () => this.setMode('use') }, uiIcon('ui/home'), 'Use'),
+      h('button.btn.sm', { onclick: () => this.setMode('arrange') }, uiIcon('ui/move'), 'Arrange'),
+      h('button.btn.sm', { title: 'Click things to remove them (Delete key works too)', onclick: () => this.setMode('remove') }, uiIcon('ui/remove'), 'Remove'));
     this.palette = h('div.house-palette');
     this.tabs = h('div.house-tabs');
     this.search = h('input.house-search', { type: 'search', placeholder: 'Search furniture, floors, walls...',
@@ -64,13 +64,13 @@ export class HouseEditor {
     this.panel = h('div.card.house-panel', { hidden: true });
     this.toolBar = h('div.card.house-toolbar', { hidden: true },
       h('span.house-tool-name'),
-      h('button.btn.sm', { title: 'Rotate / mirror (R)', onclick: () => this.rotate() }, '⟳ Rotate (R)'),
+      h('button.btn.sm', { title: 'Rotate / mirror (R)', onclick: () => this.rotate() }, uiIcon('ui/rotate') || '⟳ ', 'Rotate (R)'),
       h('button.btn.sm', { onclick: () => this.cancelTool() }, 'Done'));
     this.el = h('div.house-view',
       this.canvas,
       h('div.card.house-top',
         h('div.house-title', def?.name || 'Home'), this.label, this.modeBtns, this.designRow,
-        h('button.btn.sm.primary', { onclick: () => this.close() }, 'Leave house')),
+        h('button.btn.sm.primary', { onclick: () => this.close() }, uiIcon('ui/home'), 'Leave house')),
       this.panel, this.toolBar,
       h('div.card.house-bottom', h('div.house-tabrow', this.search, this.tabs), this.palette));
     document.getElementById('ui').append(this.el);
@@ -133,7 +133,8 @@ export class HouseEditor {
     this.designRow.replaceChildren(h('span.faint', 'Outside:'), ...DESIGNS.map((d, i) => h('button.house-design' + ((this.b.design || 0) === i ? '.active' : ''), {
       title: d.name, style: { background: d.tint || '#c8a878' }, onclick: () => { this.b.design = i; this.game.emit('change'); this.refreshUI(); this.hint?.(`Outside look: ${d.name}`, 1500); },
     })));
-    this.tabs.replaceChildren(...FURNITURE_CATS.map(([id, name]) => h('button.house-tab' + (this.cat === id ? '.active' : ''), { onclick: () => { this.cat = id; this.query = ''; this.search.value = ''; this.refreshUI(); } }, name)));
+    const TAB_ICONS = { storage: 'ui/storage', floors: 'ui/floors', walls: 'ui/wallpaper', stairs: 'ui/stairs' };
+    this.tabs.replaceChildren(...FURNITURE_CATS.map(([id, name]) => h('button.house-tab' + (this.cat === id ? '.active' : ''), { onclick: () => { this.cat = id; this.query = ''; this.search.value = ''; this.refreshUI(); } }, TAB_ICONS[id] ? uiIcon(TAB_ICONS[id]) : null, name)));
     this.renderPalette();
   }
 
@@ -317,7 +318,7 @@ export class HouseEditor {
       const bag = g.state.rpg?.bag || [];
       const stored = Object.entries(it.store.items);
       const row = (ic, name, count, label, fn, color) => h('div.store-row', icon(ic, 22), h('span', { style: color ? { color } : null }, name), count ? h('span.faint', `×${count}`) : null, h('div.spacer'), h('button.btn.sm', { onclick: () => { const r = fn(); if (r && !r.ok) this.hint?.(r.why, 1800); render(); } }, label));
-      m.el.replaceChildren(
+      m.el.replaceChildren(m.closeBtn,
         h('h2', def.name), h('div.faint', `Adds ${def.storage} to your storage · ${slotsLeft(it)} of ${def.slots} spaces free`),
         h('div.store-cols',
           h('div.store-col', h('b', 'Inside'),
@@ -328,7 +329,7 @@ export class HouseEditor {
             !pack.length && !bag.length ? h('div.faint', 'Nothing to store') : null,
             ...pack.map(([k, n]) => row(ITEMS[k].icon, ITEMS[k].label, n, 'Store', () => storeItem(g, it, hero, k, n))),
             ...bag.map(x => row(gearIconKey(x) || 'items/relic', x.name, 0, 'Store', () => storeGear(g, it, x.id), RARITY[x.rarity]?.color)))),
-        h('div.row', h('div.spacer'), h('button.btn.primary', { onclick: () => m.close() }, 'Done')));
+      );
     };
     m = modal([], { onClose: () => {}, cls: 'store-modal' });
     render();
@@ -636,6 +637,8 @@ function boxOf(it) {
   return { x: it.x, y: it.y, w, d, h: def.h };
 }
 const depth = it => { const b = boxOf(it); return b.x + b.y + b.w + b.d; };
+
+const uiIcon = key => (spriteAvailable(key) ? icon(key, 16) : null);
 
 function pieceIcon(type, f) {
   const key = `interior/${type}`;

@@ -16,6 +16,7 @@ import { ensureBody } from './body.js';
 import { updateHomes } from './homes.js';
 import { interiorStorage } from './houses.js';
 import { updateAutoPick } from './autopick.js';
+import { on, eraFree } from '../core/features.js';
 import { dailyEmpire } from './empire.js';
 import { updateEmployment } from './employment.js';
 import { updateFinds } from './finds.js';
@@ -136,9 +137,9 @@ export class Game {
     updateMagic(this, dt);
     updateTalk(this, dt);
     updateHomes(this, dt);
-    updateAutoPick(this, dt);
+    if (on('autoPick')) updateAutoPick(this, dt);
 
-    if (!this.offline && !this.pendingEvent && s.time >= s.nextEventAt) this.triggerRandomEvent();
+    if (on('storyEvents') && !this.offline && !this.pendingEvent && s.time >= s.nextEventAt) this.triggerRandomEvent();
     if (s.modifiers.length) {
       const before = s.modifiers.length;
       s.modifiers = s.modifiers.filter(m => m.until > s.time);
@@ -170,9 +171,9 @@ export class Game {
     this.recalc();
     dailyVillagers(this);
     dailyPeople(this);
-    dailyTraitors(this);
+    if (on('spies')) dailyTraitors(this);
     dailyMachines(this);
-    dailyEmpire(this);
+    if (on('empire')) dailyEmpire(this);
     dailyTalents(this);
 
     // regrowth
@@ -373,7 +374,7 @@ export class Game {
   canPlace(type, tx, ty, { ignoreCost = false } = {}) {
     const def = BUILDINGS[type];
     if (!def) return { ok: false, why: 'Unknown building' };
-    if (def.era > this.state.era) return { ok: false, why: `Requires the ${ERAS[def.era].name} era` };
+    if (def.era > this.state.era && !eraFree(type)) return { ok: false, why: `Requires the ${ERAS[def.era].name} era` };
     if (!ignoreCost && !this.canAfford(def.cost)) return { ok: false, why: 'Not enough resources' };
     for (let y = 0; y < def.size; y++) for (let x = 0; x < def.size; x++) {
       if (!this.world.walkableTile(tx + x, ty + y)) return { ok: false, why: 'Cannot build on water' };
@@ -612,7 +613,7 @@ export class Game {
     this.fx.floaters.push({ x, y, text, color, life: 2.2, max: 2.2 });
   }
   /** A 6-frame animated effect (combat/slash, combat/hit, combat/poof...) played once at a spot. */
-  anim(prefix, x, y, { size = 32, dur = 0.3, rot = 0, flip = false } = {}) {
+  anim(prefix, x, y, { size = 32, dur = 0.3, rot = null, flip = false } = {}) {
     if (this.offline) return;
     (this.fx.anims ||= []).push({ prefix, x, y, size, rot, flip, t: 0, dur });
   }

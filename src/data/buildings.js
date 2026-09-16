@@ -133,7 +133,7 @@ export const BUILDINGS = {
   robot_factory:    { name: 'Robot Factory',     era: 6, size: 2, cost: { iron: 300, science: 500 },         work: 150, robots: 4, desc: 'Builds robot workers (up to 4 per factory). Robots never eat or sleep.' },
   drone_hub:        { name: 'Drone Hub',         era: 6, size: 1, cost: { iron: 150, science: 300 },         work: 90, spot: 0.3, defense: 25, counterIntel: 0.15, desc: 'Drones patrol the skies: spot everything, shoot down spies.' },
   fusion_reactor:   { name: 'Fusion Reactor',    era: 6, size: 2, cost: { iron: 400, science: 800 },         work: 200, work_bonus: 0.4, storage: 800, desc: 'Limitless energy: +40% work, +800 storage.' },
-  arcology:         { name: 'Arcology',          era: 6, size: 4, cost: { stone: 500, iron: 300, science: 400 }, work: 220, housing: 80, happy: 10, desc: 'A city in a single tower. Houses 80.' },
+  arcology:         { name: 'Arcology',          era: 6, size: 4, cost: { stone: 500, iron: 300, gems: 60 }, work: 220, housing: 80, happy: 10, desc: 'A city in a single tower. Houses 80.' },
   shield_generator: { name: 'Shield Generator',  era: 6, size: 2, cost: { iron: 350, science: 900, gems: 20 }, work: 220, defense: 100, missileShield: true, desc: 'An energy dome: blocks missiles and most raiders.' },
   hyperloop:        { name: 'Hyperloop Station', era: 6, size: 2, cost: { iron: 300, science: 400 },         work: 160, speed: 0.6, desc: 'Travel at incredible speed: +60% movement.' },
 

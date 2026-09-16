@@ -6,10 +6,10 @@ import { pickUp } from './groundItems.js';
 import { gainSkill } from './villagers.js';
 import { has } from './dynasty.js';
 import { speedMult, strengthMult } from './body.js';
-import { heroStats, heroWeapon, onHeroKill, questProgress, updateQuests, rpgOf, SHIELDS } from './rpg.js';
+import { heroStats, heroWeapon, onHeroKill, questProgress, updateQuests, rpgOf, SHIELDS, BLADE_SPECIALS, UNDEAD } from './rpg.js';
 import { updateTreasure, chestNear, openChest, drinkPotion, entranceNear } from './treasure.js';
 import { homeDoorNear } from './houses.js';
-import { workWith, flashTool, dig, fish, buildMult, heldSlot, TOOLS, WORK_OF_KIND } from './tools.js';
+import { workWith, flashTool, dig, fish, buildMult, heldSlot, TOOLS, WORK_OF_KIND, HAND_WORK } from './tools.js';
 import { BUILDINGS, sizeOf } from '../data/buildings.js';
 
 /** A building under construction within reach (solo: you build it yourself). */
@@ -164,7 +164,11 @@ function attack(g, v, st) {
     h.actCd = Math.max(ACT_COOLDOWN, swingTime);
     h.atkCd = swingTime;
     h.atkAnim = { t: 0, dur: swingTime };
-    if (!tool) { slashFx(g, v, h, w, false); return; }   // a weapon swing at nothing
+    if (!tool) {   // a weapon (or bare hands) at nothing to fight: cut grass, pick berries and crops
+      slashFx(g, v, h, w, false);
+      if (work(g, v, null)) questProgress(g, 'gather', { v });
+      return;
+    }
     h.swing = 0.22;
     const kind = TOOLS[tool].kind;
     if (WORK_OF_KIND[kind]) { if (work(g, v, tool)) questProgress(g, 'gather', { v }); else nothingFor(g, v, tool); }
@@ -189,7 +193,9 @@ function attack(g, v, st) {
   h.sinceAttackSwing = g.state.time;
   const finisher = h.combo === 3;
   if (finisher) h.atkAnim.dur = swingTime * 1.25;
-  const dmg = w.dmg * st.dmgMult * strengthMult(v) * (crit ? 1.8 : 1) * (finisher ? 1.6 : 1);
+  const sp = BLADE_SPECIALS[w.base];
+  let dmg = w.dmg * st.dmgMult * strengthMult(v) * (crit ? 1.8 : 1) * (finisher ? 1.6 : 1);
+  if (sp?.riposte && h.riposte) { dmg *= sp.riposte; h.riposte = false; g.float(v.x, v.y - TILE * 1.6, 'RIPOSTE!', '#ffd76a'); }
   if (w.ranged) {
     (h.arrows ||= []).push({ x: v.x, y: v.y - 8, vx: Math.cos(h.facing) * TILE * 14, vy: Math.sin(h.facing) * TILE * 14, left: TILE * w.range, dmg, crit });
     return;
@@ -201,10 +207,19 @@ function attack(g, v, st) {
     if (!CREATURES[c.t] || CREATURES[c.t].water) continue;   // every beast can be struck
     const d = Math.hypot(c.x - v.x, c.y - v.y);
     const reach = w.range * TILE + CREATURES[c.t].size * TILE * 0.4;
-    if (d > reach || (d > TILE * 0.4 && angleDiff(Math.atan2(c.y - v.y, c.x - v.x), h.facing) > w.arc / 2 + 0.25)) continue;
-    hitCreature(g, v, c, dmg, crit || finisher, finisher ? { ...w, stun: (w.stun || 0) + 0.4, finisher: true } : w);
+    const arc = sp?.whirl && finisher ? Math.PI * 2 : w.arc;   // a whirlwind finisher hits all the way round
+    if (d > reach || (d > TILE * 0.4 && angleDiff(Math.atan2(c.y - v.y, c.x - v.x), h.facing) > arc / 2 + 0.25)) continue;
+    const blow = sp?.undead && UNDEAD.has(c.t) ? dmg * sp.undead : dmg;
+    hitCreature(g, v, c, blow, crit || finisher, finisher ? { ...w, stun: (w.stun || 0) + 0.4, finisher: true } : w);
+    if (sp) bladeSpecial(g, v, c, blow, sp, finisher);
     hits++;
   }
+  if (sp?.shockwave && finisher) {   // the claymore's finisher: a ring of force around you
+    g.anim('combat/poof', v.x, v.y - 6, { size: TILE * sp.shockwave.radius * 2, dur: 0.4 });
+    g.fx.shake = Math.max(g.fx.shake, 1.4);
+    for (const c of [...g.state.creatures]) if (CREATURES[c.t]?.hostile && Math.hypot(c.x - v.x, c.y - v.y) < TILE * sp.shockwave.radius) hitCreature(g, v, c, dmg * sp.shockwave.share, false, w);
+  }
+  if (sp?.whirl && finisher) g.anim('combat/crit_slash', v.x, v.y - 10, { size: w.range * TILE * 2.4, dur: 0.3, rot: h.facing + Math.PI });
   if (hits) g.fx.shake = Math.max(g.fx.shake, finisher ? 1.1 : crit ? 0.8 : 0.35);
   if (finisher) g.float(v.x, v.y - TILE * 1.6, 'COMBO!', '#9fd4ff');
 }
@@ -215,6 +230,41 @@ function slashFx(g, v, h, w, crit, scale = 1) {
   const reach = (w.range || 1.2) * TILE;
   // alternate swings mirror the slash, so a combo reads as back-and-forth blows
   g.anim(crit ? 'combat/crit_slash' : 'combat/slash', v.x + Math.cos(h.facing) * reach * 0.6, v.y - 12 + Math.sin(h.facing) * reach * 0.6, { size: reach * 1.25 * scale, dur: 0.24, rot: h.facing, flip: h.combo === 2 });
+}
+
+/** What a special blade does on top of the blow. */
+function bladeSpecial(g, v, c, dmg, sp, finisher) {
+  const h = g.hero;
+  const now = g.state.time;
+  const alive = g.state.creatures.includes(c);
+  const st = heroStats(g);
+  if (sp.burn && alive) { c._burn = { dps: sp.burn.dps, until: now + sp.burn.secs, by: v.id }; }
+  if (sp.bleed && alive && Math.random() < sp.bleed.chance) { c._bleed = { dps: sp.bleed.dps, until: now + sp.bleed.secs, by: v.id }; g.float(c.x, c.y - TILE * 1.3, 'Bleeding', '#ff6a6a'); }
+  if (sp.chill && alive) {
+    c._chill = { k: sp.chill.k, until: now + sp.chill.secs };
+    if (Math.random() < sp.chill.freeze && !CREATURES[c.t]?.boss) { c._stunned = Math.max(c._stunned || 0, 1.8); c._frozen = now + 1.8; g.float(c.x, c.y - TILE * 1.3, 'Frozen!', '#9fd4ff'); }
+  }
+  if (sp.lifesteal) v.hp = Math.min(st.maxHp, v.hp + dmg * sp.lifesteal);
+  if (sp.heal) v.hp = Math.min(st.maxHp, v.hp + sp.heal);
+  if (sp.chain) {   // lightning jumps to the closest other foes
+    const others = g.state.creatures.filter(o => o !== c && CREATURES[o.t]?.hostile && Math.hypot(o.x - c.x, o.y - c.y) < TILE * sp.chain.range)
+      .sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y)).slice(0, sp.chain.count);
+    let from = c;
+    for (const o of others) {
+      (g.fx.bolts ||= []).push({ x0: from.x, y0: from.y - 10, x1: o.x, y1: o.y - 10, life: 0.2 });
+      hitCreature(g, v, o, dmg * sp.chain.share, false, { stun: 0 });
+      from = o;
+    }
+  }
+  if (!alive) {   // the blow was a kill
+    if (sp.reap) { v.hp = Math.min(st.maxHp, v.hp + st.maxHp * sp.reap); g.float(v.x, v.y - TILE * 1.4, 'Reaped', '#b0ffb0'); }
+    if (sp.plunder) { const gold = sp.plunder[0] + Math.floor(Math.random() * (sp.plunder[1] - sp.plunder[0] + 1)); g.addResource('gold', gold); g.float(c.x, c.y - TILE, `+${gold} gold`, '#ffd76a'); }
+  }
+  if (sp.twin && alive && g.state.creatures.includes(c)) {
+    damageCreature(g, c, dmg * sp.twin, v);
+    g.float(c.x + 6, c.y - TILE * 1.1, String(Math.round(dmg * sp.twin)), '#e0e0ff');
+    if (!g.state.creatures.includes(c)) { h.kills++; onHeroKill(g, c, v); }
+  }
 }
 
 function hitCreature(g, v, c, dmg, crit, w) {
@@ -257,6 +307,7 @@ function updateArrows(g, v, dt) {
 export function damageHero(g, v, dmg, from = null) {
   const h = g.hero;
   if (!h || h.id !== v.id) return dmg;
+  if (g.state.rpg?.god) return 0;   // admin god mode
   if (h.iframes > 0) { g.float(v.x, v.y - TILE * 1.3, 'Dodged!', '#9fd4ff'); return 0; }
   const facingIt = from ? angleDiff(Math.atan2(from.y - v.y, from.x - v.x), h.facing) < 1.8 : true;
   if (h.blocking && facingIt) {
@@ -266,6 +317,7 @@ export function damageHero(g, v, dmg, from = null) {
       if (from && 'hp' in from && !from.traits) from._stunned = Math.max(from._stunned || 0, 1.2);
       g.float(v.x, v.y - TILE * 1.3, 'PARRY!', '#ffd76a');
       g.anim('combat/parry', v.x + Math.cos(h.facing) * 10, v.y - 10 + Math.sin(h.facing) * 8, { size: 34, dur: 0.3 });
+      h.riposte = true;   // a rapier strikes back for triple damage
       h.stamina = Math.min(h.maxStamina || 100, (h.stamina || 0) + 10);
       return 0;
     }
@@ -290,6 +342,7 @@ export function damageHero(g, v, dmg, from = null) {
 export function knockOutHero(g, v) {
   const h = g.hero;
   if (!h || h.id !== v.id) return false;
+  if (g.state.rpg?.god) { v.hp = Math.max(v.hp, 1); return true; }
   const st = heroStats(g);
   v.hp = Math.round(st.maxHp * 0.4);
   const home = g.center;
@@ -314,14 +367,14 @@ function nothingFor(g, v, key) {
 
 /** Chop, mine or pick the thing in reach: a few hits and it gives double what a worker would get. */
 function work(g, v, held = null) {
-  const wants = held ? WORK_OF_KIND[TOOLS[held]?.kind] : null;   // an axe only chops, a pickaxe only mines
+  const wants = held ? WORK_OF_KIND[TOOLS[held]?.kind] : HAND_WORK;   // an axe only chops, a pickaxe only mines, hands pick plants
   const s = g.state;
   const tx = v.x / TILE, ty = v.y / TILE;
   let obj = null, bd = 1.35;
   for (let y = Math.floor(ty) - 2; y <= Math.floor(ty) + 2; y++) for (let x = Math.floor(tx) - 2; x <= Math.floor(tx) + 2; x++) {
     const o = g.world.objectAt(x, y);
     if (!o || !OBJECTS[o.t]?.work || OBJECTS[o.t].work === 'explore') continue;
-    if (wants && OBJECTS[o.t].work !== wants) continue;
+    if (wants && !wants.includes(OBJECTS[o.t].work)) continue;
     const d = Math.hypot(x + 0.5 - tx, y + 0.5 - ty);
     if (d < bd) { bd = d; obj = o; }
   }
@@ -333,7 +386,9 @@ function work(g, v, held = null) {
   obj._shake = 0.25;
   obj._heroHits = (obj._heroHits || 0) + 1;
   g.puff(c, def.work === 'mine' ? 'effects/rock_chunk' : def.work === 'chop' ? 'items/icon_wood' : 'effects/leaf', 3, 10);
-  const tool = workWith(g, def.work, def.work === 'chop' ? 3 : def.work === 'mine' ? 2 : 1, held);   // better tools: fewer swings, more to take home
+  if (def.work === 'cut' && obj.t === 'cactus' && !held) { v.hp -= 2; g.float(v.x, v.y - TILE * 1.2, 'Ouch! Prickly', '#ff9f7a'); }
+  const tool = workWith(g, def.work, def.work === 'chop' ? 3 : def.work === 'mine' ? 2 : 1, held);
+  if (def.work === 'cut') g.puff(c, 'effects/leaf', 6, 14);   // better tools: fewer swings, more to take home
   flashTool(g, tool.key);
   if (obj._heroHits < tool.hits) return true;
   obj._heroHits = 0;
@@ -417,7 +472,8 @@ export function updateHero(g, dt, controls = {}) {
     v._walking = len > 0.1;
     if (v._walking) {
       const guardSlow = SHIELDS[rpgOf(g).gear.shield?.base]?.slow ?? 0.45;
-      const sp = WALK_SPEED * 2.1 * speedMult(v) * st.speed * (blocking ? guardSlow : 1) * dt;
+      const slowed = h.slow && g.state.time < h.slow.until ? h.slow.k : 1;   // webs and ice slow you
+      const sp = WALK_SPEED * 2.1 * speedMult(v) * st.speed * (blocking ? guardSlow : 1) * slowed * dt;
       moveBy(mx * sp, my * sp);
     }
   }
@@ -435,6 +491,16 @@ export function updateHero(g, dt, controls = {}) {
   if (!blocking && h.sinceAttack > 0.4 && !h.dash) h.stamina = Math.min(st.maxStamina, h.stamina + 32 * dt);
   if (h.sinceHit > 6 && v.hp < st.maxHp) v.hp = Math.min(st.maxHp, v.hp + 3 * dt);
   h.x = v.x; h.y = v.y;
+  // poison and fire keep hurting for a few seconds
+  if (h.dot) {
+    if (g.state.time >= h.dot.until) h.dot = null;
+    else {
+      v.hp -= h.dot.dps * dt;
+      h._dotTick = (h._dotTick || 0) + dt;
+      if (h._dotTick > 0.6) { h._dotTick = 0; g.float(v.x + (Math.random() - 0.5) * 8, v.y - TILE, `-${Math.round(h.dot.dps * 0.6)}`, h.dot.color); }
+      if (v.hp <= 0) { h.dot = null; knockOutHero(g, v); }
+    }
+  }
   // walk up into a home's door to go inside
   h.doorCd = Math.max(0, (h.doorCd || 0) - dt);
   if (h.toolFlash) { h.toolFlash.t -= dt; if (h.toolFlash.t <= 0) h.toolFlash = null; }
@@ -460,6 +526,7 @@ export function updateHero(g, dt, controls = {}) {
 
   // ATTACK: swing your weapon in an arc (or loose an arrow); with nothing to fight nearby it works the land
   if (controls.act && h.atkCd <= 0 && !blocking && !h.dash) attack(g, v, st);
+  if (g.hero !== h) return;   // the swing took you somewhere else (into a dungeon or a house)
   updateArrows(g, v, dt);
   updateQuests(g);
   updateTreasure(g, dt, v);

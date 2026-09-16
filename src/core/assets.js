@@ -185,6 +185,7 @@ export function drawSprite(ctx, key, x, y, size, opts = {}) {
   ctx.translate(x, y + (opts.offsetY || 0));
   if (opts.rot) ctx.rotate(opts.rot);
   if (opts.flip) ctx.scale(-1, 1);
+  if (opts.flipY) ctx.scale(1, -1);   // mirror across the direction it points (a slash stays curved away from you)
   if (opts.squash) ctx.scale(1 + opts.squash, 1 - opts.squash);
   if (opts.alpha != null) ctx.globalAlpha *= opts.alpha;
   ctx.drawImage(src, box.x, box.y, box.w, box.h, -w / 2, opts.center ? -h / 2 : -h, w, h);

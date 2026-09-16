@@ -1,6 +1,27 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Ranged monsters, boss bars, blade powers and crafting',
+    changes: [
+      'Fixed: striking a cave mouth froze the game. Dungeons (and houses) now open cleanly',
+      'Dungeons have real art: stone floors, brick walls, a locked boss door, stairs, spike traps, flickering wall torches, bones, cobwebs, pillars, glowing crystals and a new cave entrance. Entering a dungeon no longer lags',
+      'Monsters fight at range: skeletons shoot arrows, ghosts and dark mages cast homing magic, bandits throw knives, spiders spit webs that slow you, slimes and zombies spit poison, fire imps and dragons hurl fireballs',
+      'Bosses slam the ground on a red warning circle (dash out of it) and call for help. New bosses: the Slime King, the Spider Queen, the Stone Golem and the Lich',
+      'New dungeon monsters: skeleton archers, dark mages, bats, rats, zombies, fire imps, cave spiders and mimics that pretend to be chests',
+      'Boss health bars: a big bar at the top with the boss name, a trailing damage bar, shaking on every hit and an ENRAGED glow under 30%',
+      'Blade special abilities: the Flame Sword burns, the Frost Sword chills and freezes, the Thunder Sword chains lightning, the Shadow Blade drains life, the Holy Sword smites the undead, the Katana makes foes bleed, the Rapier ripostes after a parry, the Claymore sends a shockwave, the Scythe reaps health, Twin Daggers strike twice, the Scimitar whirls and the Cutlass plunders gold',
+      'Crafting (C): over 100 recipes for tools of every material, weapons including the special blades, armour, shields, helmets, trinkets and health potions',
+      'Rearrange your hotbar by dragging slots onto each other, or drag anything from your Inventory onto a slot',
+      'Build homes only, every kind from the start: tent, hut, house, inn, tenement, castle, fortress, palace, bunker and arcology',
+      'Your sword stays in view when you walk up, and alternate combo slashes no longer curve the wrong way',
+      'Digging finds buried gold, roots, gems and lost tools instead of stone. Cut tall grass, flowers, reeds and cacti, and pick berries by hand with any swing',
+      'A simpler game: People, Court, Laws, Empire, Chronicle, story events, goals, the tutorial, sailing, spies and missiles are switched off for now',
+      'Pop-ups close with the X in their corner (or Esc) instead of Close buttons at the bottom',
+      'New menu and builder icons, and the title screen describes the adventure',
+      'Admin console upgraded: help groups every command with clickable examples and searches (help loot), new god, level, potions, tp, kill, chest and speed commands, spawn here next to you, and duplicate commands removed',
+    ],
+  },
+  {
     title: 'New tool and furniture art, a better house builder',
     changes: [
       'All 50 tools have their own art: pickaxes, axes, shovels, hoes, hammers, fishing rods, sickles, lantern, torch, bucket, watering can and backpack, in your hotbar and in your hands',

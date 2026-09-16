@@ -1,7 +1,7 @@
 {
   "name": "Heartborn",
   "short_name": "Heartborn",
-  "description": "Three humans. One fire. Build a civilization, rule an empire, play with friends.",
+  "description": "One hero. Endless adventure. Fight monsters, delve dungeons, build your home and play with friends.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

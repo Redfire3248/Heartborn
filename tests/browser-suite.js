@@ -313,6 +313,147 @@ export async function run() {
     ok(b.built, 'swinging at a building site builds it');
   });
 
+  await step('ranged monsters, slams, status effects and boss bars', async () => {
+    const H = await import('/src/game/hero.js');
+    const C = await import('/src/game/creatures.js');
+    const g = freshGame({ era: 1, people: 1 });
+    build(g, 'campfire');
+    g.state.creatures = [];
+    const me = g.state.villagers.find(v => v.ruling);
+    H.startLead(g, me);
+    me.hp = 1e5;
+    // an archer shoots from a distance
+    const arch = g.spawnCreature('skeleton', me.x + TILE * 5, me.y, { hunting: g.state.time + 999 }); arch._eliteRolled = true; arch._shotCd = 0;
+    let shots = 0;
+    for (let i = 0; i < 90; i++) { g.step(1 / 30); shots = Math.max(shots, (g.enemyShots || []).length); me.x = arch.x - TILE * 5; me.y = arch.y; }
+    ok(shots > 0, 'skeletons shoot arrows from a distance');
+    // webs slow, poison hurts over time
+    g.state.creatures = []; g.enemyShots = [];
+    g.hero.iframes = 0; g.hero.blocking = false;
+    g.enemyShots.push({ kind: 'web_ball', x: me.x + 2, y: me.y - 10, vx: 0, vy: 0, left: 50, dmg: 2, from: { x: me.x + 40, y: me.y, t: 'giant_spider' } });
+    C.updateEnemyShots(g, 1 / 30);
+    ok(g.hero.slow && g.hero.slow.k < 1, 'a web slows you');
+    g.hero.iframes = 0; g.hero.stagger = 0;
+    g.enemyShots = [{ kind: 'poison_spit', x: me.x + 2, y: me.y - 10, vx: 0, vy: 0, left: 50, dmg: 2, from: { x: me.x + 40, y: me.y, t: 'slime' } }];
+    C.updateEnemyShots(g, 1 / 30);
+    const hp = me.hp;
+    for (let i = 0; i < 30; i++) H.updateHero(g, 1 / 30, {});
+    ok(g.hero.dot && me.hp < hp, 'poison keeps hurting');
+    // a boss slam lands on its warning circle
+    g.aoes = [{ x: me.x, y: me.y, r: TILE * 2, t: 0, delay: 0.2, dmg: 30, from: { x: me.x + 50, y: me.y, t: 'cave_troll' } }];
+    g.hero.iframes = 0; g.hero.stagger = 0; g.hero.blocking = false;
+    const hp2 = me.hp;
+    for (let i = 0; i < 10; i++) C.updateEnemyShots(g, 1 / 30);
+    ok(me.hp < hp2, 'a boss slam hurts when it lands');
+    // every new dungeon monster and boss exists and can be spawned
+    const kinds = ['skeleton_archer', 'dark_mage', 'bat', 'rat', 'zombie', 'mimic', 'cave_spider', 'fire_imp', 'lich', 'stone_golem', 'spider_queen', 'slime_king'];
+    ok(kinds.every(k => g.spawnCreature(k, me.x + 3000, me.y)), 'all 12 dungeon monsters and bosses spawn');
+    // a mimic waits until you come close
+    g.state.creatures = [];
+    for (const o of g.state.villagers) if (o !== me) o.x = me.x + 5000;
+    const mim = g.spawnCreature('mimic', me.x + TILE * 6, me.y); mim._eliteRolled = true;
+    const x0 = mim.x;
+    for (let i = 0; i < 30; i++) g.step(1 / 30);
+    ok(mim.x === x0 && !mim._awake, 'a mimic sits still until you come near');
+    // boss bar in the live game
+    const app = window.__hb.app, hud = app?.hud;
+    if (hud && app.game.hero) {
+      const hv = app.game.state.villagers.find(v => v.id === app.game.hero.id);
+      const b = app.game.spawnCreature('lich', hv.x + TILE * 3, hv.y);
+      hud.updateBossBar(app.game, 1 / 30);
+      ok(document.querySelector('.boss-bar .boss-name')?.textContent === 'The Lich', 'a boss nearby shows its health bar');
+      b.hp = 100; hud.updateBossBar(app.game, 1 / 30);
+      ok(document.querySelector('.boss-bar.enraged'), 'the bar turns enraged under 30%');
+      app.game.state.creatures = app.game.state.creatures.filter(c => c !== b);
+      hud.updateBossBar(app.game, 1 / 30);
+      ok(document.querySelector('.boss-bar.leaving'), 'the bar leaves when the boss is gone');
+    }
+  });
+
+  await step('blade special abilities', async () => {
+    const H = await import('/src/game/hero.js');
+    const R = await import('/src/game/rpg.js');
+    const g = freshGame({ era: 3, people: 1 });
+    build(g, 'campfire');
+    g.state.creatures = [];
+    const me = g.state.villagers.find(v => v.ruling);
+    H.startLead(g, me);
+    for (const o of g.state.villagers) if (o !== me) o.x = me.x + 5000;
+    const wield = base => { const it = R.makeGear(g, base, 3); R.takeGear(g, it, me); R.equip(g, it.id); };
+    const swing = foe => { g.hero.atkCd = 0; g.hero.actCd = 0; g.hero.stamina = 100; g.hero.facing = 0; foe.x = me.x + 20; foe.y = me.y; H.updateHero(g, 1 / 30, { act: true }); };
+    const foe = type => { const c = g.spawnCreature(type, me.x + 20, me.y); c._eliteRolled = true; c.hp = 1e5; return c; };
+    wield('flame_sword'); let c = foe('bear'); swing(c);
+    ok(c._burn, 'the Flame Sword sets foes on fire');
+    g.state.creatures = []; wield('frost_sword'); c = foe('bear'); swing(c);
+    ok(c._chill, 'the Frost Sword chills foes');
+    g.state.creatures = []; wield('thunder_sword'); c = foe('bear'); const c2 = foe('wolf'); c2.x = me.x + 40; const hp2 = c2.hp;
+    g.hero.atkCd = 0; g.hero.stamina = 100; g.hero.facing = Math.PI; c.x = me.x - 20; c.y = me.y; c2.x = c.x - 30; c2.y = c.y + 60; H.updateHero(g, 1 / 30, { act: true });
+    ok(c2.hp < hp2, 'the Thunder Sword chains lightning to another foe');
+    g.state.creatures = []; wield('shadow_blade'); c = foe('bear'); me.hp = 20; swing(c);
+    ok(me.hp > 20, 'the Shadow Blade drains life');
+    const rnd = Math.random; Math.random = () => 0.99;   // no critical hits, so the two blows compare fairly
+    g.state.creatures = []; wield('holy_sword'); const sk = foe('skeleton'); const s0 = sk.hp; g.hero.sinceAttackSwing = null; swing(sk); const dSk = s0 - sk.hp;
+    g.state.creatures = []; const br = foe('bear'); const b0 = br.hp; g.hero.sinceAttackSwing = null; swing(br); const dBr = b0 - br.hp;
+    Math.random = rnd;
+    ok(dSk > dBr * 1.5, 'the Holy Sword smites the undead', `${Math.round(dSk)} vs ${Math.round(dBr)}`);
+    ok(Object.keys(R.BLADE_SPECIALS).length >= 10, 'blades with special abilities: ' + Object.keys(R.BLADE_SPECIALS).length);
+  });
+
+  await step('crafting, homes-only building and hotbar rearranging', async () => {
+    const Cr = await import('/src/game/crafting.js');
+    const To = await import('/src/game/tools.js');
+    const R = await import('/src/game/rpg.js');
+    const F = await import('/src/core/features.js');
+    const g = freshGame({ era: 1, people: 1 });
+    ok(Cr.RECIPES.length > 80 && Cr.RECIPES.every(r => r.name && r.cost && Object.keys(r.cost).length), `${Cr.RECIPES.length} recipes, all with a name and a cost`);
+    ok(['tools', 'weapons', 'armour', 'potions'].every(c => Cr.RECIPES.some(r => r.cat === c)), 'recipes for tools, weapons, armour and potions');
+    g.state.resources.iron = 0;
+    ok(!Cr.craft(g, 'tool:pickaxe_iron').ok, 'you cannot craft without the resources');
+    Object.assign(g.state.resources, { iron: 500, wood: 500, gold: 500, gems: 200, coal: 200, food: 500, stone: 500 });
+    const iron = g.state.resources.iron;
+    ok(Cr.craft(g, 'tool:pickaxe_iron').ok && To.hasTool(g, 'pickaxe_iron') && g.state.resources.iron < iron, 'crafting a tool uses resources and gives the tool');
+    const bag = R.rpgOf(g).bag.length, worn = R.rpgOf(g).gear.weapon;
+    ok(Cr.craft(g, 'gear:flame_sword').ok && (R.rpgOf(g).bag.length > bag || R.rpgOf(g).gear.weapon !== worn), 'crafting a Flame Sword gives it to you');
+    const p0 = R.rpgOf(g).potions || 0;
+    ok(Cr.craft(g, 'potion:health5').ok && R.rpgOf(g).potions === p0 + 5, 'potions can be brewed');
+    // only homes in the build menu, every kind from the start
+    if (F.on('housesOnly')) {
+      ok(F.buildingOn('house') && F.buildingOn('castle') && !F.buildingOn('farm') && !F.buildingOn('campfire'), 'the build menu offers homes only');
+      const g0 = freshGame({ era: 0, people: 1 });
+      build(g0, 'campfire');
+      const spot = g0.findBuildSpot('house');
+      ok(spot && g0.canPlace('house', spot.tx, spot.ty).ok, 'a House can be built in the first era');
+    }
+    // swap hotbar slots
+    const bar = To.hotbarOf(g);
+    const a0 = bar[0], a1 = bar[1];
+    To.selectSlot(g, 0);
+    To.swapSlots(g, 0, 1);
+    ok(bar[0] === a1 && bar[1] === a0 && R.rpgOf(g).hotSel === 1, 'dragging a slot onto another swaps them (and your selection follows)');
+  });
+
+  await step('admin console: every command runs', async () => {
+    const app = window.__hb.app;
+    const c = app?.console;
+    if (!c) { ok(false, 'admin console exists'); return; }
+    c.hud = app.hud;
+    const out = [];
+    const print = c.print.bind(c);
+    c.print = (t, cls) => { out.push([String(t), cls]); print(t, cls); };
+    if (!app.game.hero) (await import('/src/game/hero.js')).startLead(app.game);
+    const safe = ['help', 'help spawn', 'help loot', 'clear', 'heal', 'god on', 'god off', 'level 5', 'potions 3', 'stats', 'tool axe', 'gear sword rare', 'gear list', 'drop sword 1',
+      'chest small 2', 'spawn wolf 2', 'spawn boss 1', 'kill all', 'kill all noloot', 'speed 2', 'speed 1', 'time 12', 'era up', 'finish', 'abilities', 'build tent 1', 'give me gold 50',
+      'karma me 5', 'shield me 1', 'warband 1 999', 'skip 0.05', 'changelog 1', 'tp cave', 'world'];
+    const failed = [];
+    for (const line of safe) { try { await c.run(line); } catch (e) { failed.push(`${line}: ${e.message}`); } }
+    ok(!failed.length, `${safe.length} admin commands run without errors`, failed.join('; '));
+    ok(!('nuke' in (await import('/src/ui/adminConsole.js'))) , 'console module loads');
+    let dup = false; try { await c.run('villager 1'); } catch { dup = true; }
+    ok(dup, 'duplicate commands are gone (villager, nuke, online, rich, clearmobs)');
+    ok(out.some(([t]) => t.includes('examples')), 'help shows examples');
+    c.run('god off');
+  });
+
   await step('controls: keys can be changed in Settings', async () => {
     const C = await import('/src/core/controls.js');
     C.resetBinds();
@@ -372,7 +513,7 @@ export async function run() {
     g.caps.stone = 1e9;
     let dug = false;
     for (let i = 0; i < 12; i++) { g.hero.atkCd = 0; g.hero.actCd = 0; dug = To.dig(g, me) || dug; }
-    ok(dug && g.state.resources.stone > st, 'the shovel digs stone out of the ground');
+    ok(dug && g.state.resources.stone === st, 'the shovel digs the ground (for buried things, not stone)');
     // fish at the water
     let wx = -1, wy = -1;
     for (let y = 0; y < g.world.h && wx < 0; y++) for (let x = 0; x < g.world.w; x++) if (g.world.isWater(x, y) && g.world.walkableTile(x, y + 1)) { wx = x; wy = y; break; }
@@ -1317,7 +1458,7 @@ export async function run() {
 
     const con = app.console;
     if (con) {
-      const cmds = ['help', 'laws', 'give me gold 10', 'karma me 5', 'shield me 1', 'era 2', 'villager 1', 'finish', 'skip 1', 'warband 2 30', 'spawn wolf 1', 'event list'];
+      const cmds = ['help', 'give me gold 10', 'karma me 5', 'shield me 1', 'era 2', 'finish', 'skip 1', 'warband 2 30', 'spawn wolf 1', 'stats'];
       const bad = [];
       for (const cmd of cmds) { try { await con.run(cmd); } catch (e) { bad.push(`${cmd}: ${e.message}`); } }
       ok(!bad.length, `admin console commands (${cmds.length})`, bad.join('; '));
@@ -1379,6 +1520,8 @@ export async function run() {
   await step('tutorial advances and can be skipped', async () => {
     const app = window.__hb.app;
     const tut = app.hud?.tutorial;
+    const F = await import('/src/core/features.js');
+    if (!F.on('tutorial')) { ok(!tut, 'the tutorial is switched off'); return; }
     if (!tut) { ok(false, 'tutorial exists'); return; }
     tut.restart();
     ok(!document.querySelector('.tutorial').hidden, 'tutorial card shows');

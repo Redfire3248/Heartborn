@@ -21,12 +21,12 @@ const WALL = T.deep_water;      // blocked tiles (drawn as rock walls by the ren
 const FLOOR = T.cave_floor;
 
 const POOLS = [
-  ['slime', 'snake', 'giant_spider', 'skeleton'],
-  ['skeleton', 'goblin', 'giant_spider', 'ghost', 'slime'],
-  ['skeleton', 'goblin', 'bandit', 'ghost', 'wolf'],
-  ['bandit', 'skeleton', 'ghost', 'bear', 'goblin'],
+  ['slime', 'rat', 'bat', 'cave_spider', 'skeleton'],
+  ['skeleton', 'skeleton_archer', 'goblin', 'zombie', 'bat', 'cave_spider'],
+  ['skeleton_archer', 'dark_mage', 'zombie', 'fire_imp', 'mimic', 'ghost'],
+  ['dark_mage', 'fire_imp', 'zombie', 'mimic', 'skeleton_archer', 'bandit'],
 ];
-const BOSSES = ['cave_troll', 'forest_spirit'];
+const BOSSES = ['cave_troll', 'slime_king', 'spider_queen', 'forest_spirit', 'stone_golem', 'lich'];
 
 // ------------------------------------------------------------------ the maze
 
@@ -148,8 +148,17 @@ export function makeDungeonGame(home, { depth = 1, entrance = null, seed = (Date
   const spot = (a, pad = 1) => ({ x: (a.x + pad + r() * (a.w - pad * 2)) * TILE, y: (a.y + pad + r() * (a.h - pad * 2)) * TILE });
   const d = g.dungeon = {
     depth, entrance, home, boss, doors, hasKey: false, open: false, bossId: null, cleared: false,
-    exit: rc(start), stairsDown: null, traps: [], torches: [], key: null, leftExit: false, event: null,
+    exit: rc(start), stairsDown: null, traps: [], torches: [], props: [], key: null, leftExit: false, event: null,
   };
+  // decoration: bones and skulls on the floor, cobwebs in corners, pillars, crystals, cages and chains
+  const FLOOR_PROPS = ['bones', 'skull_pile', 'rubble', 'puddle', 'floor_grate', 'broken_barrel', 'glow_crystal', 'pillar', 'cage', 'chains'];
+  for (const a of [...rooms, boss]) {
+    const n = 1 + Math.floor(r() * 3);
+    for (let i = 0; i < n; i++) { const p = spot(a, 1); d.props.push({ kind: FLOOR_PROPS[Math.floor(r() * FLOOR_PROPS.length)], x: p.x, y: p.y }); }
+    d.props.push({ kind: 'cobweb', x: (a.x + 0.5) * TILE, y: (a.y + 0.6) * TILE, flip: false });
+    if (r() < 0.5) d.props.push({ kind: 'cobweb', x: (a.x + a.w - 0.5) * TILE, y: (a.y + 0.6) * TILE, flip: true });
+  }
+  d.props.push({ kind: 'altar', x: (boss.x + boss.w / 2) * TILE, y: (boss.y + 1.2) * TILE });
 
   // torches on the top wall of every room
   for (const a of [...rooms, boss]) {

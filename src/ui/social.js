@@ -186,7 +186,7 @@ export function slotPicker({ user, worldName, listSlots, deleteSlot }) {
       grid.replaceChildren(...slots.map(s => s.empty
         ? h('button.slot.empty', { onclick: () => pick(s.slot, true) },
           h('div.slot-num', `Slot ${s.slot}`), icon('buildings/campfire', 64),
-          h('div.wp-title', 'Found a new civilization'), h('div.faint', 'Three humans. One fire.'))
+          h('div.wp-title', 'Start a new adventure'), h('div.faint', 'One hero. Endless adventure.'))
         : h('div.slot',
           h('div.slot-num', `Slot ${s.slot}`), icon('buildings/castle', 64),
           h('div.wp-title', s.villageName),
@@ -272,12 +272,12 @@ export function friendsPanel(el, { user, username, world = null, onProfile = nul
 
 export async function openProfile(uid, { user, username, world = null, village = null, onVisit = null, onDeal = null, onMarch = null, onSpy = null }) {
   const content = h('div.col', h('div.muted', 'Loading profile…'));
-  const m = modal(content, { cls: 'profile-modal' });
+  const m = modal(content, { cls: 'profile-modal', closeX: true });
   let profile = null, friendsSnap = {};
   try {
     [profile, friendsSnap] = await Promise.all([social.getPublicProfile(uid), social.getFriends(user.uid)]);
   } catch (e) {
-    content.replaceChildren(h('div.error-text', `Could not load profile: ${e.message}`), h('button.btn.sm', { onclick: () => m.close() }, 'Close'));
+    content.replaceChildren(h('div.error-text', `Could not load profile: ${e.message}`));
     return;
   }
   const me = uid === user.uid;
@@ -308,7 +308,7 @@ export async function openProfile(uid, { user, username, world = null, village =
         onDeal ? h('button.btn.sm', { onclick: () => { m.close(); onDeal(); } }, '🤝 Deal') : null,
         onMarch ? h('button.btn.sm.danger', { onclick: () => { m.close(); onMarch(); } }, '⚔ March') : null,
         onSpy ? h('button.btn.sm', { onclick: () => { m.close(); onSpy(); } }, '🕵 Spy') : null)) : null,
-    h('div.row', h('div.spacer'), friendBtn, h('button.btn.sm', { onclick: () => m.close() }, 'Close')),
+    h('div.row', h('div.spacer'), friendBtn),
   ].filter(Boolean));
 }
 

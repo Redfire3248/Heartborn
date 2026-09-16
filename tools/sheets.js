@@ -335,5 +335,77 @@ window.SHEETS = {
       "wall_plaster", "wall_wood", "wall_log", "wall_stone", "wall_brick", "wall_red", "wall_green", "wall_blue", "wall_royal",
       "block_wood", "block_stone", "block_brick", "block_plaster", "half_wall", "pillar", "glass_wall", "archway", "railing"
     ]
+  },
+  dungeonTiles: {
+    title: "Dungeon tiles and props, 35 in 7 columns",
+    folder: "dungeon",
+    mode: "sprite",
+    cols: 7,
+    names: [
+      "dungeon_floor_1", "dungeon_floor_2", "dungeon_floor_cracked", "dungeon_floor_mossy", "dungeon_floor_rubble", "wall_top", "wall_face_1",
+      "wall_face_2", "wall_face_mossy", "door_closed", "door_open", "stairs_up", "stairs_down", "cave_entrance",
+      "spikes_down", "spikes_up", "torch_1", "torch_2", "torch_3", "torch_4", "boss_key",
+      "bones", "skull_pile", "cobweb", "pillar", "rubble", "broken_barrel", "altar",
+      "cage", "chains", "glow_crystal", "puddle", "floor_grate", "lever_off", "lever_on"
+    ]
+  },
+  dungeonMonsters: {
+    title: "Dungeon monsters and bosses, 12 in 4 columns",
+    folder: "characters",
+    mode: "sprite",
+    cols: 4,
+    names: [
+      "skeleton_archer", "dark_mage", "bat", "rat",
+      "zombie", "mimic", "cave_spider", "fire_imp",
+      "lich", "stone_golem", "spider_queen", "slime_king"
+    ]
+  },
+  projectiles: {
+    title: "Projectiles and attack effects, 16 in 8 columns",
+    folder: "combat",
+    mode: "sprite",
+    cols: 8,
+    names: [
+      "arrow", "bone_arrow", "magic_bolt", "fireball", "ice_shard", "poison_spit", "web_ball", "throwing_knife",
+      "dark_orb", "lightning_bolt", "boulder", "sonic_wave", "warning_circle", "shockwave", "small_explosion", "heal_orb"
+    ]
+  },
+  uiIcons: {
+    title: "Interface icons, 16 in 8 columns",
+    folder: "ui",
+    mode: "sprite",
+    cols: 8,
+    names: [
+      "close", "inventory", "character", "map", "build", "settings", "quests", "home",
+      "rotate", "remove", "move", "search", "floors", "wallpaper", "storage", "stairs"
+    ]
+  },
+  armory: {
+    title: "Armory, 100 weapons tools and items in 10 columns",
+    folder: "armory",
+    mode: "sprite",
+    cols: 10,
+    names: [
+      "minigun", "laser_rifle", "plasma_cannon", "rocket_launcher", "railgun", "flamethrower", "freeze_ray", "black_hole_gun", "banana_blaster", "ban_hammer",
+      "god_sword", "infinity_blade", "energy_sword", "cosmic_scythe", "storm_god_hammer", "chaos_staff", "dev_wrench", "golden_frying_pan", "rubber_chicken", "void_dagger",
+      "flintlock_pistol", "musket", "blunderbuss", "revolver", "hunting_rifle", "shotgun", "slingshot", "throwing_axe", "boomerang", "shuriken",
+      "longsword", "bastard_sword", "falchion", "sabre", "gladius", "machete", "wakizashi", "zweihander", "estoc", "kukri",
+      "tomahawk", "double_axe", "war_pick", "maul", "quarterstaff", "glaive", "naginata", "pike", "bardiche", "whip",
+      "fire_staff", "ice_staff", "lightning_wand", "necro_staff", "holy_scepter", "spellbook", "crystal_orb", "bone_wand", "druid_staff", "runic_blade",
+      "pickaxe_celestial", "pickaxe_lava", "pickaxe_ice", "pickaxe_void", "shovel_celestial", "shovel_lava", "shovel_crystal", "shovel_void", "axe_celestial", "axe_lava",
+      "fishing_rod_carbon", "fishing_rod_dragon", "fishing_rod_bone", "fishing_rod_coral", "fishing_rod_lava", "fishing_rod_star", "fishing_net", "harpoon", "tackle_box", "bait_worm",
+      "hoe_celestial", "sickle_celestial", "hammer_celestial", "drill", "chainsaw", "grappling_hook", "compass", "spyglass", "magnet", "lockpick",
+      "mana_potion", "speed_potion", "strength_potion", "invisibility_potion", "antidote", "bomb", "dynamite", "med_kit", "golden_apple", "ammo_box"
+    ]
+  },
+  dungeonBosses: {
+    title: "Dungeon bosses, 4 in 2 columns",
+    folder: "characters",
+    mode: "sprite",
+    cols: 2,
+    names: [
+      "lich", "stone_golem",
+      "spider_queen", "slime_king"
+    ]
   }
 };

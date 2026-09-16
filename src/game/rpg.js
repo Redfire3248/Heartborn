@@ -64,6 +64,23 @@ export const WEAPONS = {
   magic_staff: { name: 'Magic Staff', dmg: 18, range: 7, speed: 0.8, ranged: true, minRarity: 1, icon: 'gear/magic_staff', fallbackIcon: 'gear/staff', length: 1.2 },
 };
 
+/** Special abilities of some blades (shown in Analyze, used on every hit). */
+export const BLADE_SPECIALS = {
+  flame_sword:   { name: 'Burning Blade', desc: 'Sets foes on fire: 5 damage a second for 3 seconds', burn: { dps: 5, secs: 3 } },
+  frost_sword:   { name: 'Frostbite', desc: 'Chills foes to half speed; 1 in 5 hits freezes them solid', chill: { k: 0.5, secs: 2.5, freeze: 0.2 } },
+  thunder_sword: { name: 'Chain Lightning', desc: 'Lightning leaps to 2 more foes nearby for half damage', chain: { count: 2, range: 3.5, share: 0.5 } },
+  shadow_blade:  { name: 'Life Drain', desc: 'Heals you for 12% of the damage you deal', lifesteal: 0.12 },
+  holy_sword:    { name: 'Smite the Dead', desc: 'Double damage to skeletons, ghosts, zombies and the Lich; every hit heals you a little', undead: 2, heal: 3 },
+  katana:        { name: 'Bleed', desc: 'A third of hits make foes bleed: 3 damage a second for 4 seconds', bleed: { chance: 0.35, dps: 3, secs: 4 } },
+  rapier:        { name: 'Riposte', desc: 'After a perfect parry your next hit deals triple damage', riposte: 3 },
+  greatsword:    { name: 'Shockwave', desc: 'The combo finisher sends out a shockwave that hits everything around you', shockwave: { radius: 2.4, share: 0.6 } },
+  scythe:        { name: 'Reap', desc: 'Each foe you slay heals you for 8% of your health', reap: 0.08 },
+  twin_daggers:  { name: 'Twin Strike', desc: 'Every hit strikes twice (the second for half)', twin: 0.5 },
+  scimitar:      { name: 'Whirlwind', desc: 'The combo finisher spins all the way round you', whirl: true },
+  cutlass:       { name: 'Plunder', desc: 'Foes you slay drop extra gold', plunder: [3, 9] },
+};
+export const UNDEAD = new Set(['skeleton', 'skeleton_archer', 'ghost', 'zombie', 'lich']);
+
 // shields: block = share of a blow stopped while guarding; parry = seconds a well-timed guard parries; slow = move speed while guarding
 export const SHIELDS = {
   buckler: { name: 'Buckler', block: 0.6, parry: 0.35, slow: 0.7, icon: 'gear/buckler', fallbackIcon: 'gear/round_shield', size: 0.7 },

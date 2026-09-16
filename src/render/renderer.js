@@ -6,7 +6,6 @@ import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
 import { BUILDINGS, sizeOf, buildingSprite } from '../data/buildings.js';
 import { displayRole, toolFor, carryIcon, heldItem } from '../game/villagers.js';
 import { speedMult, bodyWorkMult } from '../game/body.js';
-import { maxHp } from '../game/creatures.js';
 import { FIND_KINDS } from '../game/finds.js';
 import { ITEMS } from '../data/people.js';
 import { heroWeapon, rpgOf, WEAPONS, SHIELDS } from '../game/rpg.js';
@@ -14,7 +13,8 @@ import { gearIconKey, hasArt } from './gearArt.js';
 import { trapUp } from '../game/dungeon.js';
 import { DESIGNS, doorOf, isHome } from '../game/houses.js';
 import { TOOLS, lightBonus, heldSlot } from '../game/tools.js';
-import { spriteAvailable } from '../core/assets.js';
+import { SHOTS, maxHp } from '../game/creatures.js';
+import { spriteAvailable, spriteVersion } from '../core/assets.js';
 import { T } from '../game/world.js';
 
 // hero frames leave room around the figure for swings and dashes: draw them bigger so the hero stands as tall as villagers
@@ -141,6 +141,7 @@ export class Renderer {
     if (g.dungeon) {
       const d = g.dungeon;
       for (const t of d.torches) if (inView(t.x, t.y)) items.push({ y: t.y - TILE, draw: () => this.drawTorch(t) });
+      if (hasArt('dungeon/bones')) for (const p of d.props || []) if (inView(p.x, p.y)) items.push({ y: ['puddle', 'floor_grate', 'bones', 'rubble', 'cobweb'].includes(p.kind) ? p.y - TILE * 2 : p.y, draw: () => drawSprite(this.ctx, `dungeon/${p.kind}`, p.x, p.y + TILE * 0.35, TILE * ({ pillar: 1.3, cage: 1.1, chains: 1.1, altar: 1.3, glow_crystal: 0.9, cobweb: 1 }[p.kind] || 0.8), { flip: p.flip }) });
       if (d.key) items.push({ y: d.key.y, draw: () => this.drawKey(d.key) });
     }
     if (!g.visiting) for (const it of g.state.groundItems || []) {
@@ -154,7 +155,8 @@ export class Renderer {
 
     this.drawSea(g);
     this.drawGhost(g);
-    for (const sh of g.enemyShots || []) drawSprite(this.ctx, 'nature/rock', sh.x, sh.y + 4, TILE * 0.35, { rot: this.time * 12 });   // thrown rocks
+    this.drawShots(g);
+    this.drawBolts(g, dt);
     this.drawParticles(g);
     this.drawBeams(g);
     this.drawStrikes(g);
@@ -233,12 +235,77 @@ export class Renderer {
   drawDungeonFloor(g, view) {
     const { ctx } = this;
     const w = g.world, d = g.dungeon, P = TILE / 8;
+    // the maze itself never changes (until the boss door opens): paint it once, then just copy it each frame
+    if (this._dungeonCache?.world !== w || this._dungeonCache.version !== w.version || this._dungeonCache.sprites !== spriteVersion()) this._dungeonCache = this.paintDungeon(g);
+    const cache = this._dungeonCache;
+    const x0 = Math.max(0, view.x0), y0 = Math.max(0, view.y0), x1 = Math.min(w.w, view.x1 + 1), y1 = Math.min(w.h, view.y1 + 1);
+    if (x1 > x0 && y1 > y0) {
+      const k = cache.ppt;
+      ctx.drawImage(cache.canvas, x0 * k, y0 * k, (x1 - x0) * k, (y1 - y0) * k, x0 * TILE, y0 * TILE, (x1 - x0) * TILE, (y1 - y0) * TILE);
+    }
+    const stairs = (p, down) => {
+      const X = p.x - TILE * 0.75, Y = p.y - TILE * 0.75, S = TILE * 1.5;
+      if (hasArt(down ? 'dungeon/stairs_down' : 'dungeon/stairs_up')) { drawSprite(ctx, down ? 'dungeon/stairs_down' : 'dungeon/stairs_up', p.x, p.y, S, { center: true, full: true }); return; }
+      ctx.fillStyle = down ? '#0b0910' : '#3c3548'; ctx.fillRect(X, Y, S, S);
+      for (let i = 0; i < 5; i++) {
+        const k = down ? i : 4 - i;
+        ctx.fillStyle = `rgb(${70 + k * 18},${62 + k * 16},${84 + k * 16})`;
+        ctx.fillRect(X + (down ? i * S * 0.06 : 0), Y + i * S / 5, S - (down ? i * S * 0.12 : 0), S / 5 - P * 0.4);
+      }
+      const bob = Math.sin(this.time * 4) * 2;
+      ctx.fillStyle = down ? '#ffcf5a' : '#9fe07a';
+      ctx.beginPath();
+      const ay = p.y - TILE * 1.2 + bob, dir = down ? 1 : -1;
+      ctx.moveTo(p.x - 4, ay - 3 * dir); ctx.lineTo(p.x + 4, ay - 3 * dir); ctx.lineTo(p.x, ay + 4 * dir); ctx.fill();
+    };
+    stairs(d.exit, false);
+    if (d.stairsDown) stairs(d.stairsDown, true);
+    for (const t of d.traps) {
+      const X = t.tx * TILE, Y = t.ty * TILE, up = trapUp(g, t);
+      if (hasArt('dungeon/spikes_down')) { drawSprite(ctx, up ? 'dungeon/spikes_up' : 'dungeon/spikes_down', X + TILE / 2, Y + TILE / 2, TILE, { center: true, full: true }); continue; }
+      ctx.fillStyle = '#2b2630'; ctx.fillRect(X + P, Y + P, 6 * P, 6 * P);
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+        const sx = X + (2 + i * 2) * P, sy = Y + (2 + j * 2) * P;
+        if (up) { ctx.fillStyle = '#c9c4d6'; ctx.beginPath(); ctx.moveTo(sx - P * 0.7, sy + P * 0.6); ctx.lineTo(sx + P * 0.7, sy + P * 0.6); ctx.lineTo(sx, sy - P * 1.6); ctx.fill(); }
+        else { ctx.fillStyle = '#16131a'; ctx.fillRect(sx - P * 0.4, sy - P * 0.4, P * 0.8, P * 0.8); }
+      }
+    }
+  }
+
+  /** Floors, brick wall faces and the boss door, painted once at 24 pixels per tile. */
+  paintDungeon(g) {
+    const w = g.world, d = g.dungeon, ppt = 24;
+    const canvas = document.createElement('canvas');
+    canvas.width = w.w * ppt; canvas.height = w.h * ppt;
+    const ctx = canvas.getContext('2d');
+    const k = ppt / TILE;
+    ctx.scale(k, k);
+    const P = TILE / 8;
     const wall = (x, y) => w.tile(x, y) === T.deep_water;
-    const isDoor = (x, y) => !d.open && d.doors.some(p => p.x === x && p.y === y);
+    const doors = new Set(d.open ? [] : d.doors.map(p => `${p.x},${p.y}`));
+    const isDoor = (x, y) => doors.has(`${x},${y}`);
     const floorTile = this.terrain.tileCanvas('tile_cave_floor', 64);
-    for (let y = Math.max(0, view.y0); y <= Math.min(w.h - 1, view.y1); y++) {
-      for (let x = Math.max(0, view.x0); x <= Math.min(w.w - 1, view.x1); x++) {
+    const art = hasArt('dungeon/dungeon_floor_1') && hasArt('dungeon/wall_face_1');
+    const tileArt = (key, X, Y) => { const s = sprite(key); if (s) ctx.drawImage(s.img, s.box.x, s.box.y, s.box.w, s.box.h, X - 0.25, Y - 0.25, TILE + 0.5, TILE + 0.5); };
+    const rnd = (x, y, k = 0) => { let n = (x * 374761393 + y * 668265263 + k * 1442695041) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967295; };
+    const openDoors = new Set(d.open ? d.doors.map(p => `${p.x},${p.y}`) : []);
+    for (let y = 0; y < w.h; y++) {
+      for (let x = 0; x < w.w; x++) {
         const X = x * TILE, Y = y * TILE;
+        if (art) {   // the painted tiles
+          if (!wall(x, y)) {
+            const f = rnd(x, y);
+            tileArt(`dungeon/${f < 0.55 ? 'dungeon_floor_1' : f < 0.8 ? 'dungeon_floor_2' : f < 0.89 ? 'dungeon_floor_cracked' : f < 0.97 ? 'dungeon_floor_mossy' : 'dungeon_floor_rubble'}`, X, Y);
+            if (openDoors.has(`${x},${y}`)) tileArt('dungeon/door_open', X, Y);
+            if (wall(x, y - 1)) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(X, Y, TILE, P * 1.2); }
+            continue;
+          }
+          if (isDoor(x, y)) { tileArt('dungeon/door_closed', X, Y); continue; }
+          if (!wall(x, y + 1) || isDoor(x, y + 1)) { const f = rnd(x, y, 1); tileArt(`dungeon/${f < 0.6 ? 'wall_face_1' : f < 0.85 ? 'wall_face_2' : 'wall_face_mossy'}`, X, Y); continue; }
+          if (!wall(x, y - 1) || !wall(x - 1, y) || !wall(x + 1, y) || !wall(x, y + 2)) { tileArt('dungeon/wall_top', X, Y); ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(X, Y, TILE, TILE); continue; }
+          ctx.fillStyle = '#0e0c12'; ctx.fillRect(X - 0.5, Y - 0.5, TILE + 1, TILE + 1);
+          continue;
+        }
         if (!wall(x, y)) {
           ctx.drawImage(floorTile, X - 0.25, Y - 0.25, TILE + 0.5, TILE + 0.5);
           if (wall(x, y - 1)) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(X, Y, TILE, P * 1.2); }   // the wall's shadow
@@ -267,36 +334,68 @@ export class Renderer {
         }
       }
     }
-    const stairs = (p, down) => {
-      const X = p.x - TILE * 0.75, Y = p.y - TILE * 0.75, S = TILE * 1.5;
-      ctx.fillStyle = down ? '#0b0910' : '#3c3548'; ctx.fillRect(X, Y, S, S);
-      for (let i = 0; i < 5; i++) {
-        const k = down ? i : 4 - i;
-        ctx.fillStyle = `rgb(${70 + k * 18},${62 + k * 16},${84 + k * 16})`;
-        ctx.fillRect(X + (down ? i * S * 0.06 : 0), Y + i * S / 5, S - (down ? i * S * 0.12 : 0), S / 5 - P * 0.4);
-      }
-      const bob = Math.sin(this.time * 4) * 2;
-      ctx.fillStyle = down ? '#ffcf5a' : '#9fe07a';
-      ctx.beginPath();
-      const ay = p.y - TILE * 1.2 + bob, dir = down ? 1 : -1;
-      ctx.moveTo(p.x - 4, ay - 3 * dir); ctx.lineTo(p.x + 4, ay - 3 * dir); ctx.lineTo(p.x, ay + 4 * dir); ctx.fill();
-    };
-    stairs(d.exit, false);
-    if (d.stairsDown) stairs(d.stairsDown, true);
-    for (const t of d.traps) {
-      const X = t.tx * TILE, Y = t.ty * TILE, up = trapUp(g, t);
-      ctx.fillStyle = '#2b2630'; ctx.fillRect(X + P, Y + P, 6 * P, 6 * P);
-      for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
-        const sx = X + (2 + i * 2) * P, sy = Y + (2 + j * 2) * P;
-        if (up) { ctx.fillStyle = '#c9c4d6'; ctx.beginPath(); ctx.moveTo(sx - P * 0.7, sy + P * 0.6); ctx.lineTo(sx + P * 0.7, sy + P * 0.6); ctx.lineTo(sx, sy - P * 1.6); ctx.fill(); }
-        else { ctx.fillStyle = '#16131a'; ctx.fillRect(sx - P * 0.4, sy - P * 0.4, P * 0.8, P * 0.8); }
+    return { canvas, ppt, world: w, version: w.version, sprites: spriteVersion() };
+  }
+
+  /** Enemy shots (their art from Projectiles.png, or simple shapes until then) and slam warnings. */
+  drawShots(g) {
+    const { ctx } = this;
+    for (const a of g.aoes || []) {   // a red circle fills up, then a shockwave where it lands
+      const k = Math.min(1, a.t / a.delay);
+      if (a.t < a.delay) {
+        if (hasArt('combat/warning_circle')) drawSprite(ctx, 'combat/warning_circle', a.x, a.y, a.r * 2, { center: true, full: true, alpha: 0.6 + k * 0.4 });
+        ctx.fillStyle = `rgba(255,50,40,${0.12 + k * 0.22})`;
+        ctx.beginPath(); ctx.ellipse(a.x, a.y, a.r * k, a.r * 0.5 * k, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,70,50,0.9)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.ellipse(a.x, a.y, a.r, a.r * 0.5, 0, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      } else {
+        const e = (a.t - a.delay) / 0.35;
+        if (hasArt('combat/shockwave')) drawSprite(ctx, 'combat/shockwave', a.x, a.y, a.r * 2 * (0.6 + e), { center: true, full: true, alpha: 1 - e });
+        else { ctx.strokeStyle = `rgba(230,210,170,${1 - e})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(a.x, a.y, a.r * (0.6 + e * 0.6), a.r * 0.5 * (0.6 + e * 0.6), 0, 0, Math.PI * 2); ctx.stroke(); }
       }
     }
+    for (const sh of g.enemyShots || []) {
+      const kind = SHOTS[sh.kind] || SHOTS.rock;
+      const key = `combat/${sh.kind || 'rock'}`;
+      const ang = Math.atan2(sh.vy, sh.vx);
+      const size = TILE * kind.size;
+      if (kind.glow) {
+        const grad = ctx.createRadialGradient(sh.x, sh.y, 0, sh.x, sh.y, size);
+        grad.addColorStop(0, kind.glow); grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = 0.55; ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(sh.x, sh.y, size, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      }
+      if (hasArt(key)) { drawSprite(ctx, key, sh.x, sh.y, size, { rot: kind.spin ? this.time * 12 : ang, center: true, full: true }); continue; }
+      if (!sh.kind || sh.kind === 'rock' || sh.kind === 'boulder') { drawSprite(ctx, 'nature/rock', sh.x, sh.y + 4, size, { rot: this.time * 12 }); continue; }
+      ctx.save(); ctx.translate(sh.x, sh.y); ctx.rotate(ang);
+      if (sh.kind === 'arrow' || sh.kind === 'bone_arrow' || sh.kind === 'throwing_knife') {
+        ctx.fillStyle = sh.kind === 'throwing_knife' ? '#c8ccd8' : '#8a5a32'; ctx.fillRect(-size * 0.5, -1, size, 2);
+        ctx.fillStyle = '#d8d8e0'; ctx.beginPath(); ctx.moveTo(size * 0.5 + 4, 0); ctx.lineTo(size * 0.5 - 1, -3); ctx.lineTo(size * 0.5 - 1, 3); ctx.fill();
+      } else {
+        ctx.fillStyle = sh.kind === 'web_ball' ? '#f0f0f0' : kind.glow || '#ffffff';
+        ctx.beginPath(); ctx.arc(0, 0, size * 0.32, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.arc(-size * 0.08, -size * 0.08, size * 0.12, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  /** Chain lightning from a thunder sword. */
+  drawBolts(g, dt) {
+    const { ctx } = this;
+    for (const b of g.fx.bolts || []) {
+      b.life -= dt;
+      ctx.strokeStyle = `rgba(255,240,120,${Math.max(0, b.life * 5)})`; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(b.x0, b.y0);
+      for (let i = 1; i < 6; i++) { const t = i / 6; ctx.lineTo(b.x0 + (b.x1 - b.x0) * t + (Math.random() - 0.5) * 10, b.y0 + (b.y1 - b.y0) * t + (Math.random() - 0.5) * 10); }
+      ctx.lineTo(b.x1, b.y1); ctx.stroke();
+    }
+    if (g.fx.bolts?.length) g.fx.bolts = g.fx.bolts.filter(b => b.life > 0);
   }
 
   drawTorch(t) {
     const { ctx } = this;
     const P = TILE / 8;
+    if (hasArt('dungeon/torch_1')) { drawSprite(ctx, `dungeon/torch_${1 + Math.floor(this.time * 8 + t.x) % 4}`, t.x, t.y + TILE * 0.15, TILE * 0.9); return; }
     ctx.fillStyle = '#5a3a1e'; ctx.fillRect(t.x - P * 0.5, t.y - TILE * 0.55, P, P * 3.5);
     ctx.fillStyle = '#3b3b44'; ctx.fillRect(t.x - P, t.y - TILE * 0.55, P * 2, P * 0.8);
     const flick = 1 + Math.sin(this.time * 14 + t.x) * 0.12;
@@ -307,7 +406,7 @@ export class Renderer {
     const bob = Math.sin(this.time * 3) * 2;
     this.shadow(k.x, k.y, TILE * 0.4);
     if (Math.sin(this.time * 3) > 0.5) drawSprite(this.ctx, 'effects/spark', k.x + 6, k.y - 14 + bob, 8);
-    drawSprite(this.ctx, 'gear/key', k.x, k.y - 4 + bob, TILE * 0.6);
+    drawSprite(this.ctx, hasArt('dungeon/boss_key') ? 'dungeon/boss_key' : 'gear/key', k.x, k.y - 4 + bob, TILE * 0.6);
   }
 
   /** A cave mouth in the wilds: a mound of rock around a black opening. */
@@ -315,6 +414,7 @@ export class Renderer {
     const { ctx } = this;
     const S = TILE * 1.8;
     this.shadow(e.x, e.y + 2, S * 1.1);
+    if (hasArt('dungeon/cave_entrance')) { drawSprite(ctx, 'dungeon/cave_entrance', e.x, e.y + 4, S * 1.25); this.caveLabel(g, e, S); return; }
     ctx.fillStyle = '#5d5566';
     ctx.beginPath(); ctx.ellipse(e.x, e.y - S * 0.25, S * 0.62, S * 0.5, 0, Math.PI, 0); ctx.lineTo(e.x + S * 0.62, e.y); ctx.lineTo(e.x - S * 0.62, e.y); ctx.fill();
     ctx.fillStyle = '#7a7186';
@@ -325,6 +425,11 @@ export class Renderer {
     drawSprite(ctx, 'nature/rock', e.x + S * 0.52, e.y + 3, TILE * 0.45);
     const flick = 1 + Math.sin(this.time * 14 + e.x) * 0.12;
     drawSprite(ctx, 'effects/flame', e.x - S * 0.36, e.y - S * 0.62, TILE * 0.4 * flick);
+    this.caveLabel(g, e, S);
+  }
+
+  caveLabel(g, e, S) {
+    const { ctx } = this;
     const hero = g.hero && g.state.villagers.find(v => v.id === g.hero.id);
     if (hero && Math.hypot(hero.x - e.x, hero.y - e.y) < TILE * 4) {
       ctx.font = 'bold 7px system-ui, sans-serif'; ctx.textAlign = 'center';
@@ -591,10 +696,12 @@ export class Renderer {
     };
 
     // layering: facing away, your gear is in front of the body; otherwise the shield arm is behind and the sword in front
+    // facing away the shield is on your back, but the sword stays in your hand, in view
     if (facing !== 'up') { if (!hero.blocking) drawShield(); }
-    else { drawShield(); drawWeapon(); }
+    else if (!hero.blocking) drawShield();
     drawSprite(ctx, body, bx, by, size * (body.startsWith('hero/') ? 1.1 : 1), { flip: side < 0, tint, solid: tint === '#ffffff', offsetY: bob, squash: sq, rot: lean });
-    if (facing !== 'up') { drawWeapon(); if (hero.blocking) drawShield(); }
+    drawWeapon();
+    if (hero.blocking) drawShield();
     if (hero.stagger > 0.15) {   // dazed: stars circling your head, like the enemies you stun
       for (let i = 0; i < 3; i++) {
         const s = this.time * 6 + i * 2.1;
@@ -641,7 +748,12 @@ export class Renderer {
     if (c._attack) squash = -0.15;
     this.shadow(c.x, c.y, size * (def.flying ? 0.5 : 0.8));
     const alpha = c.t === 'ghost' ? 0.75 : 1;
-    drawSprite(ctx, c.sprite || def.sprite, c.x, c.y, size, { flip: c._flip, offsetY: offsetY + (c._stunned > 0 && !c._whiteFlash ? Math.sin(this.time * 40) * 0.8 : 0), rot, squash, alpha, tint: c._whiteFlash > 0 || (c._stunned > 0 && Math.floor(this.time * 10) % 2 === 0) ? '#ffffff' : c._hurtFlash > 0 ? '#ffffff' : def.tint || null, solid: c._whiteFlash > 0 || (c._stunned > 0 && Math.floor(this.time * 10) % 2 === 0) });
+    // monsters whose own art is not in yet wear a recoloured cousin's
+    const useFallback = !c.sprite && def.fallback && !spriteAvailable(def.sprite);
+    const art = c.sprite || (useFallback ? def.fallback.sprite : def.sprite);
+    const iced = c._chill || (c._frozen && c._frozen > g.state.time);
+    const baseTint = iced ? '#9fd4ff' : useFallback ? def.fallback.tint || null : def.tint || null;
+    drawSprite(ctx, art, c.x, c.y, size, { flip: c._flip, offsetY: offsetY + (c._stunned > 0 && !c._whiteFlash ? Math.sin(this.time * 40) * 0.8 : 0), rot, squash, alpha, tint: c._whiteFlash > 0 || (c._stunned > 0 && Math.floor(this.time * 10) % 2 === 0) ? '#ffffff' : c._hurtFlash > 0 ? '#ffffff' : baseTint, solid: c._whiteFlash > 0 || (c._stunned > 0 && Math.floor(this.time * 10) % 2 === 0) });
     if (def.hostile) {
       const max = maxHp(c);
       const hp = c.hp ?? max;
@@ -950,7 +1062,8 @@ export class Renderer {
     // animated effects: slashes, hits, dust, parries, poofs
     for (const a of g.fx.anims || []) {
       const frame = Math.min(5, Math.floor(a.t / a.dur * 6));
-      drawSprite(this.ctx, `${a.prefix}_${frame}`, a.x, a.y, a.size, { rot: a.rot, flip: a.flip, full: true, center: true });
+      // effects that point somewhere (slashes) mirror across that direction; others mirror left-right
+      drawSprite(this.ctx, `${a.prefix}_${frame}`, a.x, a.y, a.size, { rot: a.rot, flip: a.rot == null && a.flip, flipY: a.rot != null && a.flip, full: true, center: true });
     }
   }
 
@@ -982,9 +1095,15 @@ export class Renderer {
     for (const v of g.state.villagers) if (!v.away) lights.push({ x: v.x, y: v.y - 8, r: TILE * (g.dungeon ? 6 + lightBonus(g) : 1.1) });
     if (g.dungeon) {
       for (const t of g.dungeon.torches) lights.push({ x: t.x, y: t.y - TILE * 0.4, r: TILE * 3.4 });
+      for (const p of g.dungeon.props || []) if (p.kind === 'glow_crystal') lights.push({ x: p.x, y: p.y, r: TILE * 1.8 });
       for (const p of [g.dungeon.exit, g.dungeon.stairsDown, g.dungeon.key]) if (p) lights.push({ x: p.x, y: p.y, r: TILE * 1.6 });
     }
     const flicker = 1 + Math.sin(this.time * 12) * 0.03;
+    const W = light.width, H = light.height;
+    for (let i = lights.length - 1; i >= 0; i--) {   // skip lights that are off screen
+      const l = lights[i], x = l.x * s + ox, y = l.y * s + oy, r = l.r * s;
+      if (x + r < 0 || y + r < 0 || x - r > W || y - r > H) lights.splice(i, 1);
+    }
     for (const l of lights) {
       const x = l.x * s + ox, y = l.y * s + oy, r = l.r * s * flicker;
       const grad = lctx.createRadialGradient(x, y, 0, x, y, r);

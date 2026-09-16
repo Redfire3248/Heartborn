@@ -1,7 +1,10 @@
 import { h, icon, RES_ICON } from './dom.js';
 import { buildingSprite } from '../data/buildings.js';
 import { villagerSprite } from '../data/objects.js';
-import { CATALOG, RARITY, makeGear, takeGear, equip, rpgOf } from '../game/rpg.js';
+import { CATALOG, RARITY, makeGear, takeGear, equip, rpgOf, heroStats } from '../game/rpg.js';
+import { damageCreature } from '../game/creatures.js';
+import { updateEntrances } from '../game/treasure.js';
+import { on } from '../core/features.js';
 import { gearIconKey } from '../render/gearArt.js';
 import { heroOf } from '../game/hero.js';
 import { EVENTS } from '../data/events.js';
@@ -35,7 +38,61 @@ const COMMAND_ICONS = {
   skip: 'items/star_rank', era: 'items/crown_leader', errors: 'effects/emote_alert', reports: 'effects/emote_angry', villager: 'items/population', changelog: 'items/scroll',
   rich: 'items/icon_gold', time: 'items/star_rank', item: 'items/relic', drop: 'items/relic', gear: 'gear/sword_legendary', missile: 'units/missile', nuke: 'units/missile', dungeon: 'gear/key', tool: 'items/pickaxe',
   person: 'items/baby', build: 'buildings/campfire', empire: 'items/crown_leader', version: 'items/star_rank', heal: 'effects/plus_heal',
+  god: 'items/shield_protect', level: 'items/star_rank', potions: 'gear/health_potion', tp: 'effects/magic_orb', kill: 'effects/skull_curse', chest: 'gear/chest_closed',
+  speed: 'items/star_rank', stats: 'items/scroll', help: 'items/scroll', finish: 'items/hammer', abilities: 'effects/spark', world: 'buildings/castle',
 };
+
+const EXAMPLES = {
+  help: [['help', 'every command'], ['help spawn', 'one command with examples'], ['help loot', 'search for commands about loot']],
+  clear: [['clear', 'wipe the console']],
+  players: [['players', 'everyone, online first'], ['players ada', 'only players matching "ada"']],
+  info: [['info me', 'your own save'], ['info Riverwood', 'a player by village name']],
+  give: [['give me gold 500', '500 gold for you'], ['give me * 10000', '10000 of every resource'], ['give * food 200 wood 100', 'food and wood for every player']],
+  karma: [['karma me 50', 'set your karma to 50']],
+  shield: [['shield me 24', 'nobody can attack you for a day']],
+  msg: [['msg Riverwood Hello there!', 'a private banner for one player']],
+  broadcast: [['broadcast Server restart in 5 minutes', 'a banner for everyone']],
+  spawn: [['spawn wolf 3', '3 wolves next to you'], ['spawn boss', 'every boss next to you'], ['spawn hostile 1 me', 'one of every monster raids your village'], ['spawn lich 1', 'the Lich, right here']],
+  warband: [['warband 10 30', '10 raiders arrive in 30 seconds']],
+  ban: [['ban Griefer spamming chat', 'ban with a reason']],
+  unban: [['unban Griefer', 'lift the ban']],
+  reset: [['reset me confirm', 'start your own game over'], ['reset Riverwood confirm', 'wipe a player\'s village']],
+  chat: [['chat 30', 'the last 30 messages'], ['chat clear', 'clear the chat']],
+  skip: [['skip 3', 'jump three days ahead']],
+  era: [['era up', 'the next era'], ['era *', 'the last era'], ['era 2', 'a specific era']],
+  finish: [['finish', 'complete every building site']],
+  gear: [['gear list', 'every kind of gear with pictures'], ['gear katana legendary equip', 'a legendary katana, equipped'], ['gear * epic', 'one epic piece of everything'], ['gear shield rare 1', 'one rare of every shield']],
+  tool: [['tool *', 'one of every tool'], ['tool pickaxe_mythril', 'the best pickaxe'], ['tool axe', 'every axe']],
+  dungeon: [['dungeon 1', 'into a dungeon'], ['dungeon 5', 'straight down to floor 5'], ['dungeon leave', 'back to the surface']],
+  drop: [['drop sword 1', 'a sword on the ground at your cursor'], ['drop * 1', 'one of every item']],
+  errors: [['errors', 'recent crash reports'], ['errors clear', 'clear them']],
+  reports: [['reports', 'reported chat messages']],
+  version: [['version', 'is this the newest build?']],
+  changelog: [['changelog 5', 'the last five updates']],
+  reload: [['reload', 'reload the page']],
+  heal: [['heal', 'full health, cured']],
+  god: [['god', 'toggle invincibility'], ['god off', 'turn it off']],
+  level: [['level 20', 'level 20 with the points for it'], ['level 50 0', 'level 50, no extra points']],
+  potions: [['potions 10', 'carry 10 health potions']],
+  tp: [['tp cursor', 'to where your mouse points'], ['tp cave', 'to a dungeon entrance'], ['tp boss', 'in a dungeon: straight to the boss (opens the door)'], ['tp 40 60', 'to tile 40, 60']],
+  kill: [['kill', 'monsters within 12 tiles (with loot)'], ['kill all', 'every monster'], ['kill all noloot', 'remove them without drops']],
+  chest: [['chest', 'a chest at your cursor'], ['chest boss 3', 'three boss chests']],
+  speed: [['speed 2', 'the world runs twice as fast'], ['speed 1', 'back to normal']],
+  build: [['build house 3', 'three houses'], ['build *', 'one of every building']],
+  abilities: [['abilities', 'recharge building abilities']],
+  time: [['time 22', 'night time'], ['time 8', 'morning']],
+  stats: [['stats', 'your hero and land']],
+  world: [['world', 'which world you are in']],
+};
+const GROUP_INFO = { Hero: 'you and your character', 'Items & loot': 'gear, tools, items, chests, resources', World: 'monsters, buildings, time and the land', Players: 'other players and moderation', Game: 'console, version and bug reports' };
+const COMMAND_GROUPS = ['Hero', 'Items & loot', 'World', 'Players', 'Game'];
+const GROUP_OF = {
+  heal: 'Hero', god: 'Hero', level: 'Hero', potions: 'Hero', tp: 'Hero', stats: 'Hero', dungeon: 'Hero',
+  gear: 'Items & loot', tool: 'Items & loot', drop: 'Items & loot', chest: 'Items & loot', give: 'Items & loot', item: 'Items & loot',
+  spawn: 'World', kill: 'World', warband: 'World', build: 'World', finish: 'World', abilities: 'World', era: 'World', skip: 'World', time: 'World', speed: 'World', karma: 'World', shield: 'World', event: 'World', laws: 'World', empire: 'World', missile: 'World', person: 'World', tutorial: 'World',
+  players: 'Players', info: 'Players', msg: 'Players', broadcast: 'Players', ban: 'Players', unban: 'Players', reset: 'Players', chat: 'Players', reports: 'Players', world: 'Players',
+};
+const groupOfCommand = k => GROUP_OF[k] || 'Game';
 
 const HISTORY_KEY = 'hb_admin_history';
 
@@ -49,9 +106,11 @@ const HISTORY_KEY = 'hb_admin_history';
 // What each argument position expects, for autocomplete + hints.
 // Arrays are fixed choices; '...' repeats the pair before it (give res n res n …).
 const ARG_SPECS = {
+  help: ['command'], god: [['on', 'off']], level: ['number', 'number'], potions: ['number'], speed: [['0.5', '1', '2', '4']],
+  tp: [['cursor', 'home', 'cave', 'boss', 'key', 'exit']], kill: [['12', 'all'], ['noloot']], chest: [['small', 'big', 'boss'], 'number'],
   players: ['text'], info: ['player'], give: ['player', 'res', 'number', '...'], karma: ['player', 'number'],
   shield: ['player', 'number'], msg: ['player', 'text'], broadcast: ['text'], event: ['event', 'target'],
-  spawn: ['creature', 'number', 'target'], warband: ['number', 'number'], ban: ['player', 'text'], unban: ['player'],
+  spawn: ['creature', 'number', 'spawnat'], warband: ['number', 'number'], ban: ['player', 'text'], unban: ['player'],
   reset: ['player', ['confirm']], chat: [['15', 'clear', 'del']], skip: ['number'], era: [['up', '*', '0', '1', '2', '3', '4', '5']],
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
@@ -186,6 +245,8 @@ export class AdminConsole {
     switch (kind) {
       case 'player': return [me, star('every player'), ...players];
       case 'target': return [me, star('every village'), { value: 'all', label: 'all', detail: 'every online player' }, ...players];
+      case 'spawnat': return [{ value: 'here', label: 'here', detail: 'right next to you' }, me, star('every village'), ...players];
+      case 'command': return Object.entries(COMMANDS).map(([k, c]) => ({ value: k, label: k, detail: c.desc, icon: COMMAND_ICONS[k] }));
       case 'res': return [{ value: '*', label: '*', detail: 'every resource' }, ...RESOURCES.map(r => ({ value: r, label: r, detail: 'resource', icon: RES_ICON[r] }))];
       case 'item': return [star('every item'), { value: 'list', label: 'list', detail: 'show every item' }, ...Object.entries(ITEMS).map(([k, i]) => ({ value: k, label: k, detail: i.label, icon: i.icon }))];
       case 'gear': return [star('one of everything'), ...Object.keys(CATALOG).map(slot => ({ value: slot, label: slot, detail: `every ${slot}` })),
@@ -200,7 +261,7 @@ export class AdminConsole {
         ...Object.keys(TRAITS).map(t => ({ value: `traits=${t}`, label: `traits=${t}`, detail: TRAITS[t].label })),
       ];
       case 'building': return [star('one of every building'), ...Object.entries(BUILDINGS).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${ERAS[d.era].name}`, icon: buildingSprite(k) }))];
-      case 'creature': return [star('every creature'), ...Object.entries(CREATURES).map(([k, d]) => ({ value: k, label: k, detail: d.hostile ? `hostile · ${d.hp} hp` : 'animal', icon: d.sprite }))];
+      case 'creature': return [star('every creature'), { value: 'hostile', label: 'hostile', detail: 'every monster' }, { value: 'boss', label: 'boss', detail: 'every boss' }, ...Object.entries(CREATURES).map(([k, d]) => ({ value: k, label: k, detail: d.hostile ? `hostile · ${d.hp} hp` : 'animal', icon: d.sprite }))];
       case 'event': return [{ value: 'list', label: 'list', detail: 'show all events' }, ...EVENTS.map(ev => ({ value: ev.id, label: ev.id, detail: ev.title, icon: ev.icon }))];
       default: return [];
     }
@@ -281,6 +342,39 @@ export class AdminConsole {
     this.input.setSelectionRange(this.input.value.length, this.input.value.length);
   }
 
+  // ---------------------------------------------------------------- help
+  /** One line of help: the command (click to type it) and what it does. */
+  helpRow(name, c) {
+    const row = h('div.gc-row.gc-help',
+      h('span.gc-time', ''),
+      h('button.gc-cmd', { title: `help ${name}`, onclick: () => this.explain(name) }, icon(COMMAND_ICONS[name] || 'items/scroll', 16), name),
+      h('span.gc-help-desc', c.desc));
+    this.out.append(row);
+    this.out.scrollTop = this.out.scrollHeight;
+  }
+
+  /** Everything about one command, with examples that fill in the command line when clicked. */
+  explain(name) {
+    const c = COMMANDS[name];
+    this.print(`■ ${name}`, 'accent');
+    this.print(`   ${c.desc}`);
+    this.print(`   usage: ${c.usage}`, 'dim');
+    const spec = ARG_SPECS[name] || [];
+    const kinds = { player: 'a player: me, *, or a village / player name', target: 'who: me, *, all, or a player', res: 'a resource or * (every resource)', number: 'a number', text: 'any text', gear: 'a gear kind, a slot (weapon, shield...) or *', item: 'an item or *', creature: 'a creature, hostile, boss or *', building: 'a building or *', spawnat: 'here (next to you), me, * or a player', command: 'a command name' };
+    const described = spec.filter(k => typeof k === 'string' && kinds[k]).map(k => kinds[k]);
+    if (described.length) this.print(`   takes: ${[...new Set(described)].join(' · ')}`, 'dim');
+    const ex = EXAMPLES[name] || [];
+    if (ex.length) {
+      this.print('   examples (click to use):', 'dim');
+      for (const [line, what] of ex) {
+        this.out.append(h('div.gc-row.gc-help', h('span.gc-time', ''),
+          h('button.gc-example', { title: 'Put this on the command line', onclick: () => { this.input.value = line; this.input.focus(); this.refreshSuggestions(); } }, line),
+          h('span.gc-help-desc', what)));
+      }
+      this.out.scrollTop = this.out.scrollHeight;
+    }
+  }
+
   // ---------------------------------------------------------------- output
   print(text, cls = '') {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -345,9 +439,33 @@ export class AdminConsole {
 
 const COMMANDS = {
   help: {
-    usage: 'help', desc: 'List commands',
-    run() {
-      for (const c of Object.values(COMMANDS)) this.print(`${c.usage.padEnd(44)} ${c.desc}`);
+    usage: 'help [command | word | all]', desc: 'How to use the console: groups of commands, one command in detail with examples, or a search',
+    run([word, ...more]) {
+      const q = [word, ...more].filter(Boolean).join(' ').toLowerCase();
+      // one command: what it does, how to type it, examples you can click
+      if (q && COMMANDS[q]) { this.explain(q); return; }
+      // anything else: search names, descriptions and examples
+      if (q && q !== 'all') {
+        const hits = Object.entries(COMMANDS).filter(([k, c]) => `${k} ${c.usage} ${c.desc} ${(EXAMPLES[k] || []).map(e => e[0]).join(' ')}`.toLowerCase().includes(q));
+        if (!hits.length) throw new Error(`nothing matches "${q}". Try: help, help give, help monster`);
+        this.print(`${hits.length} command${hits.length === 1 ? '' : 's'} about "${q}":`, 'accent');
+        for (const [k, c] of hits) this.helpRow(k, c);
+        this.print('Click a command name for its details.', 'dim');
+        return;
+      }
+      this.print('HEARTBORN ADMIN CONSOLE', 'accent');
+      this.print('Type a command and press Enter. Tab completes, ↑↓ pick a suggestion or an old command, Esc or F2 closes.', 'dim');
+      this.print('Players: "me" is you, "*" is everyone, or type a village or player name. In a dungeon, hero commands act down there.', 'dim');
+      const groups = {};
+      for (const [k, c] of Object.entries(COMMANDS)) (groups[groupOfCommand(k)] ||= []).push([k, c]);
+      for (const g of COMMAND_GROUPS) {
+        if (!groups[g]) continue;
+        this.print('');
+        this.print(`■ ${g.toUpperCase()}  ·  ${GROUP_INFO[g] || ''}`, 'accent');
+        for (const [k, c] of groups[g]) this.helpRow(k, c);
+      }
+      this.print('');
+      this.print('help <command> shows examples (help spawn) · help <word> searches (help loot) · click any command or example to use it', 'dim');
     },
   },
   clear: { usage: 'clear', desc: 'Clear the screen', run() { this.out.replaceChildren(); } },
@@ -362,14 +480,6 @@ const COMMANDS = {
         .map(p => ({ status: p.ban ? 'BANNED' : p.online ? 'online' : 'offline', village: p.villageName, player: p.name, email: p.email, pop: p.pop, karma: p.karma, era: ERAS[p.era || 0]?.name }));
       this.table(rows, ['status', 'village', 'player', 'email', 'pop', 'karma', 'era']);
       this.print(`${rows.length} player(s)`, 'dim');
-    },
-  },
-  online: {
-    usage: 'online', desc: 'Who is online right now',
-    async run() {
-      const list = (await this.loadPlayers(true)).filter(p => p.online);
-      this.table(list.map(p => ({ village: p.villageName, player: p.name, pop: p.pop })), ['village', 'player', 'pop']);
-      this.print(`${list.length} online`, 'dim');
     },
   },
   info: {
@@ -455,6 +565,7 @@ const COMMANDS = {
     },
   },
   event: {
+    feature: 'storyEvents',
     usage: 'event list | event <id> [me|all|<player>]', desc: 'Trigger a story event',
     async run([id, target = 'me']) {
       if (!id || id === 'list') { this.table(EVENTS.map(e => ({ id: e.id, title: e.title })), ['id', 'title']); return; }
@@ -468,11 +579,26 @@ const COMMANDS = {
     },
   },
   spawn: {
-    usage: 'spawn <creature|*> [count] [me|<player>|*]', desc: 'Send monsters at a village (* = every kind / every village)',
-    async run([type, count = '1', target = 'me']) {
-      const kinds = type === '*' ? Object.keys(CREATURES) : [type];
+    usage: 'spawn <creature|*|hostile|boss> [count] [here|me|<player>|*]', desc: 'Spawn creatures next to you (here), as raiders on a village, or at other players',
+    async run([type, count = '1', target = 'here']) {
+      const kinds = type === '*' ? Object.keys(CREATURES)
+        : type === 'hostile' ? Object.keys(CREATURES).filter(k => CREATURES[k].hostile && !CREATURES[k].boss)
+          : type === 'boss' ? Object.keys(CREATURES).filter(k => CREATURES[k].boss) : [type];
       if (!CREATURES[kinds[0]]) throw new Error(`unknown creature (${Object.keys(CREATURES).join(', ')})`);
-      const n = Math.max(1, Math.floor(Number(count) || 1));
+      const n = Math.max(1, Math.min(200, Math.floor(Number(count) || 1)));
+      if (target === 'here') {   // right around your hero, wherever you are (a dungeon too)
+        const g = this.hud?.dungeon || this.game;
+        const v = heroOf(g);
+        if (!v) throw new Error('no hero to spawn next to');
+        let made = 0;
+        for (const k of kinds) for (let i = 0; i < n; i++) {
+          const a = Math.random() * Math.PI * 2, r = 64 + Math.random() * 64;
+          const x = v.x + Math.cos(a) * r, y = v.y + Math.sin(a) * r;
+          if (g.world.walkable(x, y) || CREATURES[k].flying) { g.spawnCreature(k, x, y, { hx: x, hy: y }); made++; }
+        }
+        this.print(`✓ ${made} spawned next to you`, 'ok');
+        return;
+      }
       const targets = await this.resolveMany(target);
       for (const p of targets) for (const k of kinds) {
         if (p.me) this.game.spawnRaiders(k, n);
@@ -535,6 +661,7 @@ const COMMANDS = {
     },
   },
   laws: {
+    feature: 'laws',
     usage: 'laws', desc: 'Show your laws',
     run() {
       const laws = this.game.state.laws || {};
@@ -567,18 +694,9 @@ const COMMANDS = {
       this.print(`✓ finished ${pending.length} building(s)`, 'ok');
     },
   },
-  villager: {
-    usage: 'villager [n]', desc: 'Add villagers to your village',
-    run([n = '1']) {
-      const count = Math.max(1, Math.floor(Number(n) || 1));
-      for (let i = 0; i < count; i++) this.game.addWanderer();
-      this.game.recalc();
-      this.game.emit('change');
-      this.print(`✓ ${count} villager(s) joined`, 'ok');
-    },
-  },
 
   person: {
+    feature: 'people',
     usage: 'person [count|*] [name=Ada] [sex=m|f|*] [age=30] [job=mine|*] [skills=8|*] [combat=10 …] [traits=brave,strong|good|*] [calling=soldier|*] [trained] [versatile] [trade=mine|*] [hp=100|*] [happy=100|*] [strength=10] [speed=10] [stamina=10] [body=*] [size=2]',
     desc: 'Spawn villagers with the stats you choose (* = everything / the maximum)',
     run(args) {
@@ -632,6 +750,7 @@ const COMMANDS = {
     },
   },
   item: {
+    feature: 'people',
     usage: 'item <item|*> [count] [villager name | all | * | selected]', desc: 'Drop items into villagers’ packs (* = every item / everyone)',
     run([key, count = '1', ...who]) {
       const g = this.game;
@@ -691,6 +810,7 @@ const COMMANDS = {
   },
 
   missile: {
+    feature: 'missiles',
     usage: 'missile <nuke|missile|orbital> <me|player>', desc: 'Aim a free strike anywhere: your own land or any realm (ignores shields), then watch it fly on the World Map',
     async run([kind = 'missile', ...who]) {
       if (!STRIKE_KINDS[kind]) { who.unshift(kind); kind = 'missile'; }
@@ -748,19 +868,15 @@ const COMMANDS = {
       this.hud.enterDungeon(this.hud.dungeon?.dungeon.entrance || null, n);
     },
   },
-  nuke: {
-    usage: 'nuke <me|player>', desc: 'Shortcut for missile nuke',
-    run(args) { return COMMANDS.missile.run.call(this, ['nuke', ...args]); },
-  },
 
   drop: {
-    usage: 'drop <item|*> [count]', desc: 'Drop an item on the ground at your cursor (drag it onto a villager, or walk over it as your avatar)',
+    usage: 'drop <item|*> [count]', desc: 'Drop items on the ground at your cursor; walk over them to pick them up',
     run([key, count = '1']) {
-      const g = this.game;
+      const g = this.hud?.dungeon || this.game;
       if (!key) throw new Error('drop <item|*> [count], e.g. drop sword 3');
       const keys = key === '*' ? Object.keys(ITEMS) : [key];
       if (!ITEMS[keys[0]]) throw new Error(`unknown item (item list): ${Object.keys(ITEMS).join(', ')}`);
-      const at = g.cursor || g.center;
+      const at = this.hud?.dungeon ? heroOf(this.hud.dungeon) : g.cursor || g.center;
       const n = Math.max(1, Math.floor(Number(count) || 1));
       // several items fan out in a little circle so each one can be grabbed
       keys.forEach((k, i) => {
@@ -819,29 +935,96 @@ const COMMANDS = {
   reload: { usage: 'reload', desc: 'Save and reload the page (gets the newest version)', async run() { this.print('reloading…', 'dim'); location.reload(); } },
 
   // ---------------- your village
-  rich: {
-    usage: 'rich [n]', desc: 'Fill every resource of your village',
-    run([n = '5000']) {
-      const v = Number(n) || 5000;
-      for (const k of RESOURCES) this.game.state.resources[k] = Math.max(this.game.state.resources[k] || 0, v);
-      this.game.emit('change');
-      this.print(`✓ every resource ≥ ${v}`, 'ok');
-    },
-  },
   heal: {
-    usage: 'heal', desc: 'Heal and cure every villager, feed everyone',
+    usage: 'heal', desc: 'Full health and stamina, cure poison, burning and slowness',
     run() {
-      for (const v of this.game.state.villagers) { v.hp = 100; v.sick = 0; v.hunger = 100; v.happy = Math.max(v.happy, 70); }
-      this.print(`✓ ${this.game.state.villagers.length} villagers healed`, 'ok');
+      for (const g of [this.game, this.hud?.dungeon].filter(Boolean)) {
+        const max = heroStats(g).maxHp;
+        for (const v of g.state.villagers) { v.hp = Math.max(v.hp, v.id === g.hero?.id ? max : 100); v.sick = 0; v.hunger = 100; }
+        if (g.hero) Object.assign(g.hero, { stamina: heroStats(g).maxStamina, dot: null, slow: null, stagger: 0 });
+      }
+      this.print('✓ healed', 'ok');
     },
   },
-  clearmobs: {
-    usage: 'clearmobs', desc: 'Remove every hostile creature near your village',
-    run() {
-      const before = this.game.state.creatures.length;
-      this.game.state.creatures = this.game.state.creatures.filter(c => !CREATURES[c.t]?.hostile);
-      this.game.state.battles = {};
-      this.print(`✓ removed ${before - this.game.state.creatures.length} hostiles`, 'ok');
+  god: {
+    usage: 'god [on|off]', desc: 'Nothing can hurt you (toggles)',
+    run([arg]) {
+      const r = rpgOf(this.game);
+      r.god = arg === 'on' ? true : arg === 'off' ? false : !r.god;
+      this.print(`✓ god mode ${r.god ? 'ON: nothing can hurt you' : 'off'}`, 'ok');
+    },
+  },
+  level: {
+    usage: 'level <n> [points]', desc: 'Set your hero level (and give attribute points)',
+    run([n, points]) {
+      const lv = Math.max(1, Math.min(200, Math.floor(Number(n) || 0)));
+      if (!Number(n)) throw new Error('usage: level 20');
+      const r = rpgOf(this.game);
+      const gained = Math.max(0, lv - r.level);
+      Object.assign(r, { level: lv, xp: 0, points: r.points + (points != null ? Number(points) || 0 : gained) });
+      this.game.emit('change');
+      this.print(`✓ level ${lv}, ${r.points} point(s) to spend (G)`, 'ok');
+    },
+  },
+  potions: {
+    usage: 'potions <n>', desc: 'Set how many health potions you carry',
+    run([n = '10']) { rpgOf(this.game).potions = Math.max(0, Math.floor(Number(n) || 0)); this.game.emit('change'); this.print(`✓ ${rpgOf(this.game).potions} potions`, 'ok'); },
+  },
+  tp: {
+    usage: 'tp <cursor|home|cave|boss|key|exit|x y>', desc: 'Teleport your hero (in a dungeon: boss, key, exit)',
+    run([where = 'cursor', y]) {
+      const dg = this.hud?.dungeon;
+      const g = dg || this.game;
+      const v = heroOf(g);
+      if (!v) throw new Error('no hero');
+      const d = dg?.dungeon;
+      const spot = where === 'cursor' ? this.game.cursor
+        : where === 'home' ? (dg ? null : g.center)
+          : where === 'cave' ? (g.state.dungeons?.length ? g.state.dungeons[0] : (updateEntrances(g), updateEntrances(g), g.state.dungeons?.[0]))
+            : where === 'boss' && d ? { x: (d.boss.x + d.boss.w / 2) * 32, y: (d.boss.y + d.boss.h / 2) * 32 }
+              : where === 'key' && d ? d.key
+                : where === 'exit' && d ? { x: d.exit.x, y: d.exit.y + 48 }
+                  : y != null ? { x: Number(where) * 32, y: Number(y) * 32 } : null;
+      if (!spot) throw new Error(dg && where === 'home' ? 'use: dungeon leave' : `nowhere called "${where}"`);
+      if (where === 'boss' && d && !d.open) { d.hasKey = true; }
+      v.x = spot.x; v.y = spot.y;
+      if (this.hud) Object.assign(this.hud.renderer.camera, { x: v.x, y: v.y });
+      this.print(`✓ teleported to ${where}${y != null ? ` ${y}` : ''}`, 'ok');
+    },
+  },
+  kill: {
+    usage: 'kill [tiles|all] [noloot]', desc: 'Slay hostile creatures around you (they drop loot and XP unless noloot)',
+    run([range = '12', flag]) {
+      const g = this.hud?.dungeon || this.game;
+      const v = heroOf(g);
+      const r = range === 'all' || range === '*' ? Infinity : (Number(range) || 12) * 32;
+      const hit = g.state.creatures.filter(c => CREATURES[c.t]?.hostile && (!v || Math.hypot(c.x - v.x, c.y - v.y) <= r));
+      for (const c of hit) {
+        if (flag === 'noloot') { g.state.creatures = g.state.creatures.filter(x => x !== c); continue; }
+        c.hp = 1; damageCreature(g, c, 99999, v);
+      }
+      g.state.battles = {};
+      this.print(`✓ ${hit.length} hostile creature(s) slain`, 'ok');
+    },
+  },
+  chest: {
+    usage: 'chest [small|big|boss] [count]', desc: 'Put treasure chests at your cursor (or next to you)',
+    run([kind = 'small', count = '1']) {
+      const g = this.hud?.dungeon || this.game;
+      const at = (!this.hud?.dungeon && this.game.cursor) || heroOf(g);
+      if (!at) throw new Error('no spot');
+      const n = Math.max(1, Math.min(50, Number(count) || 1));
+      for (let i = 0; i < n; i++) (g.state.chests ||= []).push({ id: `adm${Date.now().toString(36)}${i}`, x: at.x + (i % 5) * 28 - 28, y: at.y + Math.floor(i / 5) * 28 + 20, tier: kind === 'big' ? 1 : 0, boss: kind === 'boss' });
+      this.print(`✓ ${n} ${kind} chest(s)`, 'ok');
+    },
+  },
+  speed: {
+    usage: 'speed <0.25-10>', desc: 'How fast the world runs (1 = normal)',
+    run([x = '1']) {
+      const v = Math.max(0.25, Math.min(10, Number(x) || 1));
+      this.game.speed = v;
+      if (this.hud?.dungeon) this.hud.dungeon.speed = v;
+      this.print(`✓ world speed ×${v}`, 'ok');
     },
   },
   build: {
@@ -887,21 +1070,22 @@ const COMMANDS = {
       this.print(`✓ it is now ${hr}:00`, 'ok');
     },
   },
-  tutorial: { usage: 'tutorial', desc: 'Restart the tutorial', run() { this.game.state.tutorial = { step: 0, done: false }; this.print('✓ tutorial restarted', 'ok'); } },
+  tutorial: { feature: 'tutorial', group: 'World', usage: 'tutorial', desc: 'Restart the tutorial', run() { this.game.state.tutorial = { step: 0, done: false }; this.print('✓ tutorial restarted', 'ok'); } },
   stats: {
-    usage: 'stats', desc: 'Village numbers at a glance',
+    usage: 'stats', desc: 'Your hero and your land at a glance',
     run() {
-      const g = this.game, s = g.state;
+      const g = this.game, s = g.state, r = rpgOf(g), st = heroStats(g), v = heroOf(this.hud?.dungeon || g);
       this.print(JSON.stringify({
-        day: g.day + 1, era: ERAS[s.era].name, population: s.villagers.length, housing: g.housing, warriors: s.villagers.filter(v => v.job === 'warrior').length,
-        buildings: s.buildings.length, defense: Math.round(g.defense), luck: Number(g.fateBonus.toFixed(2)), karma: Math.round(s.karma),
-        army: empirePower(g), title: empireTitle(g), effects: s.modifiers.map(m => m.id),
+        hero: v ? { name: v.name, hp: `${Math.round(v.hp)}/${st.maxHp}`, level: r.level, points: r.points, potions: r.potions || 0, god: !!r.god, gear: Object.fromEntries(Object.entries(r.gear).map(([k, it]) => [k, it?.name || null])), bag: r.bag.length, deepest: r.deepest || 0 } : null,
+        land: { day: g.day + 1, era: ERAS[s.era].name, buildings: s.buildings.length, chests: (s.chests || []).length, caves: (s.dungeons || []).length, defense: Math.round(g.defense), karma: Math.round(s.karma) },
+        resources: s.resources, inDungeon: this.hud?.dungeon ? this.hud.dungeon.dungeon.depth : false,
       }, null, 2));
     },
   },
 
   // ---------------- empire
   empire: {
+    feature: 'empire',
     usage: 'empire list | event [n] | discover | war <n> | win <n> | peace <n>', desc: 'Inspect and control neighbouring kingdoms',
     run([sub = 'list', arg]) {
       const g = this.game;
@@ -941,12 +1125,15 @@ const COMMANDS = {
   world: {
     usage: 'world', desc: 'Which world you are in, its code and members',
     run() {
-      const w = this.game.world && this.mp ? this.mp.world : null;
-      this.print(`world id ${this.mp?.worldId || 'solo'} · ${this.mp ? `${this.mp.players.length} villages, ${this.mp.players.filter(p => p.online).length} online` : 'solo (no multiplayer)'}`);
-      if (w) this.print(JSON.stringify(w));
+      if (!this.mp) { this.print('solo world (no multiplayer)'); return; }
+      const players = this.mp.players || [];
+      this.print(`world ${this.mp.world || 'realm'} · ${players.length} realms · ${players.filter(p => p.online).length} online`);
     },
   },
 };
+
+// commands of switched-off systems stay in this file but out of the console
+for (const [k, c] of Object.entries(COMMANDS)) if (c.feature && !on(c.feature)) delete COMMANDS[k];
 
 function tokenize(line) {
   const out = [];

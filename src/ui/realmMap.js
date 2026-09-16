@@ -88,8 +88,7 @@ export function openRealmMap({ hud, onVisit }) {
     h('div.row',
       icon('buildings/castle', 30),
       h('div', h('h2', 'World Map'), h('div.faint', 'Every player’s island, joined by land bridges. Distance decides how long armies and caravans travel.')),
-      h('div.spacer'),
-      h('button.btn.icon.ghost', { onclick: () => close() }, '✕')),
+      h('div.spacer')),
     h('div.realm-body', map, side),
   ], { cls: 'realm', onClose: () => clearInterval(timer) });
   const close = () => { clearInterval(timer); m.close(); };

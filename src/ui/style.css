@@ -1274,3 +1274,88 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .house-tabrow .house-tabs { flex: 1; min-width: 0; }
 .house-empty { padding: 14px; }
 @media (max-width: 700px) { .house-tabrow { flex-direction: column; align-items: stretch; } .house-search { flex: none; } }
+
+/* the ✕ in the corner of pop-ups */
+.modal { position: relative; }
+.modal-x {
+  position: sticky; top: 0; align-self: flex-end; z-index: 3; margin: -10px -10px -30px 0; width: 32px; height: 32px; flex: none;
+  display: grid; place-items: center; padding: 0; border-radius: 50%; cursor: pointer; font-size: 16px; font-weight: 700; line-height: 1;
+  color: var(--text); background: rgba(40, 30, 52, .95); border: 1px solid rgba(255, 255, 255, .2);
+}
+.modal-x:hover { color: #fff; background: #b8433a; border-color: #ff8a7a; }
+.an-x { position: absolute; top: 10px; right: 10px; margin: 0; }
+.inv-x { position: static; margin: 0; width: 26px; height: 26px; font-size: 13px; }
+
+/* boss health bar */
+.boss-bar {
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 17; width: min(620px, calc(100vw - 24px));
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px 10px 8px; pointer-events: none;
+  background: linear-gradient(180deg, rgba(40, 12, 16, .92), rgba(18, 8, 12, .92)); border: 2px solid #7a2a2a; border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .6), 0 0 24px rgba(255, 40, 30, .25), inset 0 1px 0 rgba(255, 200, 160, .12);
+  animation: boss-in .45s cubic-bezier(.2, 1.3, .4, 1);
+}
+.boss-bar.leaving { animation: boss-out .4s ease-in forwards; }
+@keyframes boss-in { from { opacity: 0; transform: translate(-50%, -30px) scale(.9); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@keyframes boss-out { to { opacity: 0; transform: translate(-50%, -24px) scale(.95); } }
+.boss-portrait {
+  flex: none; width: 54px; height: 54px; display: grid; place-items: center; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #5a2020, #1a0808); border: 2px solid #d8a040; box-shadow: 0 0 12px rgba(255, 140, 60, .45);
+}
+.boss-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.boss-names { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.boss-name { font-weight: 800; font-size: 16px; letter-spacing: .5px; color: #ffe0b0; text-shadow: 0 2px 0 #000, 0 0 10px rgba(255, 120, 60, .6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.boss-title { font-size: 11px; color: #d8a0a0; text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+.boss-track { position: relative; height: 18px; border-radius: 9px; overflow: hidden; background: #1a0a0c; border: 2px solid #000; box-shadow: inset 0 2px 6px rgba(0, 0, 0, .8); }
+.boss-trail { position: absolute; inset: 0 auto 0 0; background: linear-gradient(180deg, #fff2d8, #f0b890); }
+.boss-fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(180deg, #ff6a4a 0%, #d8202a 55%, #8a0a14 100%); transition: width .08s linear; }
+.boss-shine { position: absolute; left: 0; top: 2px; height: 4px; border-radius: 2px; background: linear-gradient(90deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, .1)); }
+.boss-ticks { position: absolute; inset: 0; display: flex; justify-content: space-evenly; }
+.boss-ticks i { width: 2px; height: 100%; background: rgba(0, 0, 0, .35); }
+.boss-hp { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px #000, 0 0 4px #000; }
+.boss-bar.hit .boss-track { animation: boss-shake .25s; }
+.boss-bar.hit .boss-portrait { animation: boss-flash .25s; }
+@keyframes boss-shake { 20% { transform: translateX(-3px); } 40% { transform: translateX(3px); } 60% { transform: translateX(-2px); } 80% { transform: translateX(2px); } }
+@keyframes boss-flash { 50% { background: #fff; box-shadow: 0 0 20px #fff; } }
+.boss-bar.enraged { border-color: #ff3a2a; animation: boss-rage 1s infinite alternate; }
+.boss-bar.enraged .boss-fill { background: linear-gradient(180deg, #ffb04a 0%, #ff3a1a 50%, #a00a0a 100%); }
+.boss-bar.enraged .boss-title::after { content: ' · ENRAGED'; color: #ff8a5a; }
+@keyframes boss-rage { from { box-shadow: 0 10px 30px rgba(0, 0, 0, .6), 0 0 16px rgba(255, 40, 30, .3); } to { box-shadow: 0 10px 30px rgba(0, 0, 0, .6), 0 0 34px rgba(255, 60, 30, .75); } }
+.leading .dungeon-card { top: 96px; }
+@media (max-width: 760px) {
+  .boss-bar { top: 62px; padding: 6px 8px 8px 6px; gap: 8px; }
+  .boss-portrait { width: 40px; height: 40px; }
+  .boss-portrait img { width: 32px; height: 32px; }
+  .boss-name { font-size: 13px; }
+  .boss-track { height: 14px; }
+}
+
+/* admin help */
+.gc-help { align-items: center; }
+.gc-cmd, .gc-example {
+  display: inline-flex; align-items: center; gap: 5px; min-width: 110px; padding: 1px 8px; margin-right: 10px; border-radius: 6px; cursor: pointer;
+  font: inherit; color: #ffd76a; background: rgba(255, 215, 106, .08); border: 1px solid rgba(255, 215, 106, .25);
+}
+.gc-example { color: #9fe0ff; background: rgba(120, 200, 255, .08); border-color: rgba(120, 200, 255, .25); min-width: 220px; }
+.gc-cmd:hover, .gc-example:hover { background: rgba(255, 255, 255, .15); }
+.gc-help-desc { opacity: .85; }
+.house-modes .btn img, .house-top .btn img, .house-toolbar .btn img, .house-tab img { vertical-align: middle; margin-right: 4px; }
+.house-tab { display: inline-flex; align-items: center; }
+.hot-ghost { position: fixed; z-index: 500; pointer-events: none; transform: translate(-50%, -50%) scale(1.15); filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .6)); }
+.hot-slot.drop { border-color: #9fe0ff; background: rgba(120, 200, 255, .25); transform: translateY(-3px); }
+.hot-slot, .inv-cell { touch-action: none; user-select: none; }
+
+/* crafting */
+.craft-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.craft-card { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: center; padding: 8px; border-radius: 10px; background: #0003; border: 1px solid transparent; }
+.craft-card:hover { border-color: #b594d6; background: #ffffff0c; }
+.craft-card.cant { opacity: .65; }
+.craft-icon { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 10px; background: rgba(0, 0, 0, .3); border: 2px solid rgba(255, 255, 255, .12); }
+.craft-info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.craft-desc { font-size: 12px; line-height: 1.2; }
+.craft-cost { display: flex; flex-wrap: wrap; gap: 3px; }
+.craft-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 11px; }
+/* underground: no island minimap; the dungeon card sits on the right, the boss bar under the top bar */
+.in-dungeon .minimap, .in-dungeon .home-btn { display: none !important; }
+.dungeon-card { top: 136px; left: auto; right: 12px; transform: none; }
+.boss-bar { top: 58px; }
+@media (max-width: 760px) { .boss-bar { top: 100px; } .dungeon-card { top: 150px; } }
