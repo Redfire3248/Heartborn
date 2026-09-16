@@ -1,6 +1,7 @@
 import { TILE } from '../core/constants.js';
 import { CATALOG, RARITY, BLADE_SPECIALS, makeGear, takeGear, rpgOf, slotOf } from './rpg.js';
 import { TOOLS, TOOL_KINDS, giveTool } from './tools.js';
+import { CONSUMABLES, giveItem } from './consumables.js';
 
 /*
  * Crafting: turn wood, stone, coal, iron, gold, gems and food into tools, weapons, armour and potions.
@@ -22,9 +23,23 @@ const MATERIAL_COST = {
   mythril: { gold: 50, iron: 30, gems: 24 },
   bamboo: { wood: 14, food: 4 },
   crystal: { gems: 20, gold: 20 },
+  ice: { gems: 30, stone: 60, iron: 20 },
+  lava: { coal: 80, gems: 20, iron: 30 },
+  celestial: { gold: 60, gems: 40, iron: 30 },
+  void: { gems: 60, coal: 60, gold: 40 },
+  bone: { food: 30, stone: 10 },
+  carbon: { coal: 30, iron: 10 },
+  coral: { gems: 12, food: 20 },
+  dragon: { gold: 60, gems: 30 },
+  star: { gems: 40, gold: 40 },
 };
 const KIND_SCALE = { pickaxe: 1, axe: 1, shovel: 0.8, hoe: 0.7, hammer: 0.8, fishing_rod: 0.7, sickle: 0.7 };
-const UTILITY_COST = { lantern: { iron: 8, coal: 6 }, torch: { wood: 4, coal: 2 }, bucket: { wood: 12 }, watering_can: { iron: 10 }, backpack: { food: 30, wood: 10 } };
+const UTILITY_COST = {
+  lantern: { iron: 8, coal: 6 }, torch: { wood: 4, coal: 2 }, bucket: { wood: 12 }, watering_can: { iron: 10 }, backpack: { food: 30, wood: 10 },
+  fishing_net: { wood: 10, food: 20 }, tackle_box: { iron: 10, wood: 8 }, bait_worm: { food: 10 }, grappling_hook: { iron: 25, wood: 10 },
+  compass: { iron: 8, gold: 10 }, spyglass: { gold: 15, gems: 3 }, magnet: { iron: 30 }, lockpick: { iron: 12, gold: 5 },
+  drill: { iron: 60, coal: 40, gems: 10 }, chainsaw: { iron: 50, coal: 50 },
+};
 
 /** Gear you can craft: [base, rarity, cost]. */
 const GEAR_RECIPES = [
@@ -49,7 +64,7 @@ const round = cost => Object.fromEntries(Object.entries(cost).map(([k, n]) => [k
 /** Every recipe: { id, cat, name, icon, fallbackIcon, cost, makes, desc }. */
 export const RECIPES = [];
 for (const [key, t] of Object.entries(TOOLS)) {
-  const cost = t.utility ? UTILITY_COST[key] : round(Object.fromEntries(Object.entries(MATERIAL_COST[t.mat] || { wood: 10 }).map(([k, n]) => [k, n * (KIND_SCALE[t.kind] || 1)])));
+  const cost = t.utility || UTILITY_COST[key] ? UTILITY_COST[key] : round(Object.fromEntries(Object.entries(MATERIAL_COST[t.mat] || { wood: 10 }).map(([k, n]) => [k, n * (KIND_SCALE[t.kind] || 1)])));
   if (!cost) continue;
   RECIPES.push({ id: `tool:${key}`, cat: 'tools', name: t.name, icon: t.icon, fallbackIcon: t.fallbackIcon, cost, makes: { tool: key }, desc: t.does, power: t.power });
 }
@@ -65,10 +80,28 @@ for (const [base, rarity, cost] of GEAR_RECIPES) {
     desc: sp ? `${sp.name}: ${sp.desc}` : def.dmg ? `${def.dmg} damage${def.ranged ? `, ranged ${def.range} tiles` : ''}` : def.block ? `Blocks ${Math.round(def.block * 100)}%` : def.armor ? `${Math.round(def.armor * 100)}% armour` : Object.keys(def.bonus || {}).map(k => `+${k}`).join(', '),
   });
 }
+// the Armory: every normal weapon can be forged (admin weapons never)
+for (const [base, def] of Object.entries(CATALOG.weapon)) {
+  if (!def.icon?.startsWith('armory/') || def.admin || RECIPES.some(r => r.id === `gear:${base}`)) continue;
+  const tier = def.minRarity || 0, magic = def.shot && def.shot.kind !== 'bullet' && def.shot.kind !== 'rock' && def.shot.kind !== 'thrown';
+  const cost = { iron: Math.round(def.dmg * (def.shot?.count || 1) * 0.7), wood: 6 };
+  if (def.shot?.kind === 'bullet') cost.coal = Math.round(def.dmg * 0.4);
+  if (magic) { cost.gems = 4 + tier * 6; delete cost.iron; cost.gold = Math.round(def.dmg * 0.6); }
+  if (tier >= 1) cost.gold = (cost.gold || 0) + 8 * tier;
+  if (tier >= 2) cost.gems = (cost.gems || 0) + 8;
+  const sp = BLADE_SPECIALS[base];
+  RECIPES.push({ id: `gear:${base}`, cat: 'weapons', name: `${tier ? RARITY[tier].name + ' ' : ''}${def.name}`, icon: def.icon, cost, makes: { gear: base, rarity: tier }, rarity: tier,
+    desc: sp ? `${sp.name}: ${sp.desc}` : `${def.dmg}${def.shot?.count > 1 ? ` x${def.shot.count}` : ''} damage${def.ranged ? `, range ${def.range}` : ''}` });
+}
+// consumables
+const ITEM_COST = { mana_potion: { food: 20, gems: 1 }, speed_potion: { food: 25, gold: 5 }, strength_potion: { food: 25, iron: 5 }, invisibility_potion: { food: 30, gems: 3 }, antidote: { food: 15 },
+  bomb: { coal: 10, iron: 4 }, dynamite: { coal: 25, iron: 6 }, med_kit: { food: 40 }, golden_apple: { food: 30, gold: 20 }, ammo_box: { iron: 15, coal: 15 } };
+for (const [key, c] of Object.entries(CONSUMABLES)) RECIPES.push({ id: `item:${key}`, cat: 'potions', name: c.name, icon: c.icon, cost: ITEM_COST[key], makes: { item: key }, desc: c.does });
+
 RECIPES.push({ id: 'potion:health', cat: 'potions', name: 'Health Potion', icon: 'gear/health_potion', cost: { food: 25 }, makes: { potion: 1 }, desc: 'Heals 45% of your health (E to drink)' });
 RECIPES.push({ id: 'potion:health5', cat: 'potions', name: '5 Health Potions', icon: 'gear/health_potion', cost: { food: 110 }, makes: { potion: 5 }, desc: 'A batch of five, a little cheaper' });
 
-export const CRAFT_CATS = [['tools', 'Tools'], ['weapons', 'Weapons'], ['armour', 'Armour & Shields'], ['potions', 'Potions']];
+export const CRAFT_CATS = [['tools', 'Tools'], ['weapons', 'Weapons'], ['armour', 'Armour & Shields'], ['potions', 'Potions & Items']];
 
 export const canCraft = (g, recipe) => Object.entries(recipe.cost).every(([k, n]) => (g.state.resources[k] || 0) >= n);
 
@@ -83,6 +116,7 @@ export function craft(g, id, hero = null) {
   if (m.tool) giveTool(g, m.tool);
   else if (m.gear) { const it = makeGear(g, m.gear, m.rarity); takeGear(g, it, hero); made = it.name; }
   else if (m.potion) rpgOf(g).potions = (rpgOf(g).potions || 0) + m.potion;
+  else if (m.item) giveItem(g, m.item);
   const r = rpgOf(g);
   r.crafted = (r.crafted || 0) + 1;
   if (hero) g.float(hero.x, hero.y - TILE * 1.5, `Crafted ${made}`, '#9fe0ff');

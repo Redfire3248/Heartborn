@@ -61,7 +61,8 @@ const EXAMPLES = {
   skip: [['skip 3', 'jump three days ahead']],
   era: [['era up', 'the next era'], ['era *', 'the last era'], ['era 2', 'a specific era']],
   finish: [['finish', 'complete every building site']],
-  gear: [['gear list', 'every kind of gear with pictures'], ['gear katana legendary equip', 'a legendary katana, equipped'], ['gear * epic', 'one epic piece of everything'], ['gear shield rare 1', 'one rare of every shield']],
+  items: [['items * 5', 'five of every potion, bomb and item'], ['items bomb 20', 'twenty bombs']],
+  gear: [['gear admin legendary equip', 'every ADMIN weapon (minigun, ban hammer, god sword...)'], ['gear minigun equip', 'the minigun in your hands'], ['gear list', 'every kind of gear with pictures'], ['gear katana legendary equip', 'a legendary katana, equipped'], ['gear * epic', 'one epic piece of everything'], ['gear shield rare 1', 'one rare of every shield']],
   tool: [['tool *', 'one of every tool'], ['tool pickaxe_mythril', 'the best pickaxe'], ['tool axe', 'every axe']],
   dungeon: [['dungeon 1', 'into a dungeon'], ['dungeon 5', 'straight down to floor 5'], ['dungeon leave', 'back to the surface']],
   drop: [['drop sword 1', 'a sword on the ground at your cursor'], ['drop * 1', 'one of every item']],
@@ -88,7 +89,7 @@ const GROUP_INFO = { Hero: 'you and your character', 'Items & loot': 'gear, tool
 const COMMAND_GROUPS = ['Hero', 'Items & loot', 'World', 'Players', 'Game'];
 const GROUP_OF = {
   heal: 'Hero', god: 'Hero', level: 'Hero', potions: 'Hero', tp: 'Hero', stats: 'Hero', dungeon: 'Hero',
-  gear: 'Items & loot', tool: 'Items & loot', drop: 'Items & loot', chest: 'Items & loot', give: 'Items & loot', item: 'Items & loot',
+  gear: 'Items & loot', tool: 'Items & loot', items: 'Items & loot', drop: 'Items & loot', chest: 'Items & loot', give: 'Items & loot', item: 'Items & loot',
   spawn: 'World', kill: 'World', warband: 'World', build: 'World', finish: 'World', abilities: 'World', era: 'World', skip: 'World', time: 'World', speed: 'World', karma: 'World', shield: 'World', event: 'World', laws: 'World', empire: 'World', missile: 'World', person: 'World', tutorial: 'World',
   players: 'Players', info: 'Players', msg: 'Players', broadcast: 'Players', ban: 'Players', unban: 'Players', reset: 'Players', chat: 'Players', reports: 'Players', world: 'Players',
 };
@@ -114,7 +115,7 @@ const ARG_SPECS = {
   reset: ['player', ['confirm']], chat: [['15', 'clear', 'del']], skip: ['number'], era: [['up', '*', '0', '1', '2', '3', '4', '5']],
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
-  item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], tool: [['*', 'pickaxe', 'axe', 'shovel', 'hoe', 'hammer', 'fishing_rod', 'sickle', 'lantern', 'pickaxe_mythril', 'axe_mythril', 'shovel_diamond'], 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
+  item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], items: [['*', 'bomb', 'dynamite', 'med_kit', 'speed_potion', 'strength_potion', 'invisibility_potion', 'mana_potion', 'antidote', 'golden_apple', 'ammo_box'], 'number'], tool: [['*', 'pickaxe', 'axe', 'shovel', 'hoe', 'hammer', 'fishing_rod', 'sickle', 'lantern', 'pickaxe_mythril', 'axe_mythril', 'shovel_diamond'], 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
   build: ['building', 'number'], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
@@ -250,7 +251,8 @@ export class AdminConsole {
       case 'res': return [{ value: '*', label: '*', detail: 'every resource' }, ...RESOURCES.map(r => ({ value: r, label: r, detail: 'resource', icon: RES_ICON[r] }))];
       case 'item': return [star('every item'), { value: 'list', label: 'list', detail: 'show every item' }, ...Object.entries(ITEMS).map(([k, i]) => ({ value: k, label: k, detail: i.label, icon: i.icon }))];
       case 'gear': return [star('one of everything'), ...Object.keys(CATALOG).map(slot => ({ value: slot, label: slot, detail: `every ${slot}` })),
-        ...Object.entries(CATALOG).flatMap(([slot, list]) => Object.entries(list).filter(([, d]) => d.icon !== null && !d.noLoot).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${slot}`, icon: gearIconKey({ base: k, slot, icon: d.icon }) })))];
+        { value: 'admin', label: 'admin', detail: 'every admin-only weapon (minigun, ban hammer...)' },
+        ...Object.entries(CATALOG).flatMap(([slot, list]) => Object.entries(list).filter(([, d]) => d.icon !== null && (!d.noLoot || d.admin)).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${slot}${d.admin ? ' · ADMIN' : ''}`, icon: gearIconKey({ base: k, slot, icon: d.icon }) })))];
       case 'villager': return [{ value: 'selected', label: 'selected', detail: 'the villager you clicked' }, star('everyone'), { value: 'all', label: 'all', detail: 'everyone' },
         ...this.game.state.villagers.slice(0, 200).map(v => ({ value: v.name, label: v.name, detail: `${v.job} · ${Math.floor(v.age)}`, icon: villagerSprite(v) }))];
       case 'personopt': return [
@@ -777,7 +779,7 @@ const COMMANDS = {
       if (!kind || kind === 'list') {
         for (const [slot, list] of Object.entries(CATALOG)) {   // every kind, with its picture
           this.print(slot.toUpperCase(), 'accent');
-          this.out.append(h('div.gc-gear-grid', Object.entries(list).filter(([, d]) => d.icon !== null && !d.noLoot).map(([k, d]) => h('div.gc-gear', { title: d.name },
+          this.out.append(h('div.gc-gear-grid', Object.entries(list).filter(([, d]) => d.icon !== null && (!d.noLoot || d.admin)).map(([k, d]) => h('div.gc-gear', { title: d.name },
             icon(gearIconKey({ base: k, slot, icon: d.icon }) || 'items/relic', 26), h('b', k), h('span.gc-item-detail', d.dmg ? `${d.dmg} dmg` : d.block ? `blocks ${Math.round(d.block * 100)}%` : d.armor ? `${Math.round(d.armor * 100)}% armour` : Object.keys(d.bonus || {}).join(', '))))));
         }
         this.out.scrollTop = this.out.scrollHeight;
@@ -786,10 +788,11 @@ const COMMANDS = {
       if (flag === undefined && ['equip'].includes(count)) { flag = count; count = '1'; }
       const names = ['common', 'rare', 'epic', 'legendary'];
       const rarities = rarityArg === '*' ? [0, 1, 2, 3] : [Math.max(0, names.indexOf(rarityArg)) + (/^\d$/.test(rarityArg) ? Number(rarityArg) : 0)];
-      const kinds = kind === '*' ? Object.values(CATALOG).flatMap(list => Object.keys(list))
+      const kinds = kind === 'admin' ? Object.keys(CATALOG.weapon).filter(k => CATALOG.weapon[k].admin)
+        : kind === '*' ? Object.values(CATALOG).flatMap(list => Object.keys(list).filter(k => !list[k].admin))
         : CATALOG[kind] ? Object.keys(CATALOG[kind])
           : [kind];
-      const valid = kinds.filter(k => Object.values(CATALOG).some(list => list[k] && list[k].icon !== null && !list[k].noLoot));
+      const valid = kinds.filter(k => Object.values(CATALOG).some(list => list[k] && list[k].icon !== null && (!list[k].noLoot || list[k].admin)));
       if (!valid.length) throw new Error(`unknown gear "${kind}" (try: gear list)`);
       const n = Math.max(1, Math.floor(Number(count) || 1));
       const v = heroOf(g);
@@ -843,6 +846,18 @@ const COMMANDS = {
           this.hud?.openMap();   // watch it fly
         },
       });
+    },
+  },
+  items: {
+    usage: 'items <item|*> [count]', desc: 'Give potions, bombs and other consumables: items bomb 10, items * 5',
+    async run([key, count = '1']) {
+      const C = await import('../game/consumables.js');
+      if (!key) throw new Error(`items <item|*> [count]. Items: ${Object.keys(C.CONSUMABLES).join(', ')}`);
+      const keys = key === '*' ? Object.keys(C.CONSUMABLES) : [key];
+      if (!C.CONSUMABLES[keys[0]]) throw new Error(`unknown item. Items: ${Object.keys(C.CONSUMABLES).join(', ')}`);
+      const n = Math.max(1, Math.floor(Number(count) || 1));
+      for (const k of keys) C.giveItem(this.game, k, n);
+      this.print(`✓ ${n} × ${keys.length > 1 ? 'every item' : C.CONSUMABLES[key].name} (in your hotbar and Inventory)`, 'ok');
     },
   },
   tool: {

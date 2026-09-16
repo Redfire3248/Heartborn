@@ -27,16 +27,26 @@ const MATERIALS = {
   mythril:  { name: 'Mythril',  power: 10 },
   bamboo:   { name: 'Bamboo',   power: 2 },
   crystal:  { name: 'Crystal',  power: 9 },
+  // mythic and special (art from the Armory sheet)
+  ice:       { name: 'Ice',       power: 10, armory: true },
+  lava:      { name: 'Lava',      power: 11, armory: true },
+  celestial: { name: 'Celestial', power: 12, armory: true },
+  void:      { name: 'Void',      power: 13, armory: true },
+  bone:      { name: 'Bone',      power: 4,  armory: true },
+  carbon:    { name: 'Carbon',    power: 6,  armory: true },
+  coral:     { name: 'Coral',     power: 7,  armory: true },
+  dragon:    { name: 'Dragon',    power: 11, armory: true },
+  star:      { name: 'Starlight', power: 12, armory: true },
 };
 
 export const TOOL_KINDS = {
-  pickaxe:      { name: 'Pickaxe',      does: 'Mines rocks and ore',                 fallback: 'items/pickaxe', mats: ['wood', 'stone', 'copper', 'bronze', 'iron', 'steel', 'gold', 'diamond', 'obsidian', 'mythril'] },
-  axe:          { name: 'Axe',          does: 'Chops trees',                         fallback: 'items/axe',     mats: ['wood', 'stone', 'copper', 'bronze', 'iron', 'steel', 'gold', 'diamond', 'obsidian', 'mythril'] },
-  shovel:       { name: 'Shovel',       does: 'Digs the ground for stone and treasure', fallback: 'items/hoe',  mats: ['wood', 'stone', 'iron', 'gold', 'diamond'] },
-  hoe:          { name: 'Hoe',          does: 'More from crops you pick',            fallback: 'items/hoe',     mats: ['wood', 'stone', 'iron', 'gold', 'diamond'] },
-  hammer:       { name: 'Hammer',       does: 'Builds faster',                       fallback: 'items/hammer',  mats: ['wood', 'stone', 'iron', 'gold', 'diamond'] },
-  fishing_rod:  { name: 'Fishing Rod',  does: 'Swing at water to catch fish',        fallback: 'items/spear', mats: ['wood', 'bamboo', 'iron', 'gold', 'crystal'] },
-  sickle:       { name: 'Sickle',       does: 'Gathers berries and crops faster',    fallback: 'items/hoe',     mats: ['wood', 'stone', 'iron', 'gold', 'diamond'] },
+  pickaxe:      { name: 'Pickaxe',      does: 'Mines rocks and ore',                 fallback: 'items/pickaxe', mats: ['wood', 'stone', 'copper', 'bronze', 'iron', 'steel', 'gold', 'diamond', 'obsidian', 'mythril', 'ice', 'lava', 'celestial', 'void'] },
+  axe:          { name: 'Axe',          does: 'Chops trees',                         fallback: 'items/axe',     mats: ['wood', 'stone', 'copper', 'bronze', 'iron', 'steel', 'gold', 'diamond', 'obsidian', 'mythril', 'lava', 'celestial'] },
+  shovel:       { name: 'Shovel',       does: 'Digs the ground for stone and treasure', fallback: 'items/hoe',  mats: ['wood', 'stone', 'iron', 'gold', 'diamond', 'crystal', 'lava', 'celestial', 'void'] },
+  hoe:          { name: 'Hoe',          does: 'More from crops you pick',            fallback: 'items/hoe',     mats: ['wood', 'stone', 'iron', 'gold', 'diamond', 'celestial'] },
+  hammer:       { name: 'Hammer',       does: 'Builds faster',                       fallback: 'items/hammer',  mats: ['wood', 'stone', 'iron', 'gold', 'diamond', 'celestial'] },
+  fishing_rod:  { name: 'Fishing Rod',  does: 'Swing at water to catch fish',        fallback: 'items/spear', mats: ['wood', 'bamboo', 'iron', 'gold', 'crystal', 'bone', 'carbon', 'coral', 'lava', 'dragon', 'star'] },
+  sickle:       { name: 'Sickle',       does: 'Gathers berries and crops faster',    fallback: 'items/hoe',     mats: ['wood', 'stone', 'iron', 'gold', 'diamond', 'celestial'] },
 };
 
 /** Single utility tools (no tiers). */
@@ -46,14 +56,25 @@ export const UTILITY = {
   bucket:       { name: 'Bucket',       does: 'Catch more fish',                     fallback: 'items/relic' },
   watering_can: { name: 'Watering Can', does: 'More from crops you pick',            fallback: 'items/relic' },
   backpack:     { name: 'Backpack',     does: '+25% from everything you gather',     fallback: 'items/relic' },
+  fishing_net:  { name: 'Fishing Net',  does: '50% more fish from every catch',      armory: true },
+  tackle_box:   { name: 'Tackle Box',   does: '20% more fish, and rare catches',      armory: true },
+  bait_worm:    { name: 'Bait Worm',    does: 'Fish bite sooner (one cast fewer)',    armory: true },
+  grappling_hook: { name: 'Grappling Hook', does: 'Your dash goes 60% further',      armory: true },
+  compass:      { name: 'Compass',      does: 'Points to the nearest treasure chest or cave', armory: true },
+  spyglass:     { name: 'Spyglass',     does: 'See further in the dark (more dungeon light)', armory: true },
+  magnet:       { name: 'Magnet',       does: 'Pulls hearts, potions and dropped loot to you', armory: true },
+  lockpick:     { name: 'Lockpick',     does: 'Opens a dungeon boss door without the key', armory: true },
 };
 
 /** Every tool there is, by key (e.g. pickaxe_iron, lantern). */
 export const TOOLS = {};
 for (const [kind, k] of Object.entries(TOOL_KINDS)) {
-  for (const m of k.mats) TOOLS[`${kind}_${m}`] = { kind, mat: m, name: `${MATERIALS[m].name} ${k.name}`, power: MATERIALS[m].power, does: k.does, icon: `tools/${kind}_${m}`, fallbackIcon: k.fallback };
+  for (const m of k.mats) TOOLS[`${kind}_${m}`] = { kind, mat: m, name: `${MATERIALS[m].name} ${k.name}`, power: MATERIALS[m].power, does: k.does, icon: MATERIALS[m].armory || (kind === 'shovel' && m === 'crystal') ? `armory/${kind}_${m}` : `tools/${kind}_${m}`, fallbackIcon: k.fallback, mythic: MATERIALS[m].power > 10 };
 }
-for (const [key, u] of Object.entries(UTILITY)) TOOLS[key] = { kind: key, name: u.name, power: 1, does: u.does, icon: `tools/${key}`, fallbackIcon: u.fallback, utility: true };
+for (const [key, u] of Object.entries(UTILITY)) TOOLS[key] = { kind: key, name: u.name, power: 1, does: u.does, icon: u.armory ? `armory/${key}` : `tools/${key}`, fallbackIcon: u.fallback || 'items/relic', utility: true };
+// power tools
+TOOLS.drill = { kind: 'pickaxe', name: 'Drill', power: 12, does: 'Mines anything in a blink', icon: 'armory/drill', fallbackIcon: 'items/pickaxe', mythic: true };
+TOOLS.chainsaw = { kind: 'axe', name: 'Chainsaw', power: 12, does: 'Fells any tree in a blink', icon: 'armory/chainsaw', fallbackIcon: 'items/axe', mythic: true };
 
 export const STARTER_TOOLS = ['pickaxe_wood', 'axe_wood', 'shovel_wood', 'fishing_rod_wood'];
 
@@ -119,7 +140,7 @@ export function workWith(g, work, baseHits, held = null) {
 export const buildMult = g => { const k = bestTool(g, 'hammer'); return k ? 1 + TOOLS[k].power * 0.15 : 1; };
 
 /** Extra dungeon light (in tiles). */
-export const lightBonus = g => (hasTool(g, 'lantern') ? 2.5 : hasTool(g, 'torch') ? 1.2 : 0);
+export const lightBonus = g => (hasTool(g, 'lantern') ? 2.5 : hasTool(g, 'torch') ? 1.2 : 0) + (hasTool(g, 'spyglass') ? 1.5 : 0);
 
 /** Show the tool in your hands for a moment. */
 export function flashTool(g, key) {
@@ -170,9 +191,10 @@ export function fish(g, v, key = bestTool(g, 'fishing_rod')) {
   const h = g.hero;
   h._casts = (h._casts || 0) + 1;
   g.puff({ x: (wx + 0.5) * TILE, y: (wy + 0.5) * TILE }, 'effects/splash', 3, 8);
-  if (h._casts < Math.max(1, 4 - Math.floor(t.power / 3))) return true;
+  if (h._casts < Math.max(1, 4 - Math.floor(t.power / 3) - (hasTool(g, 'bait_worm') ? 1 : 0))) return true;
   h._casts = 0;
-  const n = Math.round((2 + Math.random() * (2 + t.power)) * (hasTool(g, 'bucket') ? 1.4 : 1) * (hasTool(g, 'backpack') ? 1.25 : 1));
+  const n = Math.round((2 + Math.random() * (2 + t.power)) * (hasTool(g, 'bucket') ? 1.4 : 1) * (hasTool(g, 'backpack') ? 1.25 : 1) * (hasTool(g, 'fishing_net') ? 1.5 : 1) * (hasTool(g, 'tackle_box') ? 1.2 : 1));
+  if (hasTool(g, 'tackle_box') && Math.random() < 0.08) { const gems = g.addResource('gems', 1); g.float(v.x, v.y - TILE * 1.8, `A gem in its belly! +${gems ?? 1} gem`, '#b8a0ff'); }
   g.float(v.x, v.y - TILE * 1.3, `Caught fish! +${g.addResource('food', n) ?? n} food`, '#8fd4ff');
   return true;
 }
@@ -224,6 +246,14 @@ export function selectSlot(g, i) {
   hotbarOf(g);
   rpgOf(g).hotSel = Math.max(0, Math.min(HOTBAR_SIZE - 1, i));
   g.emit?.('change');
+}
+
+/** Consumables (item:key) take a free slot the first time you get them. */
+export function addItemToHotbar(g, value) {
+  const bar = hotbarOf(g);
+  if (bar.includes(value)) return;
+  const free = bar.indexOf(null);
+  if (free >= 0) bar[free] = value;
 }
 
 /** A new tool goes into your hotbar: it replaces a weaker one of the same kind, or takes a free slot. */

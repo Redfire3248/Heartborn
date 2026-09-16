@@ -6,6 +6,7 @@ import { Game } from './game.js';
 import { updateCreature, updateEnemyShots } from './creatures.js';
 import { startLead, damageHero, knockOutHero, heroOf } from './hero.js';
 import { rpgOf, gainXp } from './rpg.js';
+import { hasTool } from './tools.js';
 export { entrancesOf, entranceNear } from './treasure.js';
 
 /*
@@ -230,7 +231,7 @@ export function updateDungeon(g, dt) {
     g.announce?.('You found the boss key');
   }
   if (!d.open && d.doors.some(p => near({ x: (p.x + 0.5) * TILE, y: (p.y + 0.5) * TILE }, TILE * 1.6))) {
-    if (d.hasKey) openDoors(g);
+    if (d.hasKey || hasTool(g, 'lockpick')) { if (!d.hasKey) g.float(v.x, v.y - TILE * 1.4, 'Picked the lock!', '#ffd76a'); openDoors(g); }
     else if (!d._lockedMsg || g.state.time > d._lockedMsg) { d._lockedMsg = g.state.time + 3; g.float(v.x, v.y - TILE * 1.4, 'Locked: find the key', '#ff9f7a'); }
   }
 

@@ -61,7 +61,74 @@ export const WEAPONS = {
   bow: { name: 'Bow', dmg: 12, range: 8, speed: 0.75, ranged: true, icon: 'gear/bow_common' },
   longbow: { name: 'Longbow', dmg: 16, range: 10, speed: 0.9, ranged: true, icon: 'gear/longbow', fallbackIcon: 'gear/bow_rare' },
   crossbow: { name: 'Crossbow', dmg: 22, range: 9, speed: 1.1, ranged: true, crit: 0.08, icon: 'gear/crossbow', fallbackIcon: 'gear/bow_common' },
-  magic_staff: { name: 'Magic Staff', dmg: 18, range: 7, speed: 0.8, ranged: true, minRarity: 1, icon: 'gear/magic_staff', fallbackIcon: 'gear/staff', length: 1.2 },
+  magic_staff: { name: 'Magic Staff', dmg: 18, range: 7, speed: 0.8, ranged: true, minRarity: 1, icon: 'gear/magic_staff', fallbackIcon: 'gear/staff', length: 1.2, shot: { kind: 'magic_bolt', speed: 12 } },
+  // ---- from the Armory sheet
+  // guns and thrown weapons (shot: kind, speed in tiles/s, count, spread, pierce, explode radius, effects)
+  flintlock_pistol: { name: 'Flintlock Pistol', dmg: 26, range: 7, speed: 0.9, ranged: true, shot: { kind: 'bullet', speed: 22 }, icon: 'armory/flintlock_pistol' },
+  musket: { name: 'Musket', dmg: 38, range: 11, speed: 1.3, ranged: true, shot: { kind: 'bullet', speed: 26 }, icon: 'armory/musket' },
+  blunderbuss: { name: 'Blunderbuss', dmg: 14, range: 5, speed: 1.2, ranged: true, shot: { kind: 'bullet', speed: 20, count: 5, spread: 0.35 }, icon: 'armory/blunderbuss' },
+  revolver: { name: 'Revolver', dmg: 18, range: 8, speed: 0.45, ranged: true, shot: { kind: 'bullet', speed: 24 }, minRarity: 1, icon: 'armory/revolver' },
+  hunting_rifle: { name: 'Hunting Rifle', dmg: 42, range: 13, speed: 1.2, ranged: true, crit: 0.1, shot: { kind: 'bullet', speed: 30, pierce: 1 }, minRarity: 1, icon: 'armory/hunting_rifle' },
+  shotgun: { name: 'Shotgun', dmg: 16, range: 6, speed: 1.0, ranged: true, shot: { kind: 'bullet', speed: 22, count: 6, spread: 0.4 }, minRarity: 1, icon: 'armory/shotgun' },
+  slingshot: { name: 'Slingshot', dmg: 8, range: 6, speed: 0.5, ranged: true, shot: { kind: 'rock', speed: 12 }, icon: 'armory/slingshot' },
+  throwing_axe: { name: 'Throwing Axe', dmg: 20, range: 6, speed: 0.7, ranged: true, shot: { kind: 'thrown', speed: 12, sprite: 'armory/throwing_axe', spin: true }, icon: 'armory/throwing_axe' },
+  boomerang: { name: 'Boomerang', dmg: 14, range: 7, speed: 0.8, ranged: true, shot: { kind: 'thrown', speed: 11, sprite: 'armory/boomerang', spin: true, returns: true, pierce: 9 }, icon: 'armory/boomerang' },
+  shuriken: { name: 'Shuriken', dmg: 10, range: 7, speed: 0.3, ranged: true, crit: 0.1, shot: { kind: 'thrown', speed: 16, sprite: 'armory/shuriken', spin: true, count: 3, spread: 0.18 }, icon: 'armory/shuriken' },
+  harpoon: { name: 'Harpoon', dmg: 28, range: 7, speed: 1.0, ranged: true, shot: { kind: 'thrown', speed: 14, sprite: 'armory/harpoon', pierce: 1 }, icon: 'armory/harpoon' },
+  // swords
+  longsword: { name: 'Longsword', dmg: 19, range: 1.35, speed: 0.5, arc: 1.9, icon: 'armory/longsword', length: 1.1 },
+  bastard_sword: { name: 'Bastard Sword', dmg: 23, range: 1.45, speed: 0.62, arc: 2.0, icon: 'armory/bastard_sword', length: 1.2 },
+  falchion: { name: 'Falchion', dmg: 18, range: 1.2, speed: 0.5, arc: 2.1, icon: 'armory/falchion', length: 1.0 },
+  sabre: { name: 'Sabre', dmg: 16, range: 1.3, speed: 0.4, arc: 1.9, crit: 0.06, icon: 'armory/sabre', length: 1.0 },
+  gladius: { name: 'Gladius', dmg: 14, range: 1.05, speed: 0.36, arc: 1.5, icon: 'armory/gladius', length: 0.8 },
+  machete: { name: 'Machete', dmg: 15, range: 1.1, speed: 0.42, arc: 2.0, icon: 'armory/machete', length: 0.9 },
+  wakizashi: { name: 'Wakizashi', dmg: 13, range: 1.05, speed: 0.32, arc: 1.6, crit: 0.1, icon: 'armory/wakizashi', length: 0.85 },
+  zweihander: { name: 'Zweihander', dmg: 32, range: 1.8, speed: 0.92, arc: 2.4, minRarity: 1, icon: 'armory/zweihander', length: 1.45 },
+  estoc: { name: 'Estoc', dmg: 15, range: 1.5, speed: 0.38, arc: 0.9, crit: 0.12, icon: 'armory/estoc', length: 1.15 },
+  kukri: { name: 'Kukri', dmg: 12, range: 0.95, speed: 0.3, arc: 1.4, crit: 0.1, icon: 'armory/kukri', length: 0.7 },
+  runic_blade: { name: 'Runic Blade', dmg: 24, range: 1.4, speed: 0.45, arc: 2.0, minRarity: 2, icon: 'armory/runic_blade', length: 1.1 },
+  // axes, blunt and polearms
+  tomahawk: { name: 'Tomahawk', dmg: 16, range: 1.05, speed: 0.5, arc: 1.7, icon: 'armory/tomahawk', length: 0.85 },
+  double_axe: { name: 'Double Axe', dmg: 26, range: 1.3, speed: 0.8, arc: 2.2, stun: 0.2, icon: 'armory/double_axe', length: 1.15 },
+  war_pick: { name: 'War Pick', dmg: 22, range: 1.1, speed: 0.7, arc: 1.4, crit: 0.08, icon: 'armory/war_pick', length: 1.0 },
+  maul: { name: 'Maul', dmg: 34, range: 1.2, speed: 1.0, arc: 1.8, stun: 0.6, minRarity: 1, icon: 'armory/maul', length: 1.2 },
+  quarterstaff: { name: 'Quarterstaff', dmg: 12, range: 1.6, speed: 0.45, arc: 2.0, stun: 0.15, icon: 'armory/quarterstaff', length: 1.4 },
+  glaive: { name: 'Glaive', dmg: 22, range: 1.8, speed: 0.7, arc: 1.8, icon: 'armory/glaive', length: 1.45 },
+  naginata: { name: 'Naginata', dmg: 20, range: 1.8, speed: 0.6, arc: 1.9, icon: 'armory/naginata', length: 1.45 },
+  pike: { name: 'Pike', dmg: 20, range: 2.2, speed: 0.75, arc: 0.5, icon: 'armory/pike', length: 1.6 },
+  bardiche: { name: 'Bardiche', dmg: 26, range: 1.7, speed: 0.8, arc: 1.9, icon: 'armory/bardiche', length: 1.45 },
+  whip: { name: 'Whip', dmg: 11, range: 2.4, speed: 0.5, arc: 1.2, stun: 0.1, icon: 'armory/whip', length: 1.0 },
+  // magic
+  fire_staff: { name: 'Fire Staff', dmg: 22, range: 8, speed: 0.8, ranged: true, shot: { kind: 'fireball', speed: 10, burn: { dps: 5, secs: 3 } }, minRarity: 1, icon: 'armory/fire_staff' },
+  ice_staff: { name: 'Ice Staff', dmg: 18, range: 8, speed: 0.75, ranged: true, shot: { kind: 'ice_shard', speed: 13, chill: 2.5 }, minRarity: 1, icon: 'armory/ice_staff' },
+  lightning_wand: { name: 'Lightning Wand', dmg: 16, range: 9, speed: 0.5, ranged: true, shot: { kind: 'lightning_bolt', speed: 20, pierce: 2 }, minRarity: 1, icon: 'armory/lightning_wand' },
+  necro_staff: { name: 'Necromancer Staff', dmg: 20, range: 8, speed: 0.8, ranged: true, shot: { kind: 'dark_orb', speed: 8, homing: 2.2, lifesteal: 0.2 }, minRarity: 2, icon: 'armory/necro_staff' },
+  holy_scepter: { name: 'Holy Sceptre', dmg: 18, range: 8, speed: 0.7, ranged: true, shot: { kind: 'heal_orb', speed: 10, undead: 2.5, heal: 3 }, minRarity: 2, icon: 'armory/holy_scepter' },
+  spellbook: { name: 'Spellbook', dmg: 14, range: 8, speed: 0.35, ranged: true, shot: { kind: 'magic_bolt', speed: 12, count: 3, spread: 0.25 }, minRarity: 1, icon: 'armory/spellbook' },
+  crystal_orb: { name: 'Crystal Orb', dmg: 24, range: 9, speed: 0.8, ranged: true, shot: { kind: 'magic_bolt', speed: 9, homing: 2.5 }, minRarity: 2, icon: 'armory/crystal_orb' },
+  bone_wand: { name: 'Bone Wand', dmg: 12, range: 7, speed: 0.45, ranged: true, shot: { kind: 'bone_arrow', speed: 16 }, icon: 'armory/bone_wand' },
+  druid_staff: { name: 'Druid Staff', dmg: 16, range: 8, speed: 0.7, ranged: true, shot: { kind: 'poison_spit', speed: 11, poison: { dps: 4, secs: 4 } }, minRarity: 1, icon: 'armory/druid_staff' },
+  // ---- ADMIN ONLY: never dropped or crafted, only given with the admin gear command
+  minigun: { name: 'Minigun', dmg: 45, range: 12, speed: 0.05, ranged: true, admin: true, noLoot: true, minRarity: 3, shot: { kind: 'bullet', speed: 30, spread: 0.08 }, icon: 'armory/minigun' },
+  laser_rifle: { name: 'Laser Rifle', dmg: 160, range: 16, speed: 0.25, ranged: true, admin: true, noLoot: true, minRarity: 3, shot: { kind: 'laser', speed: 60, pierce: 99, color: '#5ad8ff' }, icon: 'armory/laser_rifle' },
+  plasma_cannon: { name: 'Plasma Cannon', dmg: 260, range: 12, speed: 0.6, ranged: true, admin: true, noLoot: true, minRarity: 3, shot: { kind: 'plasma', speed: 14, explode: 2.5 }, icon: 'armory/plasma_cannon' },
+  rocket_launcher: { name: 'Rocket Launcher', dmg: 500, range: 14, speed: 0.8, ranged: true, admin: true, noLoot: true, minRarity: 3, shot: { kind: 'rocket', speed: 16, explode: 3.5, explodeAtEnd: true }, icon: 'armory/rocket_launcher' },
+  railgun: { name: 'Railgun', dmg: 999, range: 20, speed: 0.7, ranged: true, admin: true, noLoot: true, minRarity: 3, shot: { kind: 'laser', speed: 80, pierce: 99, color: '#e0f0ff' }, icon: 'armory/railgun' },
+  flamethrower: { name: 'Flamethrower', dmg: 30, range: 5, speed: 0.04, ranged: true, admin: true, noLoot: true, minRarity: 3, shot: { kind: 'fireball', speed: 12, count: 2, spread: 0.35, pierce: 3, burn: { dps: 20, secs: 3 } }, icon: 'armory/flamethrower' },
+  freeze_ray: { name: 'Freeze Ray', dmg: 80, range: 10, speed: 0.1, ranged: true, admin: true, noLoot: true, minRarity: 3, shot: { kind: 'ice_shard', speed: 24, pierce: 5, freeze: 3 }, icon: 'armory/freeze_ray' },
+  black_hole_gun: { name: 'Black Hole Gun', dmg: 120, range: 10, speed: 0.9, ranged: true, admin: true, noLoot: true, minRarity: 3, shot: { kind: 'dark_orb', speed: 8, explode: 4, pull: true, explodeAtEnd: true }, icon: 'armory/black_hole_gun' },
+  banana_blaster: { name: 'Banana Blaster', dmg: 90, range: 9, speed: 0.12, ranged: true, admin: true, noLoot: true, minRarity: 3, shot: { kind: 'banana', speed: 15, count: 2, spread: 0.2, kb: 4 }, icon: 'armory/banana_blaster' },
+  ban_hammer: { name: 'BAN HAMMER', dmg: 9999, range: 3, speed: 0.5, arc: 6.3, stun: 3, admin: true, noLoot: true, minRarity: 3, icon: 'armory/ban_hammer', length: 1.5 },
+  god_sword: { name: 'God Sword', dmg: 999, range: 3, speed: 0.25, arc: 6.3, crit: 0.5, admin: true, noLoot: true, minRarity: 3, icon: 'armory/god_sword', length: 1.5 },
+  infinity_blade: { name: 'Infinity Blade', dmg: 700, range: 2.2, speed: 0.2, arc: 3, admin: true, noLoot: true, minRarity: 3, icon: 'armory/infinity_blade', length: 1.3 },
+  energy_sword: { name: 'Energy Sword', dmg: 400, range: 1.8, speed: 0.15, arc: 2.4, admin: true, noLoot: true, minRarity: 3, icon: 'armory/energy_sword', length: 1.2 },
+  cosmic_scythe: { name: 'Cosmic Scythe', dmg: 800, range: 3, speed: 0.35, arc: 6.3, admin: true, noLoot: true, minRarity: 3, icon: 'armory/cosmic_scythe', length: 1.5 },
+  storm_god_hammer: { name: 'Storm God Hammer', dmg: 900, range: 2, speed: 0.45, arc: 3, stun: 2, admin: true, noLoot: true, minRarity: 3, icon: 'armory/storm_god_hammer', length: 1.2 },
+  chaos_staff: { name: 'Chaos Staff', dmg: 300, range: 12, speed: 0.15, ranged: true, admin: true, noLoot: true, minRarity: 3, shot: { kind: 'chaos', speed: 14 }, icon: 'armory/chaos_staff' },
+  dev_wrench: { name: 'Dev Wrench', dmg: 5000, range: 2, speed: 0.3, arc: 3, stun: 3, admin: true, noLoot: true, minRarity: 3, icon: 'armory/dev_wrench', length: 1.1 },
+  golden_frying_pan: { name: 'Golden Frying Pan', dmg: 350, range: 1.5, speed: 0.3, arc: 2.5, stun: 2, kb: 3, admin: true, noLoot: true, minRarity: 3, icon: 'armory/golden_frying_pan', length: 1.0 },
+  rubber_chicken: { name: 'Rubber Chicken', dmg: 1, range: 1.6, speed: 0.15, arc: 3, kb: 12, admin: true, noLoot: true, minRarity: 3, icon: 'armory/rubber_chicken', length: 1.0 },
+  void_dagger: { name: 'Void Dagger', dmg: 900, range: 1.4, speed: 0.12, arc: 2, admin: true, noLoot: true, minRarity: 3, icon: 'armory/void_dagger', length: 0.8 },
 };
 
 /** Special abilities of some blades (shown in Analyze, used on every hit). */
@@ -78,6 +145,17 @@ export const BLADE_SPECIALS = {
   twin_daggers:  { name: 'Twin Strike', desc: 'Every hit strikes twice (the second for half)', twin: 0.5 },
   scimitar:      { name: 'Whirlwind', desc: 'The combo finisher spins all the way round you', whirl: true },
   cutlass:       { name: 'Plunder', desc: 'Foes you slay drop extra gold', plunder: [3, 9] },
+  runic_blade:   { name: 'Rune Frost', desc: 'Runes chill every foe you hit', chill: { k: 0.6, secs: 2, freeze: 0.1 } },
+  // admin weapons
+  ban_hammer:       { name: 'BANNED', desc: 'Every swing is a shockwave that flattens everything around you', shockwave: { radius: 4, share: 1, always: true } },
+  god_sword:        { name: 'Divine Wrath', desc: 'Lightning leaps to 8 foes', chain: { count: 8, range: 8, share: 1 } },
+  infinity_blade:   { name: 'Infinite Edge', desc: 'Every hit strikes twice and chains to 5 foes', twin: 1, chain: { count: 5, range: 6, share: 0.6 } },
+  energy_sword:     { name: 'Plasma Edge', desc: 'Sets everything on fire', burn: { dps: 60, secs: 3 } },
+  cosmic_scythe:    { name: 'Harvest of Stars', desc: 'Each kill heals 30% of your health', reap: 0.3 },
+  storm_god_hammer: { name: 'Thunderclap', desc: 'Lightning leaps to 6 foes for full damage, and a shockwave on every swing', chain: { count: 6, range: 6, share: 1 }, shockwave: { radius: 2.5, share: 0.5, always: true } },
+  void_dagger:      { name: 'Void Hunger', desc: 'Heals you for 30% of the damage you deal', lifesteal: 0.3 },
+  golden_frying_pan:{ name: 'BONK', desc: 'Sends foes flying and dazes them' },
+  rubber_chicken:   { name: 'Squeak', desc: 'Does almost no damage but launches foes across the map' },
 };
 export const UNDEAD = new Set(['skeleton', 'skeleton_archer', 'ghost', 'zombie', 'lich']);
 
@@ -242,7 +320,7 @@ export function rollGear(g, { boss = false, slot = null } = {}) {
   const rarity = pickRarity(g, boss);
   const roll = Math.random();
   const kind = slot || (roll < 0.42 ? 'weapon' : roll < 0.58 ? 'shield' : roll < 0.76 ? 'armor' : roll < 0.88 ? 'helmet' : 'trinket');
-  const options = Object.entries(CATALOG[kind]).filter(([, d]) => !d.noLoot && d.icon !== null && (d.minRarity || 0) <= rarity);
+  const options = Object.entries(CATALOG[kind]).filter(([, d]) => !d.noLoot && !d.admin && d.icon !== null && (d.minRarity || 0) <= rarity);
   const [base] = options[Math.floor(Math.random() * options.length)];
   return makeGear(g, base, rarity);
 }
@@ -263,6 +341,17 @@ export function takeGear(g, it, v = null) {
     if (v) g.float(v.x, v.y - TILE * 1.4, `+ ${it.name}`, RARITY[it.rarity].color);
   }
   g.emit('change');
+}
+
+/** Put on the best piece you own for every slot. Returns how many pieces changed. */
+export function equipBest(g) {
+  const r = rpgOf(g);
+  let changed = 0;
+  for (const slot of Object.keys(r.gear)) {
+    const best = r.bag.filter(it => it.slot === slot).reduce((a, b) => (gearScore(b) > gearScore(a) ? b : a), null);
+    if (best && gearScore(best) > gearScore(r.gear[slot])) { equip(g, best.id); changed++; }
+  }
+  return changed;
 }
 
 export function equip(g, id) {

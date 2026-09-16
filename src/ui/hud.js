@@ -15,7 +15,7 @@ import { openAimMap } from './aimMap.js';
 import { BODY, bodyStat } from '../game/body.js';
 import { autoPickOn, runAutoPick } from '../game/autopick.js';
 import { arriveAbroad, leaveAbroad, spyActions } from '../game/abroad.js';
-import { rpgOf, heroStats, heroWeapon, xpToNext, spendPoint, equip, unequip, scrapGear, RARITY, CATALOG, BLADE_SPECIALS } from '../game/rpg.js';
+import { rpgOf, heroStats, heroWeapon, xpToNext, spendPoint, equip, equipBest, gearScore, unequip, scrapGear, RARITY, CATALOG, BLADE_SPECIALS } from '../game/rpg.js';
 import { gearIconKey } from '../render/gearArt.js';
 import { homeOf, residents } from '../game/homes.js';
 import { itemAt, pickUp, moveItem, dropFromPack } from '../game/groundItems.js';
@@ -27,6 +27,7 @@ import { makeVisitGame } from '../game/visit.js';
 import { makeDungeonGame, leaveSurface, returnFromDungeon, bossOf } from '../game/dungeon.js';
 import { HouseEditor } from './houseEditor.js';
 import { RECIPES, CRAFT_CATS, canCraft, craft } from '../game/crafting.js';
+import { CONSUMABLES, itemsOf, buffActive } from '../game/consumables.js';
 import { on, buildingOn, eraFree } from '../core/features.js';
 import { ACTIONS, CONTROL_GROUPS, is, held, keyOf, keyLabel, setBind, resetBinds, RESERVED } from '../core/controls.js';
 import { TOOLS, toolsOf, hotbarOf, selectSlot, setSlot, swapSlots } from '../game/tools.js';
@@ -40,6 +41,8 @@ import { openRealmMap } from './realmMap.js';
 
 // phones and tablets: no right-click, no Esc key
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+/** Phones and tablets place buildings in front of the hero with a Build here button. */
+const MOBILE_PLACE = () => TOUCH || (typeof innerWidth === 'number' && innerWidth <= 760);
 import { computeBridges, bridgeAt } from '../game/bridges.js';
 import { talentLabel, fullName, EGO_PROUD } from '../game/talents.js';
 import { SPELLS, canCast, castSpell } from '../game/magic.js';
@@ -64,7 +67,11 @@ import { BUILD, LATEST_CHANGES, checkLatest } from '../core/version.js';
 
 const TOP_RES = ['food', 'wood', 'stone', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];
 // bombs and science only appear once they matter
-const SHOW_WHEN = { bombs: g => g.state.resources.bombs > 0 || g.hasBuilding('powder_mill'), science: g => g.state.resources.science > 0 || g.state.era >= 3 };
+const SHOW_WHEN = {
+  bombs: g => !g.solo && (g.state.resources.bombs > 0 || g.hasBuilding('powder_mill')), science: g => !g.solo && (g.state.resources.science > 0 || g.state.era >= 3),
+  // a lone hero has no army and no influence to spend: those stay out of the bar
+  weapons: g => !g.solo, influence: g => !g.solo,
+};
 // the engine telegraph, top to bottom
 const TELEGRAPH = [['FULL', 1], ['HALF', 0.6], ['SLOW', 0.3], ['STOP', 0], ['BACK', -0.4]];
 
@@ -108,6 +115,18 @@ export class HUD {
     this.els = {};
     this.build();
 
+    this.onBack = () => {
+      const x = [...document.querySelectorAll('.modal-bg .modal-x, .analyze-bg .an-x')].pop();
+      if (x) x.click();
+      else if (this.houseEditor) this.houseEditor.close();
+      else if (!this.els.invPanel?.hidden) this.els.invPanel.hidden = true;
+      else if (this.panel) this.closePanel();
+      else if (window.__hb?.app?.console?.open) window.__hb.app.console.toggle();
+      else this.hint('Open Settings to leave the game', 1800);
+      history.pushState({ hb: 1 }, '');   // stay on this page for the next back press
+    };
+    history.pushState({ hb: 1 }, '');
+    window.addEventListener('popstate', this.onBack);
     game.on('log', e => this.toast(e));
     game.on('announce', t => this.announce(t));
     game.on('event', ev => this.showEvent(ev));
@@ -148,13 +167,13 @@ export class HUD {
     }
     this.els.pop = h('span.v', '3');
     this.els.housing = h('span.cap', '');
-    resCard.prepend(h('div.res', { title: 'Population / housing' }, icon('items/population', 24), h('div', this.els.pop, this.els.housing)));
+    if (!g.solo) resCard.prepend(h('div.res', { title: 'Population / housing' }, icon('items/population', 24), h('div', this.els.pop, this.els.housing)));
 
     this.els.karmaDot = h('i');
     this.els.karmaTitle = h('div.karma-title', 'Neutral');
     this.els.era = h('span.era-badge', ERAS[0].name);
     this.els.shield = h('span.shield-badge');
-    const karmaCard = h('div.card',
+    const karmaCard = h('div.card.karma-card',
       h('div.col', { style: { gap: '2px', alignItems: 'center' } },
         h('div.karma', { title: 'Karma — good deeds bring luck and happiness; evil brings power and curses' },
           icon('items/karma_evil', 22), h('div.karma-track', this.els.karmaDot), icon('items/karma_good', 22)),
@@ -162,10 +181,12 @@ export class HUD {
 
     this.els.day = h('div.day', 'Day 1');
     this.els.season = h('div.season', 'Spring · Year 1');
-    const clockCard = h('div.card', h('div.clock', this.els.day, this.els.season));
+    const clockCard = h('div.card.clock-card', h('div.clock', this.els.day, this.els.season));
     this.els.bellCount = h('span.bell-count', { hidden: true }, '0');
     const bell = h('button.card.bell', { title: 'Notifications', onclick: () => this.toggleNotifications() }, pxIcon('bell'), this.els.bellCount);
-    this.root.append(h('div.topbar', resCard), h('div.statusbar', bell, karmaCard, clockCard));
+    // one row: resources, notifications and the day (the karma bar is gone)
+    this.root.append(h('div.topbar', resCard, bell, clockCard));
+    this.els.karmaCard = karmaCard;
 
     // dock
     const dock = h('div.card.dock');
@@ -278,6 +299,13 @@ export class HUD {
       this._dashHeld = dashDown;
       if (abroad || (!g.paused && !g.pendingEvent)) updateHero(hg, dt, { mx, my, act: !abroad && (held(k, 'attack') || t.act), dash: !abroad && dash, potion: !abroad && potion, block: !abroad && (held(k, 'block') || t.block) });
       if (hg === this.dungeon) this.tickDungeon();
+      if (this.mobilePlace && this.buildType && hg === g && !this.mobilePlace.manual) {   // the house waits just in front of you
+        const hv = heroOf(g);
+        const a = g.hero.facing ?? Math.PI / 2, size = BUILDINGS[this.buildType].size;
+        const dist = (1.2 + size * 0.6) * TILE;
+        if (hv) this.onHover(Math.floor((hv.x + Math.cos(a) * dist) / TILE), Math.floor((hv.y + Math.sin(a) * dist) / TILE));
+      }
+      if (this.mobilePlace && (Math.abs(mx) > 0.2 || Math.abs(my) > 0.2)) this.mobilePlace.manual = false;   // walking brings it back in front of you
       this.updateBossBar(hg, dt);
       const v = heroOf(hg);
       const c = this.renderer.camera;
@@ -561,7 +589,7 @@ export class HUD {
     const r = rpgOf(g);
     const w = heroWeapon(g, v);
     const tools = toolsOf(g);
-    const key = [slots.join(), r.hotSel, r.potions || 0, w.name, Object.entries(tools).join()].join('|');
+    const key = [slots.join(), r.hotSel, r.potions || 0, w.name, Object.entries(tools).join(), Object.entries(itemsOf(g)).join()].join('|');
     bar.hidden = false;
     if (key === this._hotbarKey) return;
     this._hotbarKey = key;
@@ -628,6 +656,7 @@ export class HUD {
     const g = this.game;
     if (k === 'weapon') { const w = heroWeapon(g, v); return { name: w.base === 'fists' ? 'Fists' : w.name, icon: gearIconKey(w) || w.icon || 'items/sword' }; }
     if (k === 'potion') return { name: 'Health Potion', icon: 'gear/health_potion', count: rpgOf(g).potions || 0 };
+    if (k.startsWith('item:')) { const c = CONSUMABLES[k.slice(5)]; return c ? { name: c.name, icon: c.icon, count: itemsOf(g)[k.slice(5)] || 0, does: c.does } : null; }
     const t = TOOLS[k];
     if (!t) return null;
     const n = toolsOf(g)[k] || 0;
@@ -651,7 +680,7 @@ export class HUD {
       const info = this.slotInfo(k, v);
       const inBar = bar.indexOf(k);
       return h('button.inv-cell' + (inBar === r.hotSel ? '.held' : inBar >= 0 ? '.inbar' : '') + extra, {
-        title: k === 'weapon' || k === 'potion' ? info.name : `${info.name}: ${TOOLS[k].does}`,
+        title: k === 'weapon' || k === 'potion' ? info.name : info.does ? `${info.name}: ${info.does}` : `${info.name}: ${TOOLS[k]?.does || ''}`,
         onclick: () => { if (this._dragged) return; setSlot(g, r.hotSel, k); this._hotbarKey = null; this.renderInventory(); },
         onpointerdown: e => this.startSlotDrag(e, { from: null, value: k, icon: info.icon }),
       }, icon(info.icon, 30), info.count != null ? h('span.hot-count', String(info.count)) : null, inBar >= 0 ? h('span.hot-num', String(inBar + 1)) : null);
@@ -663,7 +692,7 @@ export class HUD {
         bar[r.hotSel] ? h('button.btn.sm', { onclick: () => { setSlot(g, r.hotSel, null); this._hotbarKey = null; this.renderInventory(); } }, 'Empty slot') : null,
         h('button.btn.sm', { onclick: () => this.characterSheet() }, 'Gear'),
         h('button.modal-x.inv-x', { title: 'Close (I)', onclick: () => { panel.hidden = true; } }, hasArt('ui/close') ? icon('ui/close', 16) : '✕')),
-      h('div.inv-cells', cell('weapon'), cell('potion'), ...keys.map(k => cell(k))),
+      h('div.inv-cells', cell('weapon'), cell('potion'), ...Object.keys(itemsOf(g)).filter(k => CONSUMABLES[k]).map(k => cell(`item:${k}`)), ...keys.map(k => cell(k))),
       heldInfo ? h('div.faint.inv-hint', `Holding: ${heldInfo.name}${TOOLS[bar[r.hotSel]] ? ` · ${TOOLS[bar[r.hotSel]].does}` : ''}`) : null);
   }
 
@@ -694,15 +723,26 @@ export class HUD {
         statRow('agility', 'Agility', '+8 stamina, faster swings and movement, more crits'),
         h('h3', 'Equipped'),
         h('div.char-gears', gearCard('weapon', 'Weapon'), gearCard('shield', 'Shield'), gearCard('helmet', 'Helmet'), gearCard('armor', 'Armour'), gearCard('trinket', 'Trinket')),
-        h('h3', `Bag (${r.bag.length})`),
+        h('div.bag-head', h('h3', `Bag (${r.bag.length})`), h('div.spacer'),
+          r.bag.length ? h('button.btn.sm.primary', { title: 'Put on the best piece you own for every slot', onclick: () => { const n = equipBest(g); this.hint(n ? `Equipped ${n} better piece${n === 1 ? '' : 's'}` : 'You already wear your best gear', 1800); this._bagSel = null; render(); } }, 'Equip best') : null),
         r.bag.length
-          ? h('div.char-bag', r.bag.map(it => h('div.char-item', { style: { borderColor: RARITY[it.rarity].color } },
-            icon(gearIconKey(it) || 'items/relic', 24),
-            h('div', { style: { flex: 1 } }, h('b', { style: { color: RARITY[it.rarity].color } }, it.name), h('div.faint', gearText(it))),
-            h('button.btn.sm.analyze-btn', { onclick: () => this.analyzeGear(it) }, 'Analyze'),
-            h('button.btn.sm.primary', { onclick: () => { equip(g, it.id); render(); } }, 'Equip'),
-            h('button.btn.sm', { title: 'Break it down for gold', onclick: () => { const gold = scrapGear(g, it.id); this.hint(`+${gold} gold`, 1500); render(); } }, 'Scrap'))))
+          ? h('div.bag-grid', r.bag.map(it => {
+            const better = gearScore(it) > gearScore(r.gear[it.slot]);
+            return h('button.bag-cell' + (this._bagSel === it.id ? '.sel' : ''), { title: `${it.name}: ${gearText(it)}`, style: { borderColor: RARITY[it.rarity].color, boxShadow: it.rarity >= 2 ? `0 0 8px ${RARITY[it.rarity].color}66` : null }, onclick: () => { this._bagSel = this._bagSel === it.id ? null : it.id; render(); } },
+              icon(gearIconKey(it) || 'items/relic', 34), better ? h('span.bag-up', '▲') : null);
+          }))
           : h('div.faint', 'Monsters drop weapons, armour and trinkets. Bosses and bounties always drop something good.'),
+        (() => {   // the piece you tapped: what it is and what to do with it
+          const it = r.bag.find(x => x.id === this._bagSel);
+          if (!it) return r.bag.length ? h('div.faint.bag-tip', 'Tap an item to see it. ▲ means it is better than what you wear.') : null;
+          return h('div.bag-detail', { style: { borderColor: RARITY[it.rarity].color } },
+            icon(gearIconKey(it) || 'items/relic', 40),
+            h('div', { style: { flex: 1, minWidth: 0 } }, h('b', { style: { color: RARITY[it.rarity].color } }, it.name), h('div.faint', `${it.slot} · ${gearText(it)}`)),
+            h('div.bag-actions',
+              h('button.btn.sm.analyze-btn', { onclick: () => this.analyzeGear(it) }, 'Analyze'),
+              h('button.btn.sm.primary', { onclick: () => { equip(g, it.id); this._bagSel = null; render(); } }, 'Equip'),
+              h('button.btn.sm', { title: 'Break it down for gold', onclick: () => { const gold = scrapGear(g, it.id); this.hint(`+${gold} gold`, 1500); this._bagSel = null; render(); } }, 'Scrap')));
+        })(),
         h('div.faint', { style: { marginTop: '8px' } }, `Controls: ${['up', 'left', 'down', 'right'].map(id => keyLabel(keyOf(id))).join('')} move · ${keyLabel(keyOf('attack'))} use what you hold · ${keyLabel(keyOf('dash'))} dash · hold ${keyLabel(keyOf('block'))} block (right as a blow lands to parry) · 1-9 pick from your hotbar · change keys in Settings`));
     };
     const gearText = it => it.slot === 'shield' ? `blocks ${Math.round((it.block || 0) * 100)}%${it.armor ? ` · +${Math.round(it.armor * 100)}% armour` : ''}` : it.slot === 'weapon' ? `${it.dmg} damage` : it.slot === 'armor' || it.slot === 'helmet' ? `${Math.round(it.armor * 100)}% armour` : Object.entries(it.bonus || {}).map(([k, n]) => k === 'hp' ? `+${n} health` : `+${Math.round(n * 100)}% ${k === 'dmg' ? 'damage' : k}`).join(', ');
@@ -843,10 +883,12 @@ export class HUD {
     const bar = this.els.touchBar;
     bar.hidden = !mode;
     if (!mode) { bar.replaceChildren(); return; }
-    const undo = this.undoStack?.length ? h('button.btn', { onclick: () => this.undo() }, 'Undo') : null;
+    const undo = this.undoStack?.length && !this.mobilePlace ? h('button.btn', { onclick: () => this.undo() }, 'Undo') : null;
+    const buildHere = this.mobilePlace && this.buildType ? h('button.btn.primary.build-here', { onclick: () => this.placeHere() }, 'Build here') : null;
     bar.replaceChildren(...[
       h('span.touch-label', this.buildType ? `Placing ${BUILDINGS[this.buildType].name}` : 'Demolishing'),
       undo,
+      buildHere,
       this.buildType
         ? h('button.btn.danger', { onclick: () => this.cancelBuild() }, 'Cancel')
         : h('button.btn.primary', { onclick: () => this.toggleDemolish(false) }, 'Done'),
@@ -935,6 +977,7 @@ export class HUD {
   onClick(w, tx, ty, shift) {
     const g = this.game;
     if (this.buildType) {
+      if (this.mobilePlace) { this.mobilePlace.manual = true; this.onHover(tx, ty); return; }
       const gh = this.renderer.ghost;
       if (!gh) return;
       const res = g.placeBuilding(this.buildType, gh.tx, gh.ty);
@@ -1125,6 +1168,7 @@ export class HUD {
   onPlaceStart(tx, ty) {
     if (this.demolishMode) { this.demolishDrag = { start: { tx, ty } }; this.demolishPreview(tx, ty); return; }
     if (!this.buildType) return;
+    if (this.mobilePlace) { this.mobilePlace.manual = true; this.onHover(tx, ty); return; }   // a tap moves the house, Build here places it
     const start = this.anchorOf(this.buildType, tx, ty);
     this.placeDrag = { start };
     this.onPlaceMove(tx, ty);
@@ -1132,6 +1176,7 @@ export class HUD {
 
   onPlaceMove(tx, ty) {
     if (this.demolishMode) { if (this.demolishDrag) this.demolishPreview(tx, ty); return; }
+    if (this.mobilePlace) { this.mobilePlace.manual = true; this.onHover(tx, ty); return; }
     const d = this.placeDrag;
     if (!d || !this.buildType) return;
     const type = this.buildType;
@@ -1161,6 +1206,7 @@ export class HUD {
       if (dd) { if (!dd.list) this.demolishPreview(tx, ty); this.renderer.ghost = null; this.demolishMany(dd.list || []); }
       return;
     }
+    if (this.mobilePlace) return;
     const d = this.placeDrag;
     this.placeDrag = null;
     this.planTip?.remove();
@@ -1195,11 +1241,34 @@ export class HUD {
     this.buildType = type;
     this.lastBuild = type;
     this.select(null);
+    if (MOBILE_PLACE()) {   // on a phone: close the menu, the house appears in front of you
+      this.closePanel();
+      this.mobilePlace = { manual: false };
+      this.root.classList.add('placing-mobile');
+      this._touchKey = null;
+      this.hint(`Walk to move the ${BUILDINGS[type].name} (or tap the ground), then tap Build here`, 4000);
+      return;
+    }
     this.hint(TOUCH ? `Placing ${BUILDINGS[type].name}: tap to build · drag to fill an area · tap Cancel to stop` : `Placing ${BUILDINGS[type].name} — click to build · drag to fill an area · Right-click/Esc to cancel`);
+  }
+
+  /** Phones: place the house where its outline stands. */
+  placeHere() {
+    const gh = this.renderer.ghost, type = this.buildType;
+    if (!gh || !type) return;
+    const res = this.game.placeBuilding(type, gh.tx, gh.ty);
+    if (!res.ok) { this.hint(res.why, 1800); return; }
+    this.pushUndo({ kind: 'place', buildings: [res.building] });
+    play('build');
+    this.cancelBuild();
+    this.hint(this.game.solo ? `${BUILDINGS[type].name} site placed: swing at it to build it` : `${BUILDINGS[type].name} placed`, 3000);
   }
 
   cancelBuild() {
     this.buildType = null;
+    this.mobilePlace = null;
+    this.root.classList.remove('placing-mobile');
+    this._touchKey = null;
     this.placeDrag = null;
     this.planTip?.remove();
     this.renderer.ghost = null;
@@ -1254,7 +1323,8 @@ export class HUD {
 
   head(ic, title, sub) {
     return h('div.side-head', icon(ic, 32), h('div', h('h2', title), sub ? h('div.faint', sub) : null), h('div.spacer'),
-      h('button.btn.icon.ghost', { onclick: () => this.closePanel(), title: 'Close' }, '✕'));
+      h('button.btn.icon.ghost.panel-x', { onclick: () => this.closePanel(), title: 'Close' }, '✕'),
+      h('button.btn.sm.panel-back', { onclick: () => this.closePanel() }, '‹ Back'));
   }
 
   refreshPanel() {
@@ -1333,7 +1403,7 @@ export class HUD {
         h('div.faint', q ? `${list.length} recipe${list.length === 1 ? '' : 's'} match “${this.craftQuery.trim()}”` : 'Crafting is instant. Better materials need rarer resources: iron, gold and gems come from mining and dungeons.'),
         h('div.craft-list', list.map(r => {
           const ok = canCraft(g, r);
-          const have = r.makes.tool ? owned[r.makes.tool] || 0 : r.makes.potion ? rpgOf(g).potions || 0 : null;
+          const have = r.makes.tool ? owned[r.makes.tool] || 0 : r.makes.potion ? rpgOf(g).potions || 0 : r.makes.item ? itemsOf(g)[r.makes.item] || 0 : null;
           const ic = hasArt(r.icon) ? r.icon : r.fallbackIcon || r.icon;
           return h(`div.craft-card${ok ? '' : '.cant'}`,
             h('div.craft-icon', { style: r.rarity ? { borderColor: RARITY[r.rarity].color } : null }, icon(ic, 40)),
@@ -3175,6 +3245,7 @@ export class HUD {
   }
 
   destroy() {
+    window.removeEventListener('popstate', this.onBack);
     clearInterval(this.missionTimer);
     this.els.bossBar?.remove();
     this.houseEditor?.close();

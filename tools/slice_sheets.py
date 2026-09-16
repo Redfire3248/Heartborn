@@ -43,6 +43,7 @@ DEFAULT_FILES = {
     "projectiles": ["Projectiles.png"],
     "uiIcons": ["UIIcons.png"],
     "armory": ["Armory.png"],
+    "avatars": ["Avatars.png"],
     "dungeonBosses": ["DungeonBosses.png"],
     "houseStyles": ["HouseStyles.png"],
     "heroAll": ["HeroAll.png", "Hero.png"],

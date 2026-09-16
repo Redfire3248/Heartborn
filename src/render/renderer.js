@@ -12,7 +12,8 @@ import { heroWeapon, rpgOf, WEAPONS, SHIELDS } from '../game/rpg.js';
 import { gearIconKey, hasArt } from './gearArt.js';
 import { trapUp } from '../game/dungeon.js';
 import { DESIGNS, doorOf, isHome } from '../game/houses.js';
-import { TOOLS, lightBonus, heldSlot } from '../game/tools.js';
+import { TOOLS, lightBonus, heldSlot, hasTool as hasToolG } from '../game/tools.js';
+import { CONSUMABLES } from '../game/consumables.js';
 import { SHOTS, maxHp } from '../game/creatures.js';
 import { spriteAvailable, spriteVersion } from '../core/assets.js';
 import { T } from '../game/world.js';
@@ -379,6 +380,55 @@ export class Renderer {
     }
   }
 
+  /** One of your shots: bullets, lasers, rockets, magic, thrown weapons and bombs. */
+  drawHeroShot(ar) {
+    const { ctx } = this;
+    const ang = Math.atan2(ar.vy, ar.vx);
+    const art = { arrow: 'combat/arrow', bone_arrow: 'combat/bone_arrow', fireball: 'combat/fireball', ice_shard: 'combat/ice_shard', lightning_bolt: 'combat/lightning_bolt', magic_bolt: 'combat/magic_bolt', dark_orb: 'combat/dark_orb', poison_spit: 'combat/poison_spit', heal_orb: 'combat/heal_orb' }[ar.kind] || ar.sprite;
+    if (ar.kind === 'bullet') {
+      ctx.strokeStyle = 'rgba(255,230,140,0.9)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(ar.x - Math.cos(ang) * 14, ar.y - Math.sin(ang) * 14); ctx.lineTo(ar.x, ar.y); ctx.stroke();
+      return;
+    }
+    if (ar.kind === 'laser') {   // a beam from the muzzle to the tip
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = ar.color || '#5ad8ff'; ctx.lineWidth = 5; ctx.globalAlpha = 0.5;
+      ctx.beginPath(); ctx.moveTo(ar.x0, ar.y0); ctx.lineTo(ar.x, ar.y); ctx.stroke();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.moveTo(ar.x0, ar.y0); ctx.lineTo(ar.x, ar.y); ctx.stroke();
+      ctx.restore();
+      return;
+    }
+    if (ar.kind === 'plasma' || ar.kind === 'banana' || ar.kind === 'rocket') {
+      const color = { plasma: '#7aff6a', banana: '#ffe04a', rocket: '#ff8a3a' }[ar.kind];
+      const grad = ctx.createRadialGradient(ar.x, ar.y, 0, ar.x, ar.y, 14);
+      grad.addColorStop(0, color); grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(ar.x, ar.y, 14, 0, Math.PI * 2); ctx.fill();
+      if (ar.kind === 'rocket') drawSprite(ctx, 'armory/rocket_launcher', ar.x, ar.y, 20, { rot: ang + Math.PI / 4, center: true, full: true });
+      if (ar.kind === 'banana') { ctx.strokeStyle = '#ffd21a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(ar.x, ar.y, 6, this.time * 12, this.time * 12 + 2.5); ctx.stroke(); }
+      return;
+    }
+    if (art && hasArt(art)) { drawSprite(ctx, art, ar.x, ar.y, ar.sprite ? 18 : 22, { rot: ar.spin ? this.time * 18 : ar.sprite ? ang + Math.PI / 4 : ang, center: true, full: true }); return; }
+    ctx.strokeStyle = '#e8d2a6'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(ar.x - Math.cos(ang) * 10, ar.y - Math.sin(ang) * 10); ctx.lineTo(ar.x, ar.y); ctx.stroke();
+  }
+
+  /** Explosions from rockets, bombs and plasma (a black hole swirls inward instead). */
+  drawBooms(g) {
+    const { ctx } = this;
+    const list = g.fx.booms || [];
+    for (const b of list) {
+      b.t += 1 / 60;
+      const k = Math.min(1, b.t / 0.45);
+      if (b.pull) {
+        ctx.fillStyle = `rgba(40,0,70,${0.8 * (1 - k)})`; ctx.beginPath(); ctx.arc(b.x, b.y, b.r * (1 - k * 0.7), 0, Math.PI * 2); ctx.fill();
+        if (hasArt('combat/dark_orb')) drawSprite(ctx, 'combat/dark_orb', b.x, b.y, b.r * (1.2 - k), { rot: this.time * 8, center: true, full: true });
+      } else if (hasArt('combat/small_explosion')) drawSprite(ctx, 'combat/small_explosion', b.x, b.y, b.r * 2 * (0.5 + k), { center: true, full: true, alpha: 1 - k });
+      else { ctx.fillStyle = `rgba(255,140,40,${1 - k})`; ctx.beginPath(); ctx.arc(b.x, b.y, b.r * k, 0, Math.PI * 2); ctx.fill(); }
+    }
+    if (list.length) g.fx.booms = list.filter(b => b.t < 0.45);
+  }
+
   /** Chain lightning from a thunder sword. */
   drawBolts(g, dt) {
     const { ctx } = this;
@@ -660,7 +710,7 @@ export class Renderer {
     const w = heroWeapon(g, v);
     const held = g.state.rpg ? heldSlot(g) : 'weapon';   // you hold what is selected in your hotbar
     const tool = TOOLS[held];
-    const weaponKey = held === 'potion' ? 'gear/health_potion' : tool ? (hasArt(tool.icon) ? tool.icon : tool.fallbackIcon) : w.base === 'fists' ? null : gearIconKey(w) || w.icon;
+    const weaponKey = held?.startsWith?.('item:') ? CONSUMABLES[held.slice(5)]?.icon : held === 'potion' ? 'gear/health_potion' : tool ? (hasArt(tool.icon) ? tool.icon : tool.fallbackIcon) : w.base === 'fists' ? null : gearIconKey(w) || w.icon;
     const sh = rpgOf(g).gear.shield;
     const shieldKey = sh ? gearIconKey(sh) : v.inv?.pack?.shield ? 'gear/round_shield' : null;
     const shieldDef = sh ? SHIELDS[sh.base] : SHIELDS.round;
@@ -699,9 +749,11 @@ export class Renderer {
     // facing away the shield is on your back, but the sword stays in your hand, in view
     if (facing !== 'up') { if (!hero.blocking) drawShield(); }
     else if (!hero.blocking) drawShield();
+    if ((hero.buffs?.invis || 0) > g.state.time) ctx.globalAlpha = 0.35;
     drawSprite(ctx, body, bx, by, size * (body.startsWith('hero/') ? 1.1 : 1), { flip: side < 0, tint, solid: tint === '#ffffff', offsetY: bob, squash: sq, rot: lean });
     drawWeapon();
     if (hero.blocking) drawShield();
+    ctx.globalAlpha = 1;
     if (hero.stagger > 0.15) {   // dazed: stars circling your head, like the enemies you stun
       for (let i = 0; i < 3; i++) {
         const s = this.time * 6 + i * 2.1;
@@ -814,16 +866,14 @@ export class Renderer {
       ctx.strokeStyle = `rgba(255,255,255,${0.9 * k})`; ctx.lineWidth = 2.5;
       ctx.beginPath(); ctx.arc(v.x, v.y - 8, a.range, a.angle - a.width / 2, a.angle + a.width / 2); ctx.stroke();
     }
-    // arrows in flight
-    for (const ar of hero.arrows || []) {
-      const ang = Math.atan2(ar.vy, ar.vx);
-      ctx.strokeStyle = '#e8d2a6'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(ar.x - Math.cos(ang) * 10, ar.y - Math.sin(ang) * 10); ctx.lineTo(ar.x, ar.y); ctx.stroke();
-    }
+    // your shots in flight
+    for (const ar of hero.arrows || []) this.drawHeroShot(ar);
+    this.drawBooms(g);
     ctx.strokeStyle = `rgba(255,215,106,${0.55 + p * 0.45})`;
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.ellipse(v.x, v.y + 1, TILE * 0.5, TILE * 0.22, 0, 0, Math.PI * 2); ctx.stroke();
-    const target = g.state.creatures.find(c => c.bounty) || (g.state.finds || []).reduce((best, f) => (!best || Math.hypot(f.x - v.x, f.y - v.y) < Math.hypot(best.x - v.x, best.y - v.y) ? f : best), null);
+    const chestTarget = hasToolG(g, 'compass') ? [...(g.state.chests || []), ...(g.state.dungeons || [])].reduce((best, f) => (!best || Math.hypot(f.x - v.x, f.y - v.y) < Math.hypot(best.x - v.x, best.y - v.y) ? f : best), null) : null;
+    const target = chestTarget || g.state.creatures.find(c => c.bounty) || (g.state.finds || []).reduce((best, f) => (!best || Math.hypot(f.x - v.x, f.y - v.y) < Math.hypot(best.x - v.x, best.y - v.y) ? f : best), null);
     if (target && Math.hypot(target.x - v.x, target.y - v.y) > TILE * 3) {
       const a = Math.atan2(target.y - v.y, target.x - v.x);
       const r = TILE * 0.95;

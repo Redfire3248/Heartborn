@@ -407,5 +407,21 @@ window.SHEETS = {
       "lich", "stone_golem",
       "spider_queen", "slime_king"
     ]
+  },
+  avatars: {
+    title: "Avatars, 8 characters in 3 views (front back side), 3 columns",
+    folder: "avatars",
+    mode: "sprite",
+    cols: 3,
+    names: [
+      "king_front", "king_back", "king_side",
+      "queen_front", "queen_back", "queen_side",
+      "knight_boy_front", "knight_boy_back", "knight_boy_side",
+      "knight_girl_front", "knight_girl_back", "knight_girl_side",
+      "adventurer_boy_front", "adventurer_boy_back", "adventurer_boy_side",
+      "adventurer_girl_front", "adventurer_girl_back", "adventurer_girl_side",
+      "wizard_front", "wizard_back", "wizard_side",
+      "rogue_front", "rogue_back", "rogue_side"
+    ]
   }
 };

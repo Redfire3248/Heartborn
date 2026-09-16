@@ -416,6 +416,7 @@ function nearestVillager(g, c, range) {
   let best = null, bd = range;
   for (const v of g.state.villagers) {
     if (v.away) continue;
+    if (g.hero?.id === v.id && (g.hero.buffs?.invis || 0) > g.state.time) continue;   // invisible
     const d = Math.hypot(v.x - c.x, v.y - c.y);
     if (d < bd) { bd = d; best = v; }
   }

@@ -1,6 +1,7 @@
 import { TILE } from '../core/constants.js';
 import { rpgOf, rollGear, gainXp, RARITY } from './rpg.js';
-import { rollTool, giveTool, TOOLS } from './tools.js';
+import { rollTool, giveTool, hasTool, TOOLS } from './tools.js';
+import { CONSUMABLES, giveItem } from './consumables.js';
 
 /*
  * Things to find and grab while you roam:
@@ -30,6 +31,13 @@ export function updateTreasure(g, dt, hero) {
         chestsOf(g).push({ id: `ch${Math.floor(s.time * 1000).toString(36)}`, x: p.x, y: p.y, tier: Math.random() < 0.15 ? 1 : 0 });
         g.log('A treasure chest has been spotted in the wilds!', 'event', p);
       }
+    }
+  }
+  // a magnet pulls hearts, potions and loot toward you
+  if (hero && hasTool(g, 'magnet')) {
+    for (const p of [...pickupsOf(g), ...(s.groundItems || [])]) {
+      const d = Math.hypot(hero.x - p.x, hero.y - p.y);
+      if (d < TILE * 4 && d > 2) { const k = Math.min(1, dt * 5); p.x += (hero.x - p.x) * k; p.y += (hero.y - p.y) * k; }
     }
   }
   // pickups fade after a while
@@ -71,6 +79,13 @@ export function openChest(g, chest, hero) {
   const gear = Math.random() < (big ? 1 : 0.55) ? rollGear(g, { boss: !!chest.boss }) : null;
   if (gear) (s.groundItems ||= []).push({ id: gear.id, gear, item: null, count: 1, x: chest.x + 12, y: chest.y + 6 });
   if (Math.random() < 0.35) dropPickup(g, 'potion', chest.x - 10, chest.y + 6);
+  if (Math.random() < (big ? 0.7 : 0.35)) {   // bombs, potions and food for the road
+    const keys = Object.keys(CONSUMABLES);
+    const key = keys[Math.floor(Math.random() * keys.length)];
+    const n = 1 + Math.floor(Math.random() * (big ? 3 : 2));
+    giveItem(g, key, n);
+    g.float(chest.x, chest.y - TILE * 2.4, `${n} ${CONSUMABLES[key].name}`, '#b8ffb0');
+  }
   if (Math.random() < (big ? 0.5 : 0.3)) {   // a tool for your inventory
     const tool = rollTool(g, chest.boss ? 3 : big ? 1 : 0);
     if (tool && giveTool(g, tool)) g.float(chest.x, chest.y - TILE * 2, `Tool: ${TOOLS[tool].name}`, '#9fe0ff');
