@@ -1,5 +1,6 @@
 import { TILE } from '../core/constants.js';
 import { rpgOf, rollGear, gainXp, RARITY } from './rpg.js';
+import { rollTool, giveTool, TOOLS } from './tools.js';
 
 /*
  * Things to find and grab while you roam:
@@ -70,6 +71,10 @@ export function openChest(g, chest, hero) {
   const gear = Math.random() < (big ? 1 : 0.55) ? rollGear(g, { boss: !!chest.boss }) : null;
   if (gear) (s.groundItems ||= []).push({ id: gear.id, gear, item: null, count: 1, x: chest.x + 12, y: chest.y + 6 });
   if (Math.random() < 0.35) dropPickup(g, 'potion', chest.x - 10, chest.y + 6);
+  if (Math.random() < (big ? 0.5 : 0.3)) {   // a tool for your inventory
+    const tool = rollTool(g, chest.boss ? 3 : big ? 1 : 0);
+    if (tool && giveTool(g, tool)) g.float(chest.x, chest.y - TILE * 2, `Tool: ${TOOLS[tool].name}`, '#9fe0ff');
+  }
   g.anim('combat/poof', chest.x, chest.y - 10, { size: TILE * 1.4, dur: 0.4 });
   (g.openedChests ||= []).push({ x: chest.x, y: chest.y, boss: !!chest.boss, life: 3 });
   g.float(chest.x, chest.y - TILE * 1.4, `+${gold} gold${gems ? `, +${gems} gems` : ''}${gear ? ` · ${RARITY[gear.rarity].name} ${gear.name.replace(/^(Rare|Epic|Legendary) /, '')}` : ''}`, '#ffd76a');

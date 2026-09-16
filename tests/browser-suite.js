@@ -27,7 +27,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rich = () => ({ food: 5000, wood: 5000, stone: 5000, coal: 5000, iron: 5000, weapons: 200, bombs: 200, gold: 5000, gems: 500, science: 9000, influence: 5000 });
 
 function freshGame({ era = 0, people = 12, resources = true } = {}) {
-  const g = new Game(newState({ uid: 'test', name: 'Tester', villageName: 'Testhold' }));
+  const g = new Game({ ...newState({ uid: 'test', name: 'Tester', villageName: 'Testhold' }), soloHero: false });
   g.state.era = era;
   g.state.nextEventAt = Infinity;
   g.state.autoPick = false;   // tests control appointments and laws themselves (auto-pick has its own test)
@@ -288,6 +288,178 @@ export async function run() {
     ok(R.rpgOf(g).bag.length === 1, 'weaker loot goes into the bag');
     ok(R.rpgOf(g).quests.length === 3, 'there are always three quests');
     H.endLead(g);
+  });
+
+  await step('solo mode: only your ruler, you build it yourself', async () => {
+    const H = await import('/src/game/hero.js');
+    const g = new Game(newState({ uid: 's', name: 'Solo', villageName: 'Soloton' }));
+    ok(g.solo && g.state.villagers.length === 1 && g.state.villagers[0].ruling, 'a new game has only the ruler on the map', `${g.state.villagers.length}`);
+    ok((g.state.benched || []).length === 2, 'the other founders are set aside, not deleted', `${(g.state.benched || []).length}`);
+    const v = g.addWanderer();
+    ok(v && !g.state.villagers.includes(v) && g.state.benched.includes(v), 'newcomers wait off the map');
+    for (let i = 0; i < 5; i++) g.newDay();
+    ok(g.state.villagers.length === 1, 'nobody wanders in over the days');
+    Object.assign(g.state.resources, rich());
+    for (const k of Object.keys(g.caps)) g.caps[k] = 1e9;
+    const me = g.state.villagers[0];
+    H.startLead(g, me);
+    build(g, 'campfire');
+    const b = build(g, 'tent');
+    b.built = false; b.progress = 0;
+    const c = g.buildingCenter(b);
+    me.x = c.x; me.y = c.y + TILE * 1.2;
+    g.state.creatures = [];
+    for (let i = 0; i < 40 && !b.built; i++) { g.hero.atkCd = 0; g.hero.actCd = 0; H.updateHero(g, 1 / 30, { act: true }); }
+    ok(b.built, 'swinging at a building site builds it');
+  });
+
+  await step('controls: keys can be changed in Settings', async () => {
+    const C = await import('/src/core/controls.js');
+    C.resetBinds();
+    ok(C.is('w', 'up') && C.is(' ', 'attack') && C.is('1', 'hot1'), 'default keys: WASD, Space, 1-9');
+    const swapped = C.setBind('attack', 'f');
+    ok(C.is('f', 'attack') && !swapped, 'a free key can be bound');
+    const sw2 = C.setBind('up', 'q');
+    ok(C.is('q', 'up') && C.keyOf('block') === 'w' && sw2 === 'block', 'a key already in use swaps with the other action');
+    ok(C.held(new Set(['q']), 'up'), 'held keys follow the new binding');
+    C.resetBinds();
+    ok(C.is('w', 'up') && C.is('q', 'block') && C.is(' ', 'attack'), 'reset brings the defaults back');
+  });
+
+  await step('tools: inventory, best tool, chopping, digging, fishing', async () => {
+    const H = await import('/src/game/hero.js');
+    const To = await import('/src/game/tools.js');
+    const g = freshGame({ era: 1, people: 1 });
+    build(g, 'campfire');
+    g.state.creatures = [];
+    const me = g.state.villagers.find(v => v.ruling);
+    H.startLead(g, me);
+    ok(To.hasTool(g, 'pickaxe_wood') && To.hasTool(g, 'axe_wood') && To.hasTool(g, 'shovel_wood'), 'you start with a wooden pickaxe, axe and shovel');
+    ok(Object.keys(To.TOOLS).filter(k => To.TOOLS[k].kind === 'pickaxe').length === 10 && Object.keys(To.TOOLS).filter(k => To.TOOLS[k].kind === 'axe').length === 10 && Object.keys(To.TOOLS).filter(k => To.TOOLS[k].kind === 'shovel').length === 5, '10 pickaxes, 10 axes and 5 shovels exist');
+    To.giveTool(g, 'axe_iron');
+    ok(To.bestTool(g, 'axe') === 'axe_iron', 'the best tool of a kind is the one you use');
+    const wood = To.workWith(g, 'chop', 3), stone = To.workWith(g, 'mine', 2);
+    To.giveTool(g, 'pickaxe_mythril');
+    const myth = To.workWith(g, 'mine', 2);
+    ok(myth.hits <= stone.hits && myth.yieldMult > stone.yieldMult && wood.hits < 3 + 2, 'better tools need fewer swings and give more');
+    // the hotbar: your weapon, pickaxe, axe, shovel, rod and potions; new tools slot in, better ones replace worse
+    const bar = To.hotbarOf(g);
+    ok(bar[0] === 'weapon' && bar.includes('potion') && bar.includes('axe_iron') && !bar.includes('axe_wood'), 'the hotbar holds your weapon, tools and potions (a better axe replaced the wooden one)', bar.join());
+    To.selectSlot(g, bar.indexOf('potion'));
+    ok(To.heldSlot(g) === 'potion', 'number keys pick what you hold');
+    To.setSlot(g, 8, 'shovel_wood');
+    ok(bar[8] === 'shovel_wood' && bar.filter(k => k === 'shovel_wood').length === 1, 'moving a tool to another slot leaves its old slot');
+    To.selectSlot(g, bar.indexOf('axe_iron'));
+    // chop a tree with the iron axe (you must hold it)
+    const tree = g.state.objects.find(o => o.t === 'tree_oak' || o.t === 'tree_pine');
+    if (tree) {
+      me.x = (tree.x + 0.5) * TILE + 12; me.y = (tree.y + 0.5) * TILE;
+      for (const o of g.state.villagers) if (o !== me) o.x = me.x + 3000;
+      const before = g.state.resources.wood;
+      for (let i = 0; i < 12; i++) { g.hero.atkCd = 0; g.hero.actCd = 0; H.updateHero(g, 1 / 30, { act: true }); }
+      ok(g.state.resources.wood > before, 'swinging at a tree chops wood with the axe you hold');
+      To.selectSlot(g, 0);
+      const before2 = g.state.resources.wood;
+      for (let i = 0; i < 12; i++) { g.hero.atkCd = 0; g.hero.actCd = 0; H.updateHero(g, 1 / 30, { act: true }); }
+      ok(g.state.resources.wood === before2, 'a sword does not chop trees');
+    }
+    // dig bare ground far from anything
+    const spot = g.randomLandTile(5, 12);
+    Object.assign(me, { x: spot.x, y: spot.y });
+    g.state.objects = g.state.objects.filter(o => Math.hypot((o.x + 0.5) * TILE - me.x, (o.y + 0.5) * TILE - me.y) > TILE * 4);
+    g.world.objGrid = new Map(); g.world.indexObjects(g.state.objects);
+    const st = g.state.resources.stone;
+    g.caps.stone = 1e9;
+    let dug = false;
+    for (let i = 0; i < 12; i++) { g.hero.atkCd = 0; g.hero.actCd = 0; dug = To.dig(g, me) || dug; }
+    ok(dug && g.state.resources.stone > st, 'the shovel digs stone out of the ground');
+    // fish at the water
+    let wx = -1, wy = -1;
+    for (let y = 0; y < g.world.h && wx < 0; y++) for (let x = 0; x < g.world.w; x++) if (g.world.isWater(x, y) && g.world.walkableTile(x, y + 1)) { wx = x; wy = y; break; }
+    if (wx >= 0) {
+      Object.assign(me, { x: (wx + 0.5) * TILE, y: (wy + 1.5) * TILE }); g.hero.facing = -Math.PI / 2;
+      const food = g.state.resources.food; g.caps.food = 1e9;
+      for (let i = 0; i < 8; i++) To.fish(g, me);
+      ok(g.state.resources.food > food, 'the fishing rod catches fish at the water');
+    }
+    // hammers build faster, lanterns light dungeons
+    ok(To.buildMult(g) === 1, 'no hammer: normal building speed');
+    To.giveTool(g, 'hammer_gold');
+    ok(To.buildMult(g) > 1 && To.lightBonus(g) === 0, 'a hammer builds faster');
+    To.giveTool(g, 'lantern');
+    ok(To.lightBonus(g) > 0, 'a lantern lights dungeons');
+    ok(To.dropTool(g, 'lantern') && !To.hasTool(g, 'lantern'), 'tools can be dropped');
+    const saved = new Game(deserialize(serialize(g.state)));
+    ok(To.hasTool(saved, 'pickaxe_mythril'), 'tools are saved');
+  });
+
+  await step('houses: walk in, furniture, storage, stairs, outside looks', async () => {
+    const H = await import('/src/game/hero.js');
+    const Ho = await import('/src/game/houses.js');
+    const g = freshGame({ era: 3, people: 2 });
+    build(g, 'campfire');
+    const house = build(g, 'house');
+    const me = g.state.villagers.find(v => v.ruling);
+    H.startLead(g, me);
+    for (const o of g.state.villagers) if (o !== me) o.x = me.x + 3000;
+    g.state.creatures = [];
+    // walking up into the door asks to go inside
+    let asked = null;
+    g.on('house', b => { asked = b; });
+    const door = Ho.doorOf(g, house);
+    me.x = door.x; me.y = door.y + 4; g.hero.doorCd = 0;
+    for (let i = 0; i < 10 && !asked; i++) H.updateHero(g, 1 / 30, { my: -1 });
+    ok(asked === house, 'walking into a home\'s door enters it');
+    const shape = Ho.houseShape(house);
+    ok(shape.floors === 2 && Ho.interiorOf(house).floors.length === 2, 'a house has two floors');
+    // furniture costs resources and cannot overlap
+    const wood = g.state.resources.wood;
+    const bed = Ho.placeFurniture(g, house, 0, 'bed', 1, 1);
+    ok(bed.ok && g.state.resources.wood === wood - Ho.FURNITURE.bed.cost.wood, 'placing furniture uses resources');
+    ok(!Ho.placeFurniture(g, house, 0, 'chair', 1, 2).ok, 'two pieces cannot share a spot');
+    ok(Ho.placeFurniture(g, house, 0, 'rug', 3, 3).ok && Ho.placeFurniture(g, house, 0, 'table', 3, 3).ok, 'furniture stands on rugs');
+    ok(!Ho.placeFurniture(g, house, 0, 'chair', shape.w, 0).ok, 'nothing goes outside the walls');
+    ok(Ho.itemAt(g && house, 0, 1, 2)?.type === 'bed', 'the piece on a tile is found (for hover names)');
+    // storage raises the caps and holds things
+    g.recalc = Game.prototype.recalc.bind(g);
+    g.recalc();
+    const cap = g.caps.wood;
+    const chest = Ho.placeFurniture(g, house, 0, 'chest', 5, 0).item;
+    ok(chest && g.caps.wood === cap + Ho.FURNITURE.chest.storage, 'a chest raises your storage', `${cap} -> ${g.caps.wood}`);
+    me.inv = { pack: { axe: 2 }, coins: 0 };
+    ok(Ho.storeItem(g, chest, me, 'axe', 2).ok && !me.inv.pack.axe && chest.store.items.axe === 2, 'items go into the chest');
+    ok(Ho.takeItem(g, chest, me, 'axe', 1).ok && me.inv.pack.axe === 1, 'and come back out');
+    const R = await import('/src/game/rpg.js');
+    const gear = R.rollGear(g, {}); R.rpgOf(g).bag.push(gear);
+    ok(Ho.storeGear(g, chest, gear.id).ok && !R.rpgOf(g).bag.includes(gear) && Ho.takeGear(g, chest, gear.id).ok && R.rpgOf(g).bag.includes(gear), 'gear can be stored and taken');
+    // stairs make a landing upstairs; removing them takes it away and refunds
+    const stairs = Ho.placeFurniture(g, house, 0, 'stairs', 6, 4).item;
+    const landing = Ho.interiorOf(house).floors[1].items.find(o => o.stairOf === stairs?.id);
+    ok(stairs && landing && landing.x === 6 && landing.y === 4, 'stairs make a landing on the floor above');
+    ok(!Ho.placeFurniture(g, house, 1, 'stairs', 0, 0).ok, 'no stairs on the top floor');
+    ok(!Ho.placeFurniture(g, house, 1, 'chair', 6, 5).ok, 'the landing takes up room upstairs');
+    ok(Ho.moveFurniture(g, house, 0, stairs, 0, 4).ok && landing.x === 0, 'moving the stairs moves the landing');
+    const w2 = g.state.resources.wood;
+    ok(Ho.removeFurniture(g, house, 0, stairs, me).ok && !Ho.interiorOf(house).floors[1].items.length && g.state.resources.wood === w2 + 30, 'picking up the stairs removes the landing and refunds');
+    // the chest gives back what it holds when picked up
+    Ho.storeItem(g, chest, me, 'axe', 1);
+    Ho.removeFurniture(g, house, 0, chest, me);
+    ok(me.inv.pack.axe === 2 && g.caps.wood === cap, 'picking up a chest returns its items and its storage');
+    // outside looks and saving
+    house.design = 2;
+    const g2 = new Game(deserialize(serialize(g.state)));
+    const h2 = g2.state.buildings.find(b => b.id === house.id) || g2.state.buildings.find(b => b.type === 'house');
+    ok(h2.design === 2 && h2.interior.floors[0].items.some(i => i.type === 'bed'), 'the outside look and furniture are saved');
+    // the house view opens, draws, and closes
+    const { HouseEditor } = await import('/src/ui/houseEditor.js');
+    let closed = false;
+    const ed = new HouseEditor({ game: g, building: house, hero: me, onClose: () => { closed = true; } });
+    ed.render(0.016);
+    ed.pointer(innerWidth / 2, innerHeight / 2);
+    ed.goFloor(1); ed.render(0.016);
+    ok(ed.floor === 1 && document.querySelector('.house-view'), 'the house view draws both floors');
+    ed.close();
+    ok(closed && !document.querySelector('.house-view'), 'leaving the house closes the view');
   });
 
   await step('dungeons: floors, key and boss door, traps, boss, stairs, knockout', async () => {
@@ -619,7 +791,7 @@ export async function run() {
     const P = await import('/src/game/professions.js');
     const V = await import('/src/game/villagers.js');
     const C = await import('/src/game/court.js');
-    const g0 = new Game(newState({ uid: 't', name: 'T', villageName: 'T' }));
+    const g0 = new Game({ ...newState({ uid: 't', name: 'T', villageName: 'T' }), soloHero: false });
     const [king, smith, cutter] = g0.state.villagers;
     ok(king.ruling && king.profession === 'warrior' && king.trained && king.inv.pack.sword, 'the first ruler is a trained warrior with a sword');
     ok(smith.profession === 'smith' && smith.inv.pack.hammer && cutter.profession === 'chop' && cutter.inv.pack.axe, 'a blacksmith and a woodcutter start with their tools');
@@ -968,7 +1140,7 @@ export async function run() {
   // ------------------------------------------------------------ professions & households
   await step('professions: fixed trades, jacks of all trades, households', async () => {
     const P = await import('/src/game/professions.js');
-    const g = new Game(newState({ uid: 'p', name: 'P', villageName: 'Tradeton' }));
+    const g = new Game({ ...newState({ uid: 'p', name: 'P', villageName: 'Tradeton' }), soloHero: false });
     g.state.nextEventAt = Infinity;
   g.state.autoPick = false;   // tests control appointments and laws themselves (auto-pick has its own test)
     for (let i = 0; i < 30; i++) g.addWanderer();

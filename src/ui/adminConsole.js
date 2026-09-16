@@ -33,7 +33,7 @@ const COMMAND_ICONS = {
   players: 'items/population', info: 'items/scroll', give: 'items/icon_gold', karma: 'items/karma_good', shield: 'items/shield_protect', msg: 'items/chat', broadcast: 'items/chat',
   event: 'items/dice_fate', spawn: 'characters/wolf', warband: 'items/war', ban: 'effects/skull_curse', unban: 'items/alliance', reset: 'effects/explosion', chat: 'items/chat',
   skip: 'items/star_rank', era: 'items/crown_leader', errors: 'effects/emote_alert', reports: 'effects/emote_angry', villager: 'items/population', changelog: 'items/scroll',
-  rich: 'items/icon_gold', time: 'items/star_rank', item: 'items/relic', drop: 'items/relic', gear: 'gear/sword_legendary', missile: 'units/missile', nuke: 'units/missile', dungeon: 'gear/key',
+  rich: 'items/icon_gold', time: 'items/star_rank', item: 'items/relic', drop: 'items/relic', gear: 'gear/sword_legendary', missile: 'units/missile', nuke: 'units/missile', dungeon: 'gear/key', tool: 'items/pickaxe',
   person: 'items/baby', build: 'buildings/campfire', empire: 'items/crown_leader', version: 'items/star_rank', heal: 'effects/plus_heal',
 };
 
@@ -55,7 +55,7 @@ const ARG_SPECS = {
   reset: ['player', ['confirm']], chat: [['15', 'clear', 'del']], skip: ['number'], era: [['up', '*', '0', '1', '2', '3', '4', '5']],
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
-  item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
+  item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], tool: [['*', 'pickaxe', 'axe', 'shovel', 'hoe', 'hammer', 'fishing_rod', 'sickle', 'lantern', 'pickaxe_mythril', 'axe_mythril', 'shovel_diamond'], 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
   build: ['building', 'number'], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
@@ -723,6 +723,18 @@ const COMMANDS = {
           this.hud?.openMap();   // watch it fly
         },
       });
+    },
+  },
+  tool: {
+    usage: 'tool <tool|kind|*> [count]', desc: 'Give tools for your inventory: tool pickaxe_diamond, tool axe (every axe), tool * (one of everything)',
+    async run([key, count = '1']) {
+      const T = await import('../game/tools.js');
+      if (!key) throw new Error(`tool <tool|kind|*> [count]. Tools: ${Object.keys(T.TOOLS).join(', ')}`);
+      const keys = key === '*' ? Object.keys(T.TOOLS) : T.TOOLS[key] ? [key] : Object.keys(T.TOOLS).filter(k => T.TOOLS[k].kind === key);
+      if (!keys.length) throw new Error(`unknown tool. Tools: ${Object.keys(T.TOOLS).join(', ')}`);
+      const n = Math.max(1, Math.floor(Number(count) || 1));
+      for (const k of keys) T.giveTool(this.game, k, n);
+      this.print(`✓ gave ${keys.length > 1 ? `${keys.length} tools` : T.TOOLS[keys[0]].name}${n > 1 ? ` ×${n}` : ''} (open your Inventory with I)`, 'ok');
     },
   },
   dungeon: {

@@ -14,6 +14,7 @@ import { updateCourt } from './court.js';
 import { dailyTraitors, dailyMachines, updateBombDefense, updateStrikes } from './intrigue.js';
 import { ensureBody } from './body.js';
 import { updateHomes } from './homes.js';
+import { interiorStorage } from './houses.js';
 import { updateAutoPick } from './autopick.js';
 import { dailyEmpire } from './empire.js';
 import { updateEmployment } from './employment.js';
@@ -78,7 +79,11 @@ export class Game {
     }
     // older saves: buildings keep the footprint they were built with
     for (const b of state.buildings) if (!b.size) b.size = OLD_SIZES[b.type] ?? BUILDINGS[b.type]?.size ?? 1;
+    if (this.solo) benchVillagers(this);
   }
+
+  /** Solo mode (for now): only you, the ruler, walk the land. Everyone else is set aside, not deleted. */
+  get solo() { return this.state.soloHero === true; }
 
   // ---------- events ----------
   on(name, fn) { (this.listeners[name] ||= []).push(fn); return () => this.off(name, fn); }
@@ -218,7 +223,7 @@ export class Game {
 
     // wanderers join happy, famous villages
     const joinChance = 0.2 + this.joinBonus + (this.hasBuilding('tavern') ? 0.1 : 0) + (s.karma > 30 ? 0.06 : 0) + this.law.join + (s.villagers.length < 10 ? 0.35 : 0);   // a small camp draws wanderers in
-    if (s.villagers.length < this.housing && chance(joinChance)) {
+    if (!this.solo && s.villagers.length < this.housing && chance(joinChance)) {
       const n = Math.min(this.housing - s.villagers.length, chance(0.35) ? 2 + Math.floor(Math.random() * 2) : 1);
       const v = this.addWanderer();
       const family = [v];
@@ -273,6 +278,7 @@ export class Game {
     const ruler = rulerEffects(this);
     this.ruler = ruler;
     storage += ruler.storage || 0;
+    storage += interiorStorage(this.state);   // chests, shelves and vaults inside homes
     combat += ruler.combat || 0;
     defense += ruler.defense || 0;
     raid += ruler.raid || 0;
@@ -450,6 +456,7 @@ export class Game {
       if (TRADE_TOOL[trade] && Math.random() < 0.5) { v.inv ||= { pack: {}, coins: 0 }; v.inv.pack[TRADE_TOOL[trade]] = 1; }   // some bring their own tools
       v.job = trade === 'warrior' ? (v.trained ? 'warrior' : 'gather') : trade;
     }
+    if (this.solo) { (this.state.benched ||= []).push(v); return v; }   // solo: newcomers wait off the map
     this.state.villagers.push(v);
     this.puff(v, 'effects/spark', 8);
     return v;
@@ -666,4 +673,15 @@ function eventTwist(g, choice) {
   if (!good && i === 1) for (const v of g.state.villagers) v.happy = clamp(v.happy - 5, 0, 100);
   g.recalc();
   return text;
+}
+
+/** Set everyone but the ruler aside (kept in state.benched, so they can come back later). */
+export function benchVillagers(g) {
+  const s = g.state;
+  const keep = s.villagers.find(v => v.ruling) || [...s.villagers].filter(v => v.age >= 16).sort((a, b) => (b.skills?.combat || 0) - (a.skills?.combat || 0))[0] || null;
+  const rest = s.villagers.filter(v => v !== keep);
+  if (!rest.length) return;
+  (s.benched ||= []).push(...rest);
+  s.villagers = keep ? [keep] : [];
+  if (keep) { keep.ruling = true; keep.partner = null; keep._task = null; }
 }

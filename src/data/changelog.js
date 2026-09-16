@@ -1,6 +1,24 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Houses you can walk into, a hotbar and your own controls',
+    changes: [
+      'Walk up into the door of any home (tent to arcology) to go inside. Inside is an isometric room you build with no character: hover over anything to see it underlined with its name',
+      'Place over 45 kinds of furniture: beds, tables, sofas, a fireplace, a piano, a throne and more. Arrange mode moves, turns and picks things up (full refund)',
+      'Storage furniture (chests, barrels, shelves, wardrobes, a vault...) raises your storage limits AND holds your items and gear: click it to put things in or take them out',
+      'Bigger homes have more floors. Place Stairs, click them to go up, and click the opening at the top to come back down',
+      'Choose the outside look of each home: Classic, Terracotta, Slate, Mossy or Royal',
+      'Hotbar: nine slots along the bottom. Press 1-9 (or tap a slot) to pick what you hold: your weapon, a tool or potions. Your swing uses what you hold, and your King carries it in hand',
+      'Tools: 10 pickaxes, 10 axes, 5 shovels, 5 hoes, 5 hammers, 5 fishing rods, 5 sickles, plus a lantern, torch, bucket, watering can and backpack. Better tools take fewer swings and give more',
+      'An axe chops trees, a pickaxe mines, a shovel digs the ground for stone, gold and buried tools, a fishing rod catches fish at the water. Hammers build faster and a lantern lights up dungeons',
+      'You start with a wooden pickaxe, axe, shovel and fishing rod. Find better tools in chests and dungeons, and by digging. A better tool of the same kind replaces the old one in your hotbar',
+      'Inventory (I, or the bag at the end of the hotbar) opens above the hotbar: click anything to put it into the selected slot',
+      'Settings, Controls: change every key (moving, attack, dash, block, potion, screens, the 9 hotbar slots). Keys that clash swap, and Reset brings the defaults back',
+      'For now only you walk the land: the other villagers are set aside (not deleted). You build what you place yourself: swing at a building site to put it up',
+      'Admin: tool <tool|kind|*> [count] gives tools, e.g. tool pickaxe_mythril or tool * for one of everything',
+    ],
+  },
+  {
     title: 'Dungeons',
     changes: [
       'Dark caves now appear in the wilds around your land. Walk up to a cave and strike it to go down',

@@ -12,6 +12,9 @@ import { ITEMS } from '../data/people.js';
 import { heroWeapon, rpgOf, WEAPONS, SHIELDS } from '../game/rpg.js';
 import { gearIconKey, hasArt } from './gearArt.js';
 import { trapUp } from '../game/dungeon.js';
+import { DESIGNS, doorOf, isHome } from '../game/houses.js';
+import { TOOLS, lightBonus, heldSlot } from '../game/tools.js';
+import { spriteAvailable } from '../core/assets.js';
 import { T } from '../game/world.js';
 
 // hero frames leave room around the figure for swings and dashes: draw them bigger so the hero stands as tall as villagers
@@ -452,7 +455,21 @@ export class Renderer {
       return;
     }
     const blighted = b.blightUntil > g.state.time;
-    drawSprite(ctx, buildingSprite(b.type), x, y, size, { tint: blighted ? '#553311' : null });
+    // homes wear the outside look you chose: its own picture if there is one, else a colour wash
+    const design = def.housing ? (b.design || 0) : 0;
+    const styled = design && spriteAvailable(`${buildingSprite(b.type)}_style${design}`) ? `${buildingSprite(b.type)}_style${design}` : buildingSprite(b.type);
+    drawSprite(ctx, styled, x, y, size, { tint: blighted ? '#553311' : styled === buildingSprite(b.type) ? DESIGNS[design]?.tint : null });
+    if (isHome(b) && g.hero && !g.visiting) {
+      const hero = g.state.villagers.find(v => v.id === g.hero.id);
+      const door = doorOf(g, b);
+      if (hero && Math.hypot(hero.x - door.x, hero.y - door.y) < TILE * 2.2) {
+        ctx.font = 'bold 7px system-ui, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillText('Walk in to enter', door.x + 0.6, door.y + 9.6);
+        ctx.fillStyle = '#ffd76a'; ctx.fillText('Walk in to enter', door.x, door.y + 9);
+        ctx.fillStyle = 'rgba(255,215,106,0.35)';
+        ctx.beginPath(); ctx.ellipse(door.x, door.y - 4, 5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    }
     if (b.type === 'campfire' || b.type === 'blacksmith') {
       const flick = Math.sin(this.time * 14) * 0.5 + Math.sin(this.time * 23) * 0.5;
       if (Math.random() < 0.08) g.fx.particles.push({ x: x + (Math.random() - 0.5) * 6, y: y - TILE * 0.6, vx: 0, vy: -18, sprite: 'effects/smoke', size: 6 + flick, life: 1.2, max: 1.2, rot: 0 });
@@ -536,7 +553,9 @@ export class Renderer {
     const bodyArt = `hero/${v.sex === 'f' ? 'girl' : 'boy'}_body_${facing === 'up' ? 'back' : facing === 'down' ? 'front' : 'side'}`;
     const body = hasArt(bodyArt) ? bodyArt : 'characters/king';   // you are always the King
     const w = heroWeapon(g, v);
-    const weaponKey = w.base === 'fists' ? null : gearIconKey(w) || w.icon;
+    const held = g.state.rpg ? heldSlot(g) : 'weapon';   // you hold what is selected in your hotbar
+    const tool = TOOLS[held];
+    const weaponKey = held === 'potion' ? 'gear/health_potion' : tool ? (hasArt(tool.icon) ? tool.icon : tool.fallbackIcon) : w.base === 'fists' ? null : gearIconKey(w) || w.icon;
     const sh = rpgOf(g).gear.shield;
     const shieldKey = sh ? gearIconKey(sh) : v.inv?.pack?.shield ? 'gear/round_shield' : null;
     const shieldDef = sh ? SHIELDS[sh.base] : SHIELDS.round;
@@ -960,7 +979,7 @@ export class Renderer {
       const r = def.light || (def.housing ? 2.2 : 0);
       if (r) lights.push({ ...g.buildingCenter(b), r: r * TILE });
     }
-    for (const v of g.state.villagers) if (!v.away) lights.push({ x: v.x, y: v.y - 8, r: TILE * (g.dungeon ? 6 : 1.1) });
+    for (const v of g.state.villagers) if (!v.away) lights.push({ x: v.x, y: v.y - 8, r: TILE * (g.dungeon ? 6 + lightBonus(g) : 1.1) });
     if (g.dungeon) {
       for (const t of g.dungeon.torches) lights.push({ x: t.x, y: t.y - TILE * 0.4, r: TILE * 3.4 });
       for (const p of [g.dungeon.exit, g.dungeon.stairsDown, g.dungeon.key]) if (p) lights.push({ x: p.x, y: p.y, r: TILE * 1.6 });

@@ -20,6 +20,7 @@ export function newState({ uid, name, villageName }) {
     karma: 0,
     era: 0,
     villagers: [],
+    soloHero: true,     // for now only your ruler lives on the map
     buildings: [],
     objects,
     creatures,
@@ -95,5 +96,6 @@ export function deserialize(json) {
   state.lawChangedAt ||= {};
   state.stats ||= {};
   state.log ||= [];
+  state.soloHero ??= true;
   return state;
 }

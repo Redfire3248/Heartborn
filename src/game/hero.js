@@ -8,6 +8,20 @@ import { has } from './dynasty.js';
 import { speedMult, strengthMult } from './body.js';
 import { heroStats, heroWeapon, onHeroKill, questProgress, updateQuests, rpgOf, SHIELDS } from './rpg.js';
 import { updateTreasure, chestNear, openChest, drinkPotion, entranceNear } from './treasure.js';
+import { homeDoorNear } from './houses.js';
+import { workWith, flashTool, dig, fish, buildMult, heldSlot, TOOLS, WORK_OF_KIND } from './tools.js';
+import { BUILDINGS, sizeOf } from '../data/buildings.js';
+
+/** A building under construction within reach (solo: you build it yourself). */
+function siteNear(g, v) {
+  for (const b of g.state.buildings) {
+    if (b.built) continue;
+    const s = sizeOf(b);
+    const nx = Math.max(b.tx * TILE, Math.min(v.x, (b.tx + s) * TILE)), ny = Math.max(b.ty * TILE, Math.min(v.y, (b.ty + s) * TILE));
+    if (Math.hypot(nx - v.x, ny - v.y) < TILE * 1.3) return b;
+  }
+  return null;
+}
 
 /*
  * Lead in person: take control of your ruler and walk the land yourself.
@@ -113,7 +127,11 @@ const angleDiff = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)
 function attack(g, v, st) {
   const h = g.hero;
   const w = heroWeapon(g, v);
-  const nearFoe = nearestHostile(g, v, TILE * Math.max(3, w.ranged ? w.range : 3));
+  // what you hold in your hotbar decides what the swing does
+  const held = heldSlot(g);
+  if (held === 'potion') { if (h.atkCd <= 0) { h.atkCd = 0.5; drinkPotion(g, v); } return; }
+  const tool = TOOLS[held] ? held : null;
+  const nearFoe = tool ? null : nearestHostile(g, v, TILE * Math.max(3, w.ranged ? w.range : 3));   // tools do not fight
   const nearPerson = null;   // your avatar only fights beasts and raiders
   const swingTime = Math.max(0.3, Math.min(0.45, w.speed * 0.8));
   // nothing to fight close by: you still swing (the animation always plays), and the swing chops, mines and gathers
@@ -122,6 +140,18 @@ function attack(g, v, st) {
   const cave = !nearFoe && entranceNear(g, v.x, v.y);
   if (cave) { h.atkCd = swingTime; h.atkAnim = { t: 0, dur: swingTime }; g.emit('dungeon', cave); return; }
   const chest = !nearFoe && chestNear(g, v.x, v.y);
+  const site = !nearFoe && !chest && g.solo && siteNear(g, v);
+  if (site) {
+    h.atkCd = swingTime; h.atkAnim = { t: 0, dur: swingTime };
+    const c = g.buildingCenter(site);
+    h.facing = Math.atan2(c.y - v.y, c.x - v.x);
+    slashFx(g, v, h, w, false);
+    site.progress = Math.min(1, (site.progress || 0) + Math.min(0.6, 6 / (BUILDINGS[site.type]?.work || 10)) * buildMult(g));
+    g.puff(c, 'effects/dust', 4, 12);
+    g.float(c.x, c.y - TILE, `Building ${Math.round(site.progress * 100)}%`, '#ffd76a');
+    if (site.progress >= 1) g.finishBuilding(site);
+    return;
+  }
   if (chest) {
     h.atkCd = swingTime; h.atkAnim = { t: 0, dur: swingTime };
     h.facing = Math.atan2(chest.y - v.y, chest.x - v.x);
@@ -134,8 +164,13 @@ function attack(g, v, st) {
     h.actCd = Math.max(ACT_COOLDOWN, swingTime);
     h.atkCd = swingTime;
     h.atkAnim = { t: 0, dur: swingTime };
-    slashFx(g, v, h, w, false);
-    if (work(g, v)) questProgress(g, 'gather', { v });
+    if (!tool) { slashFx(g, v, h, w, false); return; }   // a weapon swing at nothing
+    h.swing = 0.22;
+    const kind = TOOLS[tool].kind;
+    if (WORK_OF_KIND[kind]) { if (work(g, v, tool)) questProgress(g, 'gather', { v }); else nothingFor(g, v, tool); }
+    else if (kind === 'shovel') { if (g.dungeon || g.visiting || !dig(g, v, tool)) nothingFor(g, v, tool); }
+    else if (kind === 'fishing_rod') { if (!fish(g, v, tool)) nothingFor(g, v, tool); }
+    else nothingFor(g, v, tool);
     return;
   }
   const cost = w.ranged ? 6 : 8;
@@ -269,14 +304,24 @@ export function knockOutHero(g, v) {
   return true;
 }
 
+/** A tool swung where it has nothing to do: say what it is for (not on every swing). */
+function nothingFor(g, v, key) {
+  const h = g.hero;
+  if (h._hintAt && g.state.time - h._hintAt < 2.5) return;
+  h._hintAt = g.state.time;
+  g.float(v.x, v.y - TILE * 1.3, `${TOOLS[key].name}: ${TOOLS[key].does}`, '#cfc6e0');
+}
+
 /** Chop, mine or pick the thing in reach: a few hits and it gives double what a worker would get. */
-function work(g, v) {
+function work(g, v, held = null) {
+  const wants = held ? WORK_OF_KIND[TOOLS[held]?.kind] : null;   // an axe only chops, a pickaxe only mines
   const s = g.state;
   const tx = v.x / TILE, ty = v.y / TILE;
   let obj = null, bd = 1.35;
   for (let y = Math.floor(ty) - 2; y <= Math.floor(ty) + 2; y++) for (let x = Math.floor(tx) - 2; x <= Math.floor(tx) + 2; x++) {
     const o = g.world.objectAt(x, y);
     if (!o || !OBJECTS[o.t]?.work || OBJECTS[o.t].work === 'explore') continue;
+    if (wants && OBJECTS[o.t].work !== wants) continue;
     const d = Math.hypot(x + 0.5 - tx, y + 0.5 - ty);
     if (d < bd) { bd = d; obj = o; }
   }
@@ -288,13 +333,14 @@ function work(g, v) {
   obj._shake = 0.25;
   obj._heroHits = (obj._heroHits || 0) + 1;
   g.puff(c, def.work === 'mine' ? 'effects/rock_chunk' : def.work === 'chop' ? 'items/icon_wood' : 'effects/leaf', 3, 10);
-  const need = def.work === 'chop' ? 3 : def.work === 'mine' ? 2 : 1;
-  if (obj._heroHits < need) return true;
+  const tool = workWith(g, def.work, def.work === 'chop' ? 3 : def.work === 'mine' ? 2 : 1, held);   // better tools: fewer swings, more to take home
+  flashTool(g, tool.key);
+  if (obj._heroHits < tool.hits) return true;
   obj._heroHits = 0;
   const got = [];
   for (const k of ['wood', 'stone', 'food', 'coal', 'iron', 'gold', 'gems', 'influence']) {
     if (!def[k]) continue;
-    const n = (def[k][0] + Math.floor(Math.random() * (def[k][1] - def[k][0] + 1))) * 2;
+    const n = Math.max(1, Math.round((def[k][0] + Math.floor(Math.random() * (def[k][1] - def[k][0] + 1))) * 2 * tool.yieldMult));
     got.push(`+${g.addResource(k, n) ?? n} ${k}`);
   }
   if (got.length) g.float(c.x, c.y - TILE, got.join('  '), '#ffe7a0');
@@ -389,6 +435,13 @@ export function updateHero(g, dt, controls = {}) {
   if (!blocking && h.sinceAttack > 0.4 && !h.dash) h.stamina = Math.min(st.maxStamina, h.stamina + 32 * dt);
   if (h.sinceHit > 6 && v.hp < st.maxHp) v.hp = Math.min(st.maxHp, v.hp + 3 * dt);
   h.x = v.x; h.y = v.y;
+  // walk up into a home's door to go inside
+  h.doorCd = Math.max(0, (h.doorCd || 0) - dt);
+  if (h.toolFlash) { h.toolFlash.t -= dt; if (h.toolFlash.t <= 0) h.toolFlash = null; }
+  if (!g.visiting && !g.dungeon && my < -0.3 && h.doorCd <= 0) {
+    const home = homeDoorNear(g, v.x, v.y);
+    if (home) { h.doorCd = 1.5; g.emit('house', home); }
+  }
   // in someone else's land you only walk (a spy acts through the spy bar; nothing there is yours to take)
   if (g.visiting) return;
 

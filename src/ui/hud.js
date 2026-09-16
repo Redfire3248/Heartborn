@@ -25,6 +25,11 @@ const BODY_TIP = { strength: 'Heavy work (chopping, mining, building, farming, f
 import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, avatarOf } from '../game/hero.js';
 import { makeVisitGame } from '../game/visit.js';
 import { makeDungeonGame, leaveSurface, returnFromDungeon, bossOf } from '../game/dungeon.js';
+import { HouseEditor } from './houseEditor.js';
+import { ACTIONS, CONTROL_GROUPS, is, held, keyOf, keyLabel, setBind, resetBinds, RESERVED } from '../core/controls.js';
+import { TOOLS, toolsOf, hotbarOf, selectSlot, setSlot } from '../game/tools.js';
+import { hasArt } from '../render/gearArt.js';
+import { doorOf } from '../game/houses.js';
 import { LAW_CATEGORIES, DEFAULT_LAWS, LAW_COST, describeEffects } from '../data/laws.js';
 import { rally, standDown, tributeCost, payWarbandTribute, scoutSummary } from '../game/war.js';
 import { leaderboard, getProfile } from '../net/save.js';
@@ -101,6 +106,7 @@ export class HUD {
     game.on('change', () => this.requestRefresh());
     game.on('scoutReport', r => this.showScoutReport(r));
     game.on('dungeon', e => this.enterDungeon(e));
+    game.on('house', b => this.enterHouse(b));
     if (mp) {
       mp.on('chat', () => this.panel === 'world' && this.worldTab === 'chat' && this.refreshPanel());
       mp.on('players', () => this.panel === 'world' && this.worldTab === 'players' && this.refreshPanel());
@@ -195,7 +201,10 @@ export class HUD {
       icon('items/crown_leader', 20), h('span.home-label', 'Character')));
     this.els.heroBar = h('div.card.hero-bar', { hidden: true });
     this.els.heroPad = h('div.hero-pad', { hidden: true });
-    this.root.append(this.els.heroBar, this.els.heroPad);
+    this.els.hotbar = h('div.hotbar', { hidden: true });
+    this.els.hotName = h('div.hot-name');
+    this.els.invPanel = h('div.card.inv-panel', { hidden: true });
+    this.root.append(this.els.heroBar, this.els.heroPad, h('div.hotbar-wrap', this.els.invPanel, this.els.hotName, this.els.hotbar));
     // sailing: status, Fire, Return to port, and a steering pad for touch screens
     this.sailInput = { throttle: 0, turn: 0, fire: false, wheel: 0 };
     this.els.sailBar = h('div.sail-bar', { hidden: true });
@@ -236,8 +245,8 @@ export class HUD {
     if (g.sail) {
       const k = this.input.keys, t = this.sailInput;
       const throttle = t.throttle;
-      const turn = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0) || t.turn;
-      if (!g.paused && !g.pendingEvent) updateSailing(g, dt, { throttle, turn, fire: k.has(' ') || t.fire });
+      const turn = (held(k, 'right') || k.has('arrowright') ? 1 : 0) - (held(k, 'left') || k.has('arrowleft') ? 1 : 0) || t.turn;
+      if (!g.paused && !g.pendingEvent) updateSailing(g, dt, { throttle, turn, fire: held(k, 'attack') || t.fire });
       this.updateHelm(dt, turn);
       const c = this.renderer.camera;
       if (g.sail) { c.x += (g.sail.x - c.x) * Math.min(1, dt * 4); c.y += (g.sail.y - c.y) * Math.min(1, dt * 4); }
@@ -245,18 +254,20 @@ export class HUD {
     // the person you control: your avatar at home, or your visitor / spy in another land
     const abroad = this.visiting && this.abroad?.land?.hero ? this.abroad : null;
     const hg = abroad ? abroad.land : this.dungeon && !this.visiting ? this.dungeon : !this.visiting ? g : null;
-    if (hg?.hero) {
+    if (this.houseEditor) {
+      // inside a home: no character, the house view takes the screen
+    } else if (hg?.hero) {
       const k = this.input.keys, t = this.leadInput;
-      const mx = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0) + t.mx;
-      const my = (k.has('s') || k.has('arrowdown') ? 1 : 0) - (k.has('w') || k.has('arrowup') ? 1 : 0) + t.my;
+      const mx = (held(k, 'right') || k.has('arrowright') ? 1 : 0) - (held(k, 'left') || k.has('arrowleft') ? 1 : 0) + t.mx;
+      const my = (held(k, 'down') || k.has('arrowdown') ? 1 : 0) - (held(k, 'up') || k.has('arrowup') ? 1 : 0) + t.my;
       // dash fires once per press; block is held
-      const dashDown = k.has('shift') || t.dash;
+      const dashDown = held(k, 'dash') || t.dash;
       const dash = dashDown && !this._dashHeld;
-      const potionDown = k.has('e') || t.potion;
+      const potionDown = held(k, 'potion') || t.potion;
       const potion = potionDown && !this._potionHeld;
       this._potionHeld = potionDown;
       this._dashHeld = dashDown;
-      if (abroad || (!g.paused && !g.pendingEvent)) updateHero(hg, dt, { mx, my, act: !abroad && (k.has(' ') || t.act), dash: !abroad && dash, potion: !abroad && potion, block: !abroad && (k.has('q') || t.block) });
+      if (abroad || (!g.paused && !g.pendingEvent)) updateHero(hg, dt, { mx, my, act: !abroad && (held(k, 'attack') || t.act), dash: !abroad && dash, potion: !abroad && potion, block: !abroad && (held(k, 'block') || t.block) });
       if (hg === this.dungeon) this.tickDungeon();
       const v = heroOf(hg);
       const c = this.renderer.camera;
@@ -321,33 +332,38 @@ export class HUD {
   }
 
   onKey(e) {
+    if (this.houseEditor) return;   // the house view has its own keys
     const k = e.key.toLowerCase();
-    if (k === 'v') { this.openMap(); return; }
+    if (this._rebinding) return;   // Settings is waiting for a key
+    if (is(k, 'map')) { this.openMap(); return; }
     if (k === 'escape' && this.visiting) { this.onReturnHome(); return; }
-    if (k === 'g' && !this.game.sail) { this.toggleLead(); return; }
+    if (is(k, 'character') && !this.game.sail) { this.toggleLead(); return; }
+    if (is(k, 'inventory')) { this.inventory(); return; }
+    const slot = ACTIONS.findIndex(a => a.id.startsWith('hot') && is(k, a.id)) - ACTIONS.findIndex(a => a.id === 'hot1');
+    if (slot >= 0 && (this.game.hero || this.dungeon)) { selectSlot(this.game, slot); this._hotbarKey = null; return; }
     if (this.game.hero) {   // walking your ruler: WASD move, Space strikes, Esc stops
-      if (k === ' ' || k.startsWith('arrow')) e.preventDefault?.();
+      if (is(k, 'attack') || k === ' ' || k.startsWith('arrow')) e.preventDefault?.();
       if (k === 'escape' && !this.buildType && !this.demolishMode && !this.game.selected && !this.panel) return;
-      if (('wasdqe '.includes(k) && k.length === 1) || k === 'shift') return;
+      if (['up', 'down', 'left', 'right', 'attack', 'dash', 'block', 'potion'].some(id => is(k, id))) return;
     }
     if (this.game.sail) {   // the helm takes the keys
       if (k === 'escape') returnToPort(this.game);
-      if (k === ' ') e.preventDefault?.();
-      if (k === 'w' || k === 'arrowup') { e.preventDefault?.(); this.setTelegraph(+1); }
-      if (k === 's' || k === 'arrowdown') { e.preventDefault?.(); this.setTelegraph(-1); }
+      if (is(k, 'attack')) e.preventDefault?.();
+      if (is(k, 'up') || k === 'arrowup') { e.preventDefault?.(); this.setTelegraph(+1); }
+      if (is(k, 'down') || k === 'arrowdown') { e.preventDefault?.(); this.setTelegraph(-1); }
       return;
     }
     if (k === 'escape') { if (this.demolishMode) this.toggleDemolish(false); else if (this.buildType) this.cancelBuild(); else if (this.game.selected) this.select(null); else this.closePanel(); }
     else if (k === 'z' && (e.ctrlKey || e.metaKey)) { e.preventDefault?.(); this.undo(); }
-    else if (k === 'x') this.toggleDemolish();
-    else if (k === 'r' && this.lastBuild) { if (this.game.canAfford(BUILDINGS[this.lastBuild].cost)) this.startBuild(this.lastBuild); else this.hint(`Not enough resources for another ${BUILDINGS[this.lastBuild].name}`, 1500); }
+    else if (is(k, 'demolish')) this.toggleDemolish();
+    else if (is(k, 'rebuild') && this.lastBuild) { if (this.game.canAfford(BUILDINGS[this.lastBuild].cost)) this.startBuild(this.lastBuild); else this.hint(`Not enough resources for another ${BUILDINGS[this.lastBuild].name}`, 1500); }
     else if (k === '/') { e.preventDefault?.(); this.buildSearchFocused = true; if (this.panel === 'build') this.panelEl?.querySelector('.build-search')?.focus(); else this.openPanel('build'); }
-    else if (k === 'b') this.togglePanel('build');
-    else if (k === 'j') this.togglePanel('jobs');
-    else if (k === 'c') this.togglePanel('court');
-    else if (k === 'k') this.togglePanel('deeds');
-    else if (k === 'l') this.togglePanel('log');
-    else if (k === 'm') this.togglePanel('world');
+    else if (is(k, 'build')) this.togglePanel('build');
+    else if (is(k, 'jobs')) this.togglePanel('jobs');
+    else if (is(k, 'court')) this.togglePanel('court');
+    else if (is(k, 'deeds')) this.togglePanel('deeds');
+    else if (is(k, 'log')) this.togglePanel('log');
+    else if (is(k, 'world')) this.togglePanel('world');
     else if (k === 'h' && !this.game.hero) { this.follow = null; this.input.panTo(this.game.center.x, this.game.center.y); }
   }
 
@@ -378,8 +394,8 @@ export class HUD {
     this._introShown = true;
     const touch = matchMedia('(pointer: coarse)').matches;
     this.hint(touch
-      ? `You are ${r.hero.name}. Stick to move, ATTACK to fight (and chop or mine), DASH to dodge, hold BLOCK to guard.`
-      : `You are ${r.hero.name}. WASD to move, Space to attack (and chop or mine), Shift to dash, hold Q to block, G for your character.`, 9000);
+      ? `You are ${r.hero.name}. Stick to move, tap the hotbar to pick a sword or tool, ATTACK to use it, DASH to dodge, hold BLOCK to guard.`
+      : `You are ${r.hero.name}. ${['up', 'left', 'down', 'right'].map(id => keyLabel(keyOf(id))).join('')} to move, ${keyLabel(keyOf('attack'))} to use what you hold, 1-9 to pick from your hotbar (sword, pickaxe, axe...), ${keyLabel(keyOf('dash'))} to dash, hold ${keyLabel(keyOf('block'))} to block. Change keys in Settings.`, 9000);
   }
 
   updateHeroBar() {
@@ -387,6 +403,7 @@ export class HUD {
     const g = abroad ? abroad.land : this.dungeon || this.game;
     this.updateDungeonCard();
     const v = (abroad || !this.visiting) && heroOf(g);
+    this.updateHotbar(!abroad && v ? v : null);
     const bar = this.els.heroBar, pad = this.els.heroPad;
     this.root.classList.toggle('leading', !!v);
     pad.classList.toggle('abroad', !!abroad);
@@ -528,6 +545,76 @@ export class HUD {
   }
 
   /** Your character: level, points to spend, gear you wear and loot in your bag. */
+  /** Hotbar: nine slots along the bottom. The selected one is what you hold and what your swing does. */
+  updateHotbar(v) {
+    const bar = this.els.hotbar;
+    const g = this.game;
+    if (!v || this.houseEditor) { if (!bar.hidden) { bar.hidden = true; this.els.invPanel.hidden = true; } return; }
+    const slots = hotbarOf(g);
+    const r = rpgOf(g);
+    const w = heroWeapon(g, v);
+    const tools = toolsOf(g);
+    const key = [slots.join(), r.hotSel, r.potions || 0, w.name, Object.entries(tools).join()].join('|');
+    bar.hidden = false;
+    if (key === this._hotbarKey) return;
+    this._hotbarKey = key;
+    bar.replaceChildren(...slots.map((k, i) => {
+      const info = this.slotInfo(k, v);
+      return h('button.hot-slot' + (i === r.hotSel ? '.on' : '') + (k ? '' : '.empty'), {
+        title: info ? `${i + 1}: ${info.name}` : `${i + 1}: empty`,
+        onclick: () => { selectSlot(g, i); this._hotbarKey = null; if (!this.els.invPanel.hidden) this.renderInventory(); },
+      }, h('span.hot-num', String(i + 1)), info ? icon(info.icon, 28) : null, info?.count != null ? h('span.hot-count', String(info.count)) : null);
+    }), h('button.hot-bag', { title: 'Inventory (I)', onclick: () => this.inventory() }, icon(hasArt('tools/backpack') ? 'tools/backpack' : 'items/relic', 24)));
+    const held = slots[r.hotSel];
+    const info = this.slotInfo(held, v);
+    this.els.hotName.textContent = info ? info.name : '';
+    if (!this.els.invPanel.hidden) this.renderInventory();
+  }
+
+  /** Icon, name and count for a hotbar value. */
+  slotInfo(k, v) {
+    if (!k) return null;
+    const g = this.game;
+    if (k === 'weapon') { const w = heroWeapon(g, v); return { name: w.base === 'fists' ? 'Fists' : w.name, icon: gearIconKey(w) || w.icon || 'items/sword' }; }
+    if (k === 'potion') return { name: 'Health Potion', icon: 'gear/health_potion', count: rpgOf(g).potions || 0 };
+    const t = TOOLS[k];
+    if (!t) return null;
+    const n = toolsOf(g)[k] || 0;
+    return { name: t.name, icon: hasArt(t.icon) ? t.icon : t.fallbackIcon, count: n > 1 ? n : null };
+  }
+
+  /** The inventory grid opens above the hotbar: click a thing to put it in the selected slot. */
+  inventory() {
+    const panel = this.els.invPanel;
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) this.renderInventory();
+  }
+
+  renderInventory() {
+    const g = this.game, panel = this.els.invPanel;
+    const v = heroOf(this.dungeon || g) || heroOf(g);
+    const r = rpgOf(g);
+    const bar = hotbarOf(g);
+    const owned = toolsOf(g);
+    const cell = (k, extra = '') => {
+      const info = this.slotInfo(k, v);
+      const inBar = bar.indexOf(k);
+      return h('button.inv-cell' + (inBar === r.hotSel ? '.held' : inBar >= 0 ? '.inbar' : '') + extra, {
+        title: k === 'weapon' || k === 'potion' ? info.name : `${info.name}: ${TOOLS[k].does}`,
+        onclick: () => { setSlot(g, r.hotSel, k); this._hotbarKey = null; this.renderInventory(); },
+      }, icon(info.icon, 30), info.count != null ? h('span.hot-count', String(info.count)) : null, inBar >= 0 ? h('span.hot-num', String(inBar + 1)) : null);
+    };
+    const keys = Object.keys(owned).filter(k => TOOLS[k]).sort((a, b) => (TOOLS[a].kind > TOOLS[b].kind ? 1 : TOOLS[a].kind < TOOLS[b].kind ? -1 : TOOLS[b].power - TOOLS[a].power));
+    const heldInfo = this.slotInfo(bar[r.hotSel], v);
+    panel.replaceChildren(
+      h('div.inv-head', h('b', 'Inventory'), h('span.faint', `Click something to put it in slot ${r.hotSel + 1}`), h('div.spacer'),
+        bar[r.hotSel] ? h('button.btn.sm', { onclick: () => { setSlot(g, r.hotSel, null); this._hotbarKey = null; this.renderInventory(); } }, 'Empty slot') : null,
+        h('button.btn.sm', { onclick: () => this.characterSheet() }, 'Gear'),
+        h('button.btn.sm', { onclick: () => { panel.hidden = true; } }, 'Close')),
+      h('div.inv-cells', cell('weapon'), cell('potion'), ...keys.map(k => cell(k))),
+      heldInfo ? h('div.faint.inv-hint', `Holding: ${heldInfo.name}${TOOLS[bar[r.hotSel]] ? ` · ${TOOLS[bar[r.hotSel]].does}` : ''}`) : null);
+  }
+
   characterSheet() {
     const g = this.game;
     const render = () => {
@@ -564,7 +651,7 @@ export class HUD {
             h('button.btn.sm.primary', { onclick: () => { equip(g, it.id); render(); } }, 'Equip'),
             h('button.btn.sm', { title: 'Break it down for gold', onclick: () => { const gold = scrapGear(g, it.id); this.hint(`+${gold} gold`, 1500); render(); } }, 'Scrap'))))
           : h('div.faint', 'Monsters drop weapons, armour and trinkets. Bosses and bounties always drop something good.'),
-        h('div.faint', { style: { marginTop: '8px' } }, 'Controls: WASD move · Space attack · Shift dash · hold Q block (block right as a blow lands to parry) · phones use the on-screen buttons'));
+        h('div.faint', { style: { marginTop: '8px' } }, `Controls: ${['up', 'left', 'down', 'right'].map(id => keyLabel(keyOf(id))).join('')} move · ${keyLabel(keyOf('attack'))} use what you hold · ${keyLabel(keyOf('dash'))} dash · hold ${keyLabel(keyOf('block'))} block (right as a blow lands to parry) · 1-9 pick from your hotbar · change keys in Settings`));
     };
     const gearText = it => it.slot === 'shield' ? `blocks ${Math.round((it.block || 0) * 100)}%${it.armor ? ` · +${Math.round(it.armor * 100)}% armour` : ''}` : it.slot === 'weapon' ? `${it.dmg} damage` : it.slot === 'armor' || it.slot === 'helmet' ? `${Math.round(it.armor * 100)}% armour` : Object.entries(it.bonus || {}).map(([k, n]) => k === 'hp' ? `+${n} health` : `+${Math.round(n * 100)}% ${k === 'dmg' ? 'damage' : k}`).join(', ');
     const body = h('div.char-sheet');
@@ -1878,16 +1965,51 @@ export class HUD {
       h('h3', 'Sound'),
       this.soundSliders(),
       h('h3', 'Controls'),
-      h('div.keys',
-        ...[['Drag / WASD', 'Move camera'], ['Scroll / Q E', 'Zoom'], ['Right-click / Esc', 'Cancel'], ['B J K M', 'Build · People · Rule · World'],
-          ['X', 'Demolish tool'], ['Ctrl+Z', 'Undo last build or demolish'], ['R', 'Build the last building again'], ['/', 'Search buildings'], ['H', 'Jump home']]
-          .map(([k, d]) => h('div.key-row', h('kbd', k), h('span.faint', d)))),
+      this.controlsSettings(),
       h('h3', 'Version'),
       this.versionRow(),
       danger);
     // the install entry gets the same look as the other rows
     install.replaceChildren(h('span.set-icon', '📲'), h('span', 'Install app'), h('span.set-arrow', '›'));
     return [this.head('items/save', 'Save & Settings'), body];
+  }
+
+  /** Settings → Controls: click a key to change it (keys that clash swap), or reset them all. */
+  controlsSettings() {
+    const box = h('div.controls-set');
+    const render = () => {
+      box.replaceChildren(
+        h('div.faint.controls-note', 'Click a key, then press the new one. Arrow keys always move too. Saved on this device.'),
+        ...CONTROL_GROUPS.map(group => h('div.controls-group',
+          h('div.controls-group-title', group),
+          ...ACTIONS.filter(a => a.group === group).map(a => h('div.key-row.control-row',
+            h('span', a.label),
+            h('button.kbd-btn' + (keyOf(a.id) !== a.def ? '.changed' : ''), { onclick: e => capture(a, e.currentTarget) }, keyLabel(keyOf(a.id))))))),
+        h('div.key-row', h('kbd', 'Esc'), h('span.faint', 'Cancel / close')),
+        h('div.key-row', h('kbd', 'Ctrl+Z'), h('span.faint', 'Undo last build or demolish')),
+        h('div.key-row', h('kbd', 'Drag / Scroll'), h('span.faint', 'Look around / zoom')),
+        h('div.row', h('button.btn.sm', { onclick: () => { resetBinds(); render(); this.hint('Controls reset to the defaults', 2000); } }, 'Reset to defaults')));
+    };
+    const capture = (action, btn) => {
+      if (this._rebinding) return;
+      btn.textContent = 'Press a key…';
+      btn.classList.add('waiting');
+      const onKey = e => {
+        e.preventDefault(); e.stopImmediatePropagation();
+        const k = e.key.toLowerCase();
+        window.removeEventListener('keydown', onKey, true);
+        setTimeout(() => { this._rebinding = false; }, 0);
+        if (k === 'escape') { render(); return; }
+        if (RESERVED.has(k)) { this.hint(`${keyLabel(k)} is already used everywhere; pick another key`, 2500); render(); return; }
+        const swapped = setBind(action.id, k);
+        if (swapped) this.hint(`${keyLabel(k)} was used for ${ACTIONS.find(a => a.id === swapped).label}: they swapped keys`, 3000);
+        render();
+      };
+      this._rebinding = true;
+      window.addEventListener('keydown', onKey, true);
+    };
+    render();
+    return box;
   }
 
   soundSliders() {
@@ -2808,6 +2930,29 @@ export class HUD {
     ctx.lineWidth = 1.5 / MINI_SCALE;
     ctx.strokeRect(cam.x / TILE - vw / 2, cam.y / TILE - vh / 2, vw, vh);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
+  // ------------------------------------------------------------ homes
+  /** Through the door: the isometric house view. */
+  enterHouse(b) {
+    if (this.houseEditor || this.visiting || this.dungeon) return;
+    const g = this.game;
+    const hero = heroOf(g);
+    this.input.keys?.clear?.();
+    Object.assign(this.leadInput, { mx: 0, my: 0, act: false, dash: false, block: false });
+    this.houseEditor = new HouseEditor({
+      game: g, building: b, hero, hint: (t, ms) => this.hint(t, ms),
+      onClose: () => {
+        this.houseEditor = null;
+        const v = heroOf(g);
+        if (v) { const d = doorOf(g, b); v.x = d.x; v.y = d.y + 10; if (g.hero) g.hero.doorCd = 1.5; }
+        this.requestRefresh();
+      },
+    });
+    this.root.classList.add('in-house');
+    const off = () => { if (!this.houseEditor) { this.root.classList.remove('in-house'); clearInterval(t); } };
+    const t = setInterval(off, 300);
+    play('ability');
   }
 
   // ------------------------------------------------------------ dungeons

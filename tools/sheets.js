@@ -283,5 +283,46 @@ window.SHEETS = {
       "marker_arrow", "marker_flag", "marker_target", "marker_war", "footprint", "feather",
       "cloud", "sun", "moon", "meteor", "tornado", "ghost_wisp"
     ]
+  },
+  toolkit: {
+    title: "Toolkit, 50 tools in 10 columns",
+    folder: "tools",
+    mode: "sprite",
+    cols: 10,
+    names: [
+      "pickaxe_wood", "pickaxe_stone", "pickaxe_copper", "pickaxe_bronze", "pickaxe_iron", "pickaxe_steel", "pickaxe_gold", "pickaxe_diamond", "pickaxe_obsidian", "pickaxe_mythril",
+      "axe_wood", "axe_stone", "axe_copper", "axe_bronze", "axe_iron", "axe_steel", "axe_gold", "axe_diamond", "axe_obsidian", "axe_mythril",
+      "shovel_wood", "shovel_stone", "shovel_iron", "shovel_gold", "shovel_diamond", "hoe_wood", "hoe_stone", "hoe_iron", "hoe_gold", "hoe_diamond",
+      "hammer_wood", "hammer_stone", "hammer_iron", "hammer_gold", "hammer_diamond", "fishing_rod_wood", "fishing_rod_bamboo", "fishing_rod_iron", "fishing_rod_gold", "fishing_rod_crystal",
+      "sickle_wood", "sickle_stone", "sickle_iron", "sickle_gold", "sickle_diamond", "lantern", "torch", "bucket", "watering_can", "backpack"
+    ]
+  },
+  furniture: {
+    title: "Furniture, 49 isometric pieces in 7 columns",
+    folder: "interior",
+    mode: "sprite",
+    cols: 7,
+    names: [
+      "chest", "big_chest", "barrel", "crates", "shelf", "wardrobe", "pantry",
+      "weapon_rack", "vault", "dresser", "cabinet", "bed", "double_bed", "cradle",
+      "sofa", "armchair", "table", "round_table", "chair", "stool", "desk",
+      "bookshelf", "bunk_bed", "nightstand", "bench", "rug", "round_rug", "stove",
+      "counter", "sink", "bathtub", "cauldron", "fireplace", "lamp", "candles",
+      "plant", "flowers", "statue", "armor_stand", "trophy", "painting", "piano",
+      "globe", "throne", "grandfather_clock", "mirror", "banner_stand", "stairs", "landing"
+    ]
+  },
+  houseStyles: {
+    title: "House styles, 10 homes in 4 styles each, 8 columns",
+    folder: "buildings",
+    mode: "sprite",
+    cols: 8,
+    names: [
+      "tent_style1", "tent_style2", "tent_style3", "tent_style4", "hut_style1", "hut_style2", "hut_style3", "hut_style4",
+      "house_style1", "house_style2", "house_style3", "house_style4", "castle_style1", "castle_style2", "castle_style3", "castle_style4",
+      "inn_style1", "inn_style2", "inn_style3", "inn_style4", "tenement_style1", "tenement_style2", "tenement_style3", "tenement_style4",
+      "bunker_style1", "bunker_style2", "bunker_style3", "bunker_style4", "arcology_style1", "arcology_style2", "arcology_style3", "arcology_style4",
+      "fortress_style1", "fortress_style2", "fortress_style3", "fortress_style4", "palace_style1", "palace_style2", "palace_style3", "palace_style4"
+    ]
   }
 };

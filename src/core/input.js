@@ -1,3 +1,4 @@
+import { held } from './controls.js';
 import { TILE, MAP_W, MAP_H } from './constants.js';
 
 const MIN_ZOOM = 0.25, MAX_ZOOM = 5;
@@ -113,10 +114,10 @@ export class Input {
     if (this.h.isSailing?.() || this.h.isLeading?.()) return;   // at the helm, the keys steer the boat and the camera follows it
     const k = this.keys;
     const sp = 500 * dt / this.r.camera.zoom;
-    if (k.has('w') || k.has('arrowup')) this.r.camera.y -= sp;
-    if (k.has('s') || k.has('arrowdown')) this.r.camera.y += sp;
-    if (k.has('a') || k.has('arrowleft')) this.r.camera.x -= sp;
-    if (k.has('d') || k.has('arrowright')) this.r.camera.x += sp;
+    if (held(k, 'up') || k.has('arrowup')) this.r.camera.y -= sp;
+    if (held(k, 'down') || k.has('arrowdown')) this.r.camera.y += sp;
+    if (held(k, 'left') || k.has('arrowleft')) this.r.camera.x -= sp;
+    if (held(k, 'right') || k.has('arrowright')) this.r.camera.x += sp;
     if (k.has('q')) this.setZoom(this.r.camera.zoom * (1 - dt * 1.5));
     if (k.has('e')) this.setZoom(this.r.camera.zoom * (1 + dt * 1.5));
     this.clamp();
