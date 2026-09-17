@@ -1,4 +1,5 @@
 import { TILE } from '../core/constants.js';
+import { RES_ICON } from '../ui/dom.js';
 import { stackIcon } from '../game/groundItems.js';
 import { drawSprite, sprite } from '../core/assets.js';
 import { BOATS, fleetOf } from '../game/sailing.js';
@@ -564,6 +565,12 @@ export class Renderer {
       ctx.save(); ctx.globalAlpha = 0.35 + 0.25 * Math.sin(this.time * 4); ctx.fillStyle = col;
       ctx.beginPath(); ctx.ellipse(it.x, it.y, TILE * 0.45, TILE * 0.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
       if (it.gear.rarity >= 2 && Math.random() < 0.05) this.lastGame?.fx.particles.push({ x: it.x, y: it.y - 6, vx: 0, vy: -14, sprite: 'effects/spark', size: 6, life: 0.6, max: 0.6, rot: 0 });
+    }
+    if (it.res) {   // a popped resource: small, bouncing, with a soft glow
+      this.shadow(it.x, it.y, TILE * 0.22);
+      drawSprite(ctx, RES_ICON[it.res] || 'items/relic', it.x, it.y - 2 - (it.z || 0) + bob * 0.5, TILE * 0.42);
+      if (it.count > 1 && this.camera.zoom >= 1.5) label(ctx, `×${it.count}`, it.x + 7, it.y + 4);
+      return;
     }
     const ic = it.gear ? gearIconKey(it.gear) : stackIcon(it);
     drawSprite(ctx, hasArt(ic) ? ic : (it.tool && TOOLS[it.tool]?.fallbackIcon) || ic || 'items/relic', it.x, it.y - 3 + bob, TILE * 0.55);

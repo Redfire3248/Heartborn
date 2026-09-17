@@ -23,11 +23,18 @@ export const OBJECTS = {
   cactus:          { sprite: 'nature/cactus',          size: 0.9, work: 'cut', food: [1, 3], charges: 1 },
 
   rock:            { sprite: 'nature/rock',            size: 0.9, work: 'mine', stone: [3, 6], charges: 3 },
-  coal_ore:        { sprite: 'nature/coal_ore',        size: 0.9, work: 'mine', stone: [1, 2], coal: [2, 4], charges: 3, tier: 1 },
-  iron_ore:        { sprite: 'nature/iron_ore',        size: 0.9, work: 'mine', stone: [1, 2], iron: [1, 3], charges: 3, tier: 2 },
-  gold_ore:        { sprite: 'nature/gold_ore',        size: 0.9, work: 'mine', stone: [1, 2], gold: [1, 3], charges: 2, tier: 5 },
-  gem_ore:         { sprite: 'nature/gem_ore',         size: 0.9, work: 'mine', stone: [1, 2], gems: [1, 1], charges: 2, tier: 6 },
-  crystal_cluster: { sprite: 'nature/crystal_cluster', size: 1.0, work: 'mine', gems: [1, 2], influence: [5, 10], charges: 1, tier: 8 },
+  coal_ore:        { sprite: 'nature/coal_ore',        size: 0.9, work: 'mine', stone: [1, 2], coal: [2, 4], charges: 3, tier: 1, rarity: 'Common' },
+  iron_ore:        { sprite: 'nature/iron_ore',        size: 0.9, work: 'mine', stone: [1, 2], iron: [1, 3], charges: 3, tier: 2, rarity: 'Common' },
+  gold_ore:        { sprite: 'nature/gold_ore',        size: 0.9, work: 'mine', stone: [1, 2], gold: [1, 3], charges: 2, tier: 5, rarity: 'Uncommon' },
+  gem_ore:         { sprite: 'nature/gem_ore',         size: 0.9, work: 'mine', stone: [1, 2], gems: [1, 1], charges: 2, tier: 6, rarity: 'Rare' },
+// biome ores (placeholder art is recoloured iron ore until the real sheet is in)
+  copper_ore:      { sprite: 'nature/copper_ore',      size: 0.9, work: 'mine', stone: [1, 2], copper: [2, 4], charges: 3, tier: 1, rarity: 'Common' },
+  silver_ore:      { sprite: 'nature/silver_ore',      size: 0.9, work: 'mine', stone: [1, 2], silver: [1, 3], charges: 3, tier: 4, rarity: 'Uncommon' },
+  obsidian_ore:    { sprite: 'nature/obsidian_ore',    size: 0.9, work: 'mine', obsidian: [1, 3], charges: 2, tier: 7, rarity: 'Rare' },
+  frostite_ore:    { sprite: 'nature/frostite_ore',    size: 0.9, work: 'mine', frostite: [1, 2], gems: [0, 1], charges: 2, tier: 6, rarity: 'Epic' },
+  magmite_ore:     { sprite: 'nature/magmite_ore',     size: 0.9, work: 'mine', magmite: [1, 2], coal: [1, 3], charges: 2, tier: 9, rarity: 'Legendary' },
+  mythril_ore:     { sprite: 'nature/mythril_ore',     size: 0.9, work: 'mine', mythril: [1, 2], gems: [0, 1], charges: 2, tier: 8, rarity: 'Mythical' },
+  crystal_cluster: { sprite: 'nature/crystal_cluster', size: 1.0, work: 'mine', gems: [1, 2], influence: [5, 10], charges: 1, tier: 8, rarity: 'Epic' },
 
   grave:           { sprite: 'buildings/grave',        size: 0.8 },
   ruins:           { sprite: 'buildings/ruins',        size: 1.4, work: 'explore' },

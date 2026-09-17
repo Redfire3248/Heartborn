@@ -1499,3 +1499,35 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
   .inv-panel { width: calc(100vw - 16px); }
 }
 .store-modal > .inv-head:first-of-type { padding-right: 40px; }
+
+/* entering a biome */
+.biome-banner { position: fixed; top: 96px; left: 50%; transform: translateX(-50%); z-index: 16; display: flex; align-items: center; gap: 10px; padding: 8px 18px 8px 10px;
+  border-radius: 999px; background: rgba(14,10,22,.82); border: 1px solid var(--biome); box-shadow: 0 0 24px color-mix(in srgb, var(--biome) 40%, transparent); pointer-events: none;
+  animation: biome-in 3.6s ease both; }
+.biome-banner b { display: block; color: var(--biome); font-size: 16px; letter-spacing: .5px; }
+.biome-banner span { font-size: 12px; color: #cfc6e0; }
+@keyframes biome-in { 0% { opacity: 0; transform: translate(-50%, -12px); } 10%, 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -8px); } }
+
+/* crafting at work */
+.craft-card { position: relative; }
+.craft-card.undiscovered .craft-icon img { filter: brightness(0) opacity(.55); }
+.craft-card.working { border-color: #ffb347 !important; }
+.craft-card.clang { animation: craft-clang .18s ease; }
+@keyframes craft-clang { 30% { transform: translateX(-2px) rotate(-.4deg); } 60% { transform: translateX(2px) rotate(.4deg); } }
+.craft-progress { position: absolute; left: 8px; right: 8px; bottom: 5px; height: 5px; border-radius: 3px; background: rgba(0,0,0,.45); overflow: hidden; }
+.craft-progress i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff9a3a, #ffe07a); box-shadow: 0 0 8px #ffb347; }
+
+/* the reveal */
+.craft-reveal { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); z-index: 400; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  min-width: 220px; padding: 22px 26px 18px; border-radius: 18px; background: #0e0a16; border: 2px solid var(--glow); cursor: pointer; text-align: center;
+  box-shadow: 0 0 40px color-mix(in srgb, var(--glow) 45%, transparent), 0 20px 50px rgba(0,0,0,.6); animation: reveal-in .45s cubic-bezier(.2,1.4,.4,1) both; overflow: hidden; }
+.craft-reveal b { font-size: 17px; }
+.craft-reveal-icon { position: relative; animation: reveal-float 2s ease-in-out infinite; filter: drop-shadow(0 0 12px var(--glow)); }
+.craft-reveal-rays { position: absolute; inset: -60%; background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--glow) 22%, transparent) 0 10deg, transparent 10deg 30deg); animation: reveal-spin 8s linear infinite; pointer-events: none; }
+.craft-reveal > *:not(.craft-reveal-rays) { position: relative; }
+.craft-quality { padding: 2px 10px; border: 1px solid; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .5px; }
+.craft-reveal.masterwork .craft-quality { animation: rarity-pulse .8s ease-in-out infinite; font-size: 14px; }
+.craft-lucky { color: #ffd76a; font-weight: 700; font-size: 13px; }
+@keyframes reveal-in { from { opacity: 0; transform: translate(-50%, -40%) scale(.6); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes reveal-float { 50% { transform: translateY(-5px); } }
+@keyframes reveal-spin { to { transform: rotate(360deg); } }

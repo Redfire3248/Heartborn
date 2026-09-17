@@ -82,6 +82,17 @@ export function pickUp(g, v, it) {
   g.state.groundItems = list.filter(x => x !== it);
   // loot from a fight: weapons, armour and trinkets are yours (the player's), whoever picks them up
   if (it.gear) { takeGear(g, it.gear, v); return true; }
+  if (it.res) {   // a popped resource
+    const got = g.addResource(it.res, it.count) ?? it.count;
+    const now = g.state.time;
+    // one float per resource while you scoop up a pile
+    const f = (g._pickFloat ||= {});
+    if (f[it.res] && now - f[it.res].at < 0.6) { f[it.res].n += got; f[it.res].fx.text = `+${f[it.res].n} ${it.res}`; f[it.res].fx.life = f[it.res].fx.max || 2.2; f[it.res].at = now; }
+    else { g.float(v.x, v.y - TILE * 1.2, `+${got} ${it.res}`, '#ffe7a0'); f[it.res] = { n: got, at: now, fx: g.fx?.floaters?.[g.fx.floaters.length - 1] || {} }; }
+    g._pickSound = true;
+    g.emit('change');
+    return true;
+  }
   if (it.tool || it.consumable || it.potion) {
     if (it.tool) giveTool(g, it.tool, it.count);
     else if (it.consumable) giveItem(g, it.consumable, it.count);

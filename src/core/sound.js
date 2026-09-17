@@ -90,6 +90,9 @@ const SOUNDS = {
   ability: () => [440, 554, 659, 880].forEach((f, i) => tone({ freq: f, type: 'triangle', dur: 0.18, vol: 0.12, delay: i * 0.05 })),
   demolish: () => { noise({ dur: 0.35, vol: 0.35, filter: 600 }); tone({ freq: 110, to: 50, type: 'square', dur: 0.3, vol: 0.08 }); },
   undo: () => tone({ freq: 700, to: 420, type: 'triangle', dur: 0.12, vol: 0.12 }),
+  anvil: () => { tone({ freq: 1760, to: 1500, type: 'square', dur: 0.09, vol: 0.07 }); tone({ freq: 2640, type: 'sine', dur: 0.25, vol: 0.06 }); noise({ dur: 0.04, vol: 0.18, filter: 3000 }); },
+  reveal: () => [659, 880, 1047, 1319].forEach((f, i) => tone({ freq: f, type: 'triangle', dur: 0.25, vol: 0.12, delay: i * 0.07 })),
+  pickup: () => tone({ freq: 880 + Math.random() * 220, to: 1320, type: 'sine', dur: 0.07, vol: 0.07 }),
   notify: () => { tone({ freq: 880, type: 'sine', dur: 0.12, vol: 0.12 }); tone({ freq: 1175, type: 'sine', dur: 0.2, vol: 0.1, delay: 0.1 }); },
 };
 

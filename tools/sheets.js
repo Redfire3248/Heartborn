@@ -423,5 +423,19 @@ window.SHEETS = {
       "wizard_front", "wizard_back", "wizard_side",
       "rogue_front", "rogue_back", "rogue_side"
     ]
+  },
+  biomeOres: {
+    title: "Biome ores (placeholders until OresSheet.png)",
+    folder: "nature",
+    mode: "sprite",
+    cols: 6,
+    names: ["copper_ore", "silver_ore", "obsidian_ore", "mythril_ore", "frostite_ore", "magmite_ore"]
+  },
+  metalIcons: {
+    title: "Metal icons (placeholders)",
+    folder: "items",
+    mode: "sprite",
+    cols: 6,
+    names: ["icon_copper", "icon_silver", "icon_obsidian", "icon_mythril", "icon_frostite", "icon_magmite"]
   }
 };

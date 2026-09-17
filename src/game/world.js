@@ -2,7 +2,7 @@ import { MAP_W, MAP_H, TILE } from '../core/constants.js';
 import { makeNoise } from '../core/noise.js';
 import { makeRng, weighted } from '../core/rng.js';
 import { OBJECTS } from '../data/objects.js';
-import { themeOf } from './worldTypes.js';
+import { themeOf, makeBiomes, BIOME_KEYS, LEGACY_SIZE, THEMES } from './worldTypes.js';
 
 export const TILES = [
   'tile_deep_water', 'tile_water', 'tile_sand', 'tile_grass', 'tile_grass_flowers', 'tile_dirt',
@@ -12,10 +12,10 @@ export const T = Object.fromEntries(TILES.map((k, i) => [k.replace('tile_', ''),
 const BLOCKED = new Set([T.deep_water, T.water, T.lava]);
 
 export class World {
-  constructor(seed) {
+  constructor(seed, size = MAP_W) {
     this.seed = seed;
-    this.w = MAP_W;
-    this.h = MAP_H;
+    this.w = size;
+    this.h = size;
     this.tiles = new Uint8Array(this.w * this.h);
     this.objGrid = new Map();   // tile index -> object
     this.version = 0;           // bumps when tiles change so the renderer can redraw
@@ -122,7 +122,7 @@ export class World {
 
 function generateTiles(world) {
   const { w, h, seed } = world;
-  const theme = themeOf(seed);
+  world.biomes = w === LEGACY_SIZE ? new Uint8Array(w * h).fill(BIOME_KEYS.indexOf(themeOf(seed))) : makeBiomes(seed, w, h);
   const height = makeNoise(seed);
   const moist = makeNoise(seed + 101);
   const detail = makeNoise(seed + 202);
@@ -145,7 +145,8 @@ function generateTiles(world) {
       else if (m > 0.64 && e < 0.5) t = T.swamp;
       else if (m < 0.34) t = dt > 0.55 ? T.sand : T.dirt;
       else t = dt > 0.72 ? T.grass_flowers : T.grass;
-      // the world's type reshapes the land
+      // the biome reshapes the land
+      const theme = BIOME_KEYS[world.biomes[y * w + x]];
       const land = t !== T.deep_water && t !== T.water;
       switch (theme) {
         case 'frozen': if (land && t !== T.lava && (t !== T.sand || dt > 0.4)) t = e > 0.72 ? T.cave_floor : T.snow; if (t === T.lava) t = T.snow; break;
@@ -174,7 +175,7 @@ export const newObjId = () => `o${Date.now().toString(36)}${(nextObjId++).toStri
 /** Initial objects + creatures for a brand-new world. */
 export function populateWorld(world) {
   const r = makeRng(world.seed + 7);
-  const theme = themeOf(world.seed);
+  let theme = themeOf(world.seed);
   const forest = makeNoise(world.seed + 303);
   const objects = [];
   const creatures = [];
@@ -190,6 +191,7 @@ export function populateWorld(world) {
     for (let x = 0; x < world.w; x++) {
       if (Math.hypot(x - cx, y - cy) < 5) continue;
       const tile = world.tile(x, y);
+      theme = BIOME_KEYS[world.biomes[y * world.w + x]] || 'meadow';
       const f = forest(x * 0.08, y * 0.08, 3);
       const roll = r();
       const choose = table => { const it = weighted(table, r); if (it.t) place(it.t, x, y); };
@@ -221,7 +223,15 @@ export function populateWorld(world) {
         ]);
       } else if (tile === T.snow) {
         if (roll < 0.1) choose([{ t: 'tree_snowy_pine', weight: 75 }, { t: 'rock', weight: 15 }, { t: 'crystal_cluster', weight: 3 }, { t: 'iron_ore', weight: 7 }]);
-      } else if (tile === T.water && roll < 0.02) {
+      }
+      // every biome has its own ores in its rocky ground
+      const wild = theme === 'volcanic' || theme === 'frozen' || theme === 'crystal';   // harsh biomes: ore pokes out anywhere
+      const rocky = tile === T.cave_floor || tile === T.dirt || tile === T.snow || (tile === T.sand && theme === 'desert') || (wild && tile !== T.water && tile !== T.deep_water && tile !== T.lava);
+      if (rocky && !world.objectAt(x, y) && r() < (tile === T.cave_floor ? 0.07 : 0.025)) {
+        const ores = THEMES[theme]?.ores || ['copper_ore'];
+        place(ores[Math.floor(r() * ores.length)], x, y);
+      }
+      if (tile === T.water && roll < 0.02) {
         // fish live in shallow water
         creatures.push(makeCreature('fish', x, y));
       }
@@ -246,7 +256,7 @@ export function populateWorld(world) {
       }
     }
   };
-  const green = t => t === T.grass || t === T.grass_flowers || (theme === 'frozen' && t === T.snow) || ((theme === 'desert' || theme === 'volcanic') && (t === T.sand || t === T.dirt)) || (theme === 'haunted' && t === T.swamp);
+  const green = t => t === T.grass || t === T.grass_flowers || t === T.snow || t === T.swamp;
   spawnOn('deer', 8, green);
   spawnOn('rabbit', 10, green, 5);
   spawnOn('boar', 4, t => green(t) || t === T.dirt, 12);

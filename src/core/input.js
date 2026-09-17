@@ -106,8 +106,9 @@ export class Input {
 
   clamp() {
     const c = this.r.camera;
-    c.x = Math.max(0, Math.min(MAP_W * TILE, c.x));
-    c.y = Math.max(0, Math.min(MAP_H * TILE, c.y));
+    const size = this.game?.world?.w || this.r?.lastGame?.world?.w || MAP_W;
+    c.x = Math.max(0, Math.min(size * TILE, c.x));
+    c.y = Math.max(0, Math.min(size * TILE, c.y));
   }
 
   update(dt) {

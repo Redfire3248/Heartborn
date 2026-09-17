@@ -1,4 +1,5 @@
 import { TILE } from '../core/constants.js';
+import { popResource, lucky, ORE_RESOURCE } from './loot.js';
 import { gameTheme } from './worldTypes.js';
 import { CREATURES } from '../data/objects.js';
 import { dropPickup, chestsOf } from './treasure.js';
@@ -475,7 +476,19 @@ export function onHeroKill(g, c, v) {
     if (Math.random() < (c.elite || boss ? 0.45 : 0.07)) dropPickup(g, 'potion', c.x + 8, c.y);
     if (boss) chestsOf(g).push({ id: `boss${Date.now().toString(36)}`, x: c.x, y: c.y + 10, boss: true });
   }
-  if (def.hostile) questProgress(g, 'slayType', { type: c.t, v });
+  if (def.hostile) {
+    // monsters carry bits of the land they live in: the local ores, and now and then a lucky pile
+    const ores = gameTheme(g).ores || [];
+    if (ores.length && lucky(g, boss ? 1 : c.elite ? 0.8 : 0.35)) {
+      const res = ORE_RESOURCE[ores[Math.floor(Math.random() * ores.length)]];
+      const big = lucky(g, 0.03);
+      const n = (1 + Math.floor(Math.random() * 3)) * (boss ? 5 : c.elite ? 2 : 1) * (big ? 3 : 1);
+      if (res) for (let i = 0; i < Math.min(n, 5); i++) popResource(g, res, i === Math.min(n, 5) - 1 ? n - Math.min(n, 5) + 1 : 1, c.x, c.y);
+      if (big) g.float(c.x, c.y - TILE * 1.6, 'LUCKY DROP! x3', '#ffd76a');
+    }
+    if (lucky(g, boss ? 0.6 : 0.02)) popResource(g, 'gold', 5 + Math.floor(Math.random() * (boss ? 60 : 10)), c.x, c.y);
+    questProgress(g, 'slayType', { type: c.t, v });
+  }
   if (c.bounty) questProgress(g, 'bounty', { v });
   const chance = boss || c.elite ? 1 : def.hostile ? 0.2 : 0.03;
   if (Math.random() < chance) {

@@ -2,6 +2,7 @@
 export const TILE = 32;            // world units per tile
 export const MAP_W = 96;
 export const MAP_H = 96;
+export const NEW_MAP_SIZE = 160;   // new worlds are bigger and have many biomes (older worlds keep 96)
 
 // Time (seconds of real time at 1x speed)
 export const DAY_LENGTH = 90;
@@ -24,7 +25,7 @@ export const MAX_SKILL = 10;
 // Economy
 export const BASE_STORAGE = 100;
 export const BASE_HOUSING = 6;       // sleeping under the stars
-export const RESOURCES = ['food', 'wood', 'stone', 'coal', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];
+export const RESOURCES = ['food', 'wood', 'stone', 'coal', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence', 'copper', 'silver', 'obsidian', 'mythril', 'frostite', 'magmite'];
 
 // Saving / multiplayer
 export const AUTOSAVE_SECONDS = 30;

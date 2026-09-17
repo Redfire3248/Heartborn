@@ -1,4 +1,5 @@
 import { TILE } from '../core/constants.js';
+import { luckOf, lucky } from './loot.js';
 import { CATALOG, RARITY, BLADE_SPECIALS, makeGear, takeGear, rpgOf, slotOf } from './rpg.js';
 import { TOOLS, TOOL_KINDS, giveTool } from './tools.js';
 import { CONSUMABLES, giveItem } from './consumables.js';
@@ -13,20 +14,20 @@ import { CONSUMABLES, giveItem } from './consumables.js';
 const MATERIAL_COST = {
   wood: { wood: 10 },
   stone: { wood: 6, stone: 12 },
-  copper: { wood: 6, stone: 10, coal: 6 },
-  bronze: { wood: 6, coal: 10, iron: 6 },
+  copper: { wood: 6, copper: 12 },
+  bronze: { wood: 6, copper: 10, coal: 8 },
   iron: { wood: 8, iron: 14 },
   steel: { iron: 20, coal: 14 },
   gold: { iron: 10, gold: 25 },
   diamond: { iron: 14, gems: 10 },
-  obsidian: { stone: 60, coal: 30, gems: 14 },
-  mythril: { gold: 50, iron: 30, gems: 24 },
+  obsidian: { obsidian: 16, iron: 10, gems: 6 },
+  mythril: { mythril: 18, silver: 12, gold: 20 },
   bamboo: { wood: 14, food: 4 },
-  crystal: { gems: 20, gold: 20 },
-  ice: { gems: 30, stone: 60, iron: 20 },
-  lava: { coal: 80, gems: 20, iron: 30 },
-  celestial: { gold: 60, gems: 40, iron: 30 },
-  void: { gems: 60, coal: 60, gold: 40 },
+  crystal: { gems: 20, silver: 14 },
+  ice: { frostite: 14, silver: 10, gems: 10 },
+  lava: { magmite: 14, obsidian: 12, coal: 30 },
+  celestial: { mythril: 20, gold: 40, gems: 30 },
+  void: { obsidian: 30, magmite: 12, gems: 40 },
   bone: { food: 30, stone: 10 },
   carbon: { coal: 30, iron: 10 },
   coral: { gems: 12, food: 20 },
@@ -48,7 +49,7 @@ const GEAR_RECIPES = [
   ['mace', 0, { iron: 14 }], ['spear', 0, { wood: 12, iron: 4 }], ['bow', 0, { wood: 20 }], ['broadsword', 1, { wood: 6, iron: 22 }],
   ['katana', 1, { iron: 24, coal: 10 }], ['rapier', 1, { iron: 18, gold: 6 }], ['twin_daggers', 1, { iron: 14, gold: 4 }], ['scimitar', 1, { iron: 20, gold: 8 }],
   ['cutlass', 1, { iron: 16, gold: 10 }], ['crossbow', 1, { wood: 20, iron: 16 }], ['greatsword', 2, { iron: 36, coal: 16 }], ['scythe', 2, { iron: 30, wood: 20 }],
-  ['flame_sword', 2, { iron: 40, coal: 40, gems: 10 }], ['frost_sword', 2, { iron: 40, gems: 16 }], ['thunder_sword', 2, { iron: 40, gold: 30, gems: 12 }],
+  ['flame_sword', 2, { iron: 30, magmite: 8, coal: 20 }], ['frost_sword', 2, { iron: 30, frostite: 10, gems: 8 }], ['thunder_sword', 2, { iron: 40, gold: 30, gems: 12 }],
   ['shadow_blade', 2, { iron: 30, coal: 30, gems: 18 }], ['holy_sword', 3, { gold: 80, gems: 40, iron: 40 }],
   // shields
   ['buckler', 0, { wood: 10, iron: 4 }], ['round', 0, { wood: 16 }], ['kite', 1, { iron: 20 }], ['tower', 1, { iron: 40, stone: 20 }],
@@ -56,7 +57,7 @@ const GEAR_RECIPES = [
   ['padded', 0, { food: 20 }], ['leather', 0, { food: 30 }], ['chain', 1, { iron: 30 }], ['plate', 2, { iron: 60, coal: 20 }],
   ['leather_cap', 0, { food: 15 }], ['iron_helmet', 0, { iron: 16 }], ['knight_helmet', 1, { iron: 30, gold: 10 }],
   // trinkets
-  ['boots', 0, { food: 20, wood: 5 }], ['ring', 1, { gold: 20 }], ['amulet', 1, { gold: 30, gems: 5 }],
+  ['boots', 0, { food: 20, wood: 5 }], ['ring', 1, { silver: 12, gold: 8 }], ['amulet', 1, { silver: 16, gems: 5 }],
 ];
 
 const round = cost => Object.fromEntries(Object.entries(cost).map(([k, n]) => [k, Math.max(1, Math.round(n))]));
@@ -122,22 +123,72 @@ export const ownsTool = () => false;
 
 export const canCraft = (g, recipe, hero = null) => canAfford(g, recipe) && (!needsTable(recipe) || atTable(g, hero)) && !ownsTool(g, recipe);
 
+/**
+ * Crafted gear rolls its quality (like The Forge): most pieces come out Standard, some Fine or Superior, a few Crude,
+ * and a rare Masterwork is a whole rarity better. Loot Luck tips the odds.
+ */
+export const QUALITIES = [
+  { id: 'crude', name: 'Crude', mult: 0.85, weight: 14, color: '#9a8f86' },
+  { id: 'standard', name: 'Standard', mult: 1, weight: 56, color: '#d9d4c7' },
+  { id: 'fine', name: 'Fine', mult: 1.12, weight: 20, color: '#7aff9a' },
+  { id: 'superior', name: 'Superior', mult: 1.25, weight: 8, color: '#5aa9ff' },
+  { id: 'masterwork', name: 'Masterwork', mult: 1.4, weight: 2, color: '#ffb347' },
+];
+export function rollQuality(g) {
+  const luck = luckOf(g);
+  const w = QUALITIES.map((q, i) => q.weight * (i === 0 ? 1 - luck : i >= 2 ? 1 + luck * 3 : 1));
+  let x = Math.random() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < w.length; i++) { x -= w[i]; if (x < 0) return QUALITIES[i]; }
+  return QUALITIES[1];
+}
+
+/** Basic resources are always known; the rest you discover by finding them once (then their recipes show). */
+const ALWAYS_KNOWN = new Set(['wood', 'stone', 'food']);
+export function learnResources(g) {
+  const seen = (rpgOf(g).seen ||= {});
+  for (const [k, n] of Object.entries(g.state.resources)) if (n > 0) seen[k] = true;
+  return seen;
+}
+export const missingToDiscover = (g, recipe) => { const seen = learnResources(g); return Object.keys(recipe.cost).filter(k => !ALWAYS_KNOWN.has(k) && !seen[k]); };
+export const discovered = (g, recipe) => missingToDiscover(g, recipe).length === 0;
+
+/** How long crafting it takes at the bench (seconds): better things take longer. */
+export const craftTime = recipe => Math.min(3, 0.7 + (recipe.power || 0) * 0.13 + (recipe.rarity || 0) * 0.45);
+
 /** Make it: pay the cost and hand it over. */
 export function craft(g, id, hero = null) {
   const recipe = RECIPES.find(r => r.id === id);
   if (!recipe) return { ok: false, why: 'Unknown recipe' };
   if (needsTable(recipe) && !atTable(g, hero)) return { ok: false, why: 'You need to be at a Crafting Table' };
   if (!canAfford(g, recipe)) return { ok: false, why: 'Not enough resources' };
+  if (!discovered(g, recipe)) return { ok: false, why: 'You have not discovered this yet' };
   for (const [k, n] of Object.entries(recipe.cost)) g.state.resources[k] -= n;
   const m = recipe.makes;
-  let made = recipe.name;
-  if (m.tool) giveTool(g, m.tool);
-  else if (m.gear) { const it = makeGear(g, m.gear, m.rarity); takeGear(g, it, hero); made = it.name; }
-  else if (m.potion) rpgOf(g).potions = (rpgOf(g).potions || 0) + m.potion;
-  else if (m.item) giveItem(g, m.item);
+  let made = recipe.name, quality = null, extra = 0, item = null;
+  if (m.tool) {
+    extra = lucky(g, 0.1) ? 1 : 0;   // a lucky craft: two for the price of one
+    giveTool(g, m.tool, 1 + extra);
+  } else if (m.gear) {
+    quality = rollQuality(g);
+    const it = makeGear(g, m.gear, quality.id === 'masterwork' ? Math.min(4, m.rarity + 1) : m.rarity);
+    if (quality.id !== 'standard') {
+      it.quality = quality.id;
+      if (it.dmg) it.dmg = Math.max(1, Math.round(it.dmg * quality.mult));
+      if (it.armor) it.armor = Math.round(it.armor * quality.mult * 100) / 100;
+      if (it.block) it.block = Math.min(0.98, Math.round(it.block * (1 + (quality.mult - 1) * 0.5) * 100) / 100);
+      it.name = `${quality.name} ${it.name}`;
+    }
+    takeGear(g, it, hero); made = it.name; item = it;
+  } else if (m.potion) {
+    extra = lucky(g, 0.2) ? 1 : 0;
+    rpgOf(g).potions = (rpgOf(g).potions || 0) + m.potion + extra;
+  } else if (m.item) {
+    extra = lucky(g, 0.2) ? 1 : 0;
+    giveItem(g, m.item, 1 + extra);
+  }
   const r = rpgOf(g);
   r.crafted = (r.crafted || 0) + 1;
   if (hero) g.float(hero.x, hero.y - TILE * 1.5, `Crafted ${made}`, '#9fe0ff');
   g.emit('change');
-  return { ok: true, made };
+  return { ok: true, made, quality, extra, item, recipe };
 }

@@ -1,4 +1,5 @@
 import { TILE, WALK_SPEED, DAY_LENGTH, ADULT_AGE } from '../core/constants.js';
+import { popResource, updateDrops, lucky } from './loot.js';
 import { CREATURES, OBJECTS } from '../data/objects.js';
 import { damageCreature, maxHp } from './creatures.js';
 import { collectFind } from './finds.js';
@@ -490,6 +491,8 @@ function nothingFor(g, v, key) {
   g.float(v.x, v.y - TILE * 1.3, `${TOOLS[key].name}: ${TOOLS[key].does}`, '#cfc6e0');
 }
 
+const ORE_COLORS = { Uncommon: '#7aff9a', Rare: '#5aa9ff', Epic: '#c77dff', Legendary: '#ffb347', Mythical: '#ff4d6d' };
+
 /** Chop, mine or pick the thing in reach: a few hits and it gives double what a worker would get. */
 function work(g, v, held = null) {
   const wants = held ? WORK_OF_KIND[TOOLS[held]?.kind] : HAND_WORK;   // an axe only chops, a pickaxe only mines, hands pick plants
@@ -527,13 +530,24 @@ function work(g, v, held = null) {
   flashTool(g, tool.key);
   if (obj._heroHits < tool.hits) return true;
   obj._heroHits = 0;
-  const got = [];
-  for (const k of ['wood', 'stone', 'food', 'coal', 'iron', 'gold', 'gems', 'influence']) {
+  // what comes out pops onto the ground; the dice decide how much and whether something special comes too
+  const rich = def.work === 'mine' && lucky(g, 0.12);
+  for (const k of ['wood', 'stone', 'food', 'coal', 'iron', 'gold', 'gems', 'influence', 'copper', 'silver', 'obsidian', 'mythril', 'frostite', 'magmite']) {
     if (!def[k]) continue;
-    const n = Math.max(1, Math.round((def[k][0] + Math.floor(Math.random() * (def[k][1] - def[k][0] + 1))) * 2 * tool.yieldMult));
-    got.push(`+${g.addResource(k, n) ?? n} ${k}`);
+    let n = Math.round((def[k][0] + Math.floor(Math.random() * (def[k][1] - def[k][0] + 1))) * 2 * tool.yieldMult);
+    if (n <= 0) continue;
+    if (rich) n *= 2;
+    for (let i = 0; i < Math.min(n, 4); i++) popResource(g, k, i === Math.min(n, 4) - 1 ? n - Math.min(n, 4) + 1 : 1, c.x, c.y - 4);
   }
-  if (got.length) g.float(c.x, c.y - TILE, got.join('  '), '#ffe7a0');
+  if (def.work === 'mine') {
+    if (rich) { g.float(c.x, c.y - TILE * 1.3, 'Rich vein! x2', '#ffd76a'); g.puff(c, 'effects/spark', 8, 14); }
+    if (lucky(g, 0.04)) { popResource(g, 'gems', 1, c.x, c.y); g.float(c.x, c.y - TILE * 1.7, 'A hidden gem!', '#9fe0ff'); }
+    if (def.rarity && def.rarity !== 'Common' && obj._heroHits === 0) g.float(c.x, c.y - TILE * 2.1, `${def.rarity} ore`, ORE_COLORS[def.rarity] || '#fff');
+  } else if (def.work === 'chop') {
+    if (lucky(g, 0.1)) { popResource(g, 'food', 2 + Math.floor(Math.random() * 3), c.x, c.y); g.float(c.x, c.y - TILE * 1.6, 'Apples fell!', '#ff8a7a'); }
+    if (lucky(g, 0.03)) { popResource(g, 'gold', 3 + Math.floor(Math.random() * 6), c.x, c.y); g.float(c.x, c.y - TILE * 1.9, "A bird's nest with coins!", '#ffd76a'); }
+    if (lucky(g, 0.01)) { popResource(g, 'gems', 1, c.x, c.y); g.float(c.x, c.y - TILE * 2.2, 'Amber!', '#ffb347'); }
+  }
   if (def.work === 'chop') {
     s.stats.treesCut = (s.stats.treesCut || 0) + 1;
     if (def.stump) { obj.t = 'tree_stump'; obj.growAt = s.time + OBJECTS.tree_stump.growDays * DAY_LENGTH; }
@@ -656,8 +670,9 @@ export function updateHero(g, dt, controls = {}) {
   }
 
   // items on the ground go into your pack as you walk over them
+  updateDrops(g, dt);
   for (const it of [...(g.state.groundItems || [])]) {
-    if (it.noPickUntil && g.state.time < it.noPickUntil) continue;   // just dropped
+    if ((it.noPickUntil && g.state.time < it.noPickUntil) || it.pickIn > 0) continue;   // just dropped
     const d = Math.hypot(it.x - v.x, it.y - v.y);
     if (d < TILE * 0.7) pickUp(g, v, it);
     else if (d < TILE * 1.5) { const k = Math.min(1, dt * 6); it.x += (v.x - it.x) * k; it.y += (v.y - it.y) * k; }

@@ -64,6 +64,7 @@ export function avatar(name = '?', size = 40) {
 export const RES_ICON = {
   food: 'items/icon_food', wood: 'items/icon_wood', stone: 'items/icon_stone', coal: 'items/icon_coal',
   iron: 'items/icon_iron', weapons: 'items/sword', bombs: 'effects/explosion', science: 'effects/magic_orb', gold: 'items/icon_gold', gems: 'items/icon_gem', influence: 'items/icon_influence',
+  copper: 'items/icon_copper', silver: 'items/icon_silver', obsidian: 'items/icon_obsidian', mythril: 'items/icon_mythril', frostite: 'items/icon_frostite', magmite: 'items/icon_magmite',
 };
 
 export function costChips(cost = {}, have = null) {

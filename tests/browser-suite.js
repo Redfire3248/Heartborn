@@ -79,8 +79,11 @@ export async function run() {
     const gm = new Game(newState({ uid: 'wt', name: 'T', villageName: 'V', seed: meadowSeed }));
     ok(gf.state.seed === frozenSeed, 'a new world keeps its seed');
     ok(gameTheme(gf).name === 'Frozen Wastes', 'the game knows its world type');
-    const count = (g, t) => { let n = 0; for (const x of g.world.tiles) if (x === t) n++; return n; };
-    ok(count(gf, TT.snow) > count(gm, TT.snow) * 2, 'a frozen world is far snowier than a meadow', `${count(gf, TT.snow)} vs ${count(gm, TT.snow)}`);
+    const W = await import('/src/game/worldTypes.js');
+    const share = (g, b) => g.world.biomes.filter(x => W.BIOME_KEYS[x] === b).length / g.world.biomes.length;
+    ok(new Set(gf.world.biomes).size >= 5 && new Set(gm.world.biomes).size >= 5, 'every new world has many biomes', `${new Set(gf.world.biomes).size} and ${new Set(gm.world.biomes).size}`);
+    ok(share(gf, 'frozen') > share(gm, 'frozen'), 'the featured biome is bigger in its own world', `${Math.round(share(gf, 'frozen') * 100)}% vs ${Math.round(share(gm, 'frozen') * 100)}%`);
+    ok(gf.world.w === 160, 'new worlds are bigger');
     const saves = [{ wid: 'solo_a', name: 'Alpha', seed: frozenSeed, theme: 'frozen', kind: 'solo', level: 3, day: 2 }, { wid: 'srv1', name: 'Friends', seed: 5, theme: themeOf(5), kind: 'server' }];
     let deleted = null;
     const pick = worldPicker({ user: { uid: 'wt' }, username: 'Tester', listWorldSaves: async () => saves, deleteWorldSave: async (u, w) => { deleted = w; }, oldVillage: async () => null });
@@ -565,7 +568,7 @@ export async function run() {
     ok(['tools', 'weapons', 'armour', 'potions'].every(c => Cr.RECIPES.some(r => r.cat === c)), 'recipes for tools, weapons, armour and potions');
     g.state.resources.iron = 0;
     ok(!Cr.craft(g, 'tool:pickaxe_iron').ok, 'you cannot craft without the resources');
-    Object.assign(g.state.resources, { iron: 500, wood: 500, gold: 500, gems: 200, coal: 200, food: 500, stone: 500 });
+    Object.assign(g.state.resources, { iron: 500, wood: 500, gold: 500, gems: 200, coal: 200, food: 500, stone: 500, copper: 200, silver: 200, obsidian: 200, mythril: 200, frostite: 200, magmite: 200 });
     ok(!Cr.craft(g, 'tool:pickaxe_iron').ok && Cr.craft(g, 'tool:pickaxe_wood').ok, 'away from a Crafting Table only the basics can be crafted');
     const me = g.state.villagers[0];
     g.hero = { id: me.id };
@@ -661,6 +664,7 @@ export async function run() {
       for (const o of g.state.villagers) if (o !== me) o.x = me.x + 3000;
       const before = g.state.resources.wood;
       for (let i = 0; i < 12; i++) { g.hero.atkCd = 0; g.hero.actCd = 0; H.updateHero(g, 1 / 30, { act: true }); }
+      for (let i = 0; i < 60; i++) H.updateHero(g, 1 / 30, {});   // the wood pops out and flies to you
       ok(g.state.resources.wood > before, 'swinging at a tree chops wood with the axe you hold');
       To.selectSlot(g, 0);
       const before2 = g.state.resources.wood;

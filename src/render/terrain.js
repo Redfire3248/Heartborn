@@ -46,7 +46,7 @@ export class TerrainPainter {
     this.sprites = spriteVersion();
     this.patterns.clear();
     this.chunks.clear();
-    this.overview = this.paint(0, 0, world.w, world.h, OVERVIEW_PPT);
+    this.overview = this.paint(0, 0, world.w, world.h, Math.min(OVERVIEW_PPT, Math.floor(2400 / world.w)));   // bigger worlds: a smaller overview, easy on phones
   }
 
   /** Draw visible terrain in world coordinates. pxPerTile = on-screen device pixels per tile. */

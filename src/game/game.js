@@ -1,6 +1,5 @@
 import {
-  TILE, DAY_LENGTH, DAYS_PER_SEASON, SEASONS, DAYS_PER_YEAR, BASE_STORAGE, BASE_HOUSING, ADULT_AGE,
-} from '../core/constants.js';
+  TILE, DAY_LENGTH, DAYS_PER_SEASON, SEASONS, DAYS_PER_YEAR, BASE_STORAGE, BASE_HOUSING, ADULT_AGE, MAP_W } from '../core/constants.js';
 import { clamp, chance, pick, weighted } from '../core/rng.js';
 import { World, T, makeCreature } from './world.js';
 import { BUILDINGS, ERAS, sizeOf, OLD_SIZES } from '../data/buildings.js';
@@ -34,7 +33,7 @@ const CAPPED = ['food', 'wood', 'stone', 'coal', 'iron', 'weapons', 'bombs'];
 export class Game {
   constructor(state) {
     this.state = state;
-    this.world = new World(state.seed);
+    this.world = new World(state.seed, state.mapSize || MAP_W);
     this.world.indexObjects(state.objects);
     this.speed = 1;
     this.paused = false;

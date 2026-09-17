@@ -1,4 +1,5 @@
 import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo } from './dom.js';
+import { heroBiome, THEMES } from '../game/worldTypes.js';
 import { AVATARS, avatarId, avatarArt, setLook } from '../game/avatars.js';
 import { iconUrl, spriteAvailable } from '../core/assets.js';
 import { TILE, ADULT_AGE, MAP_W, MAP_H, RESOURCES, DAY_LENGTH } from '../core/constants.js';
@@ -27,7 +28,7 @@ import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, a
 import { makeVisitGame } from '../game/visit.js';
 import { makeDungeonGame, leaveSurface, returnFromDungeon, bossOf } from '../game/dungeon.js';
 import { HouseEditor } from './houseEditor.js';
-import { RECIPES, CRAFT_CATS, canCraft, craft, needsTable, atTable, ownsTool } from '../game/crafting.js';
+import { RECIPES, CRAFT_CATS, canCraft, craft, needsTable, atTable, ownsTool, missingToDiscover, craftTime } from '../game/crafting.js';
 import { CONSUMABLES, itemsOf, buffActive } from '../game/consumables.js';
 import { on, buildingOn, eraFree } from '../core/features.js';
 import { ACTIONS, CONTROL_GROUPS, is, held, keyOf, keyLabel, setBind, resetBinds, RESERVED } from '../core/controls.js';
@@ -66,12 +67,19 @@ import { play, soundSettings, setVolume } from '../core/sound.js';
 import { cleanText, mutedPlayers, setMuted, reportMessage } from '../net/chatSafety.js';
 import { BUILD, LATEST_CHANGES, checkLatest } from '../core/version.js';
 
-const TOP_RES = ['food', 'wood', 'stone', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];
+const TOP_RES = ['food', 'wood', 'stone', 'coal', 'iron', 'copper', 'silver', 'obsidian', 'mythril', 'frostite', 'magmite', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];
 // bombs and science only appear once they matter
 const SHOW_WHEN = {
   bombs: g => !g.solo && (g.state.resources.bombs > 0 || g.hasBuilding('powder_mill')), science: g => !g.solo && (g.state.resources.science > 0 || g.state.era >= 3),
   // a lone hero has no army and no influence to spend: those stay out of the bar
   weapons: g => !g.solo, influence: g => !g.solo,
+  coal: g => g.state.resources.coal > 0,
+  copper: g => g.state.resources.copper > 0,
+  silver: g => g.state.resources.silver > 0,
+  obsidian: g => g.state.resources.obsidian > 0,
+  mythril: g => g.state.resources.mythril > 0,
+  frostite: g => g.state.resources.frostite > 0,
+  magmite: g => g.state.resources.magmite > 0,
 };
 // the engine telegraph, top to bottom
 const TELEGRAPH = [['FULL', 1], ['HALF', 0.6], ['SLOW', 0.3], ['STOP', 0], ['BACK', -0.4]];
@@ -209,7 +217,9 @@ export class HUD {
     this.root.append(this.els.feed);
 
     // minimap
-    this.mini = h('canvas', { width: MAP_W * MINI_SCALE, height: MAP_H * MINI_SCALE });
+    const mapSize = g.world?.w || MAP_W;
+    this.mini = h('canvas', { width: Math.round(MAP_W * MINI_SCALE), height: Math.round(MAP_H * MINI_SCALE) });
+    this.miniK = MAP_W / mapSize;   // bigger worlds are drawn smaller so the minimap keeps its size
     // clicking the minimap opens the World Map
     this.mini.addEventListener('click', () => this.openMap());
     this.root.append(h('div.card.minimap', { title: 'Open the World Map (V)' }, this.mini));
@@ -308,6 +318,14 @@ export class HUD {
       }
       if (this.mobilePlace && (Math.abs(mx) > 0.2 || Math.abs(my) > 0.2)) this.mobilePlace.manual = false;   // walking brings it back in front of you
       this.updateBossBar(hg, dt);
+      if (hg._pickSound) { hg._pickSound = false; play('pickup'); }
+      if (hg === g && !this.houseEditor) {
+        const biome = heroBiome(g);
+        if (biome && biome !== this._biome) {
+          if (this._biome) this.biomeBanner(biome);
+          this._biome = biome;
+        }
+      }
       const v = heroOf(hg);
       const c = this.renderer.camera;
       // the camera always stays on you
@@ -1440,8 +1458,14 @@ export class HUD {
         h(`div.craft-station${table ? '.on' : ''}`, icon('buildings/workshop', 28),
           h('div', h('b', table ? 'At a Crafting Table' : 'Crafting by hand'),
             h('div.faint', table ? 'You can craft everything here.' : 'Basics only. Stand by a Crafting Table (Build menu, 10 wood) for the rest.'))),
-        q ? h('div.faint', `${list.length} recipe${list.length === 1 ? '' : 's'} match “${this.craftQuery.trim()}”`) : null,
+        ...(q ? [h('div.faint', `${list.length} recipe${list.length === 1 ? '' : 's'} match “${this.craftQuery.trim()}”`)] : []),
         h('div.craft-list', list.map(r => {
+          const missing = missingToDiscover(g, r);
+          if (missing.length) {   // not found yet: a silhouette and a hint
+            return h('div.craft-card.cant.undiscovered',
+              h('div.craft-icon', icon(hasArt(r.icon) ? r.icon : r.fallbackIcon || r.icon, 40)),
+              h('div.craft-info', h('b', '???'), h('div.faint.craft-desc', `Find ${missing.join(' and ')} to discover`)));
+          }
           const ok = canCraft(g, r, heroOf(g));
           const locked = needsTable(r) && !table, owned = ownsTool(g, r);
           const have = r.makes.tool ? owned[r.makes.tool] || 0 : r.makes.potion ? rpgOf(g).potions || 0 : r.makes.item ? itemsOf(g)[r.makes.item] || 0 : null;
@@ -1454,16 +1478,62 @@ export class HUD {
               h('div.craft-cost', costChips(r.cost, g.state.resources), locked ? h('span.craft-lock', 'Needs a Crafting Table') : null)),
             h('div.craft-side',
               have != null ? h('span.faint', `Have ${have}`) : null,
-              h(`button.btn.sm${ok ? '.primary' : ''}`, { disabled: !ok, title: owned ? 'You already have one' : locked ? 'Stand next to a Crafting Table' : '', onclick: () => {
-                const res = craft(g, r.id, heroOf(this.dungeon || g) || heroOf(g));
-                if (!res.ok) { this.hint(res.why, 1800); return; }
-                play('ability'); this.hint(`Crafted ${res.made}`, 1500); this._hotbarKey = null; fill();
-              } }, 'Craft')));
+              h(`button.btn.sm${ok ? '.primary' : ''}`, { disabled: !ok || !!this._crafting, title: locked ? 'Stand next to a Crafting Table' : '', onclick: e => this.startCraft(r, e.currentTarget.closest('.craft-card'), fill) }, 'Craft')));
         })));
     };
     search.addEventListener('input', () => { this.craftQuery = search.value; fill(); });
     fill();
     return [this.head('items/hammer', 'Craft', `${RECIPES.length} recipes`), tabs, h('div.build-search-row', search), body];
+  }
+
+  /** Crafting takes a moment: the hammer rings, sparks fly, a bar fills; then what you made is revealed. */
+  startCraft(r, card, refresh) {
+    if (this._crafting) return;
+    const g = this.game, hero = heroOf(this.dungeon || g) || heroOf(g);
+    const secs = craftTime(r);
+    const bar = h('div.craft-progress', h('i'));
+    card?.append(bar);
+    card?.classList.add('working');
+    const start = performance.now();
+    let lastClang = 0;
+    this._crafting = true;
+    const step = now => {
+      const t = (now - start) / 1000;
+      bar.firstChild.style.width = `${Math.min(100, (t / secs) * 100)}%`;
+      if (t - lastClang > 0.34) {
+        lastClang = t;
+        play('anvil');
+        if (hero) { g.puff({ x: hero.x + (Math.random() - 0.5) * 12, y: hero.y - 14 }, 'effects/spark', 4, 10); if (g.hero) g.hero.swing = 0.18; }
+        card?.classList.remove('clang'); void card?.offsetWidth; card?.classList.add('clang');
+      }
+      if (t < secs) { requestAnimationFrame(step); return; }
+      this._crafting = false;
+      const res = craft(g, r.id, hero);
+      bar.remove(); card?.classList.remove('working', 'clang');
+      if (!res.ok) { this.hint(res.why, 1800); refresh(); return; }
+      this._hotbarKey = null;
+      this.craftReveal(res);
+      refresh();
+    };
+    requestAnimationFrame(step);
+  }
+
+  /** What you just crafted, shown big: its quality, rarity and any lucky bonus. */
+  craftReveal(res) {
+    const it = res.item, q = res.quality, rec = res.recipe;
+    const color = it ? RARITY[it.rarity].color : '#9fe0ff';
+    const ic = it ? gearIconKey(it) || rec.icon : hasArt(rec.icon) ? rec.icon : rec.fallbackIcon || rec.icon;
+    this.root.querySelector('.craft-reveal')?.remove();
+    const el = h(`div.craft-reveal${q?.id === 'masterwork' ? '.masterwork' : ''}`, { style: { '--glow': q && q.id !== 'standard' ? q.color : color }, onclick: () => el.remove() },
+      h('div.craft-reveal-rays'),
+      h('div.craft-reveal-icon', icon(ic, 72)),
+      h('b', { style: { color } }, res.made),
+      q ? h('span.craft-quality', { style: { color: q.color, borderColor: q.color } }, q.id === 'masterwork' ? 'MASTERWORK!' : q.name) : null,
+      it?.dmg ? h('span.faint', `${it.dmg} damage`) : it?.armor ? h('span.faint', `${Math.round(it.armor * 100)}% armour`) : null,
+      res.extra ? h('span.craft-lucky', `Lucky craft! You made ${res.extra + 1}`) : null);
+    this.root.append(el);
+    play(q?.id === 'masterwork' || res.extra ? 'reveal' : 'ability');
+    setTimeout(() => el.remove(), q?.id === 'masterwork' ? 3600 : 2400);
   }
 
   buildPanel() {
@@ -2872,6 +2942,16 @@ export class HUD {
     this.root.append(this.saveBanner);
   }
 
+  /** Entering a new biome: its name slides in, in its own colour. */
+  biomeBanner(key) {
+    const t = THEMES[key];
+    if (!t) return;
+    this.root.querySelector('.biome-banner')?.remove();
+    const el = h('div.biome-banner', { style: { '--biome': t.color } }, icon(t.icon, 28), h('div', h('b', t.name), h('span', t.desc)));
+    this.root.append(el);
+    setTimeout(() => el.remove(), 3600);
+  }
+
   announce(text) {
     const el = h('div.announce', h('div', text));
     this.root.append(el);
@@ -3097,14 +3177,14 @@ export class HUD {
   drawMinimapBase() {
     const w = this.game.world;
     const ctx = this.mini.getContext('2d');
-    const img = ctx.createImageData(MAP_W, MAP_H);
+    const img = ctx.createImageData(w.w, w.h);
     for (let i = 0; i < w.tiles.length; i++) {
       const hex = MINI_COLORS[w.tiles[i]] || '#000';
       const n = parseInt(hex.slice(1), 16);
       img.data[i * 4] = n >> 16; img.data[i * 4 + 1] = (n >> 8) & 255; img.data[i * 4 + 2] = n & 255; img.data[i * 4 + 3] = 255;
     }
     this.miniBase = document.createElement('canvas');
-    this.miniBase.width = MAP_W; this.miniBase.height = MAP_H;
+    this.miniBase.width = w.w; this.miniBase.height = w.h;
     this.miniBase.getContext('2d').putImageData(img, 0, 0);
     this.miniVersion = w.version;
   }
@@ -3113,12 +3193,13 @@ export class HUD {
     const g = this.game;
     if (this.miniVersion !== g.world.version) this.drawMinimapBase();
     const ctx = this.mini.getContext('2d');
-    ctx.setTransform(MINI_SCALE, 0, 0, MINI_SCALE, 0, 0);
+    const mk = MINI_SCALE * (MAP_W / g.world.w);
+    ctx.setTransform(mk, 0, 0, mk, 0, 0);
     // the renderer's smooth terrain overview looks far nicer than flat pixels once it exists
     const terrain = this.renderer.terrain;
     const overview = terrain?.world === g.world && terrain.version === g.world.version ? terrain.overview : null;
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(overview || this.miniBase, 0, 0, MAP_W, MAP_H);
+    ctx.drawImage(overview || this.miniBase, 0, 0, g.world.w, g.world.h);
     ctx.fillStyle = 'rgba(28,70,26,0.55)';
     for (const o of g.state.objects) if (o.t.startsWith('tree_') && o.t !== 'tree_stump') ctx.fillRect(o.x + 0.2, o.y + 0.2, 0.6, 0.6);
     ctx.fillStyle = '#ffae3d';

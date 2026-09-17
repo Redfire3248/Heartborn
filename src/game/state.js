@@ -1,22 +1,23 @@
-import { SAVE_VERSION, TILE } from '../core/constants.js';
+import { SAVE_VERSION, TILE, NEW_MAP_SIZE } from '../core/constants.js';
 import { World, populateWorld } from './world.js';
 import { makeVillager } from './villagers.js';
 
 /** Brand-new village: 3 ordinary humans and nothing else. */
 export function newState({ uid, name, villageName, seed = Math.floor(Math.random() * 2 ** 31) }) {
   seed = Math.abs(Math.floor(Number(seed))) % 2 ** 31;   // every world is built from its seed
-  const world = new World(seed);
+  const world = new World(seed, NEW_MAP_SIZE);
   const { objects, creatures, start } = populateWorld(world);
 
   const state = {
     version: SAVE_VERSION,
     seed,
+    mapSize: NEW_MAP_SIZE,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     owner: { uid, name, villageName },
     time: 90 * 0.3,          // dawn of day one
     center: start,
-    resources: { food: 25, wood: 15, stone: 10, coal: 0, iron: 0, weapons: 0, bombs: 0, gold: 0, gems: 0, science: 0, influence: 20 },
+    resources: { food: 25, wood: 15, stone: 10, coal: 0, iron: 0, weapons: 0, bombs: 0, gold: 0, gems: 0, science: 0, influence: 20, copper: 0, silver: 0, obsidian: 0, mythril: 0, frostite: 0, magmite: 0 },
     karma: 0,
     era: 0,
     villagers: [],
@@ -90,6 +91,7 @@ export function deserialize(json) {
   state.resources.weapons ??= 0;
   state.resources.bombs ??= 0;
   state.resources.science ??= 0;
+  for (const k of ["copper","silver","obsidian","mythril","frostite","magmite"]) state.resources[k] ??= 0;
   for (const v of state.villagers || []) v.skills.stealth ??= 0;
   for (const v of state.villagers || []) v.skills.craft ??= 0;
   state.laws ||= { government: 'council', economy: 'barter', military: 'peace', faith: 'old_gods' };
