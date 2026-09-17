@@ -9,7 +9,7 @@ export const OBJECTS = {
   tree_snowy_pine: { sprite: 'nature/tree_snowy_pine', size: 1.8, work: 'chop', wood: [5, 8], stump: true },
   fallen_log:      { sprite: 'nature/fallen_log',      size: 1.0, work: 'chop', wood: [2, 3] },
   tree_stump:      { sprite: 'nature/tree_stump',      size: 0.8, growsInto: 'sapling', growDays: 1 },   // a stump sprouts a sapling after a day
-  sapling:         { sprite: 'nature/sapling',         size: 0.8, growsInto: 'tree_oak', growDays: 2 },  // and grows back into the tree it was
+  sapling:         { sprite: 'nature/stump_sprout',    size: 0.8, growsInto: 'tree_oak', growDays: 2 },  // and grows back into the tree it was
 
   berry_bush:      { sprite: 'nature/berry_bush',      size: 0.9, work: 'gather', food: [2, 4], charges: 4, regrowDays: 2 },
   mushroom:        { sprite: 'nature/mushroom',        size: 0.6, work: 'gather', food: [1, 3], charges: 1, poison: 0.25 },

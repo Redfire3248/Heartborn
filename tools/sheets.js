@@ -445,5 +445,60 @@ window.SHEETS = {
       "icon_jade", "icon_cobalt", "icon_moonstone", "icon_titanium", "icon_sunstone", "icon_voidstone",
       "icon_coal", "icon_iron", "icon_gold", "icon_gem", "icon_ruby", "icon_amethyst"
     ]
+  },
+  packMats: {
+    title: "Pack sheet row 1, boss material icons",
+    folder: "items",
+    mode: "sprite",
+    cols: 8,
+    names: [
+      "mat_slime_core", "mat_spider_silk", "mat_spirit_bark", "mat_golem_heart",
+      "mat_lich_soul", "mat_dragon_scale", "token_crown", "mat_star_shard"
+    ]
+  },
+  packFx: {
+    title: "Pack sheet row 2, loot beams and bursts",
+    folder: "effects",
+    mode: "sprite",
+    cols: 7,
+    names: ["beam_white", "beam_gold", "beam_pink", "boss_burst", "rich_sparkle", "jackpot", "enchant_glint"]
+  },
+  packStump: {
+    title: "Pack sheet, a stump sprouting a sapling",
+    folder: "nature",
+    mode: "sprite",
+    cols: 1,
+    names: ["stump_sprout"]
+  },
+  packStations: {
+    title: "Pack sheet row 3, crafting stations",
+    folder: "buildings",
+    mode: "sprite",
+    cols: 3,
+    names: ["enchanting_table", "crafting_table", "forge_station"]
+  },
+  packInterior: {
+    title: "Pack sheet row 3, house furniture",
+    folder: "interior",
+    mode: "sprite",
+    cols: 4,
+    names: ["enchanting_table", "trophy_stand", "display_case", "treasure_chest"]
+  },
+  packStall: {
+    title: "Pack sheet, a trading stall",
+    folder: "buildings",
+    mode: "sprite",
+    cols: 1,
+    names: ["trade_stall"]
+  },
+  packUi: {
+    title: "Pack sheet row 4, interface icons",
+    folder: "ui",
+    mode: "sprite",
+    cols: 8,
+    names: [
+      "trade", "index", "enchant", "new_badge",
+      "frame_common", "frame_rare", "frame_epic", "frame_legendary"
+    ]
   }
 };

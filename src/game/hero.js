@@ -667,7 +667,7 @@ function work(g, v, held = null) {
     for (let i = 0; i < Math.min(n, 4); i++) popResource(g, k, i === Math.min(n, 4) - 1 ? n - Math.min(n, 4) + 1 : 1, c.x, c.y - 4);
   }
   if (def.work === 'mine') {
-    if (jackpot) { g.float(c.x, c.y - TILE * 1.3, rich ? 'JACKPOT! x4' : 'JACKPOT! x2', '#ff9aff'); g.puff(c, 'effects/spark', 16, 20); g.fx.shake = Math.max(g.fx.shake, 0.8); }
+    if (jackpot) { g.float(c.x, c.y - TILE * 1.3, rich ? 'JACKPOT! x4' : 'JACKPOT! x2', '#ff9aff'); g.anim?.('effects/jackpot', c.x, c.y - 8, { size: TILE * 3, dur: 0.6 }); g.puff(c, 'effects/spark', 16, 20); g.fx.shake = Math.max(g.fx.shake, 0.8); }
     else if (rich) { g.float(c.x, c.y - TILE * 1.3, 'Rich vein! x2', '#ffd76a'); g.puff(c, 'effects/spark', 8, 14); }
     if (lucky(g, 0.03)) {   // a stray nugget of another ore from these lands
       const ores = (gameTheme(g).ores || []).filter(k => ORE_RESOURCE[k] && k !== obj.t);

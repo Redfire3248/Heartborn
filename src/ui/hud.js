@@ -836,7 +836,7 @@ export class HUD {
     const heldInfo = this.slotInfo(bar[r.hotSel], v);
     panel.replaceChildren(
       h('div.inv-head', h('b', 'Inventory'), h('div.spacer'),
-        h('button.btn.sm', { title: 'Everything you have found (N)', onclick: () => openIndex(this) }, 'Index'),
+        h('button.btn.sm', { title: 'Everything you have found (N)', onclick: () => openIndex(this) }, hasArt('ui/index') ? icon('ui/index', 16) : null, 'Index'),
         h('button.btn.sm.analyze-btn', { title: 'Analyze the item under your cursor (or what you hold). Tip: right-click a hotbar slot', onclick: () => this.analyzeKey(this._invHover || bar[r.hotSel]) }, 'Analyze'),
         h('button.btn.sm', { title: 'Ores, metals and boss materials', onclick: () => openMaterialsBag(this) }, 'Materials'),
         h('button.btn.sm', { title: 'Craft (C). At a Crafting Table: everything', onclick: () => this.openTable() }, 'Craft'),
@@ -2283,7 +2283,7 @@ export class HUD {
             h('div.meta', h('span', h('span.dot' + (p.online ? '.on' : '')), ' ', p.name), me ? null : h('span', `🗺 ${fmtMinutes(travelMs(this.user.uid, p.uid))}`), h('span', `👥 ${p.pop}`), h('span', `☯ ${p.karma}`), h('span', ERAS[p.era || 0]?.name),
               !p.online && p.lastSeen ? h('span', timeAgo(p.lastSeen)) : null)),
           me ? null : h('div.col', { style: { gap: '4px' } },
-            h('button.btn.sm.primary', { onclick: () => this.tradeModal(p) }, 'Trade'),
+            h('button.btn.sm.primary', { onclick: () => this.tradeModal(p) }, hasArt('ui/trade') ? icon('ui/trade', 16) : null, 'Trade'),
             h('button.btn.sm', { onclick: () => this.offerModal(p) }, '🤝 Deal'),
             ally ? h('button.btn.sm.ghost', { onclick: () => mp.breakAlliance(p.uid) }, 'Break') : h('button.btn.sm.danger', { onclick: () => this.raidModal(p) }, '⚔ Raid'))));
       }
@@ -2354,7 +2354,7 @@ export class HUD {
     const mp = this.mp;
     const act = accept => mp.respond(o, accept).then(() => { this.hint(accept ? 'Trade done!' : 'Trade declined', 1500); play(accept ? 'reveal' : 'click'); onDone?.(); this.refreshPanel?.(); }).catch(e => this.hint(e.message, 2500));
     return h('div.offer.trade-offer',
-      h('div.row', icon('items/trade', 24), h('b', `Trade from ${o.fromName || o.fromVillage || 'a player'}`), h('div.spacer'), h('span.faint', timeAgo(o.ts))),
+      h('div.row', icon(hasArt('ui/trade') ? 'ui/trade' : 'items/trade', 24), h('b', `Trade from ${o.fromName || o.fromVillage || 'a player'}`), h('div.spacer'), h('span.faint', timeAgo(o.ts))),
       h('div.row', h('span.faint', 'You get:'), this.bundleView(o.give)),
       h('div.row', h('span.faint', 'They want:'), this.bundleView(o.want)),
       h('div.row', h('div.spacer'),

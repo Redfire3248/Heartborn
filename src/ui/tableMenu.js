@@ -12,6 +12,7 @@ import { heroOf } from '../game/hero.js';
 import { forgeMinigame } from './forge.js';
 import { play } from '../core/sound.js';
 import { costChips } from './dom.js';
+import { TOOLS, TOOL_KINDS } from '../game/tools.js';
 
 const MAX_SLOTS = 4;
 const fmtN = n => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.floor(n)));

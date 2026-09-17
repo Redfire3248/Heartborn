@@ -37,12 +37,12 @@ export const MATERIALS = {
   voidstone:    { name: 'Voidstone', mult: 1.95, rarity: 4, trait: 'magic', icon: 'items/icon_voidstone', pool: ['crystal_orb', 'thunder_sword', 'spellbook', 'runic_blade'] },
   // boss materials
   troll_hide:   { off: true, name: 'Troll Hide', mult: 1.5, rarity: 3, trait: 'quake', boss: 'cave_troll', icon: 'characters/cave_troll', pool: ['maul', 'great_axe', 'club', 'greatsword'] },
-  slime_core:   { name: 'Slime Core', mult: 1.45, rarity: 3, trait: 'poison', boss: 'slime_king', icon: 'characters/slime', pool: ['whip', 'bone_wand', 'kukri'] },
-  spider_silk:  { name: 'Spider Silk', mult: 1.5, rarity: 3, trait: 'poison', boss: 'spider_queen', icon: 'characters/giant_spider', pool: ['twin_daggers', 'crossbow', 'naginata'] },
-  spirit_bark:  { name: 'Spirit Bark', mult: 1.65, rarity: 4, trait: 'heal', boss: 'forest_spirit', icon: 'characters/forest_spirit', pool: ['druid_staff', 'longbow', 'holy_sword', 'quarterstaff'] },
-  golem_heart:  { name: 'Golem Heart', mult: 1.75, rarity: 4, trait: 'quake', boss: 'stone_golem', icon: 'characters/stone_golem', pool: ['greatsword', 'maul', 'zweihander'] },
-  lich_soul:    { name: 'Lich Soul', mult: 1.85, rarity: 4, trait: 'drain', boss: 'lich', icon: 'characters/lich', pool: ['necro_staff', 'shadow_blade', 'scythe'] },
-  dragon_scale: { name: 'Dragon Scale', mult: 2.1, rarity: 4, trait: 'burn', boss: 'dragon', icon: 'characters/dragon', pool: ['flame_sword', 'holy_sword', 'thunder_sword', 'greatsword'] },
+  slime_core:   { name: 'Slime Core', mult: 1.45, rarity: 3, trait: 'poison', boss: 'slime_king', icon: 'items/mat_slime_core', pool: ['whip', 'bone_wand', 'kukri'] },
+  spider_silk:  { name: 'Spider Silk', mult: 1.5, rarity: 3, trait: 'poison', boss: 'spider_queen', icon: 'items/mat_spider_silk', pool: ['twin_daggers', 'crossbow', 'naginata'] },
+  spirit_bark:  { name: 'Spirit Bark', mult: 1.65, rarity: 4, trait: 'heal', boss: 'forest_spirit', icon: 'items/mat_spirit_bark', pool: ['druid_staff', 'longbow', 'holy_sword', 'quarterstaff'] },
+  golem_heart:  { name: 'Golem Heart', mult: 1.75, rarity: 4, trait: 'quake', boss: 'stone_golem', icon: 'items/mat_golem_heart', pool: ['greatsword', 'maul', 'zweihander'] },
+  lich_soul:    { name: 'Lich Soul', mult: 1.85, rarity: 4, trait: 'drain', boss: 'lich', icon: 'items/mat_lich_soul', pool: ['necro_staff', 'shadow_blade', 'scythe'] },
+  dragon_scale: { name: 'Dragon Scale', mult: 2.1, rarity: 4, trait: 'burn', boss: 'dragon', icon: 'items/mat_dragon_scale', pool: ['flame_sword', 'holy_sword', 'thunder_sword', 'greatsword'] },
 };
 export const BOSS_MATERIAL = Object.fromEntries(Object.entries(MATERIALS).filter(([, m]) => m.boss && !m.off).map(([k, m]) => [m.boss, k]));
 export const MATERIAL_KEYS = Object.keys(MATERIALS).filter(k => !MATERIALS[k].off);

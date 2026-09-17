@@ -579,7 +579,8 @@ export class Renderer {
     const bob = Math.sin(this.time * 3 + it.x * 0.1) * 1.5;
     this.shadow(it.x, it.y, TILE * 0.45);
     if (it.gear?.rarity >= 1) {   // a beam of light marks good loot from afar
-      drawSprite(ctx, it.gear.rarity >= 3 ? 'gear/loot_beam_gold' : 'gear/loot_beam_white', it.x, it.y + 4, TILE * (1 + Math.min(4, it.gear.rarity) * 0.3), { alpha: 0.55 + 0.25 * Math.sin(this.time * 3), tint: it.gear.rarity >= 4 ? ['#ff4d6d', '#ff3cf0'][it.gear.rarity - 4] : null });
+      const beam = it.gear.rarity >= 4 ? 'effects/beam_pink' : it.gear.rarity >= 3 ? 'effects/beam_gold' : 'effects/beam_white';
+      drawSprite(ctx, hasArt(beam) ? beam : 'gear/loot_beam_white', it.x, it.y + 4, TILE * (1.2 + Math.min(4, it.gear.rarity) * 0.3), { alpha: 0.55 + 0.25 * Math.sin(this.time * 3) });
     }
     if (it.gear) {   // loot glows in the colour of its rarity
       const col = ['#d9d4c7', '#5aa9ff', '#c77dff', '#ffb347'][it.gear.rarity] || '#fff';
@@ -591,7 +592,8 @@ export class Renderer {
       const sp = specialDrop(it.res);
       if (sp >= 0) {   // boss materials and the rarest metals: a beam of light in their rarity colour
         const col = RARITY[sp].color, t = this.time * 3 + it.x * 0.1;
-        drawSprite(ctx, 'gear/loot_beam_gold', it.x, it.y + 4, TILE * (1.6 + (sp - 3) * 0.4), { alpha: 0.6 + 0.25 * Math.sin(t), tint: col });
+        const beam = sp >= 4 ? 'effects/beam_pink' : 'effects/beam_gold';
+        drawSprite(ctx, hasArt(beam) ? beam : 'gear/loot_beam_gold', it.x, it.y + 4, TILE * (1.6 + (sp - 3) * 0.4), { alpha: 0.6 + 0.25 * Math.sin(t) });
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35 + 0.2 * Math.sin(t * 1.3); ctx.fillStyle = col;
         ctx.beginPath(); ctx.ellipse(it.x, it.y, TILE * (0.5 + 0.08 * Math.sin(t)), TILE * 0.22, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
         if (Math.random() < 0.12) this.lastGame?.fx.particles.push({ x: it.x + (Math.random() - 0.5) * 14, y: it.y - 4, vx: 0, vy: -22, sprite: 'effects/spark', size: 6, life: 0.7, max: 0.7, rot: 0 });
@@ -643,7 +645,7 @@ export class Renderer {
     drawSprite(this.ctx, def.sprite, x, y, size, { rot: sway, alpha: depleted ? 0.55 : 1 });
     if (o.rich && Math.sin(this.time * 3 + o.x * 1.7 + o.y) > 0.6) {   // a rich vein twinkles
       const k = (Math.sin(this.time * 3 + o.x * 1.7 + o.y) - 0.6) / 0.4;
-      drawSprite(this.ctx, 'effects/spark', x + Math.sin(o.x * 13 + o.y) * size * 0.25, y - size * (0.35 + 0.2 * Math.cos(o.y * 7)), TILE * 0.35 * k, { center: true, alpha: k });
+      drawSprite(this.ctx, hasArt('effects/rich_sparkle') ? 'effects/rich_sparkle' : 'effects/spark', x + Math.sin(o.x * 13 + o.y) * size * 0.25, y - size * (0.35 + 0.2 * Math.cos(o.y * 7)), TILE * 0.5 * k, { center: true, alpha: k });
     }
   }
 

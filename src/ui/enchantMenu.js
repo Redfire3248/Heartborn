@@ -51,7 +51,7 @@ export function openEnchantMenu(hud) {
             if (busy) return;
             busy = true;
             m.el.classList.add('forging');
-            forgeMinigame({ root: document.getElementById('ui'), title: `Enchanting ${info.name}`, iconKey: 'effects/magic_orb', revealIcon: iconOf(sel), stages: ['quench'], tier: 1, labels: { quench: 'Channel the magic' } }).then(score => {
+            forgeMinigame({ root: document.getElementById('ui'), title: `Enchanting ${info.name}`, iconKey: hasArt('ui/enchant') ? 'ui/enchant' : 'effects/magic_orb', revealIcon: iconOf(sel), stages: ['quench'], tier: 1, labels: { quench: 'Channel the magic' } }).then(score => {
               busy = false;
               m.el.classList.remove('forging');
               if (score == null) { render(); return; }
@@ -65,7 +65,7 @@ export function openEnchantMenu(hud) {
         }, full ? 'Fully enchanted' : canPay(g, cost) ? 'Enchant' : 'Not enough gems or gold'));
     }
     m.el.replaceChildren(m.closeBtn,
-      h('div.table-head', icon('effects/magic_orb', 32), h('div', h('h2', 'Enchanting Table'), h('div.faint', 'Pick something, then enchant it. The dice pick the enchantment; a good ritual makes it stronger.'))),
+      h('div.table-head', icon(hasArt('ui/enchant') ? 'ui/enchant' : 'effects/magic_orb', 32), h('div', h('h2', 'Enchanting Table'), h('div.faint', 'Pick something, then enchant it. The dice pick the enchantment; a good ritual makes it stronger.'))),
       h('div.ench-grid', ...cells),
       detail);
   };

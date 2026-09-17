@@ -52,7 +52,7 @@ export function openIndex(hud, tab = null) {
         : h('div.index-cell.unknown', { title: 'Not found yet' }, icon(e.icon, 40), h('span.index-name', '???'));
     });
     m.el.replaceChildren(m.closeBtn,
-      h('div.index-head', h('h2', 'Index'), h('span.faint', `${found} / ${total} found`), h('div.index-bar', h('i', { style: { width: `${total ? (found / total) * 100 : 0}%` } }))),
+      h('div.index-head', hasArt('ui/index') ? icon('ui/index', 26) : null, h('h2', 'Index'), h('span.faint', `${found} / ${total} found`), h('div.index-bar', h('i', { style: { width: `${total ? (found / total) * 100 : 0}%` } }))),
       h('div.tabs.index-tabs', ...counts.map(c => h(`button${c.s.id === cur.s.id ? '.on' : ''}`, { onclick: () => { hud._indexTab = c.s.id; render(); } }, `${c.s.name} ${c.found}/${c.all.length}`))),
       h('div.index-grid', ...cells));
   };
