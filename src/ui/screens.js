@@ -1,6 +1,6 @@
 import { h, icon, avatar, GOOGLE_SVG, modal, fmt } from './dom.js';
 import { friendlyAuthError } from '../net/firebase.js';
-import { installApp, canInstall, onInstallChange, isIOS, isInstalled } from '../core/pwa.js';
+import { installApp, canInstall, waitForInstallOffer, onInstallChange, isIOS, isInstalled } from '../core/pwa.js';
 import { BUILD } from '../core/version.js';
 
 const ui = () => document.getElementById('ui');
@@ -8,11 +8,13 @@ const ui = () => document.getElementById('ui');
 /** "Install app" button: only visible when the browser allows installing. */
 export function installButton(cls = 'button.btn.sm.install-btn') {
   const btn = h(cls, { onclick: async () => {
+    if (!canInstall() && !isIOS()) await waitForInstallOffer();
     const r = canInstall() ? await installApp() : isIOS() ? 'ios' : 'manual';
     if (r === 'manual') {   // no install prompt from this browser: say how to do it by hand
       const m = modal([
         h('h2', 'Install Heartborn'),
-        h('div.muted', 'Open your browser menu (the three dots or the address bar icon) and choose “Install app” or “Add to Home screen”. On a phone, the same option is in the browser menu.'),
+        h('div.muted', 'Your browser did not offer the install window. This usually means Heartborn is already installed on this device (look for it in your apps, or an “Open in app” icon in the address bar), or you closed the install window before so the browser is holding it back for a while, or this browser does not support installing (Firefox, some in-app browsers).'),
+        h('div.muted', { style: { marginTop: '8px' } }, 'To install by hand: in Chrome or Edge, click the install icon at the right of the address bar, or open the menu (three dots) and choose “Install Heartborn” or “Add to Home screen”.'),
         h('button.btn.primary', { onclick: () => m.close() }, 'Got it'),
       ]);
       return;

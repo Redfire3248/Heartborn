@@ -22,6 +22,16 @@ export function setupPWA() {
   }
 }
 
+/** The browser can send its install offer a moment after the page loads: wait up to `ms` for it. */
+export function waitForInstallOffer(ms = 2500) {
+  if (deferred || isInstalled()) return Promise.resolve(!!deferred);
+  return new Promise(res => {
+    const done = () => { listeners.delete(done); clearTimeout(t); res(!!deferred); };
+    const t = setTimeout(done, ms);
+    listeners.add(done);
+  });
+}
+
 /** Returns 'installed' | 'dismissed' | 'ios' (show instructions) | 'unavailable'. */
 export async function installApp() {
   if (deferred) {
