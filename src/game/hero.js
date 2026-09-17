@@ -11,7 +11,7 @@ import { speedMult, strengthMult } from './body.js';
 import { heroStats, heroWeapon, onHeroKill, questProgress, updateQuests, rpgOf, SHIELDS, BLADE_SPECIALS, UNDEAD } from './rpg.js';
 import { updateTreasure, chestNear, openChest, drinkPotion, entranceNear } from './treasure.js';
 import { homeDoorNear } from './houses.js';
-import { workWith, flashTool, dig, fish, buildMult, heldSlot, hasTool, TOOLS, WORK_OF_KIND, HAND_WORK, canMine, pickaxeFor, giveTool, dropTool } from './tools.js';
+import { workWith, flashTool, dig, fish, buildMult, heldSlot, hasTool, TOOLS, WORK_OF_KIND, HAND_WORK, canMine, pickaxeFor, giveTool, dropTool, bestTool } from './tools.js';
 import { useItem, buffActive, updateBuffs } from './consumables.js';
 import { BUILDINGS, sizeOf } from '../data/buildings.js';
 
@@ -170,7 +170,12 @@ function attack(g, v, st) {
     h.atkAnim = { t: 0, dur: swingTime };
     if (!tool) {   // a weapon (or bare hands) at nothing to fight: cut grass, pick berries and crops
       slashFx(g, v, h, w, false);
-      if (work(g, v, null)) questProgress(g, 'gather', { v });
+      if (work(g, v, null)) { questProgress(g, 'gather', { v }); return; }
+      // smart tools: a tree or a rock in reach is worked with your best axe or pickaxe, no switching needed
+      for (const kind of ['axe', 'pickaxe']) {
+        const best = bestTool(g, kind);
+        if (best && work(g, v, best)) { questProgress(g, 'gather', { v }); return; }
+      }
       return;
     }
     h.swing = 0.22;
@@ -784,7 +789,7 @@ export function updateHero(g, dt, controls = {}) {
     if ((it.noPickUntil && g.state.time < it.noPickUntil) || it.pickIn > 0) continue;   // just dropped
     const d = Math.hypot(it.x - v.x, it.y - v.y);
     if (d < TILE * 0.7) pickUp(g, v, it);
-    else if (d < TILE * 1.5) { const k = Math.min(1, dt * 6); it.x += (v.x - it.x) * k; it.y += (v.y - it.y) * k; }
+    else if (d < TILE * 2.6) { const k = Math.min(1, dt * 7); it.x += (v.x - it.x) * k; it.y += (v.y - it.y) * k; }
   }
 
   // ATTACK: swing your weapon in an arc (or loose an arrow); with nothing to fight nearby it works the land

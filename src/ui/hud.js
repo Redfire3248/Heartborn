@@ -1,4 +1,5 @@
 import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo } from './dom.js';
+import { quickCraft, setQuickCraft } from '../core/prefs.js';
 import { TRAITS as FORGE_TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
 import { openTableMenu, openMaterialsBag } from './tableMenu.js';
 import { forgeMinigame } from './forge.js';
@@ -322,6 +323,7 @@ export class HUD {
       if (this.mobilePlace && (Math.abs(mx) > 0.2 || Math.abs(my) > 0.2)) this.mobilePlace.manual = false;   // walking brings it back in front of you
       this.updateBossBar(hg, dt);
       if (hg._pickSound) { hg._pickSound = false; play('pickup'); }
+      { const me = heroOf(hg); const low = !!me && !this.houseEditor && me.hp > 0 && me.hp < (hg.hero.maxHp || 100) * 0.25; if (low !== this._lowHp) { this._lowHp = low; this.root.classList.toggle('low-hp', low); } }
       if (this.els.abilityBtn && hg.hero) { const left = Math.max(0, (hg.hero.abilityReady || 0) - hg.state.time), max = hg.hero.abilityMax || 1; this.els.abilityBtn.style.setProperty('--cd', String(left / max)); this.els.abilityBtn.classList.toggle('cooling', left > 0); const wpn = rpgOf(hg).gear.weapon; this.els.abilityBtn.hidden = !weaponAbility(wpn); }
       if (hg === g && !this.houseEditor) {
         const biome = heroBiome(g);
@@ -803,6 +805,11 @@ export class HUD {
               : h('button.btn.sm.primary', { onclick: () => { equip(g, picked.id); this._bagSel = null; render(); } }, 'Equip'),
             worn ? '' : h('button.btn.sm', { title: 'Break it down for gold', onclick: () => { const gold = scrapGear(g, picked.id); this.hint(`+${gold} gold`, 1500); this._bagSel = null; render(); } }, 'Scrap'))) : null,
         h('div.bag-head', h('b', `Bag (${r.bag.length})`), h('div.spacer'),
+          r.bag.some(it => it.rarity <= 1 && gearScore(it) <= gearScore(r.gear[it.slot])) ? h('button.btn.sm', { title: 'Scrap every Common and Rare piece that is no better than what you wear', onclick: () => {
+            const junk = r.bag.filter(it => it.rarity <= 1 && gearScore(it) <= gearScore(r.gear[it.slot]));
+            let gold = 0; for (const it of junk) gold += scrapGear(g, it.id);
+            this.hint(`Scrapped ${junk.length} piece${junk.length === 1 ? '' : 's'}: +${gold} gold`, 1800); this._bagSel = null; render();
+          } }, 'Scrap junk') : '',
           r.bag.length ? h('button.btn.sm.primary', { title: 'Put on the best piece you own for every slot', onclick: () => { const n = equipBest(g); this.hint(n ? `Equipped ${n} better piece${n === 1 ? '' : 's'}` : 'You already wear your best gear', 1800); this._bagSel = null; render(); } }, 'Equip best') : ''),
         h('div.bag-grid', ...r.bag.map(it => {
           const better = gearScore(it) > gearScore(r.gear[it.slot]);
@@ -1502,9 +1509,17 @@ export class HUD {
   }
 
   /** Crafting takes a moment: the hammer rings, sparks fly, a bar fills; then what you made is revealed. */
-  startCraft(r, card, refresh) {
+  startCraft(r, card, refresh, { times = 1 } = {}) {
     if (this._crafting) return;
     const g = this.game, hero = heroOf(this.dungeon || g) || heroOf(g);
+    // quick craft (Settings) or several at once: no minigames, an ordinary result each time
+    if ((times > 1 || quickCraft()) && !r.makes.gear) {
+      let made = 0, last = null;
+      for (let i = 0; i < times; i++) { const res = craft(g, r.id, hero, { score: 0.5 }); if (!res.ok) { if (!made) this.hint(res.why, 1800); break; } made++; last = res; }
+      if (made) { play('anvil'); if (hero) g.puff({ x: hero.x, y: hero.y - 14 }, 'effects/spark', 6, 12); this.hint(`Crafted ${made > 1 ? made + ' x ' : ''}${last.recipe.name}${last.extra ? ' (lucky!)' : ''}`, 1600); this._hotbarKey = null; }
+      refresh();
+      return;
+    }
     // check before the minigames, so you never play them for nothing
     if (!canCraft(g, r, hero)) { const res = craft(g, '__check__', hero); this.hint(needsTable(r) && !atTable(g, hero) ? 'You need to be at a Crafting Table' : res.why || 'Not enough resources', 1800); return; }
     this._crafting = true;
@@ -2279,6 +2294,8 @@ export class HUD {
         this.tutorial ? item('🎓', 'Restart tutorial', () => { this.tutorial.restart(); this.closePanel(); }) : null,
         install,
         item('🚪', 'Sign out', this.onSignOut)),
+      h('h3', 'Gameplay'),
+      h('label.set-toggle', h('input', { type: 'checkbox', checked: quickCraft(), onchange: e => setQuickCraft(e.target.checked) }), h('span', 'Quick craft: skip the minigames for tools and potions')),
       h('h3', 'Sound'),
       this.soundSliders(),
       h('h3', 'Controls'),
@@ -3257,6 +3274,12 @@ export class HUD {
     for (const b of g.state.buildings) { const s = sizeOf(b); ctx.fillRect(b.tx, b.ty, s, s); }
     ctx.fillStyle = '#ffffff';
     for (const v of g.state.villagers) if (!v.away) ctx.fillRect(Math.floor(v.x / TILE), Math.floor(v.y / TILE), 1, 1);
+    // what you look for: home, crafting tables, the dungeon cave and bounties
+    const mark = (x, y, color, r) => { ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x, y, r + 0.8, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); };
+    if (g.state.center) mark(g.state.center.x / TILE, g.state.center.y / TILE, '#ffd76a', 2.2);
+    for (const b of g.state.buildings) if (b.type === 'crafting_table') mark(b.tx + 0.5, b.ty + 0.5, '#c08a5a', 1.6);
+    for (const e of g.state.dungeons || []) mark(e.x / TILE, e.y / TILE, '#b06aff', 2.4);
+    for (const c of g.state.creatures) if (c.bounty) mark(c.x / TILE, c.y / TILE, '#ffcf3a', 2);
     // enemies: red dots, bigger and pulsing for armies and bosses
     const pulse = 0.75 + 0.25 * Math.sin(performance.now() / 160);
     for (const c of g.state.creatures) {

@@ -22,7 +22,7 @@ export function openMaterialsBag(hud) {
   const g = hud.game;
   const m = modal([], { cls: 'mat-modal', closeX: true });
   const info = h('div.mat-info', 'Hover a material to see what it forges');
-  const owned = MATERIAL_KEYS.filter(k => (g.state.resources[k] || 0) > 0);
+  const owned = MATERIAL_KEYS.filter(k => (g.state.resources[k] || 0) > 0).sort((a, b) => MATERIALS[a].rarity - MATERIALS[b].rarity);
   const cells = owned.map(k => {
     const mt = MATERIALS[k], color = RARITY[mt.rarity].color;
     return h('div.mat-cell', {
@@ -82,7 +82,7 @@ export function openTableMenu(hud, { atTable = false, tab = null } = {}) {
         icon(matIcon(k), 36), h('span.forge-slot-n', `x${mix[k]}`), h('span.forge-slot-name', mt.name));
     }));
 
-    const owned = MATERIAL_KEYS.filter(k => (res[k] || 0) > 0);
+    const owned = MATERIAL_KEYS.filter(k => (res[k] || 0) > 0).sort((a, b) => MATERIALS[a].rarity - MATERIALS[b].rarity);
     const bag = h('div.mat-grid.forge-bag', ...owned.map(k => {
       const mt = MATERIALS[k], left = (res[k] || 0) - (mix[k] || 0);
       return h(`button.mat-cell${left <= 0 ? '.used' : ''}`, { style: { borderColor: RARITY[mt.rarity].color }, title: `${mt.name}${mt.trait ? ` (${TRAITS[mt.trait].name})` : ''}: click adds 1, right-click adds 5`, onclick: () => add(k, 1), oncontextmenu: e => { e.preventDefault(); add(k, 5); } },
@@ -136,7 +136,9 @@ export function openTableMenu(hud, { atTable = false, tab = null } = {}) {
       return h(`div.craft-card${ok ? '' : '.cant'}`,
         h('div.craft-icon', icon(ic, 36)),
         h('div.craft-info', h('b', r.name), h('div.faint.craft-desc', r.desc), h('div.craft-cost', costChips(r.cost, g.state.resources))),
-        h('div.craft-side', h(`button.btn.sm${ok ? '.primary' : ''}`, { disabled: !ok, onclick: e => hud.startCraft(r, e.currentTarget.closest('.craft-card'), fill) }, 'Craft')));
+        h('div.craft-side',
+          h(`button.btn.sm${ok ? '.primary' : ''}`, { disabled: !ok, onclick: e => hud.startCraft(r, e.currentTarget.closest('.craft-card'), fill) }, 'Craft'),
+          h('button.btn.sm.ghost', { disabled: !ok, title: 'Craft 5 at once (no minigames)', onclick: e => hud.startCraft(r, e.currentTarget.closest('.craft-card'), fill, { times: 5 }) }, 'x5')));
     }));
     fill();
     return h('div.bench-tab', box);
