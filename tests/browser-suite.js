@@ -158,6 +158,21 @@ export async function run() {
     ok(soft <= 10 && hard > 14, 'monsters hit gently at first, then much harder as you grow', `${soft.toFixed(1)} then ${hard.toFixed(1)}`);
   });
 
+  await step('saved while in a dungeon: you come back up on load', async () => {
+    const D = await import('/src/game/dungeon.js');
+    const H = await import('/src/game/hero.js');
+    const g = new Game(newState({ uid: 'dg', name: 'T', villageName: 'V' }));
+    const me = g.state.villagers[0];
+    H.startLead(g, me);
+    const dg = D.makeDungeonGame(g, { depth: 1 });
+    D.leaveSurface(g, dg);
+    ok(me.away?.dungeon, 'going down marks your hero as away on the surface');
+    const back = deserialize(serialize(g.state));
+    ok(!back.villagers[0].away, 'loading that save brings your hero back up');
+    const g2 = new Game(back);
+    ok(!!H.startLead(g2, g2.state.villagers[0]).hero, 'and you can play again straight away');
+  });
+
   await step('Mythic and Admin rarities', async () => {
     const R = await import('/src/game/rpg.js');
     const g = new Game(newState({ uid: 'ry', name: 'T', villageName: 'V' }));

@@ -20,7 +20,9 @@ export function fightBoss(g, c, def, dt) {
   if (!hero || (g.hero.buffs?.invis || 0) > g.state.time || g.hero.inHouse) return false;
   const d = Math.hypot(hero.x - c.x, hero.y - c.y);
   const ai = (c._ai ||= { act: null, cd: 1, dodgeCd: 2, guardCd: 3, leapCd: 5, dashCd: 2, hits: [], strafe: Math.random() < 0.5 ? 1 : -1 });
-  if (!ai.engaged && d > TILE * 12) return false;
+  const sees = !g.world.clearLine || g.world.clearLine(c.x, c.y, hero.x, hero.y);
+  if (!ai.engaged && (d > TILE * 12 || !sees)) return false;
+  if (!sees && !ai.act) { ai.lostFor = (ai.lostFor || 0) + dt; if (ai.lostFor > 3) { ai.engaged = false; ai.lostFor = 0; return false; } } else ai.lostFor = 0;
   ai.engaged = true;
   if (d > TILE * 22) { ai.engaged = false; ai.act = null; return false; }
 
@@ -70,7 +72,7 @@ export function fightBoss(g, c, def, dt) {
     }
   }
   // leap at you from range: the landing spot is marked first
-  if (ai.leapCd <= 0 && d > TILE * 3 && d < TILE * 9) {
+  if (ai.leapCd <= 0 && d > TILE * 3 && d < TILE * 9 && sees && g.world.walkable(hero.x, hero.y)) {
     const delay = 0.85 - rage * 0.15;
     ai.act = { kind: 'leap', t: delay, max: delay, fx: c.x, fy: c.y, tx: hero.x, ty: hero.y };
     (g.aoes ||= []).push({ x: hero.x, y: hero.y, r: TILE * 1.6, t: 0, delay, dmg: def.damage * 1.3 * power(c), from: c });
@@ -118,6 +120,8 @@ export function fightBoss(g, c, def, dt) {
   return true;
 }
 
+const clear = (g, c, hero) => !g.world.clearLine || g.world.clearLine(c.x, c.y, hero.x, hero.y);
+
 const swingWind = rage => (rage ? 0.26 : 0.36);
 const power = c => (c.scale || 1) * (c.dmgMult || 1) * (c._enraged ? 1.15 : 1);
 
@@ -138,7 +142,8 @@ function doAct(g, c, def, hero, ai, dt, run, rage) {
     }
     case 'leap': {
       const k = 1 - Math.max(0, a.t) / a.max;
-      c.x = a.fx + (a.tx - a.fx) * k; c.y = a.fy + (a.ty - a.fy) * k;
+      const nx = a.fx + (a.tx - a.fx) * k, ny = a.fy + (a.ty - a.fy) * k;
+      if (def.flying || g.world.walkable(nx, ny)) { c.x = nx; c.y = ny; }   // it never jumps through a wall
       c._hop = Math.sin(k * Math.PI) * TILE * 2.2;
       c._windup = Math.max(0, a.t);
       if (a.t <= 0) { c._hop = 0; ai.act = { kind: 'recover', t: 0.7 - rage * 0.2 }; }
@@ -173,7 +178,7 @@ function doAct(g, c, def, hero, ai, dt, run, rage) {
         c._attack = 0.22;
         c._swing = { t: 0, dur: 0.22, ang, dir: a.left % 2 ? 1 : -1 };
         g.anim('combat/slash', c.x + Math.cos(ang) * TILE * 0.8, c.y - 8 + Math.sin(ang) * TILE * 0.6, { size: def.size * TILE * 1.1, dur: 0.2, rot: ang });
-        if (Math.hypot(hero.x - c.x, hero.y - c.y) < TILE * (1.35 + def.size * 0.25)) strikeVillager(g, c, hero, def.damage * (a.left === 1 ? 1.25 : 0.8) * power(c));
+        if (Math.hypot(hero.x - c.x, hero.y - c.y) < TILE * (1.35 + def.size * 0.25) && clear(g, c, hero)) strikeVillager(g, c, hero, def.damage * (a.left === 1 ? 1.25 : 0.8) * power(c));
         a.left--;
         if (c._stunned > 0) { ai.act = null; return; }   // parried: the combo is broken
         if (a.left <= 0) { ai.act = { kind: 'recover', t: 0.75 - rage * 0.25 }; return; }
@@ -199,7 +204,7 @@ function doAct(g, c, def, hero, ai, dt, run, rage) {
       g.hitStop = 0.08;
       const dx = hero.x - c.x, dy = hero.y - c.y, dist = Math.hypot(dx, dy);
       const inFront = Math.abs(Math.atan2(Math.sin(Math.atan2(dy, dx) - a.ang), Math.cos(Math.atan2(dy, dx) - a.ang))) < 1.4;
-      if (dist < reach && inFront) {
+      if (dist < reach && inFront && clear(g, c, hero)) {
         strikeVillager(g, c, hero, def.damage * 2.2 * power(c));
         if (g.hero && !(g.hero.lastParry === g.state.time)) { const k = TILE * 12; g.hero.kbx = Math.cos(a.ang) * k; g.hero.kby = Math.sin(a.ang) * k; }
       }
@@ -216,7 +221,7 @@ function doAct(g, c, def, hero, ai, dt, run, rage) {
       c._spin = (c._spin || 0) + dt * 18;
       if (a.spun >= 0.18 * (3 - a.hits)) {
         g.anim('combat/crit_slash', c.x, c.y - 10, { size: TILE * (2.6 + def.size * 0.5), dur: 0.25, rot: c._spin });
-        if (Math.hypot(hero.x - c.x, hero.y - c.y) < TILE * (1.6 + def.size * 0.35)) strikeVillager(g, c, hero, def.damage * 0.9 * power(c));
+        if (Math.hypot(hero.x - c.x, hero.y - c.y) < TILE * (1.6 + def.size * 0.35) && clear(g, c, hero)) strikeVillager(g, c, hero, def.damage * 0.9 * power(c));
         a.hits--;
         if (c._stunned > 0 || a.hits <= 0) { c._spin = 0; ai.act = { kind: 'recover', t: 0.8 - rage * 0.25 }; return; }
       }

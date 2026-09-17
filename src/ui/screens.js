@@ -48,7 +48,7 @@ export function loginScreen({ user, onSignIn, onEmailSignIn, onCreateAccount, on
   const root = h('div.screen.login',
     h('div.logo',
       h('h1', 'HEARTBORN'),
-      h('div.tagline', 'One hero. Endless adventure. Fight, explore, delve and build your home.')),
+      h('div.tagline', h('span', 'One hero. Endless adventure.'), h('br'), h('span', 'Fight, explore, delve and build your home.'))),
     card,
     installButton('button.btn.install-btn'));
   const footer = h('div.footer-note', `A pixel-art action adventure · Your hero is saved to the cloud · v${BUILD.version}`);

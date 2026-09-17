@@ -93,6 +93,8 @@ export function deserialize(json) {
   state.resources.weapons ??= 0;
   state.resources.bombs ??= 0;
   upgradeTerrain(state);   // older worlds get the current land once (buildings and hero kept)
+  // a hero saved while down in a dungeon (the page was closed or reloaded there) comes back up to the surface
+  for (const v of [...(state.villagers || []), ...(state.benched || [])]) if (v.away?.dungeon) { delete v.away; v._task = null; }
   state.resources.science ??= 0;
   for (const k of ["copper","silver","obsidian","mythril","frostite","magmite","troll_hide","slime_core","spider_silk","spirit_bark","golem_heart","lich_soul","dragon_scale","jade","cobalt","moonstone","titanium","sunstone","voidstone"]) state.resources[k] ??= 0;
   for (const v of state.villagers || []) v.skills.stealth ??= 0;

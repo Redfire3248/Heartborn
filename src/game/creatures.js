@@ -332,7 +332,7 @@ export function updateEnemyShots(g, dt) {
     a.done = true;
     g.fx.shake = Math.max(g.fx.shake, 1.5);
     g.anim('combat/poof', a.x, a.y - 4, { size: a.r * 2, dur: 0.4 });
-    for (const v of [...g.state.villagers]) if (!v.away && Math.hypot(v.x - a.x, v.y - a.y) < a.r) strikeVillager(g, a.from || { x: a.x, y: a.y - 1, t: 'slam' }, v, a.dmg);
+    for (const v of [...g.state.villagers]) if (!v.away && Math.hypot(v.x - a.x, v.y - a.y) < a.r && (!g.world.clearLine || g.world.clearLine(a.x, a.y, v.x, v.y))) strikeVillager(g, a.from || { x: a.x, y: a.y - 1, t: 'slam' }, v, a.dmg);
   }
   if (g.aoes?.length) g.aoes = g.aoes.filter(a => a.t < a.delay + 0.35);
   if (!g.enemyShots?.length) return;

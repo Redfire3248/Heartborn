@@ -3391,6 +3391,9 @@ export class HUD {
   /** Down the cave mouth (or the stairs to a deeper floor). */
   enterDungeon(entrance, depth = 1) {
     if (this.visiting || this.game.sail) return;
+    // going down closes whatever covers the screen: the house view, panels and windows
+    if (this.houseEditor && !entrance) this.houseEditor.close();
+    if (!entrance) { this.closePanel?.(); document.querySelectorAll('.modal-bg').forEach(m => m.remove()); }
     if (entrance && this.dungeon) return;   // already below (a second strike at the cave mouth)
     const prev = this.dungeon;
     const dg = makeDungeonGame(this.game, { depth, entrance: entrance || prev?.dungeon.entrance });
