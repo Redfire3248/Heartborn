@@ -13,7 +13,7 @@ import {
 
 /*
  * Inside a home: an isometric room you build in (no character here).
- * Use mode: hover shows names (underlined), click stairs to go up / the landing to go down, click storage to open it.
+ * Use mode: hover shows item names, click stairs to go up / the landing to go down, click storage to open it.
  * Arrange mode: click a piece to move, turn or pick it up. Choose furniture below to place it (R turns it).
  */
 
@@ -569,7 +569,7 @@ export class HouseEditor {
         if (key.startsWith('carpet')) poly([P(x + 0.15, y + 0.15), P(x + 0.85, y + 0.15), P(x + 0.85, y + 0.85), P(x + 0.15, y + 0.85)], shade(fl.a, 1.15));
       }
     }
-    if (this.hoverTile) {   // the floor tile under the pointer, named and underlined
+    if (false && this.hoverTile) {   // floor tile names on hover: switched off
       const { x, y } = this.hoverTile;
       const name = (FLOORINGS[floorTileAt(this.b, this.floor, x, y)] || FLOORINGS.planks).name;
       ctx.strokeStyle = 'rgba(255,215,106,0.7)'; ctx.lineWidth = 1.5;
