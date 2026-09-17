@@ -488,10 +488,7 @@ export class HUD {
     const r = startLead(g);
     if (r.error || !first) return;
     this._introShown = true;
-    const touch = matchMedia('(pointer: coarse)').matches;
-    setTimeout(() => this.hint(touch
-      ? `You are ${r.hero.name}. Stick to move, tap the hotbar to pick a sword or tool, ATTACK to use it, DASH to dodge, hold BLOCK to guard.`
-      : `You are ${r.hero.name}. ${['up', 'left', 'down', 'right'].map(id => keyLabel(keyOf(id))).join('')} to move, ${keyLabel(keyOf('attack'))} to use what you hold, 1-9 to pick from your hotbar (sword, pickaxe, axe...), ${keyLabel(keyOf('dash'))} to dash, hold ${keyLabel(keyOf('block'))} to block. Change keys in Settings.`, 9000), 3200);
+    // no controls tip any more (the player asked for no on-screen instructions)
   }
 
   updateHeroBar() {

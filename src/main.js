@@ -238,8 +238,6 @@ function startGame(user, game, { online = true } = {}) {
   game.on('extinct', () => extinctScreen(() => { document.querySelector('.modal-bg')?.remove(); restart(); }));
   if (game.day === 0 && !game.state.buildings.length) {
     game.announce(`${game.state.owner.villageName} is founded`);
-    // after the controls tip: what to do first
-    setTimeout(() => app.hud.hint('First steps: chop trees with your axe and mine the rocks near home, then build a Crafting Table (B) and press E at it.', 9000), 12500);
   }
 }
 
