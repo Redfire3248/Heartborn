@@ -1,6 +1,24 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'The Armory, parries and a cleaner screen',
+    changes: [
+      'The Armory: 30 new weapons with their own art. Guns (flintlock, musket, blunderbuss, revolver, hunting rifle, shotgun), thrown weapons (throwing axe, a boomerang that comes back, shurikens, harpoon), new swords, axes, polearms and a whip, and magic (fire and ice staffs, lightning wand, necromancer staff, holy sceptre, spellbook, crystal orb, bone wand, druid staff)',
+      'Admin-only weapons (never dropped or crafted): minigun, laser rifle, plasma cannon, rocket launcher, railgun, flamethrower, freeze ray, black hole gun, banana blaster, BAN hammer, god sword, infinity blade, energy sword, cosmic scythe, storm god hammer, chaos staff, dev wrench, golden frying pan, rubber chicken and void dagger. Admin: gear admin legendary equip',
+      'Mythic tools: ice, lava, celestial and void pickaxes, shovels, axes and more, plus a drill and a chainsaw. New fishing rods: bone, carbon, coral, lava, dragon and starlight',
+      'Gadgets: fishing net, tackle box, bait worm, grappling hook (longer dash), compass (points to treasure), spyglass, magnet (pulls loot to you) and lockpick (opens boss doors)',
+      'Consumables in your hotbar: mana, speed, strength and invisibility potions, antidotes, med kits, golden apples, ammo boxes, and bombs and dynamite you throw. Find them in chests or craft them. Admin: items * 5',
+      'Projectile art for every arrow, bolt, fireball, ice shard, web, knife, orb and blast, and 4 new dungeon bosses with their own art',
+      'Perfect parry: press Block right as a blow lands to take no damage, stun the attacker and send arrows and spells flying back. A normal block also stops you being stunned',
+      'Boss bars now show for elites and any strong monster too',
+      'Dungeon map: the explored dungeon with you, the key, the boss door, the stairs and chests. Tap it to enlarge',
+      'Dungeon fixes: the boss room has one proper doorway instead of a wall of doors, cobwebs sit in the corners of rooms, and floor tiles no longer show grid lines',
+      'Your bag is a grid: tap an item to Analyze, Equip or Scrap it, and Equip best puts on your best gear at once',
+      'Phones: build by walking the house outline into place and tapping Build here, a Back button on menus, the phone back gesture closes what is open, and a slimmer screen',
+      'One top row with your resources and the day. The karma bar, the notification bell, the message feed and barbarian warband raids are gone',
+    ],
+  },
+  {
     title: 'Ranged monsters, boss bars, blade powers and crafting',
     changes: [
       'Fixed: striking a cave mouth froze the game. Dungeons (and houses) now open cleanly',

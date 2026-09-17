@@ -287,7 +287,13 @@ export class Renderer {
     const isDoor = (x, y) => doors.has(`${x},${y}`);
     const floorTile = this.terrain.tileCanvas('tile_cave_floor', 64);
     const art = hasArt('dungeon/dungeon_floor_1') && hasArt('dungeon/wall_face_1');
-    const tileArt = (key, X, Y) => { const s = sprite(key); if (s) ctx.drawImage(s.img, s.box.x, s.box.y, s.box.w, s.box.h, X - 0.25, Y - 0.25, TILE + 0.5, TILE + 0.5); };
+    const tileArt = (key, X, Y, flip = false) => {
+      const s = sprite(key);
+      if (!s) return;
+      const ix = s.box.w * 0.04, iy = s.box.h * 0.04;   // AI tiles have faint borders: crop them so no grid shows
+      if (flip) { ctx.save(); ctx.translate(X + TILE, Y); ctx.scale(-1, 1); ctx.drawImage(s.img, s.box.x + ix, s.box.y + iy, s.box.w - ix * 2, s.box.h - iy * 2, -0.3, -0.3, TILE + 0.6, TILE + 0.6); ctx.restore(); return; }
+      ctx.drawImage(s.img, s.box.x + ix, s.box.y + iy, s.box.w - ix * 2, s.box.h - iy * 2, X - 0.3, Y - 0.3, TILE + 0.6, TILE + 0.6);
+    };
     const rnd = (x, y, k = 0) => { let n = (x * 374761393 + y * 668265263 + k * 1442695041) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967295; };
     const openDoors = new Set(d.open ? d.doors.map(p => `${p.x},${p.y}`) : []);
     for (let y = 0; y < w.h; y++) {
@@ -335,6 +341,7 @@ export class Renderer {
         }
       }
     }
+    if (art) for (const web of d.webs || []) if (wall(web.tx, web.ty)) tileArt('dungeon/cobweb', web.tx * TILE, web.ty * TILE, web.flip);   // cobwebs in the top corners of rooms
     return { canvas, ppt, world: w, version: w.version, sprites: spriteVersion() };
   }
 

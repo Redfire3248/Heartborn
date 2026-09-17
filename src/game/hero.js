@@ -384,13 +384,25 @@ export function damageHero(g, v, dmg, from = null) {
   if (g.state.rpg?.god) return 0;   // admin god mode
   if (h.iframes > 0) { g.float(v.x, v.y - TILE * 1.3, 'Dodged!', '#9fd4ff'); return 0; }
   const facingIt = from ? angleDiff(Math.atan2(from.y - v.y, from.x - v.x), h.facing) < 1.8 : true;
+  let guarded = false;
   if (h.blocking && facingIt) {
+    guarded = true;
     const sh = rpgOf(g).gear.shield;
     const shieldDef = sh ? SHIELDS[sh.base] : null;
-    if (g.state.time - (h.blockAt || 0) < (shieldDef?.parry ?? 0.2)) {
-      if (from && 'hp' in from && !from.traits) from._stunned = Math.max(from._stunned || 0, 1.2);
-      g.float(v.x, v.y - TILE * 1.3, 'PARRY!', '#ffd76a');
-      g.anim('combat/parry', v.x + Math.cos(h.facing) * 10, v.y - 10 + Math.sin(h.facing) * 8, { size: 34, dur: 0.3 });
+    // a guard raised just as the blow lands: a perfect parry (the window is a little wider with a good shield)
+    if (g.state.time - (h.blockAt || 0) < 0.12 + (shieldDef?.parry ?? 0.2)) {
+      if (from && 'hp' in from && !from.traits) {
+        from._stunned = Math.max(from._stunned || 0, CREATURES[from.t]?.boss ? 0.8 : 1.8);
+        from._whiteFlash = 0.2; from._windup = 0; from._charge = null;
+        const a = Math.atan2(from.y - v.y, from.x - v.x), push = TILE * (CREATURES[from.t]?.boss ? 2 : 9);
+        from._kbx = Math.cos(a) * push; from._kby = Math.sin(a) * push;
+      }
+      h.lastParry = g.state.time;
+      g.hitStop = 0.12;
+      g.fx.shake = Math.max(g.fx.shake, 0.8);
+      g.float(v.x, v.y - TILE * 1.5, 'PERFECT PARRY!', '#ffd76a');
+      g.anim('combat/parry', v.x + Math.cos(h.facing) * 10, v.y - 10 + Math.sin(h.facing) * 8, { size: 48, dur: 0.35 });
+      g.anim('combat/hit', v.x + Math.cos(h.facing) * 16, v.y - 12 + Math.sin(h.facing) * 10, { size: 30, dur: 0.25 });
       h.riposte = true;   // a rapier strikes back for triple damage
       h.stamina = Math.min(h.maxStamina || 100, (h.stamina || 0) + 10);
       return 0;
@@ -404,7 +416,9 @@ export function damageHero(g, v, dmg, from = null) {
   }
   dmg *= 1 - heroStats(g).armor;
   h.sinceHit = 0;
-  if (dmg > 0) {   // you flash white, reel for a moment and are pushed back from the blow
+  if (dmg > 0 && guarded) {   // behind your guard: no stun, only a small push
+    if (from) { const a = Math.atan2(v.y - from.y, v.x - from.x); const push = TILE * Math.min(3, 1 + dmg * 0.05); h.kbx = Math.cos(a) * push; h.kby = Math.sin(a) * push; }
+  } else if (dmg > 0) {   // you flash white, reel for a moment and are pushed back from the blow
     // just like the enemies you hit: flash solid white, stunned for a second, knocked back
     v._whiteFlash = 0.16; h.stagger = Math.max(h.stagger || 0, 1);
     if (from) { const a = Math.atan2(v.y - from.y, v.x - from.x); const push = TILE * Math.min(9, 4 + dmg * 0.15); h.kbx = Math.cos(a) * push; h.kby = Math.sin(a) * push; }

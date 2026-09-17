@@ -345,6 +345,11 @@ export function updateEnemyShots(g, dt) {
       s.left = 0;
       const hpBefore = hit.hp;
       strikeVillager(g, s.from || { x: s.x - s.vx, y: s.y - s.vy, t: 'goblin' }, hit, s.dmg);
+      if (g.hero?.id === hit.id && g.hero.lastParry === g.state.time) {   // parried: it flies back where it came from, twice as hard
+        (g.hero.arrows ||= []).push({ kind: s.kind || 'rock', x: s.x, y: s.y, vx: -s.vx * 1.4, vy: -s.vy * 1.4, left: TILE * 12, range: TILE * 12, dmg: s.dmg * 2, crit: true, hitIds: [], sprite: SHOTS[s.kind]?.spin ? 'nature/rock' : null });
+        g.float(hit.x, hit.y - TILE * 1.9, 'Reflected!', '#9fe0ff');
+        continue;
+      }
       g.anim('combat/hit', s.x, s.y, { size: 18, dur: 0.2 });
       const h = g.hero;
       if (h && h.id === hit.id && hit.hp < hpBefore) {   // what the shot leaves behind: webs slow you, poison and fire keep hurting

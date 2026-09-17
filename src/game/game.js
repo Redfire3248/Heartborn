@@ -220,7 +220,7 @@ export class Game {
       if (chance(0.12)) this.spawnWild('wolf', 22);
       if (s.villagers.length > 10 && chance(0.06)) this.spawnRaiders('goblin', 2);
     }
-    maybeScheduleWarband(this);
+    if (on('warbands')) maybeScheduleWarband(this);
 
     // wanderers join happy, famous villages
     const joinChance = 0.2 + this.joinBonus + (this.hasBuilding('tavern') ? 0.1 : 0) + (s.karma > 30 ? 0.06 : 0) + this.law.join + (s.villagers.length < 10 ? 0.35 : 0);   // a small camp draws wanderers in

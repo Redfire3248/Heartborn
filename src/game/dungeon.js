@@ -91,7 +91,23 @@ export function generateFloor(seed, depth) {
     return true;
   };
   for (let i = 1; i < chain.length; i++) if (!carve(chain[i - 1], chain[i], true)) return null;
-  carve(chain[chain.length - 1], boss, false);
+  // the way into the boss room comes in straight through one wall (never running along it), so it has one door
+  {
+    const last = chain[chain.length - 1];
+    const dx = cx(boss) - cx(last), dy = cy(boss) - cy(last);
+    const path = Math.abs(dx) > Math.abs(dy)
+      ? [cx(last), cy(last), cx(last), cy(boss), cx(boss), cy(boss)]    // down or up first, then straight in from the side
+      : [cx(last), cy(last), cx(boss), cy(last), cx(boss), cy(boss)];   // across first, then straight in from above or below
+    for (let k = 0; k < 2; k++) {
+      const [x0, y0, x1, y1] = [path[k * 2], path[k * 2 + 1], path[k * 2 + 2], path[k * 2 + 3]];
+      const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+      for (let i = 0; i <= n; i++) {
+        const x = x0 + Math.sign(x1 - x0) * i, y = y0 + Math.sign(y1 - y0) * i;
+        if (k === 0 && inBoss(x, y, 1)) continue;   // the first leg keeps away from the boss room
+        set(x, y, FLOOR); set(x + 1, y, FLOOR); set(x, y + 1, FLOOR); set(x + 1, y + 1, FLOOR);
+      }
+    }
+  }
   // the doors: every open tile on the ring right around the boss room
   const doors = [];
   for (let y = boss.y - 1; y <= boss.y + boss.h; y++) for (let x = boss.x - 1; x <= boss.x + boss.w; x++) {
@@ -99,7 +115,7 @@ export function generateFloor(seed, depth) {
     doors.push({ x, y });
     tiles[y * W + x] = WALL;
   }
-  if (!doors.length) return null;
+  if (!doors.length || doors.length > 3) return null;   // one clear doorway, not a wall of doors
   // everything but the boss room must be reachable from the start with the doors shut
   const seen = new Uint8Array(W * H);
   const q = [cy(start) * W + cx(start)];
@@ -150,14 +166,16 @@ export function makeDungeonGame(home, { depth = 1, entrance = null, seed = (Date
   const d = g.dungeon = {
     depth, entrance, home, boss, doors, hasKey: false, open: false, bossId: null, cleared: false,
     exit: rc(start), stairsDown: null, traps: [], torches: [], props: [], key: null, leftExit: false, event: null,
+    seen: new Uint8Array(W * H),   // the dungeon map: tiles you have been near
   };
   // decoration: bones and skulls on the floor, cobwebs in corners, pillars, crystals, cages and chains
   const FLOOR_PROPS = ['bones', 'skull_pile', 'rubble', 'puddle', 'floor_grate', 'broken_barrel', 'glow_crystal', 'pillar', 'cage', 'chains'];
   for (const a of [...rooms, boss]) {
     const n = 1 + Math.floor(r() * 3);
     for (let i = 0; i < n; i++) { const p = spot(a, 1); d.props.push({ kind: FLOOR_PROPS[Math.floor(r() * FLOOR_PROPS.length)], x: p.x, y: p.y }); }
-    d.props.push({ kind: 'cobweb', x: (a.x + 0.5) * TILE, y: (a.y + 0.6) * TILE, flip: false });
-    if (r() < 0.5) d.props.push({ kind: 'cobweb', x: (a.x + a.w - 0.5) * TILE, y: (a.y + 0.6) * TILE, flip: true });
+    d.webs = d.webs || [];
+    d.webs.push({ tx: a.x, ty: a.y - 1, flip: false });
+    if (r() < 0.5) d.webs.push({ tx: a.x + a.w - 1, ty: a.y - 1, flip: true });
   }
   d.props.push({ kind: 'altar', x: (boss.x + boss.w / 2) * TILE, y: (boss.y + 1.2) * TILE });
 
@@ -220,6 +238,13 @@ export function updateDungeon(g, dt) {
   const v = heroOf(g);
   if (!d || !v) return;
   const near = (p, r) => Math.hypot(p.x - v.x, p.y - v.y) < r;
+  // reveal the map around you
+  if (d.seen) {
+    const hx = Math.floor(v.x / TILE), hy = Math.floor(v.y / TILE), R = 7;
+    for (let y = Math.max(0, hy - R); y <= Math.min(H - 1, hy + R); y++) for (let x = Math.max(0, hx - R); x <= Math.min(W - 1, hx + R); x++) {
+      if ((x - hx) ** 2 + (y - hy) ** 2 <= R * R) d.seen[y * W + x] = 1;
+    }
+  }
   if (!d.leftExit && !near(d.exit, TILE * 1.6)) d.leftExit = true;
   if (d.leftExit && near(d.exit, TILE * 0.7)) d.event ||= 'exit';
   if (d.stairsDown && near(d.stairsDown, TILE * 0.7)) d.event ||= 'down';

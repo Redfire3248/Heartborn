@@ -18,6 +18,8 @@ export const FEATURES = {
   spies: false,         // spy missions, infiltration, traitors
   missiles: false,      // missile silos, orbital cannons, strikes
   housesOnly: true,     // the build menu offers homes only (every kind, from the start)
+  notifications: false, // the bell, the message feed and pop-up toasts about events
+  warbands: false,      // barbarian armies marching on your land (and their warnings)
 };
 
 export const on = key => FEATURES[key] !== false;

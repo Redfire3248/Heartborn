@@ -399,6 +399,32 @@ export async function run() {
     ok(Object.keys(R.BLADE_SPECIALS).length >= 10, 'blades with special abilities: ' + Object.keys(R.BLADE_SPECIALS).length);
   });
 
+  await step('blocking, perfect parries and reflected shots', async () => {
+    const H = await import('/src/game/hero.js');
+    const C = await import('/src/game/creatures.js');
+    const g = freshGame({ era: 1, people: 1 });
+    build(g, 'campfire');
+    g.state.creatures = [];
+    const me = g.state.villagers.find(v => v.ruling);
+    H.startLead(g, me);
+    me.hp = 1000;
+    const foe = g.spawnCreature('bear', me.x + 20, me.y); foe._eliteRolled = true;
+    const h = g.hero;
+    // a guard held a while: less damage and no stun
+    h.facing = 0; h.blocking = true; h.blockAt = g.state.time - 5; h.stamina = 100; h.stagger = 0; h.iframes = 0;
+    const d1 = H.damageHero(g, me, 30, foe);
+    ok(d1 < 30 && !(h.stagger > 0), 'a block takes less damage and does not stun you', String(d1));
+    // a guard raised right as the blow lands: a perfect parry
+    h.blockAt = g.state.time; foe._stunned = 0;
+    const d2 = H.damageHero(g, me, 30, foe);
+    ok(d2 === 0 && foe._stunned > 0 && h.lastParry === g.state.time, 'a perfect parry blocks everything and stuns the attacker');
+    // a parried arrow flies back
+    h.arrows = []; h.blockAt = g.state.time;
+    g.enemyShots = [{ kind: 'arrow', x: me.x + 2, y: me.y - 10, vx: -200, vy: 0, left: 300, dmg: 10, from: foe }];
+    C.updateEnemyShots(g, 1 / 60);
+    ok((h.arrows || []).length === 1 && h.arrows[0].vx > 0, 'a parried shot is reflected back');
+  });
+
   await step('crafting, homes-only building and hotbar rearranging', async () => {
     const Cr = await import('/src/game/crafting.js');
     const To = await import('/src/game/tools.js');
@@ -476,7 +502,7 @@ export async function run() {
     const me = g.state.villagers.find(v => v.ruling);
     H.startLead(g, me);
     ok(To.hasTool(g, 'pickaxe_wood') && To.hasTool(g, 'axe_wood') && To.hasTool(g, 'shovel_wood'), 'you start with a wooden pickaxe, axe and shovel');
-    ok(Object.keys(To.TOOLS).filter(k => To.TOOLS[k].kind === 'pickaxe').length === 10 && Object.keys(To.TOOLS).filter(k => To.TOOLS[k].kind === 'axe').length === 10 && Object.keys(To.TOOLS).filter(k => To.TOOLS[k].kind === 'shovel').length === 5, '10 pickaxes, 10 axes and 5 shovels exist');
+    ok(Object.keys(To.TOOLS).filter(k => To.TOOLS[k].kind === 'pickaxe').length >= 10 && Object.keys(To.TOOLS).filter(k => To.TOOLS[k].kind === 'axe').length >= 10 && Object.keys(To.TOOLS).filter(k => To.TOOLS[k].kind === 'shovel').length >= 5, 'at least 10 pickaxes, 10 axes and 5 shovels exist');
     To.giveTool(g, 'axe_iron');
     ok(To.bestTool(g, 'axe') === 'axe_iron', 'the best tool of a kind is the one you use');
     const wood = To.workWith(g, 'chop', 3), stone = To.workWith(g, 'mine', 2);
@@ -1439,7 +1465,7 @@ export async function run() {
     ok(!failed.length, 'inspectors open for villagers, buildings, objects and creatures', failed.join('; '));
 
     const before = g.state.buildings.length;
-    hud.startBuild('tent');
+    (hud.desktopPlace = true, hud).startBuild('tent');
     const r = window.__hb.renderer;
     const c = g.center;
     Object.assign(g.state.resources, { wood: 500, food: 500 });
@@ -1474,7 +1500,7 @@ export async function run() {
     Object.assign(g.state.resources, { wood: 2000, stone: 2000 });
     const tents = () => g.state.buildings.filter(b => b.type === 'tent').length;
     const wood0 = g.state.resources.wood, n0 = tents();
-    hud.startBuild('tent');
+    (hud.desktopPlace = true, hud).startBuild('tent');
     let placedAt = null;
     for (let r = 4; r < 30 && !placedAt; r++) {
       const tx = Math.floor(g.center.x / TILE) + r, ty = Math.floor(g.center.y / TILE) - r;

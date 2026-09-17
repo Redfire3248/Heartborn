@@ -185,7 +185,7 @@ export class HUD {
     this.els.bellCount = h('span.bell-count', { hidden: true }, '0');
     const bell = h('button.card.bell', { title: 'Notifications', onclick: () => this.toggleNotifications() }, pxIcon('bell'), this.els.bellCount);
     // one row: resources, notifications and the day (the karma bar is gone)
-    this.root.append(h('div.topbar', resCard, bell, clockCard));
+    this.root.append(h('div.topbar', resCard, on('notifications') ? bell : null, clockCard));
     this.els.karmaCard = karmaCard;
 
     // dock
@@ -298,7 +298,7 @@ export class HUD {
       this._potionHeld = potionDown;
       this._dashHeld = dashDown;
       if (abroad || (!g.paused && !g.pendingEvent)) updateHero(hg, dt, { mx, my, act: !abroad && (held(k, 'attack') || t.act), dash: !abroad && dash, potion: !abroad && potion, block: !abroad && (held(k, 'block') || t.block) });
-      if (hg === this.dungeon) this.tickDungeon();
+      if (hg === this.dungeon) { this.tickDungeon(); if (performance.now() - (this._mapDrawnAt || 0) > 150) { this._mapDrawnAt = performance.now(); this.drawDungeonMap(); } }
       if (this.mobilePlace && this.buildType && hg === g && !this.mobilePlace.manual) {   // the house waits just in front of you
         const hv = heroOf(g);
         const a = g.hero.facing ?? Math.PI / 2, size = BUILDINGS[this.buildType].size;
@@ -1241,7 +1241,7 @@ export class HUD {
     this.buildType = type;
     this.lastBuild = type;
     this.select(null);
-    if (MOBILE_PLACE()) {   // on a phone: close the menu, the house appears in front of you
+    if (MOBILE_PLACE() && !this.desktopPlace) {   // on a phone: close the menu, the house appears in front of you
       this.closePanel();
       this.mobilePlace = { manual: false };
       this.root.classList.add('placing-mobile');
@@ -2805,6 +2805,7 @@ export class HUD {
   }
 
   toast(entry) {
+    if (!on('notifications')) return;   // switched off: no bell, no feed
     if (this.panel === 'log') this.requestRefresh();
     this.updateBell();
     // sounds for what just happened
@@ -3005,8 +3006,9 @@ export class HUD {
   }
 
   updateThreats() {
-    const threats = this.currentThreats();
     const el = this.els.threats;
+    if (!on('warbands')) { if (el.childElementCount) el.replaceChildren(); return; }
+    const threats = this.currentThreats();
     if (!threats.length) { if (el.childElementCount) el.replaceChildren(); return; }
     const rallied = !!this.game.state.rallied;
     el.replaceChildren(...threats.map(t => h('div.threat',
@@ -3171,6 +3173,34 @@ export class HUD {
     else if (ev === 'down') this.enterDungeon(null, d.depth + 1);
   }
 
+  /** The dungeon map: explored tiles, you, the key, the boss door, the stairs and chests you have seen. */
+  drawDungeonMap() {
+    const dg = this.dungeon, cv = this.els.dungeonMap;
+    if (!dg || !cv?.isConnected) return;
+    const d = dg.dungeon, w = dg.world, ctx = cv.getContext('2d');
+    const s = cv.width / w.w;
+    ctx.fillStyle = '#07060a'; ctx.fillRect(0, 0, cv.width, cv.height);
+    const seen = i => d.seen?.[i];
+    for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) {
+      const i = y * w.w + x;
+      if (!seen(i)) continue;
+      const wall = w.tiles[i] === 0;
+      const inBoss = x >= d.boss.x && x < d.boss.x + d.boss.w && y >= d.boss.y && y < d.boss.y + d.boss.h;
+      ctx.fillStyle = wall ? '#2a2433' : inBoss ? '#5a2a30' : '#8a8494';
+      ctx.fillRect(x * s, y * s, s + 0.2, s + 0.2);
+    }
+    const dot = (p, color, r = 2.2) => { if (!p) return; const tx = Math.floor(p.x / TILE), ty = Math.floor(p.y / TILE); if (!seen(ty * w.w + tx)) return; ctx.fillStyle = color; ctx.beginPath(); ctx.arc((tx + 0.5) * s, (ty + 0.5) * s, r, 0, Math.PI * 2); ctx.fill(); };
+    if (!d.open) for (const p of d.doors) if (seen(p.y * w.w + p.x)) { ctx.fillStyle = '#ffcf5a'; ctx.fillRect(p.x * s, p.y * s, s + 0.2, s + 0.2); }
+    dot(d.exit, '#6fe07a', 3);
+    dot(d.stairsDown, '#ffcf5a', 3);
+    dot(d.key, '#ffe04a', 2.5);
+    for (const c of dg.state.chests || []) dot(c, '#c08a4a', 2);
+    const boss = bossOf(dg);
+    if (boss) dot(boss, '#ff4a4a', 3);
+    const v = heroOf(dg);
+    if (v && Math.floor(performance.now() / 300) % 2 === 0) { ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(v.x / TILE * s, v.y / TILE * s, 3, 0, Math.PI * 2); ctx.fill(); }
+  }
+
   /** Floor, key and boss health while you are below. */
   updateDungeonCard() {
     const dg = this.dungeon;
@@ -3179,12 +3209,15 @@ export class HUD {
     const key = [d.depth, d.hasKey, d.open, d.cleared].join('|');
     if (key === this._dungeonKey && this.els.dungeonCard) return;
     this._dungeonKey = key;
+    this.els.dungeonMap = h('canvas.dungeon-map', { width: 128, height: 128, title: 'Dungeon map (tap to enlarge)', onclick: e => e.currentTarget.classList.toggle('big') });
     const card = h('div.card.dungeon-card',
       h('div.dungeon-title', `Dungeon · Floor ${d.depth}`),
       h('div.dungeon-row',
         h('span.dungeon-key' + (d.hasKey ? '.got' : ''), icon('gear/key', 18), d.open ? 'Door open' : d.hasKey ? 'Key found' : 'Find the key'),
         d.cleared ? h('span.faint', 'Stairs down are open') : null),
+      this.els.dungeonMap,
       h('button.btn.sm', { onclick: () => this.leaveDungeon() }, 'Leave dungeon'));
+    this._mapDrawnAt = 0;
     if (this.els.dungeonCard) this.els.dungeonCard.replaceWith(card); else this.root.append(card);
     this.els.dungeonCard = card;
   }
@@ -3197,7 +3230,7 @@ export class HUD {
     if (v && !this.houseEditor) {
       for (const c of g.state.creatures) {
         const def = CREATURES[c.t];
-        if (!def?.boss && !c.bounty && !c.dungeonBoss) continue;
+        if (!def?.boss && !c.bounty && !c.dungeonBoss && !c.elite && maxHp(c) < 150) continue;   // bosses, bounties, elites and anything with 150+ health
         const d = Math.hypot(c.x - v.x, c.y - v.y);
         if (d < bd || (c === this._boss && d < TILE * 22)) { bd = d; boss = c; }
       }
@@ -3216,8 +3249,8 @@ export class HUD {
       el?.remove();
       const def = CREATURES[boss.t];
       const art = !spriteAvailable(def.sprite) && def.fallback ? def.fallback.sprite : def.sprite;
-      const name = boss.bounty?.name || BOSS_NAMES[boss.t] || boss.t.replace(/_/g, ' ');
-      const title = boss.bounty ? `Bounty · ${boss.bounty.gold} gold` : this.dungeon ? `Guardian of Floor ${this.dungeon.dungeon.depth}` : boss.elite ? 'Elite' : 'Boss';
+      const name = boss.bounty?.name || BOSS_NAMES[boss.t] || `${boss.elite ? 'Elite ' : ''}${boss.t.replace(/_/g, ' ').replace(/(^|\s)\w/g, m => m.toUpperCase())}`;
+      const title = boss.bounty ? `Bounty · ${boss.bounty.gold} gold` : boss.dungeonBoss && this.dungeon ? `Guardian of Floor ${this.dungeon.dungeon.depth}` : boss.elite ? 'Elite' : def.boss ? 'Boss' : 'Strong foe';
       el = this.els.bossBar = h('div.boss-bar',
         h('div.boss-portrait', icon(art, 44)),
         h('div.boss-main',
