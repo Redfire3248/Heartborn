@@ -20,7 +20,7 @@ export const OBJECTS = {
   tall_grass:      { sprite: 'nature/tall_grass',      size: 0.7, work: 'cut', food: [1, 2], charges: 1 },
   flowers:         { sprite: 'nature/flowers',         size: 0.7, work: 'cut', influence: [1, 2], charges: 1 },
   reeds:           { sprite: 'nature/reeds',           size: 0.8, work: 'cut', wood: [1, 2], charges: 1 },
-  cactus:          { sprite: 'nature/cactus',          size: 0.9, work: 'cut', food: [1, 3], charges: 1 },
+  cactus:          { sprite: 'nature/cactus',          size: 0.9, work: 'cut', wood: [1, 2], charges: 1 },   // cactus gives a little wood, not food
 
   rock:            { sprite: 'nature/rock',            size: 0.9, work: 'mine', stone: [2, 4], charges: 3 },
   coal_ore:        { sprite: 'nature/coal_ore',        size: 0.9, work: 'mine', stone: [1, 2], coal: [2, 4], charges: 3, tier: 1, rarity: 'Common' },
