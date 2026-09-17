@@ -15,6 +15,9 @@ import { CALLINGS } from '/src/data/people.js';
 import { accuse, punishTraitor, dailyTraitors, throwBomb, sufferStrike, dailyMachines, counterIntel } from '/src/game/intrigue.js';
 import { CREATURES } from '/src/data/objects.js';
 import { TILE } from '/src/core/constants.js';
+import { THEMES, themeOf, gameTheme } from '/src/game/worldTypes.js';
+import { worldPicker } from '/src/ui/social.js';
+import { T as TT } from '/src/game/world.js';
 
 const results = [];
 const errors = [];
@@ -63,6 +66,38 @@ export async function run() {
   window.addEventListener('unhandledrejection', onErr);
 
   // ------------------------------------------------------------ buildings
+  await step('worlds: every seed makes its own kind of world, and the world menu works', async () => {
+    const kinds = new Set();
+    for (let sd = 1; sd < 400; sd += 7) kinds.add(themeOf(sd));
+    ok(kinds.size === Object.keys(THEMES).length, 'seeds reach every world type', [...kinds].join(','));
+    ok(themeOf(12345) === themeOf(12345), 'the same seed always gives the same type');
+    let frozenSeed = 1; while (themeOf(frozenSeed) !== 'frozen') frozenSeed++;
+    let meadowSeed = 1; while (themeOf(meadowSeed) !== 'meadow') meadowSeed++;
+    const gf = new Game(newState({ uid: 'wt', name: 'T', villageName: 'V', seed: frozenSeed }));
+    const gm = new Game(newState({ uid: 'wt', name: 'T', villageName: 'V', seed: meadowSeed }));
+    ok(gf.state.seed === frozenSeed, 'a new world keeps its seed');
+    ok(gameTheme(gf).name === 'Frozen Wastes', 'the game knows its world type');
+    const count = (g, t) => { let n = 0; for (const x of g.world.tiles) if (x === t) n++; return n; };
+    ok(count(gf, TT.snow) > count(gm, TT.snow) * 2, 'a frozen world is far snowier than a meadow', `${count(gf, TT.snow)} vs ${count(gm, TT.snow)}`);
+    const saves = [{ wid: 'solo_a', name: 'Alpha', seed: frozenSeed, theme: 'frozen', kind: 'solo', level: 3, day: 2 }, { wid: 'srv1', name: 'Friends', seed: 5, theme: themeOf(5), kind: 'server' }];
+    let deleted = null;
+    const pick = worldPicker({ user: { uid: 'wt' }, username: 'Tester', listWorldSaves: async () => saves, deleteWorldSave: async (u, w) => { deleted = w; }, oldVillage: async () => null });
+    await sleep(400);
+    const root = document.querySelector('.world-picker');
+    ok(!!root, 'the world menu opens');
+    ok(root.textContent.includes('Alpha') && root.textContent.includes('Frozen Wastes'), 'solo worlds list with their type');
+    ok(root.textContent.includes('Friends') && root.textContent.includes('Servers'), 'servers list separately');
+    const seedInput = [...root.querySelectorAll('input')].find(i => i.placeholder.startsWith('Seed'));
+    seedInput.value = String(frozenSeed); seedInput.dispatchEvent(new Event('input'));
+    ok(root.querySelector('.wp-preview').textContent.includes('Frozen'), 'typing a seed previews the world type');
+    [...root.querySelectorAll('input')].find(i => i.placeholder === 'World name').value = 'Icy';
+    [...root.querySelectorAll('button')].find(b => b.textContent === 'Create world').click();
+    const c = await pick;
+    ok(c.kind === 'solo' && c.name === 'Icy' && c.seed === frozenSeed && c.isNew && c.world.startsWith('solo_'), 'Create world returns a new solo world with that seed', JSON.stringify(c));
+    ok(!document.querySelector('.world-picker'), 'the menu closes');
+    ok(deleted === null, 'nothing deleted by accident');
+  });
+
   await step('every building places, finishes, renders and explains itself', async () => {
     const g = freshGame({ era: ERAS.length - 1, people: 20 });
     const failed = [];

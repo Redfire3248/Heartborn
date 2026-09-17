@@ -2,6 +2,7 @@ import { MAP_W, MAP_H, TILE } from '../core/constants.js';
 import { makeNoise } from '../core/noise.js';
 import { makeRng, weighted } from '../core/rng.js';
 import { OBJECTS } from '../data/objects.js';
+import { themeOf } from './worldTypes.js';
 
 export const TILES = [
   'tile_deep_water', 'tile_water', 'tile_sand', 'tile_grass', 'tile_grass_flowers', 'tile_dirt',
@@ -121,6 +122,7 @@ export class World {
 
 function generateTiles(world) {
   const { w, h, seed } = world;
+  const theme = themeOf(seed);
   const height = makeNoise(seed);
   const moist = makeNoise(seed + 101);
   const detail = makeNoise(seed + 202);
@@ -143,6 +145,16 @@ function generateTiles(world) {
       else if (m > 0.64 && e < 0.5) t = T.swamp;
       else if (m < 0.34) t = dt > 0.55 ? T.sand : T.dirt;
       else t = dt > 0.72 ? T.grass_flowers : T.grass;
+      // the world's type reshapes the land
+      const land = t !== T.deep_water && t !== T.water;
+      switch (theme) {
+        case 'frozen': if (land && t !== T.lava && (t !== T.sand || dt > 0.4)) t = e > 0.72 ? T.cave_floor : T.snow; if (t === T.lava) t = T.snow; break;
+        case 'volcanic': if (t === T.grass || t === T.grass_flowers) t = m < 0.55 ? T.dirt : t; if (t === T.snow) t = T.cave_floor; if (land && e > 0.7 && dt > 0.62) t = T.lava; break;
+        case 'desert': if (t === T.grass || t === T.grass_flowers) t = dt > 0.35 ? T.sand : T.dirt; if (t === T.swamp || t === T.snow) t = T.sand; break;
+        case 'haunted': if ((t === T.grass || t === T.grass_flowers) && m > 0.42) t = T.swamp; if (t === T.grass_flowers) t = T.dirt; if (t === T.snow) t = T.dirt; break;
+        case 'jungle': if (t === T.dirt || (t === T.sand && dt < 0.5)) t = T.grass; if (t === T.snow) t = T.grass; if (land && m > 0.58 && e < 0.55) t = T.swamp; break;
+        case 'crystal': if (land && e > 0.56 && t !== T.lava) t = T.cave_floor; if (t === T.lava) t = T.cave_floor; break;
+      }
       world.tiles[y * w + x] = t;
     }
   }
@@ -162,6 +174,7 @@ export const newObjId = () => `o${Date.now().toString(36)}${(nextObjId++).toStri
 /** Initial objects + creatures for a brand-new world. */
 export function populateWorld(world) {
   const r = makeRng(world.seed + 7);
+  const theme = themeOf(world.seed);
   const forest = makeNoise(world.seed + 303);
   const objects = [];
   const creatures = [];
@@ -182,21 +195,27 @@ export function populateWorld(world) {
       const choose = table => { const it = weighted(table, r); if (it.t) place(it.t, x, y); };
 
       if (tile === T.grass || tile === T.grass_flowers) {
-        const treeChance = f > 0.56 ? 0.32 : 0.025;
-        if (roll < treeChance) choose([{ t: 'tree_oak', weight: 60 }, { t: 'tree_pine', weight: 25 }, { t: 'tree_apple', weight: 15 }]);
+        const treeChance = (f > 0.56 ? 0.32 : 0.025) * (theme === 'jungle' ? 2.2 : theme === 'haunted' ? 0.6 : 1);
+        if (roll < treeChance) choose(theme === 'jungle' ? [{ t: 'tree_palm', weight: 45 }, { t: 'tree_apple', weight: 30 }, { t: 'tree_oak', weight: 25 }]
+          : theme === 'haunted' ? [{ t: 'tree_dead', weight: 80 }, { t: 'tree_pine', weight: 20 }]
+            : [{ t: 'tree_oak', weight: 60 }, { t: 'tree_pine', weight: 25 }, { t: 'tree_apple', weight: 15 }]);
         else if (roll < treeChance + 0.07) choose([
           { t: 'berry_bush', weight: 22 }, { t: 'tall_grass', weight: 25 }, { t: 'flowers', weight: 18 },
           { t: 'rock', weight: 8 }, { t: 'mushroom', weight: f > 0.56 ? 14 : 3 }, { t: 'fallen_log', weight: 6 },
           { t: 'pumpkin', weight: 3 }, { t: 'carrot', weight: 4 }, { t: 'wheat', weight: 5 },
         ]);
       } else if (tile === T.dirt) {
-        if (roll < 0.06) choose([{ t: 'tree_dead', weight: 40 }, { t: 'rock', weight: 45 }, { t: 'coal_ore', weight: 10 }, { t: 'fallen_log', weight: 5 }]);
+        if (roll < (theme === 'volcanic' ? 0.12 : 0.06)) choose(theme === 'volcanic'
+          ? [{ t: 'rock', weight: 40 }, { t: 'coal_ore', weight: 30 }, { t: 'iron_ore', weight: 15 }, { t: 'gold_ore', weight: 8 }, { t: 'tree_dead', weight: 7 }]
+          : [{ t: 'tree_dead', weight: 40 }, { t: 'rock', weight: 45 }, { t: 'coal_ore', weight: 10 }, { t: 'fallen_log', weight: 5 }]);
       } else if (tile === T.sand) {
-        if (roll < 0.05) place(world.nearWater(x, y) ? 'tree_palm' : 'cactus', x, y);
+        if (roll < (theme === 'desert' ? 0.08 : 0.05)) place(world.nearWater(x, y) ? 'tree_palm' : theme === 'desert' && roll < 0.012 ? 'gold_ore' : 'cactus', x, y);
       } else if (tile === T.swamp) {
         if (roll < 0.14) choose([{ t: 'reeds', weight: 50 }, { t: 'mushroom', weight: 25 }, { t: 'tree_dead', weight: 15 }, { t: 'berry_bush', weight: 10 }]);
       } else if (tile === T.cave_floor) {
-        if (roll < 0.22) choose([
+        if (roll < 0.22) choose(theme === 'crystal' ? [
+          { t: 'rock', weight: 30 }, { t: 'iron_ore', weight: 15 }, { t: 'gold_ore', weight: 12 }, { t: 'gem_ore', weight: 20 }, { t: 'crystal_cluster', weight: 18 }, { t: 'coal_ore', weight: 5 },
+        ] : [
           { t: 'rock', weight: 50 }, { t: 'coal_ore', weight: 18 }, { t: 'iron_ore', weight: 15 },
           { t: 'gold_ore', weight: 7 }, { t: 'gem_ore', weight: 5 }, { t: 'crystal_cluster', weight: 2 },
         ]);
@@ -227,7 +246,7 @@ export function populateWorld(world) {
       }
     }
   };
-  const green = t => t === T.grass || t === T.grass_flowers;
+  const green = t => t === T.grass || t === T.grass_flowers || (theme === 'frozen' && t === T.snow) || ((theme === 'desert' || theme === 'volcanic') && (t === T.sand || t === T.dirt)) || (theme === 'haunted' && t === T.swamp);
   spawnOn('deer', 8, green);
   spawnOn('rabbit', 10, green, 5);
   spawnOn('boar', 4, t => green(t) || t === T.dirt, 12);

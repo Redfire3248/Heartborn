@@ -3,8 +3,8 @@ import { World, populateWorld } from './world.js';
 import { makeVillager } from './villagers.js';
 
 /** Brand-new village: 3 ordinary humans and nothing else. */
-export function newState({ uid, name, villageName }) {
-  const seed = Math.floor(Math.random() * 2 ** 31);
+export function newState({ uid, name, villageName, seed = Math.floor(Math.random() * 2 ** 31) }) {
+  seed = Math.abs(Math.floor(Number(seed))) % 2 ** 31;   // every world is built from its seed
   const world = new World(seed);
   const { objects, creatures, start } = populateWorld(world);
 

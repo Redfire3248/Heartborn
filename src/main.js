@@ -13,9 +13,10 @@ import { makeVisitGame, visitCenter } from './game/visit.js';
 import { getProfile } from './net/save.js';
 import { signInWithGoogle, signInWithEmail, createAccount, resetPassword, signOut, onAuth, adminStatus } from './net/firebase.js';
 import { h, modal } from './ui/dom.js';
-import { loadSave, writeSave, writeProfile, writePrivate, getBan, clearLocalSave, getUsername, claimUsername, setWorld, currentWorld, setSlot, listSlots, deleteSlot } from './net/save.js';
+import { loadSave, writeSave, writeProfile, writePrivate, getBan, clearLocalSave, getUsername, claimUsername, setWorld, currentWorld, listWorldSaves, deleteWorldSave, oldVillage } from './net/save.js';
+import { THEMES, themeOf } from './game/themeNames.js';
 import { ensureProfile, updateProfileStats, getWorld, leaveOrCloseWorld, SOLO_WORLD } from './net/social.js';
-import { worldPicker, lobbyScreen, slotPicker } from './ui/social.js';
+import { worldPicker } from './ui/social.js';
 import { Multiplayer } from './net/multiplayer.js';
 import { HUD } from './ui/hud.js';
 import { AdminConsole } from './ui/adminConsole.js';
@@ -122,44 +123,19 @@ async function enterGame(user) {
   ensureProfile(user.uid, app.username).catch(e => console.warn('profile', e));
   document.querySelectorAll('.screen.login, .vignette, .footer-note').forEach(e => e.remove());
 
-  // Menu steps, each with a Back button: world → (lobby) → civilization → (name it)
-  let step = 'world', choice = null, picked = null, state = null;
-  while (step !== 'play') {
-    if (step === 'world') {
-      // a solo world, or a private world with friends (worlds are temporary; civilizations are saved)
-      choice = await worldPicker({ user, username: app.username, lastWorld: lastWorld(user.uid) });
-      if (choice.back) { location.reload(); return; }
-      app.world = choice.world === SOLO_WORLD ? { wid: choice.world, name: choice.name } : (await getWorld(choice.world)) || { wid: choice.world, name: choice.name };
-      step = app.world.status === 'lobby' ? 'lobby' : 'slot';
-      if (choice.rejoin && step === 'slot') {   // straight back in with the same civilization
-        setWorld(choice.world);
-        setSlot(choice.slot);
-        app.slot = choice.slot;
-        state = await loadSave(user.uid);
-        step = state ? 'play' : 'slot';
-      }
-    } else if (step === 'lobby') {
-      const r = await lobbyScreen({ user, username: app.username, world: app.world });
-      if (r === 'leave') { forgetWorld(); await leaveOrCloseWorld(user.uid, app.world).catch(() => {}); step = 'world'; } else step = 'slot';
-    } else if (step === 'slot') {
-      setWorld(choice.world);
-      picked = await slotPicker({ user, worldName: app.world.name, listSlots, deleteSlot });
-      if (picked.back) {
-        if (choice.world !== SOLO_WORLD) await leaveOrCloseWorld(user.uid, app.world).catch(() => {});
-        step = 'world';
-        continue;
-      }
-      setSlot(picked.slot);
-      app.slot = picked.slot;
-      state = picked.isNew ? null : await loadSave(user.uid);
-      step = state ? 'play' : 'name';
-    } else if (step === 'name') {
-      const villageName = await nameVillage(`${app.username}'s Hearth`, { onBack: true });
-      if (villageName === null) { step = 'slot'; continue; }
-      state = newState({ uid: user.uid, name: app.username, villageName });
-      step = 'play';
-    }
+  // pick a world (solo worlds and servers each keep their own save), then play in it
+  const choice = await worldPicker({ user, username: app.username, lastWorld: lastWorld(user.uid), listWorldSaves, deleteWorldSave, oldVillage });
+  if (choice.back) { location.reload(); return; }
+  setWorld(choice.world);
+  app.world = choice.kind === 'server' ? (await getWorld(choice.world).catch(() => null)) || { wid: choice.world, name: choice.name } : { wid: choice.world, name: choice.name };
+  app.world.kind = choice.kind;
+  let state = choice.isNew ? null : await loadSave(user.uid);
+  if (!state && choice.importOld) state = choice.importOld;   // an old village becomes this world
+  if (!state) {
+    const seed = choice.seed ?? app.world.seed ?? [...String(choice.world)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+    state = newState({ uid: user.uid, name: app.username, villageName: `${app.username}'s Hearth`, seed });
   }
+  state.worldName = choice.name || app.world.name;
   state.owner.uid = user.uid;
   state.owner.name = app.username;
 
@@ -170,9 +146,11 @@ async function enterGame(user) {
     if (away > 120 && state.villagers.length) summary = game.simulate(away);
   }
 
-  if (choice.world !== SOLO_WORLD) rememberWorld(user.uid, { wid: choice.world, name: app.world.name, slot: app.slot });
-  else forgetWorld();
-  startGame(user, game, { online: choice.world !== SOLO_WORLD });
+  rememberWorld(user.uid, { wid: choice.world, name: app.world.name, kind: choice.kind });
+  startGame(user, game, { online: choice.kind === 'server' });
+  const theme = THEMES[themeOf(state.seed)];
+  setTimeout(() => app.hud?.announce(`${state.worldName} · ${theme.name}`), 400);
+  if (choice.code) setTimeout(() => app.hud?.hint(`Server created. Share its code: ${choice.code}`, 9000), 900);
   if (summary) offlineSummary(summary);
 }
 
@@ -296,9 +274,10 @@ async function restart() {
   app.mp?.stop();
   app.hud?.destroy();
   app.console = null;
-  const state = newState({ uid: user.uid, name: app.username || old?.state.owner.name, villageName: old?.state.owner.villageName || 'New Hearth' });
+  const state = newState({ uid: user.uid, name: app.username || old?.state.owner.name, villageName: old?.state.owner.villageName || 'New Hearth', seed: old?.state.seed });
+  state.worldName = old?.state.worldName;
   const game = new Game(state);
-  startGame(user, game, { online: currentWorld() !== SOLO_WORLD });
+  startGame(user, game, { online: app.world?.kind === 'server' });
   await save(true).catch(() => {});
 }
 

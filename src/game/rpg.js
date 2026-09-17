@@ -1,4 +1,5 @@
 import { TILE } from '../core/constants.js';
+import { gameTheme } from './worldTypes.js';
 import { CREATURES } from '../data/objects.js';
 import { dropPickup, chestsOf } from './treasure.js';
 
@@ -321,6 +322,9 @@ export function rollGear(g, { boss = false, slot = null } = {}) {
   const roll = Math.random();
   const kind = slot || (roll < 0.42 ? 'weapon' : roll < 0.58 ? 'shield' : roll < 0.76 ? 'armor' : roll < 0.88 ? 'helmet' : 'trinket');
   const options = Object.entries(CATALOG[kind]).filter(([, d]) => !d.noLoot && !d.admin && d.icon !== null && (d.minRarity || 0) <= rarity);
+  // each world has favourite weapons: a third of weapon drops come from them
+  const fav = kind === 'weapon' && g?.state ? gameTheme(g).loot.filter(b => CATALOG.weapon[b] && !CATALOG.weapon[b].admin) : [];
+  if (fav.length && Math.random() < 0.35) { const b = fav[Math.floor(Math.random() * fav.length)]; return makeGear(g, b, Math.max(rarity, CATALOG.weapon[b].minRarity || 0)); }
   const [base] = options[Math.floor(Math.random() * options.length)];
   return makeGear(g, base, rarity);
 }

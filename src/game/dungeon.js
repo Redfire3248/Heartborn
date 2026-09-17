@@ -7,6 +7,7 @@ import { updateCreature, updateEnemyShots } from './creatures.js';
 import { startLead, damageHero, knockOutHero, heroOf } from './hero.js';
 import { rpgOf, gainXp } from './rpg.js';
 import { hasTool } from './tools.js';
+import { gameTheme } from './worldTypes.js';
 export { entrancesOf, entranceNear } from './treasure.js';
 
 /*
@@ -143,7 +144,7 @@ export function makeDungeonGame(home, { depth = 1, entrance = null, seed = (Date
   const state = {
     version: SAVE_VERSION, seed, createdAt: 0, updatedAt: 0,
     owner: home.state.owner, time: home.state.time, center,
-    resources: home.state.resources, rpg: rpgOf(home), era: home.state.era, karma: 0,
+    resources: home.state.resources, rpg: rpgOf(home), era: home.state.era, karma: 0, worldSeed: home.state.worldSeed ?? home.state.seed,
     villagers: [], buildings: [], objects: [], creatures: [], chests: [], groundItems: [],
     stats: {}, log: [], modifiers: [], incoming: [], battles: {}, laws: { ...DEFAULT_LAWS }, lawChangedAt: {},
     nextEventAt: Infinity, lastDay: Infinity, shieldUntil: 0, camera: { x: 0, y: 0, zoom: 2.4 }, autoPick: false,
@@ -183,7 +184,8 @@ export function makeDungeonGame(home, { depth = 1, entrance = null, seed = (Date
   for (const a of [...rooms, boss]) {
     for (let x = a.x + 1; x < a.x + a.w - 1; x += 4 + Math.floor(r() * 2)) d.torches.push({ x: (x + 0.5) * TILE, y: a.y * TILE });
   }
-  const pool = POOLS[Math.min(POOLS.length - 1, depth - 1)];
+  const theme = gameTheme(home);
+  const pool = [...POOLS[Math.min(POOLS.length - 1, depth - 1)], ...theme.dungeon];
   const toughness = 1 + (depth - 1) * 0.4;
   const middle = rooms.slice(1);
   // the key waits in the room farthest along the way
@@ -203,7 +205,8 @@ export function makeDungeonGame(home, { depth = 1, entrance = null, seed = (Date
     }
   });
   const bc = rc(boss);
-  const bossType = BOSSES[(depth - 1) % BOSSES.length];
+  const order = [...theme.bosses, ...BOSSES.filter(b => !theme.bosses.includes(b))];   // this world's own bosses come first
+  const bossType = order[(depth - 1) % order.length];
   const bossMonster = g.spawnCreature(bossType, bc.x, bc.y, { hpMult: 0.7 + (depth - 1) * 0.5, dungeonBoss: true, scale: 1.15 });
   if (bossMonster) { bossMonster.dmgMult = 0.8 + (depth - 1) * 0.25; d.bossId = bossMonster.id; }
   for (let k = 0; k < 1 + Math.floor(depth / 2); k++) { const p = spot(boss, 2); g.spawnCreature(pool[0], p.x, p.y, { hpMult: toughness }); }

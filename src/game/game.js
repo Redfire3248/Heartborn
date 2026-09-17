@@ -17,6 +17,7 @@ import { updateHomes } from './homes.js';
 import { interiorStorage } from './houses.js';
 import { updateAutoPick } from './autopick.js';
 import { on, eraFree } from '../core/features.js';
+import { gameTheme } from './worldTypes.js';
 import { dailyEmpire } from './empire.js';
 import { updateEmployment } from './employment.js';
 import { updateFinds } from './finds.js';
@@ -212,12 +213,14 @@ export class Game {
 
     // wildlife comes back
     const wild = s.creatures.filter(c => ['deer', 'rabbit', 'boar'].includes(c.t)).length;
-    if (wild < 12) this.spawnWild(pick(['deer', 'rabbit', 'rabbit', 'boar']), 20);
+    const theme = gameTheme(this);
+    if (wild < 12) this.spawnWild(pick(theme.wild), 20);
 
     // night dangers
     if (s.creatures.filter(c => CREATURES[c.t].hostile).length < 12) {
       if (s.karma < -20 && chance(0.35)) this.spawnRaiders(pick(['ghost', 'skeleton']), 1 + Math.floor(-s.karma / 40));
-      if (chance(0.12)) this.spawnWild('wolf', 22);
+      if (chance(0.12)) this.spawnWild(pick(theme.night), 22);
+      if (theme.night.length > 1 && chance(0.08)) this.spawnWild(pick(theme.night), 26);
       if (s.villagers.length > 10 && chance(0.06)) this.spawnRaiders('goblin', 2);
     }
     if (on('warbands')) maybeScheduleWarband(this);

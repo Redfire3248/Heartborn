@@ -1425,3 +1425,12 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .dungeon-map.big { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(80vmin, 520px); height: min(80vmin, 520px); z-index: 60; border-color: #c9b8ff; box-shadow: 0 20px 60px rgba(0, 0, 0, .8); cursor: zoom-out; }
 @media (max-width: 760px) { .dungeon-map { width: 96px; height: 96px; } }
 .hero-level { white-space: nowrap; }
+
+/* world menu: new world box and world types */
+.wp-new { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px dashed rgba(255,255,255,.18); border-radius: 10px; background: rgba(255,255,255,.03); }
+.wp-new-head { display: flex; align-items: center; gap: 8px; }
+.wp-new .row.wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.wp-new .row.wrap .input { flex: 1 1 160px; min-width: 0; }
+.wp-preview { display: flex; align-items: center; gap: 10px; }
+.wp-theme { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; vertical-align: middle; }
+.world-picker h3 { margin: 10px 0 2px; }

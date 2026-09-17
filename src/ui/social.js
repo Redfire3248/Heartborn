@@ -1,6 +1,7 @@
 import { h, icon, avatar, modal, timeAgo, confirmModal } from './dom.js';
 import { ERAS } from '../data/buildings.js';
 import * as social from '../net/social.js';
+import { THEMES, themeOf } from '../game/themeNames.js';
 
 /*
  * World picker (shown after signing in), player profiles and friends.
@@ -10,8 +11,8 @@ const ui = () => document.getElementById('ui');
 
 // ------------------------------------------------------------------ world picker
 
-/** Resolves with { world, name } once the player picks where to play. */
-export function worldPicker({ user, username, lastWorld = null }) {
+/** Resolves with { world, name, kind, seed, importOld } once the player picks (or makes) a world. */
+export function worldPicker({ user, username, lastWorld = null, listWorldSaves, deleteWorldSave, oldVillage }) {
   return new Promise(resolve => {
     const unsubs = [];
     const body = h('div.wp-grid');
@@ -20,71 +21,105 @@ export function worldPicker({ user, username, lastWorld = null }) {
     const root = h('div.screen.world-picker',
       h('div.card.wp',
         h('div.wp-head', icon('buildings/castle', 40),
-          h('div', h('h2', 'Choose your world'), h('div.faint', `Ruling as ${username} · your civilizations come with you to any world`)),
+          h('div', h('h2', 'Worlds'), h('div.faint', `Playing as ${username} · every world is different, with its own land, monsters, loot and save`)),
           h('div.spacer'),
           h('button.btn.sm.ghost.back-btn', { onclick: () => { for (const u of unsubs) u(); root.remove(); resolve({ back: true }); } }, '← Back')),
         h('div.wp-body', h('div.col', body, err), side)));
     ui().append(root);
 
-    const choose = (world, name) => {
-      for (const u of unsubs) u();
-      root.remove();
-      resolve({ world, name });
-    };
+    const choose = c => { for (const u of unsubs) u(); root.remove(); resolve(c); };
     const tryAction = async fn => { err.textContent = ''; try { await fn(); } catch (e) { err.textContent = e.message; } };
+    const themeLine = seed => { const t = THEMES[themeOf(seed)]; return h('span.wp-theme', { style: { color: t.color } }, icon(t.icon, 16), t.name); };
 
-    let invites = [];
-    let rejoin = null;   // the world you were in when the game closed, if it is still running
-    if (lastWorld) {
+    let saves = null, invites = [], old = null, rejoin = null;
+    const load = async () => {
+      saves = await listWorldSaves(user.uid).catch(() => []);
+      if (!saves.some(s => s.kind === 'solo')) old = await oldVillage(user.uid).catch(() => null);
+      render();
+    };
+    if (lastWorld && !lastWorld.wid.startsWith('solo')) {
       social.getWorld(lastWorld.wid).then(async w => {
-        if (!w || !(await social.isMember(lastWorld.wid, user.uid))) return;
-        rejoin = { ...lastWorld, name: w.name, status: w.status, players: await social.worldMemberCount(lastWorld.wid).catch(() => 0) };
+        if (!w) return;
+        rejoin = { ...lastWorld, name: w.name, seed: w.seed, players: await social.worldMemberCount(lastWorld.wid).catch(() => 0) };
         render();
       }).catch(() => {});
     }
+
+    // new solo world: name + optional seed (the world type shows as you type)
+    const newName = h('input.input', { placeholder: 'World name', maxLength: 28 });
+    const newSeed = h('input.input', { placeholder: 'Seed (empty = random)', maxLength: 12, inputMode: 'numeric' });
+    let randomSeed = Math.floor(Math.random() * 2 ** 31);
+    const seedOf = () => { const v = newSeed.value.trim(); if (!v) return randomSeed; const n = Number(v); return Number.isFinite(n) ? Math.abs(Math.floor(n)) % 2 ** 31 : [...v].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % 2 ** 31; };
+    const preview = h('div.wp-preview');
+    const updatePreview = () => { const t = THEMES[themeOf(seedOf())]; preview.replaceChildren(icon(t.icon, 28), h('div', h('b', { style: { color: t.color } }, t.name), h('div.faint', t.desc))); };
+    newSeed.addEventListener('input', updatePreview);
+    updatePreview();
+    const reroll = h('button.btn.sm.ghost', { title: 'Another random world', onclick: () => { newSeed.value = ''; randomSeed = Math.floor(Math.random() * 2 ** 31); updatePreview(); } }, 'Reroll');
+
+    // servers
+    const serverName = h('input.input', { placeholder: 'Server name', maxLength: 28 });
+    const code = h('input.input', { placeholder: 'Server code', maxLength: 6, style: { textTransform: 'uppercase' } });
+
+    const worldCard = s => h('div.wp-card.world',
+      icon(THEMES[s.seed != null ? themeOf(s.seed) : s.theme]?.icon || 'nature/tree_oak', 44),
+      h('div',
+        h('div.wp-title', s.name || 'World'),
+        h('div.faint', themeLine(s.seed ?? 0), ` · ${s.hero ? `${s.hero} ` : ''}Lv ${s.level || 1} · Day ${s.day || 1}${s.updatedAt ? ` · played ${timeAgo(s.updatedAt)}` : ''}`)),
+      h('div.row',
+        h('button.btn.sm.ghost', { title: 'Delete this world forever', onclick: () => tryAction(async () => {
+          if (!(await confirmModal(`Delete ${s.name}?`, 'The world and everything you did in it are gone for good.', { okLabel: 'Delete', okClass: 'danger' }))) return;
+          await deleteWorldSave(user.uid, s.wid);
+          if (s.kind === 'server') await social.leaveWorld(user.uid, s.wid).catch(() => {});
+          await load();
+        }) }, s.kind === 'server' ? 'Leave' : 'Delete'),
+        h('button.btn.sm.primary', { onclick: () => choose({ world: s.wid, name: s.name, kind: s.kind, seed: s.seed }) }, 'Play')));
+
     const render = () => {
+      if (!saves) { body.replaceChildren(h('div.faint', 'Loading your worlds...')); return; }
+      const solos = saves.filter(s => s.kind === 'solo'), servers = saves.filter(s => s.kind === 'server');
       body.replaceChildren(...[
-        rejoin ? h('button.wp-card.rejoin', { onclick: () => { for (const u of unsubs) u(); root.remove(); resolve({ world: rejoin.wid, name: rejoin.name, rejoin: true, slot: rejoin.slot }); } },
-          icon('buildings/fortress', 44),
-          h('div', h('div.wp-title', `🔁 Rejoin ${rejoin.name}`), h('div.faint', `You left this world ${timeAgo(rejoin.at)} · ${rejoin.players} player${rejoin.players === 1 ? '' : 's'} · ${rejoin.status === 'lobby' ? 'still in the lobby' : 'still running'}`)),
-          h('span.btn.sm.good', 'Rejoin')) : null,
-        h('button.wp-card.public', { onclick: () => choose(social.SOLO_WORLD, 'Solo World') },
+        rejoin && !servers.some(s => s.wid === rejoin.wid) ? h('button.wp-card.rejoin', { onclick: () => choose({ world: rejoin.wid, name: rejoin.name, kind: 'server', seed: rejoin.seed }) },
+          icon('buildings/fortress', 44), h('div', h('div.wp-title', `Rejoin ${rejoin.name}`), h('div.faint', `${rejoin.players} player${rejoin.players === 1 ? '' : 's'} · the server is still there`)), h('span.btn.sm.good', 'Rejoin')) : null,
+
+        h('h3', 'Your worlds'),
+        old ? h('div.wp-card.rejoin',
           icon('buildings/campfire', 44),
-          h('div', h('div.wp-title', '🏕 Solo World'), h('div.faint', 'Just you. No raids, no chat — build at your own pace.')),
-          h('span.btn.sm.primary', 'Play')),
+          h('div', h('div.wp-title', `Bring back ${old.owner?.villageName || 'your old village'}`), h('div.faint', 'Your village from before worlds had their own saves: it becomes your first world.')),
+          h('button.btn.sm.good', { onclick: () => choose({ world: `solo_${Date.now().toString(36)}`, name: old.owner?.villageName || 'My World', kind: 'solo', seed: old.seed, importOld: old }) }, 'Bring it')) : null,
+        ...solos.map(worldCard),
+        !solos.length && !old ? h('div.faint', 'No worlds yet. Make your first one below.') : null,
+        h('div.wp-new',
+          h('div.wp-new-head', h('b', 'New world'), h('div.spacer'), reroll),
+          h('div.row.wrap', newName, newSeed),
+          preview,
+          h('button.btn.primary', { onclick: () => tryAction(async () => {
+            const name = newName.value.trim() || `${username}'s World`;
+            choose({ world: `solo_${Date.now().toString(36)}`, name, kind: 'solo', seed: seedOf(), isNew: true });
+          }) }, 'Create world')),
+
         invites.length ? h('h3', 'Invitations') : null,
         ...invites.map(inv => h('div.wp-card.invite',
           icon('items/scroll', 36),
           h('div', h('div.wp-title', inv.name), h('div.faint', `${inv.fromName} invited you · ${timeAgo(inv.ts)}`)),
           h('div.row',
             h('button.btn.sm.ghost', { onclick: () => tryAction(() => social.declineInvite(user.uid, inv.wid)) }, 'Decline'),
-            h('button.btn.sm.good', { onclick: () => tryAction(async () => { await social.joinWorld(user.uid, inv.wid, inv.name); choose(inv.wid, inv.name); }) }, 'Join')))),
-        h('h3', 'Play with friends'),
-        h('div.faint', 'Create a world and invite friends, or join one with its code. Worlds last while you play in them — your civilizations are what gets saved.'),
-        actions,
+            h('button.btn.sm.good', { onclick: () => tryAction(async () => { await social.joinWorld(user.uid, inv.wid, inv.name); const w = await social.getWorld(inv.wid); choose({ world: inv.wid, name: inv.name, kind: 'server', seed: w?.seed }); }) }, 'Join')))),
+
+        h('h3', 'Servers'),
+        h('div.faint', 'Servers stay up for good: make one, share its code, and anyone can join any time.'),
+        ...servers.map(worldCard),
+        h('div.wp-actions',
+          h('div.row', serverName, h('button.btn.primary', { onclick: () => tryAction(async () => {
+            const w = await social.createWorld(user.uid, username, serverName.value);
+            choose({ world: w.wid, name: w.name, kind: 'server', seed: w.seed, code: w.code });
+          }) }, 'Create server')),
+          h('div.row', code, h('button.btn', { onclick: () => tryAction(async () => {
+            const w = await social.joinWorldByCode(user.uid, code.value);
+            choose({ world: w.wid, name: w.name, kind: 'server', seed: w.seed });
+          }) }, 'Join'))),
       ].filter(Boolean));
     };
 
-    function createAndJoin() {
-      const name = h('input.input', { placeholder: 'New world name', maxLength: 28 });
-      const code = h('input.input', { placeholder: 'Invite code', maxLength: 6, style: { textTransform: 'uppercase' } });
-      return h('div.wp-actions',
-        h('div.row', name, h('button.btn.primary', {
-          onclick: () => tryAction(async () => {
-            const w = await social.createWorld(user.uid, username, name.value);
-            choose(w.wid, w.name);
-          }),
-        }, '➕ Create')),
-        h('div.row', code, h('button.btn', {
-          onclick: () => tryAction(async () => {
-            const w = await social.joinWorldByCode(user.uid, code.value);
-            choose(w.wid, w.name);
-          }),
-        }, '🔑 Join')));
-    }
-
-    const actions = createAndJoin();
-    // only show invitations to worlds that still exist
     unsubs.push(social.watchInvites(user.uid, async list => {
       const alive = await Promise.all(list.map(async inv => ((await social.getWorld(inv.wid).catch(() => null)) ? inv : (social.declineInvite(user.uid, inv.wid).catch(() => {}), null))));
       invites = alive.filter(Boolean);
@@ -92,6 +127,7 @@ export function worldPicker({ user, username, lastWorld = null }) {
     }));
     friendsPanel(side, { user, username });
     render();
+    load();
   });
 }
 

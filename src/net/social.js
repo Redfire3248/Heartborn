@@ -85,12 +85,13 @@ export async function createWorld(me, meName, name) {
   if (name.length < 3) throw new Error('World name needs at least 3 letters');
   const wid = push(ref(rtdb, 'worlds')).key;
   const code = newCode();
-  await set(ref(rtdb, `worlds/${wid}`), { name, owner: me, ownerName: meName, code, createdAt: Date.now(), status: 'lobby' });
+  const seed = Math.floor(Math.random() * 2 ** 31);   // everyone on the server gets the same kind of world
+  await set(ref(rtdb, `worlds/${wid}`), { name, owner: me, ownerName: meName, code, seed, createdAt: Date.now(), status: 'open' });
   await update(ref(rtdb), {
     [`worldMembers/${wid}/${me}`]: true,
     [`worldCodes/${code}`]: wid,
   });
-  return { wid, name, code, owner: me, status: 'lobby' };
+  return { wid, name, code, seed, owner: me, status: 'open' };
 }
 
 export async function getWorld(wid) {
@@ -126,9 +127,10 @@ export async function declineInvite(me, wid) {
   await remove(ref(rtdb, `worldInvites/${me}/${wid}`));
 }
 
-/** Leaving a world: the host closes it for good (worlds aren't kept); anyone else just leaves. */
-export async function leaveOrCloseWorld(me, world) {
-  if (!world?.wid || world.wid === SOLO_WORLD || world.wid === PUBLIC_WORLD) return;
+/** Servers stay up for good now: leaving a game never closes a server (only an explicit close does). */
+export async function leaveOrCloseWorld(me, world, { close = false } = {}) {
+  if (!world?.wid || world.wid === SOLO_WORLD || world.wid === PUBLIC_WORLD || world.wid.startsWith?.('solo')) return;
+  if (!close) return;
   if (world.owner === me) {
     await update(ref(rtdb), { [`worldCodes/${world.code}`]: null, [`worldMembers/${world.wid}/${me}`]: null });
     await remove(ref(rtdb, `worlds/${world.wid}`));

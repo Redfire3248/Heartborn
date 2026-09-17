@@ -1,6 +1,7 @@
 import { TILE } from '../core/constants.js';
 import { rpgOf } from './rpg.js';
 import { TILES } from './world.js';
+import { gameTheme } from './worldTypes.js';
 
 const TILE_NAMES = TILES.map(k => k.replace('tile_', ''));
 
@@ -204,6 +205,9 @@ export function rollTool(g, luck = 0) {
   const era = g.state.era || 0;
   const maxPower = Math.min(10, 2 + era + luck + Math.floor(Math.random() * 3));
   const pool = Object.keys(TOOLS).filter(k => TOOLS[k].power <= maxPower);
+  const mats = gameTheme(g).mats;   // this world's materials turn up more
+  const fav = Object.keys(TOOLS).filter(k => mats.includes(TOOLS[k].mat) && TOOLS[k].power <= maxPower + 3);
+  if (fav.length && Math.random() < 0.4) return fav[Math.floor(Math.random() * fav.length)];
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
