@@ -122,7 +122,7 @@ const ARG_SPECS = {
   reset: ['player', ['confirm']], chat: [['15', 'clear', 'del']], skip: ['number'], era: [['up', '*', '0', '1', '2', '3', '4', '5']],
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
-  item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], items: [['*', 'bomb', 'dynamite', 'med_kit', 'speed_potion', 'strength_potion', 'invisibility_potion', 'mana_potion', 'antidote', 'golden_apple', 'ammo_box'], 'number'], tool: ['tool', 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
+  item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['mythic', 'legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], items: [['*', 'bomb', 'dynamite', 'med_kit', 'speed_potion', 'strength_potion', 'invisibility_potion', 'mana_potion', 'antidote', 'golden_apple', 'ammo_box'], 'number'], tool: ['tool', 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
   build: ['building', 'number'], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
@@ -781,7 +781,7 @@ const COMMANDS = {
   },
 
   gear: {
-    usage: 'gear <kind|slot|*> [legendary|epic|rare|common|*] [count] [equip]', desc: 'Give yourself weapons, shields, helmets, armour and trinkets (gear list shows them all with their pictures)',
+    usage: 'gear <kind|slot|*> [mythic|legendary|epic|rare|common|*] [count] [equip] (admin weapons are always Admin rarity)', desc: 'Give yourself weapons, shields, helmets, armour and trinkets (gear list shows them all with their pictures)',
     run([kind, rarityArg = 'common', count = '1', flag]) {
       const g = this.game;
       if (!kind || kind === 'list') {
@@ -794,8 +794,8 @@ const COMMANDS = {
         return;
       }
       if (flag === undefined && ['equip'].includes(count)) { flag = count; count = '1'; }
-      const names = ['common', 'rare', 'epic', 'legendary'];
-      const rarities = rarityArg === '*' ? [0, 1, 2, 3] : [Math.max(0, names.indexOf(rarityArg)) + (/^\d$/.test(rarityArg) ? Number(rarityArg) : 0)];
+      const names = ['common', 'rare', 'epic', 'legendary', 'mythic'];
+      const rarities = rarityArg === '*' ? [0, 1, 2, 3, 4] : [Math.max(0, names.indexOf(rarityArg)) + (/^\d$/.test(rarityArg) ? Number(rarityArg) : 0)];
       const kinds = kind === 'admin' ? Object.keys(CATALOG.weapon).filter(k => CATALOG.weapon[k].admin)
         : kind === '*' ? Object.values(CATALOG).flatMap(list => Object.keys(list).filter(k => !list[k].admin))
         : CATALOG[kind] ? Object.keys(CATALOG[kind])

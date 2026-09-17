@@ -735,7 +735,7 @@ export class HUD {
         r.bag.length
           ? h('div.bag-grid', r.bag.map(it => {
             const better = gearScore(it) > gearScore(r.gear[it.slot]);
-            return h('button.bag-cell' + (this._bagSel === it.id ? '.sel' : ''), { title: `${it.name}: ${gearText(it)}`, style: { borderColor: RARITY[it.rarity].color, boxShadow: it.rarity >= 2 ? `0 0 8px ${RARITY[it.rarity].color}66` : null }, onclick: () => { this._bagSel = this._bagSel === it.id ? null : it.id; render(); } },
+            return h('button.bag-cell' + (it.rarity >= 4 ? `.rarity-${RARITY[it.rarity].name.toLowerCase()}` : '') + (this._bagSel === it.id ? '.sel' : ''), { title: `${it.name}: ${gearText(it)}`, style: { borderColor: RARITY[it.rarity].color, boxShadow: it.rarity >= 2 ? `0 0 ${it.rarity >= 4 ? 14 : 8}px ${RARITY[it.rarity].color}${it.rarity >= 4 ? 'aa' : '66'}` : null }, onclick: () => { this._bagSel = this._bagSel === it.id ? null : it.id; render(); } },
               icon(gearIconKey(it) || 'items/relic', 34), better ? h('span.bag-up', '▲') : null);
           }))
           : h('div.faint', 'Monsters drop weapons, armour and trinkets. Bosses and bounties always drop something good.'),

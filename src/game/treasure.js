@@ -92,7 +92,7 @@ export function openChest(g, chest, hero) {
   }
   g.anim('combat/poof', chest.x, chest.y - 10, { size: TILE * 1.4, dur: 0.4 });
   (g.openedChests ||= []).push({ x: chest.x, y: chest.y, boss: !!chest.boss, life: 3 });
-  g.float(chest.x, chest.y - TILE * 1.4, `+${gold} gold${gems ? `, +${gems} gems` : ''}${gear ? ` · ${RARITY[gear.rarity].name} ${gear.name.replace(/^(Rare|Epic|Legendary) /, '')}` : ''}`, '#ffd76a');
+  g.float(chest.x, chest.y - TILE * 1.4, `+${gold} gold${gems ? `, +${gems} gems` : ''}${gear ? ` · ${RARITY[gear.rarity].name} ${gear.name.replace(/^(Rare|Epic|Legendary|Mythic) /, '')}` : ''}`, '#ffd76a');
   gainXp(g, big ? 40 : 15, hero);
   s.stats.chests = (s.stats.chests || 0) + 1;
   g.emit('change');

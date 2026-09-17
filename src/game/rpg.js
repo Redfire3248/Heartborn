@@ -14,7 +14,10 @@ export const RARITY = [
   { name: 'Rare', color: '#5aa9ff', mult: 1.25 },
   { name: 'Epic', color: '#c77dff', mult: 1.55 },
   { name: 'Legendary', color: '#ffb347', mult: 2 },
+  { name: 'Mythic', color: '#ff4d6d', mult: 2.6 },   // a rare boss drop
+  { name: 'Admin', color: '#ff3cf0', mult: 4 },      // admin weapons only: never dropped or crafted
 ];
+export const MYTHIC = 4, ADMIN = 5;
 
 /*
  * The gear catalog. To add a new weapon, shield, armour or trinket: add one line here and put its picture in
@@ -220,7 +223,7 @@ export function rpgOf(g) {
 
 /** Swords and bows show their rarity: plain, glowing blue, runed purple, golden flame. */
 export function weaponIcon(base, rarity) {
-  if (base === 'sword') return `gear/sword_${['common', 'rare', 'epic', 'legendary'][rarity] || 'common'}`;
+  if (base === 'sword') return `gear/sword_${['common', 'rare', 'epic', 'legendary'][Math.min(3, rarity)] || 'common'}`;
   if (base === 'bow') return rarity ? 'gear/bow_rare' : 'gear/bow_common';
   return WEAPONS[base]?.icon || null;
 }
@@ -296,17 +299,18 @@ export function spendPoint(g, stat) {
 const pickRarity = (g, boss) => {
   const lvl = rpgOf(g).level;
   const roll = Math.random() * 100 - Math.min(20, lvl) - g.state.era * 2 - (boss ? 45 : 0);
+  if (boss && Math.random() < 0.04) return MYTHIC;
   return roll < 2 ? 3 : roll < 12 ? 2 : roll < 38 ? 1 : 0;
 };
 
-/** A piece of gear of a given kind (e.g. 'katana', 'tower', 'plate') and rarity (0 Common .. 3 Legendary). */
+/** A piece of gear of a given kind (e.g. 'katana', 'tower', 'plate') and rarity (0 Common .. 4 Mythic; admin weapons are always 5 Admin). */
 export function makeGear(g, base, rarity = 0) {
   const slot = slotOf(base);
   if (!slot) return null;
   const def = CATALOG[slot][base];
-  rarity = Math.max(def.minRarity || 0, Math.min(3, Math.round(rarity)));
+  rarity = def.admin ? ADMIN : Math.max(def.minRarity || 0, Math.min(MYTHIC, Math.round(rarity)));
   const R = RARITY[rarity];
-  const it = { id: `gear${Date.now().toString(36)}${Math.floor(Math.random() * 1e6)}`, slot, base, rarity, name: `${R.name === 'Common' || def.minRarity >= rarity ? '' : R.name + ' '}${def.name}` };
+  const it = { id: `gear${Date.now().toString(36)}${Math.floor(Math.random() * 1e6)}`, slot, base, rarity, name: `${R.name === 'Common' || R.name === 'Admin' || def.minRarity >= rarity ? '' : R.name + ' '}${def.name}` };
   const era = 1 + (g?.state?.era || 0) * 0.08;
   if (slot === 'weapon') { it.dmg = Math.round(def.dmg * R.mult * era); it.icon = weaponIcon(base, rarity); }
   else if (slot === 'shield') { it.block = Math.min(0.98, Math.round((def.block + rarity * 0.03) * 100) / 100); it.armor = def.armor || 0; it.icon = def.icon; }

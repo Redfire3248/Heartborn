@@ -100,6 +100,22 @@ export async function run() {
     ok(deleted === null, 'nothing deleted by accident');
   });
 
+  await step('Mythic and Admin rarities', async () => {
+    const R = await import('/src/game/rpg.js');
+    const g = new Game(newState({ uid: 'ry', name: 'T', villageName: 'V' }));
+    ok(R.RARITY[4].name === 'Mythic' && R.RARITY[5].name === 'Admin', 'there are Mythic and Admin rarities');
+    const admins = Object.keys(R.CATALOG.weapon).filter(k => R.CATALOG.weapon[k].admin);
+    ok(admins.length && admins.every(k => R.makeGear(g, k, 0).rarity === 5), 'every admin weapon is Admin rarity', admins.length + ' admin weapons');
+    const mini = R.makeGear(g, admins[0], 3);
+    ok(!mini.name.startsWith('Admin '), 'admin weapons keep their plain name');
+    const myth = R.makeGear(g, 'katana', 4);
+    ok(myth.rarity === 4 && myth.name === 'Mythic Katana' && myth.dmg > R.makeGear(g, 'katana', 3).dmg, 'Mythic gear is stronger than Legendary');
+    ok(R.makeGear(g, 'katana', 5).rarity === 4, 'normal gear can never be Admin rarity');
+    let adminDrops = 0;
+    for (let i = 0; i < 400; i++) if (R.rollGear(g, { boss: true }).rarity === 5) adminDrops++;
+    ok(adminDrops === 0, 'Admin rarity never drops as loot');
+  });
+
   await step('ores need the right pickaxe, bosses fight back, beds, builders', async () => {
     const H = await import('/src/game/hero.js');
     const Tl = await import('/src/game/tools.js');

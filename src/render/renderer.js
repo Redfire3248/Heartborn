@@ -540,7 +540,7 @@ export class Renderer {
     const bob = Math.sin(this.time * 3 + it.x * 0.1) * 1.5;
     this.shadow(it.x, it.y, TILE * 0.45);
     if (it.gear?.rarity >= 1) {   // a beam of light marks good loot from afar
-      drawSprite(ctx, it.gear.rarity >= 3 ? 'gear/loot_beam_gold' : 'gear/loot_beam_white', it.x, it.y + 4, TILE * (1 + it.gear.rarity * 0.3), { alpha: 0.55 + 0.25 * Math.sin(this.time * 3) });
+      drawSprite(ctx, it.gear.rarity >= 3 ? 'gear/loot_beam_gold' : 'gear/loot_beam_white', it.x, it.y + 4, TILE * (1 + Math.min(4, it.gear.rarity) * 0.3), { alpha: 0.55 + 0.25 * Math.sin(this.time * 3), tint: it.gear.rarity >= 4 ? ['#ff4d6d', '#ff3cf0'][it.gear.rarity - 4] : null });
     }
     if (it.gear) {   // loot glows in the colour of its rarity
       const col = ['#d9d4c7', '#5aa9ff', '#c77dff', '#ffb347'][it.gear.rarity] || '#fff';
