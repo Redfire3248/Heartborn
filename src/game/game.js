@@ -180,8 +180,11 @@ export class Game {
     // regrowth
     for (const o of [...s.objects]) {
       const def = OBJECTS[o.t];
+      if (def.growsInto && o.growAt > s.time + def.growDays * DAY_LENGTH) o.growAt = s.time + def.growDays * DAY_LENGTH;   // old stumps: no longer than the new time
       if (def.growsInto && s.time >= (o.growAt ??= s.time + def.growDays * DAY_LENGTH)) {
-        o.t = def.growsInto; delete o.growAt; o.charges = OBJECTS[o.t].charges || 0;
+        o.t = o.t === 'sapling' && o.grow && OBJECTS[o.grow] ? o.grow : def.growsInto;   // a sapling becomes the tree that was cut
+        if (o.t !== 'sapling') delete o.grow;
+        delete o.growAt; o.charges = OBJECTS[o.t].charges || 0;
       }
       if (def.regrowDays && o.charges <= 0 && s.time >= (o.regrowAt ??= s.time + def.regrowDays * DAY_LENGTH)) {
         o.charges = def.charges; delete o.regrowAt;

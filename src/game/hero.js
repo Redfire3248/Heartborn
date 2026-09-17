@@ -683,7 +683,7 @@ function work(g, v, held = null) {
   }
   if (def.work === 'chop') {
     s.stats.treesCut = (s.stats.treesCut || 0) + 1;
-    if (def.stump) { obj.t = 'tree_stump'; obj.growAt = s.time + OBJECTS.tree_stump.growDays * DAY_LENGTH; }
+    if (def.stump) { obj.grow = obj.t; obj.t = 'tree_stump'; obj.growAt = s.time + OBJECTS.tree_stump.growDays * DAY_LENGTH; }
     else g.world.removeObject(s.objects, obj);
     g.puff(c, 'effects/leaf', 12, 30);
   } else {
