@@ -496,6 +496,31 @@ function completeQuests(g, v) {
 
 // ------------------------------------------------------------------ kills
 
+/**
+ * What each monster can drop: [resource, min, max, chance]. `ore` = chance of a bit of the local ore (only for
+ * things that would carry it: miners, bandits, golems). Bosses always drop local ores, gold and their material.
+ */
+const MONSTER_DROPS = {
+  snake:           { drops: [['food', 1, 2, 0.4]] },
+  rat:             { drops: [['food', 1, 1, 0.3]] },
+  bat:             { drops: [['food', 1, 1, 0.2]] },
+  wolf:            { drops: [['food', 2, 4, 0.6]] },
+  bear:            { drops: [['food', 4, 8, 0.8]] },
+  giant_spider:    { drops: [['food', 1, 2, 0.3], ['gems', 1, 1, 0.08]] },
+  cave_spider:     { drops: [['food', 1, 1, 0.25], ['gems', 1, 1, 0.05]] },
+  slime:           { drops: [['gems', 1, 1, 0.15]] },
+  goblin:          { drops: [['gold', 2, 8, 0.6], ['copper', 1, 2, 0.2], ['iron', 1, 1, 0.1]], ore: 0.2 },
+  bandit:          { drops: [['gold', 4, 14, 0.7], ['iron', 1, 2, 0.25]], ore: 0.1 },
+  invader:         { drops: [['gold', 4, 12, 0.6], ['iron', 1, 2, 0.3]] },
+  skeleton:        { drops: [['gold', 1, 5, 0.3], ['iron', 1, 1, 0.2]] },
+  skeleton_archer: { drops: [['gold', 1, 5, 0.3], ['iron', 1, 2, 0.25]] },
+  zombie:          { drops: [['food', 1, 2, 0.3], ['gold', 1, 4, 0.25]] },
+  ghost:           { drops: [['gems', 1, 1, 0.2]] },
+  dark_mage:       { drops: [['gems', 1, 2, 0.5], ['gold', 3, 10, 0.5]] },
+  fire_imp:        { drops: [['coal', 1, 3, 0.5], ['magmite', 1, 1, 0.08]] },
+  mimic:           { drops: [['gold', 20, 60, 1], ['gems', 1, 3, 0.6]] },
+};
+
 /** You killed something: experience, maybe loot on the ground, and quest progress. */
 export function onHeroKill(g, c, v) {
   const def = CREATURES[c.t];
@@ -509,9 +534,18 @@ export function onHeroKill(g, c, v) {
     if (boss) chestsOf(g).push({ id: `boss${Date.now().toString(36)}`, x: c.x, y: c.y + 10, boss: true });
   }
   if (def.hostile) {
-    // monsters carry bits of the land they live in: the local ores, and now and then a lucky pile
+    // what it carries: its own drops (a snake has no iron bars), bosses and ore-carriers also the local ores
+    const md = MONSTER_DROPS[c.t] || {};
+    let dropped = false;
+    for (const [res, lo, hi, p] of md.drops || []) {
+      if (!lucky(g, Math.min(1, p * (c.elite ? 1.6 : 1)))) continue;
+      const n = (lo + Math.floor(Math.random() * (hi - lo + 1))) * (c.elite ? 2 : 1);
+      for (let i = 0; i < Math.min(n, 4); i++) popResource(g, res, i === Math.min(n, 4) - 1 ? n - Math.min(n, 4) + 1 : 1, c.x, c.y);
+      dropped = true;
+    }
+    void dropped;
     const ores = gameTheme(g).ores || [];
-    if (ores.length && lucky(g, boss ? 1 : c.elite ? 0.8 : 0.35)) {
+    if (ores.length && lucky(g, boss ? 1 : c.elite ? (md.ore || 0) * 2 : md.ore || 0)) {
       const res = ORE_RESOURCE[ores[Math.floor(Math.random() * ores.length)]];
       const big = lucky(g, 0.03);
       const n = (1 + Math.floor(Math.random() * 3)) * (boss ? 5 : c.elite ? 2 : 1) * (big ? 3 : 1);

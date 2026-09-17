@@ -1,4 +1,5 @@
 import { keyLabel, keyOf } from '../core/controls.js';
+import { nearestStation } from '../game/crafting.js';
 import { TILE } from '../core/constants.js';
 import { RES_ICON } from '../ui/dom.js';
 import { stackIcon } from '../game/groundItems.js';
@@ -672,11 +673,11 @@ export class Renderer {
     drawSprite(ctx, styled, x, y, size, { tint: blighted ? '#553311' : styled === buildingSprite(b.type) ? DESIGNS[design]?.tint : null });
     if (b.type === 'enchanting_table' && g.hero && !g.visiting) {
       const hero = g.state.villagers.find(v => v.id === g.hero.id), c = g.buildingCenter(b);
-      if (hero && Math.hypot(hero.x - c.x, hero.y - c.y) < TILE * 3.5) keyPrompt(ctx, keyLabel(keyOf('potion')), 'Enchant', c.x, y - TILE * 1.55 + Math.sin(this.time * 3) * 0.8);
+      if (hero && nearestStation(g, hero) === b) keyPrompt(ctx, keyLabel(keyOf('potion')), 'Enchant', c.x, y - TILE * 1.55 + Math.sin(this.time * 3) * 0.8);
     }
     if (b.type === 'crafting_table' && g.hero && !g.visiting) {
       const hero = g.state.villagers.find(v => v.id === g.hero.id), c = g.buildingCenter(b);
-      if (hero && Math.hypot(hero.x - c.x, hero.y - c.y) < TILE * 3.5) {
+      if (hero && nearestStation(g, hero) === b) {   // only the closer table shows its key
         keyPrompt(ctx, keyLabel(keyOf('potion')), 'Craft', c.x, y - TILE * 1.55 + Math.sin(this.time * 3) * 0.8);
       }
     }

@@ -37,7 +37,7 @@ import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, a
 import { makeVisitGame } from '../game/visit.js';
 import { makeDungeonGame, leaveSurface, returnFromDungeon, bossOf } from '../game/dungeon.js';
 import { HouseEditor } from './houseEditor.js';
-import { RECIPES, CRAFT_CATS, canCraft, craft, needsTable, atTable, ownsTool, missingToDiscover, craftTime, forgeStages } from '../game/crafting.js';
+import { RECIPES, CRAFT_CATS, canCraft, craft, needsTable, atTable, ownsTool, missingToDiscover, craftTime, forgeStages, nearestStation } from '../game/crafting.js';
 import { CONSUMABLES, itemsOf, buffActive } from '../game/consumables.js';
 import { on, buildingOn, eraFree } from '../core/features.js';
 import { ACTIONS, CONTROL_GROUPS, is, held, keyOf, keyLabel, setBind, resetBinds, RESERVED } from '../core/controls.js';
@@ -323,8 +323,12 @@ export class HUD {
       const dash = dashDown && !this._dashHeld;
       const potionDown = held(k, 'potion') || t.potion;
       let potion = potionDown && !this._potionHeld;
-      if (potion && hg === g && atTable(g, heroOf(g))) { potion = false; this.openTable(); }
-      else if (potion && hg === g && atEnchantTable(g, heroOf(g))) { potion = false; openEnchantMenu(this); }
+      if (potion && hg === g && (atTable(g, heroOf(g)) || atEnchantTable(g, heroOf(g)))) {   // the closer table opens
+        potion = false;
+        const st = nearestStation(g, heroOf(g));
+        if (st?.type === 'enchanting_table' || (!st && atEnchantTable(g, heroOf(g)) && !atTable(g, heroOf(g)))) openEnchantMenu(this);
+        else this.openTable();
+      }
       this._potionHeld = potionDown;
       this._dashHeld = dashDown;
       const fights = !abroad || abroad.role === 'visitor';   // a visitor can fight other players; a disguised spy cannot

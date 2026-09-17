@@ -118,6 +118,19 @@ export function atTable(g, hero = null) {
   return (g.state.buildings || []).some(b => b.type === 'crafting_table' && b.built !== false && Math.hypot((b.tx + 0.5) * TILE - v.x, (b.ty + 0.5) * TILE - v.y) < TILE * 3.5);
 }
 
+/** The closest table you are standing by (Crafting or Enchanting), so E opens that one. Returns the building or null. */
+export function nearestStation(g, hero = null) {
+  const v = hero || g.state.villagers?.find(x => x.id === g.hero?.id);
+  if (!v) return null;
+  let best = null, bd = TILE * 3.5;
+  for (const b of g.state.buildings || []) {
+    if ((b.type !== 'crafting_table' && b.type !== 'enchanting_table') || b.built === false) continue;
+    const d = Math.hypot((b.tx + 0.5) * TILE - v.x, (b.ty + 0.5) * TILE - v.y);
+    if (d < bd) { bd = d; best = b; }
+  }
+  return best;
+}
+
 /** How many of this tool you already carry (tools stack). */
 export const ownsTool = () => false;
 
