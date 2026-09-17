@@ -517,7 +517,7 @@ button.link:hover { color: var(--gold); }
 .slot.empty { cursor: pointer; border-style: dashed; transition: border-color .12s, background-color .12s; }
 .slot.empty:hover { border-color: var(--gold); background: #ffffff0a; }
 .slot-num { position: absolute; top: 8px; left: 10px; font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 1px; }
-@media (max-width: 760px) { .slot-grid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) and (min-height: 521px) { .slot-grid { grid-template-columns: 1fr; } }
 
 /* building effects */
 ul.effects { list-style: none; margin: 4px 0 6px; padding: 0; display: flex; flex-direction: column; gap: 2px; font-family: var(--num); font-size: 12.5px; color: #d9cfe6; }
@@ -586,7 +586,7 @@ ul.effects li.warn { color: #ffb4a8; }
 .minimap canvas { image-rendering: auto; border-radius: 9px; }
 .toast { background: rgba(22, 15, 32, .82); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-radius: 9px; }
 
-@media (max-width: 760px) {
+@media (max-width: 760px) and (min-height: 521px) {
   .topbar { max-width: calc(100vw - 20px); }
   .statusbar { top: auto; bottom: 160px; right: 6px; flex-direction: column; gap: 4px; }
   .side { top: 118px; }
@@ -631,7 +631,7 @@ ul.effects li.warn { color: #ffb4a8; }
 .screen.login > .install-btn { margin-top: 12px; }
 
 /* ================================================================ phones */
-@media (max-width: 760px) {
+@media (max-width: 760px) and (min-height: 521px) {
   /* resources: compact two-row bar */
   .topbar { top: max(6px, env(safe-area-inset-top)); left: 6px; right: 6px; max-width: none; }
   .topbar .card { justify-content: space-between; padding: 4px; border-radius: 12px; width: 100%; }
@@ -684,9 +684,9 @@ ul.effects li.warn { color: #ffb4a8; }
 }
 @keyframes sheetUp { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 
-@media (max-width: 760px) { .topbar .card { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 0; } }
+@media (max-width: 760px) and (min-height: 521px) { .topbar .card { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 0; } }
 
-@media (max-width: 760px) { .statusbar { right: 6px; } .statusbar > .card { flex: 1 1 auto; min-width: 0; justify-content: center; } .statusbar .clock { align-items: center !important; } }
+@media (max-width: 760px) and (min-height: 521px) { .statusbar { right: 6px; } .statusbar > .card { flex: 1 1 auto; min-width: 0; justify-content: center; } .statusbar .clock { align-items: center !important; } }
 
 /* world map: real islands are drawn, so the sea is plain */
 .realm-map { background: radial-gradient(ellipse at 50% 40%, #245a7d, #173a55 60%, #0f2a40); }
@@ -767,7 +767,7 @@ kbd { justify-self: start; padding: 2px 7px; border-radius: 6px; background: var
 .office-card.active { border-color: rgba(255, 207, 90, .35); }
 .toggle { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; }
 .toggle input { width: 16px; height: 16px; accent-color: var(--gold); }
-@media (max-width: 760px) { .job-row { grid-template-columns: 32px 1fr; } .job-controls { grid-column: 1 / -1; justify-content: flex-end; } }
+@media (max-width: 760px) and (min-height: 521px) { .job-row { grid-template-columns: 32px 1fr; } .job-controls { grid-column: 1 / -1; justify-content: flex-end; } }
 
 /* keychain item drag */
 .drag-keychain { position: fixed; left: 0; top: 0; z-index: 200; pointer-events: none; will-change: transform; }
@@ -799,14 +799,14 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .touch-bar { position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%); z-index: 35; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 14px; background: #1b1426; border: 1px solid var(--gold); box-shadow: 0 8px 24px rgba(0,0,0,.45); max-width: 94vw; }
 .touch-label { font: 600 13px var(--num); color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45vw; padding: 0 4px; }
 .touch-bar .btn { min-height: 38px; padding: 0 16px; }
-@media (max-width: 760px) { .center-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 158px); right: 6px; padding: 6px 10px; } .touch-bar { bottom: calc(76px + env(safe-area-inset-bottom)); } }
+@media (max-width: 760px) and (min-height: 521px) { .center-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 158px); right: 6px; padding: 6px 10px; } .touch-bar { bottom: calc(76px + env(safe-area-inset-bottom)); } }
 .home-btn .back-arrow { font-size: 22px; line-height: 14px; color: var(--gold); margin-top: -3px; }
-@media (max-width: 760px) { .home-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 118px); right: 6px; padding: 6px 10px; } }
+@media (max-width: 760px) and (min-height: 521px) { .home-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 118px); right: 6px; padding: 6px 10px; } }
 @media (max-width: 1150px) and (min-width: 761px) { .statusbar { bottom: 270px; } }
 
 /* phone dock: wide rectangles with a label */
 .dock-label { display: none; }
-@media (max-width: 760px) {
+@media (max-width: 760px) and (min-height: 521px) {
   .dock { gap: 6px; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
   .dock button { flex: 1 1 0; width: auto; min-width: 0; height: 56px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 2px; }
   .dock button img { width: 26px; height: 26px; }
@@ -821,7 +821,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .dock button .px-icon { margin: 0; }
 
 /* phones: no live blur behind panels (it flickers over the moving game on mobile GPUs) */
-@media (max-width: 760px), (hover: none) {
+@media (max-width: 760px) and (min-height: 521px), (hover: none) {
   *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
   .modal-bg { background: rgba(8, 5, 12, .78); }
   .card { background: linear-gradient(180deg, #2c2138, #1b1426) !important; }
@@ -896,7 +896,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .cannon-bombs { position: absolute; top: 6px; right: 6px; min-width: 26px; padding: 1px 6px; border-radius: 99px; background: #1a120b; border: 1px solid #c9a45c; font: 700 11px var(--num); color: #ffd76a; }
 .helm-cannon.boom { transform: scale(.92); }
 
-@media (max-width: 760px) {
+@media (max-width: 760px) and (min-height: 521px) {
   .helm { padding: 0 8px; }
   .helm-left { gap: 6px; }
   .helm-wheel { width: 104px; height: 104px; } .helm-wheel .sprite { width: 92px !important; height: 92px !important; }
@@ -928,7 +928,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .goal-count { font: 600 12px var(--num); color: var(--dim); font-variant-numeric: tabular-nums; }
 .goal-claim { animation: goalPulse 1.4s ease-in-out infinite; }
 @keyframes goalPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 207, 90, .0); } 50% { box-shadow: 0 0 0 4px rgba(255, 207, 90, .28); } }
-@media (max-width: 760px) {
+@media (max-width: 760px) and (min-height: 521px) {
   .goals { left: 6px; top: 124px; width: min(270px, calc(100vw - 110px)); padding: 4px; }
   .goal { padding: 5px 6px; }
   .goal-reward { display: none; }
@@ -976,7 +976,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .graph-head b { color: var(--text); font-size: 14px; margin-left: auto; }
 .graph-head .up { color: var(--good); font-size: 11px; } .graph-head .down { color: var(--bad); font-size: 11px; }
 .graph-line svg { display: block; width: 100%; height: 34px; }
-@media (max-width: 760px) { .statusbar .bell { padding: 3px 8px; } .notif-panel { top: 118px; } .save-banner { top: 118px; } }
+@media (max-width: 760px) and (min-height: 521px) { .statusbar .bell { padding: 3px 8px; } .notif-panel { top: 118px; } .save-banner { top: 118px; } }
 
 .slider-row { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 8px; font-family: var(--num); font-size: 13px; color: var(--dim); }
 .slider-row input { width: 100%; accent-color: var(--gold); }
@@ -1058,8 +1058,8 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .hero-knob { width: 50px; height: 50px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffe7a0, #c9902e); border: 2px solid #5b3d17; box-shadow: 0 3px 0 #0b0712; pointer-events: none; transition: transform .05s; }
 .hero-act { position: fixed; right: 22px; bottom: calc(104px + env(safe-area-inset-bottom)); z-index: 14; width: 92px; height: 92px; border-radius: 50%; border: 3px solid #ffb3aa; background: radial-gradient(circle at 35% 30%, #ec6a5e, #8f2a23); color: #fff; font: inherit; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; touch-action: none; box-shadow: 0 4px 0 #0b0712; }
 .hero-act.down { transform: translateY(3px); box-shadow: 0 1px 0 #0b0712; }
-@media (pointer: coarse), (max-width: 760px) { .leading .hero-pad { display: block; } .leading .minimap, .leading .goals, .leading .touch-bar, .leading .home-btn, .leading .center-btn { display: none !important; } }
-@media (max-width: 760px) { .lead-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 198px); right: 6px; padding: 6px 10px; } .hero-bar { top: 150px; left: 6px; width: 172px; } .hero-hearts img { width: 14px; height: 14px; } }
+@media (pointer: coarse), (max-width: 760px) and (min-height: 521px) { .leading .hero-pad { display: block; } .leading .minimap, .leading .goals, .leading .touch-bar, .leading .home-btn, .leading .center-btn { display: none !important; } }
+@media (max-width: 760px) and (min-height: 521px) { .lead-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 198px); right: 6px; padding: 6px 10px; } .hero-bar { top: 150px; left: 6px; width: 172px; } .hero-hearts img { width: 14px; height: 14px; } }
 .at-sea .lead-btn { display: none !important; }
 .home-card { display: flex; flex-direction: column; gap: 6px; padding: 8px; margin: 6px 0; border-radius: 10px; background: rgba(255, 215, 106, .07); border: 1px solid rgba(255, 215, 106, .25); }
 
@@ -1235,7 +1235,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .inv-cell.held { border-color: var(--gold); background: rgba(255, 207, 90, .18); }
 .inv-hint { font-size: 12px; }
 .leading .goals { bottom: 150px; }
-@media (max-width: 760px) {
+@media (max-width: 760px) and (min-height: 521px) {
   .hotbar-wrap { bottom: 84px; }
   .hot-slot, .hot-bag { width: 34px; height: 34px; }
   .hot-slot img, .hot-bag img { width: 22px; height: 22px; }
@@ -1262,9 +1262,9 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .leading .hero-block { bottom: calc(252px + env(safe-area-inset-bottom)); }
 .leading .hero-potion { bottom: calc(222px + env(safe-area-inset-bottom)); }
 .leading .hint { bottom: 140px; }
-@media (max-width: 760px) { .leading .lead-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 244px); } .leading .hint { bottom: 250px; } }
+@media (max-width: 760px) and (min-height: 521px) { .leading .lead-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 244px); } .leading .hint { bottom: 250px; } }
 /* phones: an open menu covers the play controls */
-@media (max-width: 760px) { :has(> .side) > .hotbar-wrap, :has(> .side) > .hero-pad { display: none !important; } }
+@media (max-width: 760px) and (min-height: 521px) { :has(> .side) > .hotbar-wrap, :has(> .side) > .hero-pad { display: none !important; } }
 .house-toolbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: 190px; display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: rgba(24, 18, 34, .95); }
 .house-tool-name { font-size: 13px; font-weight: 700; color: var(--gold); }
 @media (max-width: 700px) { .house-toolbar { bottom: auto; top: 186px; } }
@@ -1321,7 +1321,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .boss-bar.enraged .boss-title::after { content: ' · ENRAGED'; color: #ff8a5a; }
 @keyframes boss-rage { from { box-shadow: 0 10px 30px rgba(0, 0, 0, .6), 0 0 16px rgba(255, 40, 30, .3); } to { box-shadow: 0 10px 30px rgba(0, 0, 0, .6), 0 0 34px rgba(255, 60, 30, .75); } }
 .leading .dungeon-card { top: 96px; }
-@media (max-width: 760px) {
+@media (max-width: 760px) and (min-height: 521px) {
   .boss-bar { top: 62px; padding: 6px 8px 8px 6px; gap: 8px; }
   .boss-portrait { width: 40px; height: 40px; }
   .boss-portrait img { width: 32px; height: 32px; }
@@ -1358,11 +1358,11 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .in-dungeon .minimap, .in-dungeon .home-btn { display: none !important; }
 .dungeon-card { top: 136px; left: auto; right: 12px; transform: none; }
 .boss-bar { top: 58px; }
-@media (max-width: 760px) { .boss-bar { top: 100px; } .dungeon-card { top: 150px; } }
+@media (max-width: 760px) and (min-height: 521px) { .boss-bar { top: 100px; } .dungeon-card { top: 150px; } }
 
 /* ---------- phones: keep the play area clear ---------- */
 .panel-back { display: none; }
-@media (max-width: 760px) {
+@media (max-width: 760px) and (min-height: 521px) {
   .panel-x { display: none; }
   .panel-back { display: inline-flex; }
   .topbar { top: 6px; left: 6px; right: 6px; transform: none; max-width: none; }
@@ -1396,13 +1396,13 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .placing-mobile .hero-act, .placing-mobile .hero-dash, .placing-mobile .hero-block, .placing-mobile .hero-potion, .placing-mobile .hotbar-wrap { display: none !important; }
 .placing-mobile .touch-bar { bottom: calc(66px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: flex; gap: 8px; padding: 8px 10px; }
 .build-here { padding: 10px 18px; font-size: 15px; }
-@media (pointer: coarse), (max-width: 760px) { .leading.placing-mobile .touch-bar { display: flex !important; } }
+@media (pointer: coarse), (max-width: 760px) and (min-height: 521px) { .leading.placing-mobile .touch-bar { display: flex !important; } }
 
 /* one top row: the resources stretch, the bell and the day stay compact beside them */
 .topbar { flex-wrap: nowrap; align-items: stretch; }
 .topbar > .card:first-child { flex: 1 1 auto; min-width: 0; }
 .topbar > .bell, .topbar > .clock-card { flex: 0 0 auto !important; width: auto !important; display: flex !important; grid-template-columns: none !important; align-items: center; justify-content: center; }
-@media (max-width: 760px) {
+@media (max-width: 760px) and (min-height: 521px) {
   .topbar > .card:first-child { display: flex !important; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; }
   .topbar > .clock-card .clock { align-items: center !important; }
 }
@@ -1423,7 +1423,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 /* dungeon map */
 .dungeon-map { width: 128px; height: 128px; border-radius: 8px; border: 2px solid #4a3f5a; background: #07060a; image-rendering: pixelated; cursor: zoom-in; }
 .dungeon-map.big { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(80vmin, 520px); height: min(80vmin, 520px); z-index: 60; border-color: #c9b8ff; box-shadow: 0 20px 60px rgba(0, 0, 0, .8); cursor: zoom-out; }
-@media (max-width: 760px) { .dungeon-map { width: 96px; height: 96px; } }
+@media (max-width: 760px) and (min-height: 521px) { .dungeon-map { width: 96px; height: 96px; } }
 .hero-level { white-space: nowrap; }
 
 /* world menu: new world box and world types */
@@ -1685,7 +1685,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .leading .hero-ability { bottom: calc(222px + env(safe-area-inset-bottom)); }
 .hero-ability[hidden] { display: none !important; }
 /* banners sit below the tips on phones, so they never cover each other */
-@media (max-width: 760px), (hover: none) { .leading .announce { top: 40%; } }
+@media (max-width: 760px) and (min-height: 521px), (hover: none) { .leading .announce { top: 40%; } }
 
 /* low health: the edges pulse red */
 #ui.low-hp::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9; box-shadow: inset 0 0 90px 20px rgba(200,20,20,.55); animation: low-hp 1s ease-in-out infinite; }
@@ -1698,3 +1698,90 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 
 /* short screens: the title scrolls instead of cutting off the logo */
 .screen.login { overflow-y: auto; justify-content: safe center; padding-top: 16px; padding-bottom: 16px; }
+
+/* ================================================================ phones held sideways (landscape) */
+/* short and wide: the desktop layout, made compact, with the touch controls tucked into the bottom corners */
+@media (orientation: landscape) and (max-height: 520px) {
+  .topbar { top: max(4px, env(safe-area-inset-top)); left: calc(6px + env(safe-area-inset-left)); max-width: calc(100vw - 250px); }
+  .topbar .card { padding: 3px 6px; border-radius: 10px; }
+  .res { padding: 1px 3px; gap: 3px; }
+  .res img { width: 16px; height: 16px; }
+  .res .v { font-size: 12px; }
+  .res .cap { display: none; }
+  .statusbar { top: max(4px, env(safe-area-inset-top)); right: calc(6px + env(safe-area-inset-right)); }
+  .statusbar .card { padding: 3px 8px; border-radius: 10px; }
+  .clock .season { display: none; }
+  .dock { left: calc(6px + env(safe-area-inset-left)); top: 50%; padding: 5px; gap: 5px; }
+  .dock button { width: 42px; height: 42px; }
+  .dock button img { width: 26px; height: 26px; }
+  .dock .tip { display: none; }
+  .hero-bar, .leading .hero-bar { top: 44px !important; left: calc(58px + env(safe-area-inset-left)); width: 168px; }
+  .hero-vitals { padding: 4px 7px; gap: 2px; }
+  .hero-hearts img { width: 13px; height: 13px; }
+  .side { top: 44px !important; bottom: 6px; left: calc(58px + env(safe-area-inset-left)) !important; width: min(400px, calc(100vw - 80px)); }
+  .modal { max-height: calc(100vh - 16px); padding: 14px; gap: 10px; }
+  .wp, .realm, .table-modal { max-height: calc(100vh - 12px); }
+  .analyze { max-height: calc(100vh - 12px); grid-template-columns: minmax(150px, 220px) 1fr; }
+  .inv-grid, .bag-grid { max-height: 46vh; }
+  .inspector { top: 44px; max-height: calc(100vh - 56px); }
+  .minimap canvas { width: 88px; height: 88px; }
+  .boss-bar { top: 40px; }
+  .dungeon-card { top: 44px; right: 8px; }
+  .announce { top: 22%; }
+  .hint, .leading .hint { top: 44px; bottom: auto !important; font-size: 12px; padding: 5px 10px; max-width: 60vw; }
+
+  /* hotbar along the bottom edge, between the stick and the buttons */
+  .hotbar-wrap { bottom: calc(4px + env(safe-area-inset-bottom)); gap: 2px; max-width: calc(100vw - 330px); }
+  .hot-slot, .hot-bag { width: 34px; height: 34px; }
+  .hot-slot img, .hot-bag img { width: 22px; height: 22px; }
+  .hotbar { gap: 2px; padding: 3px; }
+  .hot-name { font-size: 11px; min-height: 13px; }
+  .inv-cell { width: 38px; height: 38px; }
+
+  /* stick bottom left, action buttons bottom right */
+  .hero-stick, .leading .hero-stick { left: calc(20px + env(safe-area-inset-left)); bottom: calc(14px + env(safe-area-inset-bottom)); width: 112px; height: 112px; }
+  .hero-knob { width: 46px; height: 46px; }
+  .hero-act, .leading .hero-act { right: calc(16px + env(safe-area-inset-right)); bottom: calc(14px + env(safe-area-inset-bottom)); width: 80px; height: 80px; }
+  .hero-dash, .leading .hero-dash { right: calc(104px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); width: 54px; height: 54px; }
+  .hero-block, .leading .hero-block { right: calc(28px + env(safe-area-inset-right)); bottom: calc(104px + env(safe-area-inset-bottom)); width: 54px; height: 54px; }
+  .hero-potion, .leading .hero-potion { right: calc(96px + env(safe-area-inset-right)); bottom: calc(76px + env(safe-area-inset-bottom)); width: 44px; height: 44px; }
+  .placing-mobile .touch-bar { bottom: calc(8px + env(safe-area-inset-bottom)); }
+}
+
+/* the day and time are hidden (the world still has day and night) */
+.topbar > .card.clock-card { display: none !important; }
+/* notifications: small and out of the way */
+.save-banner { top: 52px; gap: 5px; padding: 3px 5px 3px 8px; border-radius: 8px; font-size: 11px; max-width: min(420px, 90vw); }
+.save-banner .px-icon { width: 13px; height: 13px; }
+.save-banner .btn { padding: 2px 8px; font-size: 11px; min-height: 0; border-radius: 6px; }
+.toast { padding: 3px 7px; font-size: 11px; border-radius: 6px; }
+/* Character and Back sit together, no gap */
+.lead-btn, .home-btn { padding: 5px 10px; font-size: 13px; border-radius: 10px; }
+.home-btn { bottom: 226px; }
+.lead-btn { bottom: 264px; }
+@media (max-width: 760px) and (min-height: 521px) { .lead-btn, .leading .lead-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 156px); } }
+@media (orientation: landscape) and (max-height: 520px) { .save-banner { top: 40px; } .hero-bar, .leading .hero-bar { top: 40px !important; } }
+@media (orientation: landscape) and (max-height: 520px) {
+  .footer-note { display: none; }
+  .screen.login .logo h1 { font-size: 40px; }
+}
+@media (max-width: 760px) and (min-height: 521px) { .save-banner { top: 100px; } }
+
+/* layout editor: move the controls */
+.layout-edit { position: fixed; inset: 0; z-index: 600; background: rgba(6, 4, 12, .35); touch-action: none; }
+.layout-box { position: fixed; box-sizing: border-box; border: 2px dashed rgba(255, 215, 106, .8); border-radius: 10px; background: rgba(255, 215, 106, .12); display: flex; align-items: flex-start; justify-content: center; cursor: grab; touch-action: none; min-width: 24px; min-height: 24px; }
+.layout-box.on { border-style: solid; border-color: #7ee06a; background: rgba(126, 224, 106, .18); }
+.layout-box span { margin-top: -9px; padding: 0 5px; border-radius: 5px; background: #1b1426; color: var(--gold); font-size: 10px; font-weight: 700; white-space: nowrap; pointer-events: none; }
+.layout-bar { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(300px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: #1b1426; border: 1px solid var(--gold); box-shadow: 0 10px 30px rgba(0,0,0,.5); z-index: 2; }
+.layout-title { font-weight: 700; color: var(--gold); }
+.layout-tip { font-size: 11px; }
+.layout-size { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.layout-size input { flex: 1; }
+.layout-bar .row { gap: 6px; flex-wrap: wrap; }
+@media (orientation: landscape) and (max-height: 520px) {
+  .hero-ability { right: calc(152px + env(safe-area-inset-right)); bottom: calc(72px + env(safe-area-inset-bottom)); width: 44px; height: 44px; }
+}
+.layout-bar.up { top: 10px; transform: translateX(-50%); }
+.layout-title { cursor: pointer; }
+.layout-title .faint { font-size: 10px; font-weight: 400; }
+.layout-boxes { position: relative; z-index: 1; }

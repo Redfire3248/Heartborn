@@ -1,4 +1,5 @@
 import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo } from './dom.js';
+import { openLayoutEditor, watchLayout } from './layoutEdit.js';
 import { quickCraft, setQuickCraft } from '../core/prefs.js';
 import { TRAITS as FORGE_TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
 import { openTableMenu, openMaterialsBag } from './tableMenu.js';
@@ -249,6 +250,7 @@ export class HUD {
     this.els.hotName = h('div.hot-name');
     this.els.invPanel = h('div.card.inv-panel', { hidden: true });
     this.root.append(this.els.heroBar, this.els.heroPad, h('div.hotbar-wrap', this.els.invPanel, this.els.hotName, this.els.hotbar));
+    watchLayout();
     // sailing: status, Fire, Return to port, and a steering pad for touch screens
     this.sailInput = { throttle: 0, turn: 0, fire: false, wheel: 0 };
     this.els.sailBar = h('div.sail-bar', { hidden: true });
@@ -264,7 +266,7 @@ export class HUD {
 
     // goals tracker
     // phones start with the goals folded away (the header still shows how many are ready)
-    let collapsed = matchMedia('(max-width: 760px)').matches;
+    let collapsed = matchMedia('(max-width: 760px), (max-height: 520px)').matches;
     try { const saved = localStorage.getItem('hb-goals-collapsed'); if (saved != null) collapsed = saved === '1'; } catch {}
     this.els.goalsHead = h('button.goals-head', { onclick: () => this.toggleGoals() });
     this.els.goalsList = h('div.goals-list');
@@ -502,7 +504,7 @@ export class HUD {
       els.heroSt = h('div');
       els.heroXp = h('div');
       // split into small cards down the left side: you (health, stamina, level) and your quests
-      const questsOpen = this._questsOpen ?? !matchMedia('(max-width: 760px)').matches;
+      const questsOpen = this._questsOpen ?? !matchMedia('(max-width: 760px), (max-height: 520px)').matches;
       bar.replaceChildren(
         h('div.card.hero-vitals', { title: 'Open your character (G)', onclick: () => this.characterSheet() },
           h('div.hero-top',
@@ -2356,6 +2358,7 @@ export class HUD {
         item('🌍', 'Switch world', () => this.onSwitchWorld?.()),
         this.tutorial ? item('🎓', 'Restart tutorial', () => { this.tutorial.restart(); this.closePanel(); }) : null,
         install,
+        item('✥', 'Move controls (layout)', () => { this.closePanel(); setTimeout(() => openLayoutEditor(), 250); }),
         item('🚪', 'Sign out', this.onSignOut)),
       h('h3', 'Gameplay'),
       h('label.set-toggle', h('input', { type: 'checkbox', checked: quickCraft(), onchange: e => setQuickCraft(e.target.checked) }), h('span', 'Quick craft: skip the minigames for tools and potions')),
