@@ -1894,3 +1894,32 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 @keyframes rare-in { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.3) rotate(-8deg); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 @keyframes rare-out { to { opacity: 0; transform: translate(-50%, -80%) scale(.85); } }
 @keyframes rare-pulse { 50% { transform: scale(1.15); opacity: .7; } }
+
+/* reveal cards (rare drops, crafting and forging results) sit up top with the notifications, never over the player */
+.rare-loot, .craft-reveal { top: calc(env(safe-area-inset-top) + 96px) !important; transform: translateX(-50%) !important; flex-direction: row !important; flex-wrap: wrap; justify-content: center; gap: 4px 10px !important; padding: 8px 18px !important; max-width: min(460px, calc(100vw - 24px)); border-radius: 14px; background: linear-gradient(90deg, transparent, rgba(20, 12, 30, .88) 15%, rgba(20, 12, 30, .88) 85%, transparent); }
+.rare-loot .rare-sub { width: 100%; text-align: center; }
+.rare-loot .rare-icon img, .craft-reveal .craft-reveal-icon img { width: 44px !important; height: 44px !important; }
+.rare-loot .rare-name, .craft-reveal b { font-size: 16px !important; }
+.rare-rays, .craft-reveal-rays { inset: -40% 10% !important; }
+.rare-loot { animation: rare-in-top .4s cubic-bezier(.2, 1.5, .4, 1) !important; }
+.rare-loot.out { animation: rare-out-top .4s ease-in forwards !important; }
+@keyframes rare-in-top { from { opacity: 0; transform: translate(-50%, -20px) scale(.6) !important; } to { opacity: 1; transform: translateX(-50%); } }
+@keyframes rare-out-top { to { opacity: 0; transform: translate(-50%, -24px); } }
+.hint, .leading .hint { top: calc(env(safe-area-inset-top) + 172px) !important; }
+@media (max-width: 760px) and (min-height: 521px) {
+  .rare-loot, .craft-reveal { top: calc(env(safe-area-inset-top) + 150px) !important; }
+  .hint, .leading .hint { top: calc(env(safe-area-inset-top) + 226px) !important; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .rare-loot, .craft-reveal { top: 40px !important; }
+  .hint, .leading .hint { top: 110px !important; }
+}
+/* spacing: reveal card, then tips below it, all well above the player */
+.hint, .leading .hint { top: calc(env(safe-area-inset-top) + 190px) !important; }
+@media (max-width: 760px) and (min-height: 521px) {
+  .announce, .leading .announce, .rare-loot, .craft-reveal { top: calc(env(safe-area-inset-top) + 118px) !important; }
+  .hint, .leading .hint { top: calc(env(safe-area-inset-top) + 212px) !important; }
+}
+@media (orientation: landscape) and (max-height: 520px) { .hint, .leading .hint { top: 110px !important; } }
+/* reveal cards: no dark box behind, just the glow and rays */
+.rare-loot, .craft-reveal { background: none !important; box-shadow: none !important; border: 0 !important; }
