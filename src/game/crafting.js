@@ -134,9 +134,11 @@ export const QUALITIES = [
   { id: 'superior', name: 'Superior', mult: 1.25, weight: 8, color: '#5aa9ff' },
   { id: 'masterwork', name: 'Masterwork', mult: 1.4, weight: 2, color: '#ffb347' },
 ];
-export function rollQuality(g) {
+export function rollQuality(g, score = 0.5) {
   const luck = luckOf(g);
-  const w = QUALITIES.map((q, i) => q.weight * (i === 0 ? 1 - luck : i >= 2 ? 1 + luck * 3 : 1));
+  // how well you forged (0..1) matters most: a flawless job makes Superior and Masterwork likely, a botch risks Crude
+  const skill = [2.2 * (1 - score) ** 2 * 2, 1.4 - score, 0.4 + score * 1.4, score ** 2 * 4, score ** 4 * 14];
+  const w = QUALITIES.map((q, i) => q.weight * skill[i] * (i === 0 ? 1 - luck : i >= 2 ? 1 + luck * 3 : 1));
   let x = Math.random() * w.reduce((a, b) => a + b, 0);
   for (let i = 0; i < w.length; i++) { x -= w[i]; if (x < 0) return QUALITIES[i]; }
   return QUALITIES[1];
@@ -153,10 +155,13 @@ export const missingToDiscover = (g, recipe) => { const seen = learnResources(g)
 export const discovered = (g, recipe) => missingToDiscover(g, recipe).length === 0;
 
 /** How long crafting it takes at the bench (seconds): better things take longer. */
+/** Which minigames a recipe takes: weapons and armour all three, tools the hammer, potions the heat. */
+export const forgeStages = recipe => (recipe.makes.gear ? ['heat', 'hammer', 'quench'] : recipe.makes.tool ? ['hammer'] : ['heat']);
+
 export const craftTime = recipe => Math.min(3, 0.7 + (recipe.power || 0) * 0.13 + (recipe.rarity || 0) * 0.45);
 
 /** Make it: pay the cost and hand it over. */
-export function craft(g, id, hero = null) {
+export function craft(g, id, hero = null, { score = 0.5 } = {}) {
   const recipe = RECIPES.find(r => r.id === id);
   if (!recipe) return { ok: false, why: 'Unknown recipe' };
   if (needsTable(recipe) && !atTable(g, hero)) return { ok: false, why: 'You need to be at a Crafting Table' };
@@ -166,10 +171,10 @@ export function craft(g, id, hero = null) {
   const m = recipe.makes;
   let made = recipe.name, quality = null, extra = 0, item = null;
   if (m.tool) {
-    extra = lucky(g, 0.1) ? 1 : 0;   // a lucky craft: two for the price of one
+    extra = lucky(g, 0.04 + score * 0.14) ? 1 : 0;   // a lucky craft: two for the price of one (a good forging helps)
     giveTool(g, m.tool, 1 + extra);
   } else if (m.gear) {
-    quality = rollQuality(g);
+    quality = rollQuality(g, score);
     const it = makeGear(g, m.gear, quality.id === 'masterwork' ? Math.min(4, m.rarity + 1) : m.rarity);
     if (quality.id !== 'standard') {
       it.quality = quality.id;
@@ -190,5 +195,5 @@ export function craft(g, id, hero = null) {
   r.crafted = (r.crafted || 0) + 1;
   if (hero) g.float(hero.x, hero.y - TILE * 1.5, `Crafted ${made}`, '#9fe0ff');
   g.emit('change');
-  return { ok: true, made, quality, extra, item, recipe };
+  return { ok: true, made, quality, extra, item, recipe, score };
 }

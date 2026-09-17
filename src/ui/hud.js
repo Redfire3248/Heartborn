@@ -1,4 +1,5 @@
 import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo } from './dom.js';
+import { forgeMinigame } from './forge.js';
 import { heroBiome, THEMES } from '../game/worldTypes.js';
 import { AVATARS, avatarId, avatarArt, setLook } from '../game/avatars.js';
 import { iconUrl, spriteAvailable } from '../core/assets.js';
@@ -28,7 +29,7 @@ import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, a
 import { makeVisitGame } from '../game/visit.js';
 import { makeDungeonGame, leaveSurface, returnFromDungeon, bossOf } from '../game/dungeon.js';
 import { HouseEditor } from './houseEditor.js';
-import { RECIPES, CRAFT_CATS, canCraft, craft, needsTable, atTable, ownsTool, missingToDiscover, craftTime } from '../game/crafting.js';
+import { RECIPES, CRAFT_CATS, canCraft, craft, needsTable, atTable, ownsTool, missingToDiscover, craftTime, forgeStages } from '../game/crafting.js';
 import { CONSUMABLES, itemsOf, buffActive } from '../game/consumables.js';
 import { on, buildingOn, eraFree } from '../core/features.js';
 import { ACTIONS, CONTROL_GROUPS, is, held, keyOf, keyLabel, setBind, resetBinds, RESERVED } from '../core/controls.js';
@@ -1490,6 +1491,26 @@ export class HUD {
   startCraft(r, card, refresh) {
     if (this._crafting) return;
     const g = this.game, hero = heroOf(this.dungeon || g) || heroOf(g);
+    // check before the minigames, so you never play them for nothing
+    if (!canCraft(g, r, hero)) { const res = craft(g, '__check__', hero); this.hint(needsTable(r) && !atTable(g, hero) ? 'You need to be at a Crafting Table' : res.why || 'Not enough resources', 1800); return; }
+    this._crafting = true;
+    const tier = Math.max(r.rarity || 0, Math.floor((r.power || 0) / 3));
+    forgeMinigame({ root: this.root, title: r.name, iconKey: hasArt(r.icon) ? r.icon : r.fallbackIcon || r.icon, stages: forgeStages(r), tier }).then(score => {
+      this._crafting = false;
+      if (score == null) { refresh(); return; }
+      const res = craft(g, r.id, hero, { score });
+      if (!res.ok) { this.hint(res.why, 1800); refresh(); return; }
+      if (hero) g.puff({ x: hero.x, y: hero.y - 14 }, 'effects/spark', 10, 16);
+      this._hotbarKey = null;
+      this.craftReveal(res);
+      refresh();
+    });
+  }
+
+  /** (the old timed bar, kept for reference) */
+  startCraftTimed(r, card, refresh) {
+    if (this._crafting) return;
+    const g = this.game, hero = heroOf(this.dungeon || g) || heroOf(g);
     const secs = craftTime(r);
     const bar = h('div.craft-progress', h('i'));
     card?.append(bar);
@@ -1529,6 +1550,7 @@ export class HUD {
       h('div.craft-reveal-icon', icon(ic, 72)),
       h('b', { style: { color } }, res.made),
       q ? h('span.craft-quality', { style: { color: q.color, borderColor: q.color } }, q.id === 'masterwork' ? 'MASTERWORK!' : q.name) : null,
+      res.score != null ? h('span.faint', `Forging ${Math.round(res.score * 100)}%`) : null,
       it?.dmg ? h('span.faint', `${it.dmg} damage`) : it?.armor ? h('span.faint', `${Math.round(it.armor * 100)}% armour`) : null,
       res.extra ? h('span.craft-lucky', `Lucky craft! You made ${res.extra + 1}`) : null);
     this.root.append(el);
