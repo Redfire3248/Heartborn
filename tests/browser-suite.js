@@ -100,6 +100,68 @@ export async function run() {
     ok(deleted === null, 'nothing deleted by accident');
   });
 
+  await step('ores need the right pickaxe, bosses fight back, beds, builders', async () => {
+    const H = await import('/src/game/hero.js');
+    const Tl = await import('/src/game/tools.js');
+    const Ho = await import('/src/game/houses.js');
+    const { maxHp } = await import('/src/game/creatures.js');
+    // ore tiers
+    ok(Tl.canMine('pickaxe_wood', 1) && !Tl.canMine('pickaxe_wood', 2) && Tl.canMine('pickaxe_iron', 5) && !Tl.canMine('pickaxe_iron', 6) && !Tl.canMine(null, 1) && Tl.canMine(null, 0), 'pickaxes mine ores up to their strength');
+    ok(Tl.pickaxeFor(5) === 'Iron Pickaxe', 'a too-hard ore names the pickaxe it needs');
+
+    // a boss against a hero who only spams attack: it fights back
+    const g = new Game(newState({ uid: 'bt', name: 'T', villageName: 'V' }));
+    g.state.creatures = [];
+    const me = g.state.villagers.find(v => v.ruling) || g.state.villagers[0];
+    H.startLead(g, me);
+    for (const o of g.state.villagers) if (o !== me) o.x = me.x + 5000;
+    const boss = g.spawnCreature('stone_golem', me.x + TILE * 2, me.y);
+    boss._eliteRolled = true;
+    let hurt = 0, last = me.hp, t = 0, sawMove = false;
+    const x0 = boss.x;
+    while (t < 20 && g.state.creatures.includes(boss)) {
+      g.hero.facing = Math.atan2(boss.y - me.y, boss.x - me.x);
+      const dx = boss.x - me.x, dy = boss.y - me.y, dd = Math.hypot(dx, dy) || 1;
+      H.updateHero(g, 1 / 30, { act: true, mx: dd > TILE ? dx / dd : 0, my: dd > TILE ? dy / dd : 0 });
+      g.step(1 / 30);
+      if (me.hp < last - 0.5) hurt++;
+      if (Math.abs(boss.x - x0) > TILE) sawMove = true;
+      last = me.hp; t += 1 / 30;
+    }
+    ok(hurt >= 3, 'spamming attack does not stop a boss from hitting back', `hit ${hurt} times in ${t.toFixed(0)}s`);
+    ok(!g.state.creatures.includes(boss) ? t > 12 : boss.hp > 0, 'a boss is not beaten in a few seconds of spam', `${t.toFixed(1)}s, boss at ${g.state.creatures.includes(boss) ? Math.round(100 * boss.hp / maxHp(boss)) : 0}%`);
+    ok(sawMove && boss._ai, 'bosses move and fight with their own fighter brain');
+
+    // the boss bar is for real bosses only
+    const app = window.__hb.app, hud = app?.hud;
+    if (hud && app.game.hero) {
+      hud.closePanel?.();
+      const hv = app.game.state.villagers.find(v => v.id === app.game.hero.id);
+      app.game.state.creatures = [];
+      const boar = app.game.spawnCreature('boar', hv.x + TILE * 2, hv.y); boar.bounty = { name: 'the Tusked One', gold: 19 };
+      hud.updateBossBar(app.game, 1 / 30);
+      ok(!document.querySelector('.boss-bar:not(.leaving)'), 'bounty beasts do not get the big boss bar');
+      app.game.state.creatures = [];
+      hud.updateBossBar(app.game, 1 / 30);
+    }
+
+    // beds and builders
+    const gh = freshGame({ era: 3, people: 1 });
+    const house = build(gh, 'house');
+    ok(Ho.builderOf(gh, house) === gh.state.owner.name, 'a house remembers who built it');
+    Ho.placeFurniture(gh, house, 0, 'bed', 2, 2);
+    const { HouseEditor } = await import('/src/ui/houseEditor.js');
+    const hero = gh.state.villagers[0];
+    const ed = new HouseEditor({ game: gh, building: house, hero, onClose: () => {} });
+    ok(ed.mode === 'use' && ed.el.textContent.includes('Built by'), 'the house view opens in Use mode and shows the builder');
+    gh.state.time = Math.floor(gh.state.time / 90) * 90 + 90 * 22 / 24;   // 22:00
+    const day = gh.day;
+    ed.use(Ho.interiorOf(house).floors[0].items.find(i => i.type === 'bed'));
+    await sleep(900);
+    ok(gh.day === day + 1 && Math.round(gh.hour) === 6, 'sleeping in a bed at night skips to the morning', `day ${gh.day}, ${gh.hour.toFixed(1)}h`);
+    ed.close();
+  });
+
   await step('avatars and house styles have art, and you can pick your look', async () => {
     const views = ['front', 'back', 'side'];
     ok(AVATARS.every(av => views.every(vw => spriteAvailable(avatarArt(av.id, vw)))), 'all 8 avatars have front, back and side art');
@@ -636,10 +698,11 @@ export async function run() {
     const wood = g.state.resources.wood;
     const bed = Ho.placeFurniture(g, house, 0, 'bed', 1, 1);
     ok(bed.ok && g.state.resources.wood === wood - Ho.FURNITURE.bed.cost.wood, 'placing furniture uses resources');
-    ok(!Ho.placeFurniture(g, house, 0, 'chair', 1, 2).ok, 'two pieces cannot share a spot');
+    ok(!Ho.placeFurniture(g, house, 0, 'chair', 1, 1).ok, 'two pieces cannot share a spot');
     ok(Ho.placeFurniture(g, house, 0, 'rug', 3, 3).ok && Ho.placeFurniture(g, house, 0, 'table', 3, 3).ok, 'furniture stands on rugs');
     ok(!Ho.placeFurniture(g, house, 0, 'chair', shape.w, 0).ok, 'nothing goes outside the walls');
-    ok(Ho.itemAt(g && house, 0, 1, 2)?.type === 'bed', 'the piece on a tile is found (for hover names)');
+    ok(Ho.itemAt(g && house, 0, 1, 1)?.type === 'bed', 'the piece on a tile is found (for hover names)');
+    ok(Object.values(Ho.FURNITURE).every(f => f.w === 1 && f.d === 1), 'every piece of furniture takes exactly one tile');
     // storage raises the caps and holds things
     g.recalc = Game.prototype.recalc.bind(g);
     g.recalc();
@@ -657,7 +720,7 @@ export async function run() {
     const landing = Ho.interiorOf(house).floors[1].items.find(o => o.stairOf === stairs?.id);
     ok(stairs && landing && landing.x === 6 && landing.y === 4, 'stairs make a landing on the floor above');
     ok(!Ho.placeFurniture(g, house, 1, 'stairs', 0, 0).ok, 'no stairs on the top floor');
-    ok(!Ho.placeFurniture(g, house, 1, 'chair', 6, 5).ok, 'the landing takes up room upstairs');
+    ok(!Ho.placeFurniture(g, house, 1, 'chair', 6, 4).ok, 'the landing takes up room upstairs');
     ok(Ho.moveFurniture(g, house, 0, stairs, 0, 4).ok && landing.x === 0, 'moving the stairs moves the landing');
     const w2 = g.state.resources.wood;
     ok(Ho.removeFurniture(g, house, 0, stairs, me).ok && !Ho.interiorOf(house).floors[1].items.length && g.state.resources.wood === w2 + 30, 'picking up the stairs removes the landing and refunds');

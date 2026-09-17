@@ -6,6 +6,7 @@ import { has } from './dynasty.js';
 import { payBounty, damageHero, knockOutHero } from './hero.js';
 import { onHeroKill } from './rpg.js';
 import { toughness } from './body.js';
+import { fightBoss, bossTakesHit } from './bossAI.js';
 
 const BIG_KILLS = {
   bandit:        { gold: [3, 8], text: 'A bandit was defeated!' },
@@ -52,7 +53,7 @@ export function updateCreature(g, c, dt) {
     }
   }
   if (c._chill && s0(g).time >= c._chill.until) c._chill = null;
-  if (c._stunned > 0) { c._stunned -= dt; c._windup = 0; return; }
+  if (c._stunned > 0) { c._stunned -= dt; c._windup = 0; c._hop = 0; if (c._ai) c._ai.act = null; return; }
 
   const s = g.state;
 
@@ -61,6 +62,9 @@ export function updateCreature(g, c, dt) {
   if (def.night && !g.isNight && Math.random() < dt * 0.2) { g.puff(c, 'effects/ghost_wisp', 3); remove(g, c); return; }
 
   if (def.water) { wander(g, c, dt, def, true); return; }
+
+  // bosses fight like a player (see bossAI.js)
+  if (def.boss && !c.fleeing && fightBoss(g, c, def, dt)) return;
 
   if (c.fleeing) {
     const cen = g.center;
@@ -196,7 +200,7 @@ export function updateCreature(g, c, dt) {
  * Goblins keep their distance and throw rocks. Both warn you first (the red !), so you can dodge or guard.
  * Returns true while the special move is running.
  */
-function special(g, c, def, target, dt) {
+export function special(g, c, def, target, dt) {
   const d = Math.hypot(target.x - c.x, target.y - c.y);
   c._specialCd = (c._specialCd ?? 2 + Math.random() * 2) - dt;
   // a charge in progress: rush straight on, hurting the first person in the way
@@ -307,7 +311,7 @@ function fireShots(g, c, def, r, target) {
 }
 
 /** A blow from a beast to a villager (the person you play can dodge, block or parry it). */
-function strikeVillager(g, c, target, dmg) {
+export function strikeVillager(g, c, target, dmg) {
   dmg = dmg / (1 + g.defense / 50) * toughness(target);
   if (g.hero?.id === target.id) dmg = damageHero(g, target, dmg, c);
   if (!dmg) return;
@@ -369,6 +373,9 @@ export function damageCreature(g, c, dmg, by) {
   // armoured beasts shrug off most blows from people; a real weapon cuts through better
   const heroArmed = by && g.hero?.id === by.id && g.state.rpg?.gear?.weapon;
   if (def.armor && by) dmg *= by.armed || heroArmed || by.inv?.pack?.sword || by.inv?.pack?.spear ? 1 - def.armor * 0.6 : 1 - def.armor;
+  if (def.boss) dmg = bossTakesHit(g, c, dmg, by);   // rolls, guards
+  c._lastDmg = dmg;
+  if (!dmg) return;
   c.hp -= dmg;
   c._hurtFlash = 0.25;
   if (c.t === 'boar' && c.hp > 0) { c.angry = 25; c._specialCd = Math.min(c._specialCd ?? 1, 1.2); }
@@ -430,7 +437,7 @@ function nearestVillager(g, c, range) {
 
 const s0 = g => g.state;
 
-function step(g, c, tx, ty, dist, def) {
+export function step(g, c, tx, ty, dist, def) {
   if (c._chill) dist *= c._chill.k;   // chilled: half speed
   const dx = tx - c.x, dy = ty - c.y, d = Math.hypot(dx, dy);
   if (d < 1) return;

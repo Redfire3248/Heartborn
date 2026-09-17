@@ -1,4 +1,5 @@
 import { h, icon, costChips, modal } from './dom.js';
+import { DAY_LENGTH } from '../core/constants.js';
 import { spriteAvailable, sprite } from '../core/assets.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { ITEMS } from '../data/people.js';
@@ -7,7 +8,7 @@ import { gearIconKey } from '../render/gearArt.js';
 import {
   FURNITURE, LANDING, FURNITURE_CATS, DESIGNS, houseShape, interiorOf, itemAt, canPlace, placeFurniture, removeFurniture,
   moveFurniture, storeItem, takeItem, storeGear, takeGear, slotsLeft, itemLabel,
-  FLOORINGS, WALLPAPERS, setFloorTile, floorTileAt, setWallpaper,
+  FLOORINGS, WALLPAPERS, setFloorTile, floorTileAt, setWallpaper, builderOf,
 } from '../game/houses.js';
 
 /*
@@ -18,6 +19,7 @@ import {
 
 const TW = 64, TH = 32;   // one floor tile on screen (before zoom)
 const WALL_H = 96;
+const BEDS = new Set(['bed', 'double_bed', 'bunk_bed']);
 
 /*
  * Tile art is drawn at its own isometric angle (with a thick edge), which never lines up exactly with the room.
@@ -142,7 +144,7 @@ export class HouseEditor {
     this.el = h('div.house-view',
       this.canvas,
       h('div.card.house-top',
-        h('div.house-title', def?.name || 'Home'), this.label, this.modeBtns, this.designRow,
+        h('div.house-title', def?.name || 'Home'), this.label, h('div.house-builder', `Built by ${builderOf(this.game, this.b)}`), this.modeBtns, this.designRow,
         h('button.btn.sm.primary', { onclick: () => this.close() }, uiIcon('ui/home'), 'Leave house')),
       this.panel, this.toolBar, this.editBtn,
       h('div.card.house-bottom', h('div.house-tabrow', this.search, this.tabs), this.palette));
@@ -355,12 +357,34 @@ export class HouseEditor {
     this.use(it);
   }
 
-  /** Use mode: stairs go up, the landing goes down, storage opens. */
+  /** Use mode: stairs go up, the landing goes down, storage opens, a bed sleeps through the night. */
   use(it) {
-    if (it.type === 'stairs') this.goFloor(this.floor + 1);
+    if (BEDS.has(it.type)) this.sleep();
+    else if (it.type === 'stairs') this.goFloor(this.floor + 1);
     else if (it.type === 'landing') this.goFloor(this.floor - 1);
     else if (it.store) this.openStorage(it);
     else this.select(it);   // anything else: Move / Rotate / Pick up
+  }
+
+  /** Sleep until morning: only in the evening or at night. You wake up fully healed. */
+  sleep() {
+    const g = this.game;
+    const hour = g.hour;
+    if (hour >= 5 && hour < 18) { this.hint?.('You can only sleep in the evening or at night (after 18:00)', 2200); return; }
+    if (this.sleeping) return;
+    this.sleeping = true;
+    const fade = h('div.house-sleep', h('div', 'Zzz...'));
+    this.el.append(fade);
+    setTimeout(() => {
+      const s = g.state;
+      const day = Math.floor(s.time / DAY_LENGTH) + (hour >= 18 ? 1 : 0);
+      s.time = day * DAY_LENGTH + DAY_LENGTH * 6 / 24;   // 06:00
+      const v = s.villagers.find(x => x.id === g.hero?.id);
+      if (v) { v.hp = g.hero.maxHp || v.hp; g.hero.stamina = g.hero.maxStamina || g.hero.stamina; }
+      g.emit?.('change');
+      this.hint?.('You slept until morning and feel rested', 2200);
+    }, 700);
+    setTimeout(() => { fade.remove(); this.sleeping = false; }, 1600);
   }
 
   /** Take a piece away (full refund; what it held goes back to you). */
@@ -568,9 +592,27 @@ export class HouseEditor {
       const width = s.box.w * k, hgt = s.box.h * k;
       const base = iso(box.x + box.w, box.y + box.d);
       const cxp = (iso(box.x + box.w, box.y).x + iso(box.x, box.y + box.d).x) / 2;
-      ctx.translate(cxp, base.y);
+      // hovered: the piece lifts a little and gets a white outline
+      const hovered = !it.ghost && (it === this.hoverItem || it === this.selected);
+      it._lift = (it._lift || 0) + ((hovered ? 7 : 0) - (it._lift || 0)) * 0.25;
+      const lift = it._lift;
+      if (lift > 0.3 && !def.flat) {   // its shadow stays on the floor
+        ctx.fillStyle = `rgba(0,0,0,${0.25 * lift / 7})`;
+        ctx.beginPath(); ctx.ellipse(cxp, base.y - TH * 0.35, width * 0.35, TH * 0.28, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.translate(cxp, base.y - lift);
       if (it.rot) ctx.scale(-1, 1);
+      if (lift > 0.3) {
+        const white = silhouette(s.img);
+        ctx.globalAlpha = alpha * Math.min(1, lift / 5);
+        for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2], [-1.5, -1.5], [1.5, -1.5], [-1.5, 1.5], [1.5, 1.5]]) ctx.drawImage(white, s.box.x, s.box.y, s.box.w, s.box.h, -width / 2 + ox, -hgt + TH * 0.12 + oy, width, hgt);
+        ctx.globalAlpha = alpha;
+      }
       ctx.drawImage(s.img, s.box.x, s.box.y, s.box.w, s.box.h, -width / 2, -hgt + TH * 0.12, width, hgt);
+      if (lift > 0.3) {   // and brightens a touch
+        ctx.globalAlpha = alpha * 0.18 * lift / 7;
+        ctx.drawImage(silhouette(s.img), s.box.x, s.box.y, s.box.w, s.box.h, -width / 2, -hgt + TH * 0.12, width, hgt);
+      }
       ctx.restore();
       return;
     }
@@ -688,22 +730,37 @@ export class HouseEditor {
     const box = boxOf(it);
     const a = iso(box.x, box.y + box.d), b = iso(box.x + box.w, box.y + box.d), c = iso(box.x + box.w, box.y);
     ctx.save();
-    const hot = this.mode === 'remove' ? '#ff6a5a' : '#ffd76a';
+    const hot = this.mode === 'remove' ? '#ff6a5a' : this.mode === 'use' ? '#ffffff' : '#ffd76a';
     ctx.strokeStyle = hot; ctx.lineWidth = 3; ctx.lineCap = 'round';
     ctx.shadowColor = this.mode === 'remove' ? 'rgba(255,80,60,0.8)' : 'rgba(255,200,80,0.8)'; ctx.shadowBlur = 8;
     ctx.beginPath(); ctx.moveTo(a.x, a.y + 3); ctx.lineTo(b.x, b.y + 3); ctx.lineTo(c.x, c.y + 3); ctx.stroke();
     ctx.shadowBlur = 0;
     const top = iso(box.x + box.w / 2, box.y + box.d / 2);
-    const hint = this.mode === 'remove' ? ' (click to remove)' : this.mode === 'use' ? (it.type === 'stairs' ? ' (go up)' : it.type === 'landing' ? ' (go down)' : it.store ? ' (open)' : '') : '';
+    const hint = this.mode === 'remove' ? ' (click to remove)' : this.mode === 'use' ? (BEDS.has(it.type) ? ' (sleep)' : it.type === 'stairs' ? ' (go up)' : it.type === 'landing' ? ' (go down)' : it.store ? ' (open)' : '') : '';
     const text = def.name + hint;
     ctx.font = 'bold 13px system-ui, sans-serif'; ctx.textAlign = 'center';
     const tw = ctx.measureText(text).width;
-    const ty = top.y - box.h - 22;
+    const ty = top.y - box.h - 22 - (it._lift || 0);
     ctx.fillStyle = 'rgba(20,14,28,0.85)'; ctx.fillRect(top.x - tw / 2 - 6, ty - 13, tw + 12, 19);
     ctx.fillStyle = hot; ctx.fillText(text, top.x, ty + 1);
     ctx.fillRect(top.x - tw / 2, ty + 4, tw, 1.5);   // the name is underlined too
     ctx.restore();
   }
+}
+
+/** A white copy of a sprite, for the hover outline. */
+const whiteCache = new WeakMap();
+function silhouette(img) {
+  let c = whiteCache.get(img);
+  if (c) return c;
+  c = document.createElement('canvas');
+  c.width = img.width; c.height = img.height;
+  const x = c.getContext('2d');
+  x.drawImage(img, 0, 0);
+  x.globalCompositeOperation = 'source-in';
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height);
+  whiteCache.set(img, c);
+  return c;
 }
 
 function boxOf(it) {

@@ -1,3 +1,4 @@
+import { TOOLS as ALL_TOOLS } from '../game/tools.js';
 import { h, icon, RES_ICON } from './dom.js';
 import { buildingSprite } from '../data/buildings.js';
 import { villagerSprite } from '../data/objects.js';
@@ -106,6 +107,12 @@ const HISTORY_KEY = 'hb_admin_history';
 
 // What each argument position expects, for autocomplete + hints.
 // Arrays are fixed choices; '...' repeats the pair before it (give res n res n …).
+// the strongest, most useful things are listed first everywhere in the console
+const TOP_COMMANDS = ['god', 'gear', 'items', 'tool', 'rich', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
+const commandRank = k => { const i = TOP_COMMANDS.indexOf(k); return i < 0 ? 999 : i; };
+const gearRank = d => (d.admin ? 1e6 : 0) + (d.minRarity || 0) * 1e4 + (d.damage || d.armor * 100 || d.block * 100 || 0);
+const creatureRank = d => (d.boss ? 1e6 : d.hostile ? 1e4 : 0) + (d.hp || 0);
+
 const ARG_SPECS = {
   help: ['command'], god: [['on', 'off']], level: ['number', 'number'], potions: ['number'], speed: [['0.5', '1', '2', '4']],
   tp: [['cursor', 'home', 'cave', 'boss', 'key', 'exit']], kill: [['12', 'all'], ['noloot']], chest: [['small', 'big', 'boss'], 'number'],
@@ -115,7 +122,7 @@ const ARG_SPECS = {
   reset: ['player', ['confirm']], chat: [['15', 'clear', 'del']], skip: ['number'], era: [['up', '*', '0', '1', '2', '3', '4', '5']],
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
-  item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], items: [['*', 'bomb', 'dynamite', 'med_kit', 'speed_potion', 'strength_potion', 'invisibility_potion', 'mana_potion', 'antidote', 'golden_apple', 'ammo_box'], 'number'], tool: [['*', 'pickaxe', 'axe', 'shovel', 'hoe', 'hammer', 'fishing_rod', 'sickle', 'lantern', 'pickaxe_mythril', 'axe_mythril', 'shovel_diamond'], 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
+  item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], items: [['*', 'bomb', 'dynamite', 'med_kit', 'speed_potion', 'strength_potion', 'invisibility_potion', 'mana_potion', 'antidote', 'golden_apple', 'ammo_box'], 'number'], tool: ['tool', 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
   build: ['building', 'number'], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
@@ -247,12 +254,13 @@ export class AdminConsole {
       case 'player': return [me, star('every player'), ...players];
       case 'target': return [me, star('every village'), { value: 'all', label: 'all', detail: 'every online player' }, ...players];
       case 'spawnat': return [{ value: 'here', label: 'here', detail: 'right next to you' }, me, star('every village'), ...players];
-      case 'command': return Object.entries(COMMANDS).map(([k, c]) => ({ value: k, label: k, detail: c.desc, icon: COMMAND_ICONS[k] }));
+      case 'command': return Object.entries(COMMANDS).sort(([a], [b]) => commandRank(a) - commandRank(b)).map(([k, c]) => ({ value: k, label: k, detail: c.desc, icon: COMMAND_ICONS[k] }));
+      case 'tool': return [star('one of every tool'), ...Object.entries(ALL_TOOLS).sort(([, a], [, b]) => (b.power || 0) - (a.power || 0)).map(([k, t]) => ({ value: k, label: k, detail: `${t.name} · power ${t.power ?? '-'}${t.mythic ? ' · MYTHIC' : ''}`, icon: t.icon }))];
       case 'res': return [{ value: '*', label: '*', detail: 'every resource' }, ...RESOURCES.map(r => ({ value: r, label: r, detail: 'resource', icon: RES_ICON[r] }))];
       case 'item': return [star('every item'), { value: 'list', label: 'list', detail: 'show every item' }, ...Object.entries(ITEMS).map(([k, i]) => ({ value: k, label: k, detail: i.label, icon: i.icon }))];
       case 'gear': return [star('one of everything'), ...Object.keys(CATALOG).map(slot => ({ value: slot, label: slot, detail: `every ${slot}` })),
         { value: 'admin', label: 'admin', detail: 'every admin-only weapon (minigun, ban hammer...)' },
-        ...Object.entries(CATALOG).flatMap(([slot, list]) => Object.entries(list).filter(([, d]) => d.icon !== null && (!d.noLoot || d.admin)).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${slot}${d.admin ? ' · ADMIN' : ''}`, icon: gearIconKey({ base: k, slot, icon: d.icon }) })))];
+        ...Object.entries(CATALOG).flatMap(([slot, list]) => Object.entries(list).map(e => [...e, slot])).filter(([, d]) => d.icon !== null && (!d.noLoot || d.admin)).sort(([, a], [, b]) => gearRank(b) - gearRank(a)).map(([k, d, slot]) => [k, d, slot]).map(([k, d, slot]) => ({ value: k, label: k, detail: `${d.name} · ${slot}${d.admin ? ' · ADMIN' : ''}`, icon: gearIconKey({ base: k, slot, icon: d.icon }) }))];
       case 'villager': return [{ value: 'selected', label: 'selected', detail: 'the villager you clicked' }, star('everyone'), { value: 'all', label: 'all', detail: 'everyone' },
         ...this.game.state.villagers.slice(0, 200).map(v => ({ value: v.name, label: v.name, detail: `${v.job} · ${Math.floor(v.age)}`, icon: villagerSprite(v) }))];
       case 'personopt': return [
@@ -263,7 +271,7 @@ export class AdminConsole {
         ...Object.keys(TRAITS).map(t => ({ value: `traits=${t}`, label: `traits=${t}`, detail: TRAITS[t].label })),
       ];
       case 'building': return [star('one of every building'), ...Object.entries(BUILDINGS).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${ERAS[d.era].name}`, icon: buildingSprite(k) }))];
-      case 'creature': return [star('every creature'), { value: 'hostile', label: 'hostile', detail: 'every monster' }, { value: 'boss', label: 'boss', detail: 'every boss' }, ...Object.entries(CREATURES).map(([k, d]) => ({ value: k, label: k, detail: d.hostile ? `hostile · ${d.hp} hp` : 'animal', icon: d.sprite }))];
+      case 'creature': return [star('every creature'), { value: 'hostile', label: 'hostile', detail: 'every monster' }, { value: 'boss', label: 'boss', detail: 'every boss' }, ...Object.entries(CREATURES).sort(([, a], [, b]) => creatureRank(b) - creatureRank(a)).map(([k, d]) => ({ value: k, label: k, detail: d.boss ? `BOSS · ${d.hp} hp` : d.hostile ? `hostile · ${d.hp} hp` : 'animal', icon: d.sprite }))];
       case 'event': return [{ value: 'list', label: 'list', detail: 'show all events' }, ...EVENTS.map(ev => ({ value: ev.id, label: ev.id, detail: ev.title, icon: ev.icon }))];
       default: return [];
     }
@@ -459,7 +467,7 @@ const COMMANDS = {
       this.print('Type a command and press Enter. Tab completes, ↑↓ pick a suggestion or an old command, Esc or F2 closes.', 'dim');
       this.print('Players: "me" is you, "*" is everyone, or type a village or player name. In a dungeon, hero commands act down there.', 'dim');
       const groups = {};
-      for (const [k, c] of Object.entries(COMMANDS)) (groups[groupOfCommand(k)] ||= []).push([k, c]);
+      for (const [k, c] of Object.entries(COMMANDS).sort(([a], [b]) => commandRank(a) - commandRank(b))) (groups[groupOfCommand(k)] ||= []).push([k, c]);
       for (const g of COMMAND_GROUPS) {
         if (!groups[g]) continue;
         this.print('');

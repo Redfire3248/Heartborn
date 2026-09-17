@@ -398,7 +398,7 @@ export class Game {
       const o = this.world.objectAt(tx + x, ty + y);
       if (o) this.world.removeObject(this.state.objects, o);
     }
-    const b = { id: `b${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`, type, tx, ty, size: def.size, built: false, progress: 0 };
+    const b = { id: `b${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`, type, tx, ty, size: def.size, built: false, progress: 0, builtBy: this.state.owner?.name || null };
     this.state.buildings.push(b);
     this.puff(this.buildingCenter(b), 'effects/dust', 6);
     this.emit('change');

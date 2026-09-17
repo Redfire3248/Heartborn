@@ -137,6 +137,15 @@ export function workWith(g, work, baseHits, held = null) {
   return { key, hits, yieldMult };
 }
 
+/** The weakest pickaxe that can mine an ore of this tier, by name (tier = pickaxe power needed). */
+export function pickaxeFor(tier) {
+  const names = { 1: 'Wooden', 2: 'Stone', 3: 'Copper', 4: 'Bronze', 5: 'Iron', 6: 'Steel', 7: 'Golden', 8: 'Diamond', 9: 'Obsidian', 10: 'Mythril' };
+  return `${names[tier] || 'better'} Pickaxe`;
+}
+
+/** Can this pickaxe (tool key or null) mine an ore that needs this tier? */
+export const canMine = (key, tier = 0) => !tier || (!!key && TOOLS[key]?.kind === 'pickaxe' && TOOLS[key].power >= tier);
+
 /** Hammers build faster (solo construction). */
 export const buildMult = g => { const k = bestTool(g, 'hammer'); return k ? 1 + TOOLS[k].power * 0.15 : 1; };
 

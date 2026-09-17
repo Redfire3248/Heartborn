@@ -1,6 +1,6 @@
 import { TILE, WALK_SPEED, DAY_LENGTH, ADULT_AGE } from '../core/constants.js';
 import { CREATURES, OBJECTS } from '../data/objects.js';
-import { damageCreature } from './creatures.js';
+import { damageCreature, maxHp } from './creatures.js';
 import { collectFind } from './finds.js';
 import { pickUp } from './groundItems.js';
 import { gainSkill } from './villagers.js';
@@ -9,7 +9,7 @@ import { speedMult, strengthMult } from './body.js';
 import { heroStats, heroWeapon, onHeroKill, questProgress, updateQuests, rpgOf, SHIELDS, BLADE_SPECIALS, UNDEAD } from './rpg.js';
 import { updateTreasure, chestNear, openChest, drinkPotion, entranceNear } from './treasure.js';
 import { homeDoorNear } from './houses.js';
-import { workWith, flashTool, dig, fish, buildMult, heldSlot, hasTool, TOOLS, WORK_OF_KIND, HAND_WORK } from './tools.js';
+import { workWith, flashTool, dig, fish, buildMult, heldSlot, hasTool, TOOLS, WORK_OF_KIND, HAND_WORK, canMine, pickaxeFor } from './tools.js';
 import { useItem, buffActive, updateBuffs } from './consumables.js';
 import { BUILDINGS, sizeOf } from '../data/buildings.js';
 
@@ -275,6 +275,9 @@ function bladeSpecial(g, v, c, dmg, sp, finisher) {
 function hitCreature(g, v, c, dmg, crit, w) {
   const had = g.state.creatures.includes(c);
   damageCreature(g, c, dmg, v);
+  const boss = !!CREATURES[c.t]?.boss;
+  if (boss && !c._lastDmg) return;   // it rolled out of the way
+  if (boss) dmg = c._lastDmg;
   gainSkill(g, v, 'combat', true);
   g.anim('combat/hit', c.x, c.y - 8, { size: crit ? 34 : 24, dur: 0.24 });
   g.hitStop = crit ? 0.09 : 0.05;
@@ -285,10 +288,24 @@ function hitCreature(g, v, c, dmg, crit, w) {
   const push = TILE * (w.stun ? 11 : 7) * (crit ? 1.4 : 1) * (w.finisher ? 1.6 : 1) * (w.kb || 1) * (CREATURES[c.t]?.boss ? 0.2 : 1);
   c._kbx = Math.cos(a) * push; c._kby = Math.sin(a) * push;
   if (w.stun && !CREATURES[c.t]?.boss) c._stunned = Math.max(c._stunned || 0, 1 + w.stun);
-  c._windup = 0; c._charge = null; c._throw = null;   // a hit interrupts their attack, charge or throw
-  // flash solid white and reel for a moment (bosses shake it off faster)
   c._whiteFlash = 0.16;
-  c._stunned = Math.max(c._stunned || 0, CREATURES[c.t]?.boss ? 0.35 : 1);
+  if (boss) {
+    // bosses have poise: blows do not interrupt them. Enough damage in a short time staggers them (a real opening)
+    const now = g.state.time;
+    if (!c._poiseAt || now - c._poiseAt > 4) c._poise = 0;
+    c._poiseAt = now;
+    c._poise = (c._poise || 0) + dmg;
+    if (c.hp > 0 && c._poise >= maxHp(c) * 0.25 && now > (c._staggerReady || 0)) {
+      c._poise = 0;
+      c._staggerReady = now + 8;   // not again for a while
+      c._stunned = Math.max(c._stunned || 0, 1.1);
+      c._windup = 0; c._charge = null;
+      g.float(c.x, c.y - TILE * 1.6, 'Staggered!', '#ffd76a');
+    }
+  } else {
+    c._windup = 0; c._charge = null; c._throw = null;   // a hit interrupts their attack, charge or throw
+    c._stunned = Math.max(c._stunned || 0, 1);   // and they reel for a moment
+  }
   if (had && !g.state.creatures.includes(c)) { g.hero.kills++; onHeroKill(g, c, v); }
 }
 
@@ -476,6 +493,16 @@ function work(g, v, held = null) {
   g.puff(c, def.work === 'mine' ? 'effects/rock_chunk' : def.work === 'chop' ? 'items/icon_wood' : 'effects/leaf', 3, 10);
   if (def.work === 'cut' && obj.t === 'cactus' && !held) { v.hp -= 2; g.float(v.x, v.y - TILE * 1.2, 'Ouch! Prickly', '#ff9f7a'); }
   const tool = workWith(g, def.work, def.work === 'chop' ? 3 : def.work === 'mine' ? 2 : 1, held);
+  if (def.work === 'mine' && !canMine(tool.key, def.tier)) {   // too hard for this pickaxe: it just bounces off
+    obj._heroHits = 0;
+    flashTool(g, tool.key);
+    g.puff(c, 'effects/spark', 4, 8);
+    if (!obj._toughAt || s.time - obj._toughAt > 1.2) {
+      obj._toughAt = s.time;
+      g.float(c.x, c.y - TILE, `Too hard! Needs a ${pickaxeFor(def.tier)} or better`, '#ffb3aa');
+    }
+    return true;
+  }
   if (def.work === 'cut') g.puff(c, 'effects/leaf', 6, 14);   // better tools: fewer swings, more to take home
   flashTool(g, tool.key);
   if (obj._heroHits < tool.hits) return true;

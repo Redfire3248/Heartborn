@@ -1452,3 +1452,9 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .update-bar { position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 10000;
   display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 14px; border-radius: 12px; font-size: 13px;
   background: rgba(24,17,34,.95); border: 1px solid rgba(255,215,106,.45); color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.5); max-width: calc(100vw - 32px); }
+
+/* sleeping in a bed */
+.house-sleep { position: absolute; inset: 0; z-index: 50; display: grid; place-items: center; background: #05030a; color: #cfc6e0; font-size: 28px; letter-spacing: 4px; animation: sleep-fade 1.6s ease both; pointer-events: none; }
+@keyframes sleep-fade { 0% { opacity: 0 } 35% { opacity: 1 } 65% { opacity: 1 } 100% { opacity: 0 } }
+
+.house-builder { font-size: 12px; color: var(--text-dim, #b8aecb); }

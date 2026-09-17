@@ -12,7 +12,7 @@ import { heroWeapon, rpgOf, WEAPONS, SHIELDS } from '../game/rpg.js';
 import { gearIconKey, hasArt } from './gearArt.js';
 import { avatarId, avatarArt } from '../game/avatars.js';
 import { trapUp } from '../game/dungeon.js';
-import { DESIGNS, doorOf, isHome } from '../game/houses.js';
+import { DESIGNS, doorOf, isHome, builderOf } from '../game/houses.js';
 import { TOOLS, lightBonus, heldSlot, hasTool as hasToolG } from '../game/tools.js';
 import { CONSUMABLES } from '../game/consumables.js';
 import { SHOTS, maxHp } from '../game/creatures.js';
@@ -629,6 +629,10 @@ export class Renderer {
         ctx.font = 'bold 7px system-ui, sans-serif'; ctx.textAlign = 'center';
         ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillText('Walk in to enter', door.x + 0.6, door.y + 9.6);
         ctx.fillStyle = '#ffd76a'; ctx.fillText('Walk in to enter', door.x, door.y + 9);
+        const by = `Built by ${builderOf(g, b)}`;
+        ctx.font = '6px system-ui, sans-serif';
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillText(by, door.x + 0.5, door.y + 17.5);
+        ctx.fillStyle = '#f0e6d0'; ctx.fillText(by, door.x, door.y + 17);
         ctx.fillStyle = 'rgba(255,215,106,0.35)';
         ctx.beginPath(); ctx.ellipse(door.x, door.y - 4, 5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
       }
@@ -804,13 +808,14 @@ export class Renderer {
     const t = this.time + c.x * 0.01;
     let offsetY = 0, rot = 0, squash = 0;
     if (def.flying) offsetY = -TILE * 1.2 + Math.sin(t * 3) * 4;
+    if (c._hop) offsetY -= c._hop;   // a boss mid-leap
     else if (def.water) offsetY = Math.sin(t * 2) * 1.5;
     else if (c.t === 'slime') squash = Math.sin(t * 6) * 0.12;
     else if (c.t === 'ghost') offsetY = -4 + Math.sin(t * 2.5) * 3;
     if (c._walking && !def.flying) { offsetY -= Math.abs(Math.sin(t * 10)) * 2; rot = Math.sin(t * 10) * 0.05; }
     if (c._attack) squash = -0.15;
     this.shadow(c.x, c.y, size * (def.flying ? 0.5 : 0.8));
-    const alpha = c.t === 'ghost' ? 0.75 : 1;
+    const alpha = c.t === 'ghost' ? 0.75 : c._iframes > 0 ? 0.55 : 1;   // rolling: hard to touch
     // monsters whose own art is not in yet wear a recoloured cousin's
     const useFallback = !c.sprite && def.fallback && !spriteAvailable(def.sprite);
     const art = c.sprite || (useFallback ? def.fallback.sprite : def.sprite);
@@ -832,6 +837,14 @@ export class Renderer {
         drawSprite(ctx, 'effects/spark', c.x + Math.cos(a) * size * 0.35, c.y - size + offsetY - 2 + Math.sin(a) * 3, 7);
       }
     }
+    if (c._guard > 0) {   // a boss behind its guard: hitting it only chips, keep at it to break it
+      const k = 0.6 + 0.4 * Math.sin(this.time * 12);
+      ctx.save();
+      ctx.strokeStyle = `rgba(170,200,255,${k})`; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(c.x, c.y - size * 0.45 + offsetY, size * 0.62, size * 0.6, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+    if (c._enraged && Math.random() < 0.25) g.fx.particles.push({ x: c.x + (Math.random() - 0.5) * size * 0.8, y: c.y + offsetY - size * Math.random() * 0.9, vx: 0, vy: -16, sprite: 'effects/flame', size: 5, life: 0.5, max: 0.5, rot: 0 });
     if (c._windup > 0) {   // winding up a blow: a red warning, time to dodge or block
       const k = 0.5 + 0.5 * Math.sin(this.time * 30);
       ctx.fillStyle = `rgba(255,60,40,${0.6 + k * 0.4})`;

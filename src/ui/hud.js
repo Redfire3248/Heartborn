@@ -3234,10 +3234,11 @@ export class HUD {
   updateBossBar(g, dt) {
     const v = heroOf(g);
     let boss = null, bd = TILE * 14;
-    if (v && !this.houseEditor) {
+    // only real bosses get the big bar, and never over an open panel or window (it would cover their close buttons)
+    if (v && !this.houseEditor && !this.panel && !document.querySelector('.modal-bg')) {
       for (const c of g.state.creatures) {
         const def = CREATURES[c.t];
-        if (!def?.boss && !c.bounty && !c.dungeonBoss && !c.elite && maxHp(c) < 150) continue;   // bosses, bounties, elites and anything with 150+ health
+        if (!def?.boss && !c.dungeonBoss) continue;
         const d = Math.hypot(c.x - v.x, c.y - v.y);
         if (d < bd || (c === this._boss && d < TILE * 22)) { bd = d; boss = c; }
       }
@@ -3248,7 +3249,7 @@ export class HUD {
       this._boss = null;
       return;
     }
-    const max = maxHp(boss), hp = Math.max(0, boss.hp ?? max), pct = hp / max;
+    const max = Math.max(maxHp(boss), boss.hp ?? 0), hp = Math.max(0, boss.hp ?? max), pct = hp / max;
     if (boss !== this._boss || !el) {
       this._boss = boss;
       this._bossTrail = pct;

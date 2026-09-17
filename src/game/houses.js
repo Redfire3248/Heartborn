@@ -88,7 +88,10 @@ export const FURNITURE = {
   // getting around
   stairs:       { name: 'Stairs',         cat: 'stairs',  w: 1, d: 2, h: 90, color: '#8a6a4a', cost: { wood: 30 } },
 };
-export const LANDING = { name: 'Stairs down', w: 1, d: 2, h: 4, color: '#5a4430', flat: true };
+export const LANDING = { name: 'Stairs down', w: 1, d: 1, h: 4, color: '#5a4430', flat: true };
+
+// every piece takes exactly one floor tile
+for (const f of Object.values(FURNITURE)) { f.w = 1; f.d = 1; }
 export const FURNITURE_CATS = [['storage', 'Storage'], ['living', 'Living'], ['kitchen', 'Kitchen & Bath'], ['decor', 'Decor'], ['blocks', 'Walls & Blocks'], ['floors', 'Floors'], ['walls', 'Wallpaper'], ['stairs', 'Stairs']];
 
 /** Floor tiles you paint tile by tile (art: interior/floor_<key>). */
@@ -172,6 +175,9 @@ export function itemAt(b, floor, x, y) {
   }
   return null;
 }
+
+/** Who built this house (houses from before this was recorded belong to the world's owner). */
+export const builderOf = (g, b) => b.builtBy || g.state.owner?.name || 'Unknown';
 
 /** Can this piece go here? Returns { ok } or { ok: false, why }. */
 export function canPlace(g, b, floor, type, x, y, rot = 0, ignore = null) {
