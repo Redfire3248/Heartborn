@@ -18,6 +18,77 @@ import {
 
 const TW = 64, TH = 32;   // one floor tile on screen (before zoom)
 const WALL_H = 96;
+
+/*
+ * Tile art is drawn at its own isometric angle (with a thick edge), which never lines up exactly with the room.
+ * So each piece is flattened once into a straight texture and then stretched onto the exact wall or floor shape:
+ * no gaps, no overlaps, no sawtooth edges.
+ */
+const flatCache = new Map();
+function pixelsOf(img) {
+  const c = document.createElement('canvas');
+  c.width = img.width; c.height = img.height;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(img, 0, 0);
+  return { data: x.getImageData(0, 0, c.width, c.height).data, w: c.width, h: c.height };
+}
+/** A wall panel as a straight rectangle: each column's face from its top edge to its bottom edge, without the side edge. */
+function wallTexture(key) {
+  if (flatCache.has(key)) return flatCache.get(key);
+  const sp = sprite(key);
+  if (!sp?.img?.width) return null;
+  const { data, w, h } = pixelsOf(sp.img);
+  const cols = [];
+  for (let x = 0; x < w; x++) {
+    let top = -1, bot = -1;
+    for (let y = 0; y < h; y++) if (data[(y * w + x) * 4 + 3] > 128) { if (top < 0) top = y; bot = y; }
+    if (top >= 0) cols.push({ x, top, bot });
+  }
+  if (cols.length < 8) return null;
+  const tall = Math.max(...cols.map(c => c.bot - c.top));
+  const face = cols.filter(c => c.bot - c.top > tall * 0.9);   // the side edge is shorter: leave it out
+  const inset = Math.max(2, Math.round(face.length * 0.05));   // and the outline
+  const use = face.slice(inset, face.length - inset);
+  const H = 256, out = document.createElement('canvas');
+  out.width = use.length; out.height = H;
+  const o = out.getContext('2d');
+  o.imageSmoothingEnabled = false;
+  use.forEach((c, i) => { const pad = Math.max(2, (c.bot - c.top) * 0.02); o.drawImage(sp.img, c.x, c.top + pad, 1, c.bot - c.top - pad * 2, i, 0, 1, H); });
+  flatCache.set(key, out);
+  return out;
+}
+/** A floor tile as a straight square: the diamond's top face turned back into a square. */
+function floorTexture(key) {
+  if (flatCache.has(key)) return flatCache.get(key);
+  const sp = sprite(key);
+  if (!sp?.img?.width) return null;
+  const { data, w, h } = pixelsOf(sp.img);
+  let x0 = w, x1 = -1, y0 = h;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (data[(y * w + x) * 4 + 3] > 128) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); }
+  if (x1 < 0) return null;
+  let yl = y0;
+  for (let y = y0; y < h; y++) if (data[(y * w + x0) * 4 + 3] > 128) { yl = y; break; }
+  const cx = (x0 + x1) / 2;
+  const N = 128, out = document.createElement('canvas');
+  out.width = N; out.height = N;
+  const o = out.getContext('2d');
+  // square (u, v) -> diamond: (0,0) top corner, (N,0) right corner, (0,N) left corner. Draw the art through the inverse,
+  // zoomed in a touch so the dark outline is trimmed and neighbouring tiles meet cleanly
+  const k = 1.08;
+  const inv = new DOMMatrix([(x1 - cx) / N, (yl - y0) / N, (x0 - cx) / N, (yl - y0) / N, cx, y0]).inverse();
+  o.setTransform(new DOMMatrix().translate(N / 2, N / 2).scale(k).translate(-N / 2, -N / 2).multiply(inv));
+  o.drawImage(sp.img, 0, 0);
+  flatCache.set(key, out);
+  return out;
+}
+/** Draws a texture onto the parallelogram at origin with sides u and v (a hair bigger, so seams never show). */
+function mapTexture(ctx, tex, [ox, oy], [ux, uy], [vx, vy]) {
+  const e = 1.02;
+  ctx.save();
+  ctx.transform(ux * e / tex.width, uy * e / tex.width, vx * e / tex.height, vy * e / tex.height, ox - (ux + vx) * (e - 1) / 2, oy - (uy + vy) * (e - 1) / 2);
+  ctx.drawImage(tex, 0, 0);
+  ctx.restore();
+}
 const iso = (x, y) => ({ x: (x - y) * TW / 2, y: (x + y) * TH / 2 });
 const shade = (hex, k) => {
   const n = parseInt(hex.slice(1), 16);
@@ -53,10 +124,12 @@ export class HouseEditor {
     this.ctx = this.canvas.getContext('2d');
     this.label = h('div.house-floor');
     this.designRow = h('div.house-designs');
+    // the house opens ready to live in; building tools stay tucked away behind a small Edit button
     this.modeBtns = h('div.house-modes',
-      h('button.btn.sm', { onclick: () => this.setMode('use') }, uiIcon('ui/home'), 'Use'),
-      h('button.btn.sm', { onclick: () => this.setMode('arrange') }, uiIcon('ui/move'), 'Arrange'),
-      h('button.btn.sm', { title: 'Click things to remove them (Delete key works too)', onclick: () => this.setMode('remove') }, uiIcon('ui/remove'), 'Remove'));
+      h('button.btn.sm', { dataset: { mode: 'arrange' }, onclick: () => this.setMode('arrange') }, uiIcon('ui/move'), 'Arrange'),
+      h('button.btn.sm', { dataset: { mode: 'remove' }, title: 'Click things to remove them (Delete key works too)', onclick: () => this.setMode('remove') }, uiIcon('ui/remove'), 'Remove'),
+      h('button.btn.sm.good', { dataset: { mode: 'use' }, title: 'Stop editing', onclick: () => this.setMode('use') }, 'Done'));
+    this.editBtn = h('button.btn.sm.house-edit-btn', { title: 'Edit your house: arrange, remove and add furniture', onclick: () => this.setMode('arrange') }, uiIcon('ui/move'), 'Edit');
     this.palette = h('div.house-palette');
     this.tabs = h('div.house-tabs');
     this.search = h('input.house-search', { type: 'search', placeholder: 'Search furniture, floors, walls...',
@@ -71,8 +144,9 @@ export class HouseEditor {
       h('div.card.house-top',
         h('div.house-title', def?.name || 'Home'), this.label, this.modeBtns, this.designRow,
         h('button.btn.sm.primary', { onclick: () => this.close() }, uiIcon('ui/home'), 'Leave house')),
-      this.panel, this.toolBar,
+      this.panel, this.toolBar, this.editBtn,
       h('div.card.house-bottom', h('div.house-tabrow', this.search, this.tabs), this.palette));
+    this.el.classList.toggle('editing', this.mode !== 'use');
     document.getElementById('ui').append(this.el);
     this.onResize = () => this.resize();
     window.addEventListener('resize', this.onResize);
@@ -129,7 +203,8 @@ export class HouseEditor {
     this.updateToolBar?.();
     const { floors } = this.shape;
     this.label.textContent = floors > 1 ? `Floor ${this.floor + 1} of ${floors}` : 'Ground floor';
-    [...this.modeBtns.children].forEach((btn, i) => btn.classList.toggle('active', ['use', 'arrange', 'remove'][i] === this.mode));
+    [...this.modeBtns.children].forEach(btn => btn.classList.toggle('active', btn.dataset.mode === this.mode && this.mode !== 'use'));
+    this.el?.classList.toggle('editing', this.mode !== 'use');
     this.designRow.replaceChildren(h('span.faint', 'Outside:'), ...DESIGNS.map((d, i) => h('button.house-design' + ((this.b.design || 0) === i ? '.active' : ''), {
       title: d.name, style: { background: d.tint || '#c8a878' }, onclick: () => { this.b.design = i; this.game.emit('change'); this.refreshUI(); this.hint?.(`Outside look: ${d.name}`, 1500); },
     })));
@@ -408,25 +483,26 @@ export class HouseEditor {
     // back walls (left along x = 0, right along y = 0)
     poly([P(0, 0), P(0, d), P(0, d, WALL_H), P(0, 0, WALL_H)], shade(wall, 0.62));
     poly([P(0, 0), P(w, 0), P(w, 0, WALL_H), P(0, 0, WALL_H)], shade(wall, 0.78));
-    this.wallPattern(paper, wall, w, d, P);
+    const artWall = this.wallPattern(paper, wall, w, d, P);
     // wooden wainscot, a trim line and a dark baseboard
-    poly([P(0, 0), P(0, d), P(0, d, 30), P(0, 0, 30)], 'rgba(60,35,20,0.45)');
-    poly([P(0, 0), P(w, 0), P(w, 0, 30), P(0, 0, 30)], 'rgba(60,35,20,0.35)');
-    poly([P(0, 0), P(0, d), P(0, d, 32), P(0, 0, 32)].map(([x, y], i) => [x, i < 2 ? y - 30 : y]), 'rgba(255,240,210,0.25)');
-    poly([P(0, 0), P(w, 0), P(w, 0, 32), P(0, 0, 32)].map(([x, y], i) => [x, i < 2 ? y - 30 : y]), 'rgba(255,240,210,0.2)');
+    if (!artWall) poly([P(0, 0), P(0, d), P(0, d, 30), P(0, 0, 30)], 'rgba(60,35,20,0.45)');
+    if (!artWall) poly([P(0, 0), P(w, 0), P(w, 0, 30), P(0, 0, 30)], 'rgba(60,35,20,0.35)');
+    if (!artWall) poly([P(0, 0), P(0, d), P(0, d, 32), P(0, 0, 32)].map(([x, y], i) => [x, i < 2 ? y - 30 : y]), 'rgba(255,240,210,0.25)');
+    if (!artWall) poly([P(0, 0), P(w, 0), P(w, 0, 32), P(0, 0, 32)].map(([x, y], i) => [x, i < 2 ? y - 30 : y]), 'rgba(255,240,210,0.2)');
     poly([P(0, 0), P(0, d), P(0, d, 5), P(0, 0, 5)], 'rgba(30,18,10,0.55)');
     poly([P(0, 0), P(w, 0), P(w, 0, 5), P(0, 0, 5)], 'rgba(30,18,10,0.5)');
     // windows
-    for (let i = 2; i < w - 1; i += 4) poly([P(i, 0, 48), P(i + 1.2, 0, 48), P(i + 1.2, 0, 80), P(i, 0, 80)], this.floor ? '#6a8ac8' : '#8ab8e8');
-    for (let i = 2; i < d - 1; i += 4) poly([P(0, i, 48), P(0, i + 1.2, 48), P(0, i + 1.2, 80), P(0, i, 80)], '#7aa4d8');
+    if (!artWall) for (let i = 2; i < w - 1; i += 4) poly([P(i, 0, 48), P(i + 1.2, 0, 48), P(i + 1.2, 0, 80), P(i, 0, 80)], this.floor ? '#6a8ac8' : '#8ab8e8');
+    if (!artWall) for (let i = 2; i < d - 1; i += 4) poly([P(0, i, 48), P(0, i + 1.2, 48), P(0, i + 1.2, 80), P(0, i, 80)], '#7aa4d8');
     // floor boards
     for (let y = 0; y < d; y++) for (let x = 0; x < w; x++) {
       const key = floorTileAt(this.b, this.floor, x, y);
       const fl = FLOORINGS[key] || FLOORINGS.planks;
       const art = `interior/floor_${key}`;
-      if (spriteAvailable(art) && sprite(art)) {
-        const s = sprite(art), top = iso(x, y);
-        ctx.drawImage(s.img, s.box.x, s.box.y, s.box.w, s.box.h, top.x - TW / 2, top.y, TW, TW * s.box.h / s.box.w);
+      const tex = spriteAvailable(art) ? floorTexture(art) : null;
+      if (tex) {
+        const o = P(x, y), a = P(x + 1, y), b = P(x, y + 1);
+        mapTexture(ctx, tex, o, [a[0] - o[0], a[1] - o[1]], [b[0] - o[0], b[1] - o[1]]);
       } else {
         poly([P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], (x + y) % 2 ? fl.b : fl.a);
         if (key.startsWith('carpet')) poly([P(x + 0.15, y + 0.15), P(x + 0.85, y + 0.15), P(x + 0.85, y + 0.85), P(x + 0.15, y + 0.85)], shade(fl.a, 1.15));
@@ -442,7 +518,7 @@ export class HouseEditor {
       ctx.fillText(name, c.x, c.y + 4);
     }
     ctx.strokeStyle = 'rgba(40,25,15,0.25)'; ctx.lineWidth = 1;
-    for (let x = 0; x <= w; x++) { ctx.beginPath(); ctx.moveTo(...P(x, 0)); ctx.lineTo(...P(x, d)); ctx.stroke(); }
+    if (!spriteAvailable('interior/floor_planks')) for (let x = 0; x <= w; x++) { ctx.beginPath(); ctx.moveTo(...P(x, 0)); ctx.lineTo(...P(x, d)); ctx.stroke(); }
     // the floor slab and the cut-away walls: thick, with a light cap on top and dark ends
     const T = 0.3, SLAB = 12;
     poly([P(-T, d), P(w, d), P(w, d, -SLAB), P(-T, d, -SLAB)], '#4a3020');
@@ -541,12 +617,11 @@ export class HouseEditor {
   wallPattern(paper, color, w, d, P) {
     const { ctx } = this;
     const art = `interior/wall_${Object.keys(WALLPAPERS).find(k => WALLPAPERS[k] === paper)}`;
-    if (spriteAvailable(art) && sprite(art)) {   // one wall panel per tile: the right wall as drawn, the left wall mirrored
-      const s = sprite(art);
-      const hgt = WALL_H + TH / 2;
-      for (let i = 0; i < w; i++) { const p = iso(i, 0); ctx.drawImage(s.img, s.box.x, s.box.y, s.box.w, s.box.h, p.x, p.y - WALL_H, TW / 2, hgt); }
-      for (let i = 0; i < d; i++) { const p = iso(0, i + 1); ctx.save(); ctx.translate(p.x + TW / 2, 0); ctx.scale(-1, 1); ctx.drawImage(s.img, s.box.x, s.box.y, s.box.w, s.box.h, 0, p.y - WALL_H, TW / 2, hgt); ctx.restore(); }
-      return;
+    const tex = spriteAvailable(art) ? wallTexture(art) : null;
+    if (tex) {   // one straight panel per tile, stretched onto the exact wall
+      for (let i = 0; i < w; i++) { const o = P(i, 0, WALL_H), a = P(i + 1, 0, WALL_H); mapTexture(ctx, tex, o, [a[0] - o[0], a[1] - o[1]], [0, WALL_H]); }
+      for (let i = 0; i < d; i++) { const o = P(0, i + 1, WALL_H), a = P(0, i, WALL_H); mapTexture(ctx, tex, o, [a[0] - o[0], a[1] - o[1]], [0, WALL_H]); }
+      return true;
     }
     ctx.save();
     ctx.strokeStyle = shade(color, 0.55); ctx.lineWidth = 1;

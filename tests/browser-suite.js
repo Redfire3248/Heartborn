@@ -586,6 +586,7 @@ export async function run() {
     const spot = g.randomLandTile(5, 12);
     Object.assign(me, { x: spot.x, y: spot.y });
     g.state.objects = g.state.objects.filter(o => Math.hypot((o.x + 0.5) * TILE - me.x, (o.y + 0.5) * TILE - me.y) > TILE * 4);
+    { const tx = Math.floor(me.x / TILE), ty = Math.floor(me.y / TILE); g.world.tiles[ty * g.world.w + tx] = TT.grass; }   // some world types are mostly cave floor, which cannot be dug
     g.world.objGrid = new Map(); g.world.indexObjects(g.state.objects);
     const st = g.state.resources.stone;
     g.caps.stone = 1e9;

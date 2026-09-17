@@ -1440,3 +1440,10 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .avatar-opt { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 10px; border: 2px solid var(--line); background: rgba(255,255,255,.04); color: inherit; font: inherit; font-size: 11px; cursor: pointer; }
 .avatar-opt:hover { background: rgba(255,255,255,.09); }
 .avatar-opt.on { border-color: #ffd76a; background: rgba(255,215,106,.12); }
+
+/* house view: Use mode is clean; the building tools only show while editing */
+.house-view:not(.editing) .house-modes, .house-view:not(.editing) .house-designs, .house-view:not(.editing) .house-bottom { display: none; }
+.house-edit-btn { position: absolute; right: 12px; bottom: 12px; opacity: .55; transition: opacity .15s; }
+.house-edit-btn:hover, .house-edit-btn:focus-visible { opacity: 1; }
+.house-view.editing .house-edit-btn { display: none; }
+@media (max-width: 700px) { .house-edit-btn { right: 8px; bottom: 8px; } }
