@@ -10,6 +10,7 @@ import { FIND_KINDS } from '../game/finds.js';
 import { ITEMS } from '../data/people.js';
 import { heroWeapon, rpgOf, WEAPONS, SHIELDS } from '../game/rpg.js';
 import { gearIconKey, hasArt } from './gearArt.js';
+import { avatarId, avatarArt } from '../game/avatars.js';
 import { trapUp } from '../game/dungeon.js';
 import { DESIGNS, doorOf, isHome } from '../game/houses.js';
 import { TOOLS, lightBonus, heldSlot, hasTool as hasToolG } from '../game/tools.js';
@@ -712,8 +713,10 @@ export class Renderer {
     const hurt = v._hurtFlash > 0 ? (v._hurtFlash / 0.25) * 3 : 0;
     const bx = v.x + dx * lunge - dx * hurt, by = v.y + dy * lunge * 0.5 - dy * hurt;
     // the weapon-free hero body (front, back or side) once that art is in; until then your avatar's own look
-    const bodyArt = `hero/${v.sex === 'f' ? 'girl' : 'boy'}_body_${facing === 'up' ? 'back' : facing === 'down' ? 'front' : 'side'}`;
-    const body = hasArt(bodyArt) ? bodyArt : 'characters/king';   // you are always the King
+    const view = facing === 'up' ? 'back' : facing === 'down' ? 'front' : 'side';
+    const chosen = avatarArt(avatarId(g), 'front');   // the look you picked, always drawn facing straight ahead
+    const bodyArt = `hero/${v.sex === 'f' ? 'girl' : 'boy'}_body_${view}`;
+    const body = hasArt(chosen) ? chosen : hasArt(bodyArt) ? bodyArt : 'characters/king';
     const w = heroWeapon(g, v);
     const held = g.state.rpg ? heldSlot(g) : 'weapon';   // you hold what is selected in your hotbar
     const tool = TOOLS[held];
@@ -757,7 +760,7 @@ export class Renderer {
     if (facing !== 'up') { if (!hero.blocking) drawShield(); }
     else if (!hero.blocking) drawShield();
     if ((hero.buffs?.invis || 0) > g.state.time) ctx.globalAlpha = 0.35;
-    drawSprite(ctx, body, bx, by, size * (body.startsWith('hero/') ? 1.1 : 1), { flip: side < 0, tint, solid: tint === '#ffffff', offsetY: bob, squash: sq, rot: lean });
+    drawSprite(ctx, body, bx, by, size * (body.startsWith('hero/') ? 1.1 : body.startsWith('avatars/') ? 1.15 : 1), { flip: side < 0 && !body.startsWith('avatars/'), tint, solid: tint === '#ffffff', offsetY: bob, squash: sq, rot: lean });
     drawWeapon();
     if (hero.blocking) drawShield();
     ctx.globalAlpha = 1;

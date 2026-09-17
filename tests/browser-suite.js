@@ -17,6 +17,8 @@ import { CREATURES } from '/src/data/objects.js';
 import { TILE } from '/src/core/constants.js';
 import { THEMES, themeOf, gameTheme } from '/src/game/worldTypes.js';
 import { worldPicker } from '/src/ui/social.js';
+import { AVATARS, avatarId, avatarArt, setLook } from '/src/game/avatars.js';
+import { spriteAvailable } from '/src/core/assets.js';
 import { T as TT } from '/src/game/world.js';
 
 const results = [];
@@ -96,6 +98,21 @@ export async function run() {
     ok(c.kind === 'solo' && c.name === 'Icy' && c.seed === frozenSeed && c.isNew && c.world.startsWith('solo_'), 'Create world returns a new solo world with that seed', JSON.stringify(c));
     ok(!document.querySelector('.world-picker'), 'the menu closes');
     ok(deleted === null, 'nothing deleted by accident');
+  });
+
+  await step('avatars and house styles have art, and you can pick your look', async () => {
+    const views = ['front', 'back', 'side'];
+    ok(AVATARS.every(av => views.every(vw => spriteAvailable(avatarArt(av.id, vw)))), 'all 8 avatars have front, back and side art');
+    const styles = ['tent', 'hut', 'house', 'castle', 'inn', 'tenement', 'bunker', 'arcology', 'fortress', 'palace'];
+    ok(styles.every(k => [1, 2, 3, 4].every(n => spriteAvailable(`buildings/${k}_style${n}`))), 'all 10 homes have 4 outside designs');
+    const ga = new Game(newState({ uid: 'av', name: 'T', villageName: 'V' }));
+    ok(setLook(ga, 'wizard') && avatarId(ga) === 'wizard', 'picking an avatar sticks in this world');
+    ok(!setLook(ga, 'dragon') && avatarId(ga) === 'wizard', 'unknown looks are refused');
+    const gb = new Game(newState({ uid: 'av', name: 'T', villageName: 'V' }));
+    ok(avatarId(gb) === 'wizard', 'a new world starts with the look you picked last');
+    const back = deserialize(serialize(ga.state));
+    ok(back.avatar === 'wizard', 'your look is saved');
+    setLook(ga, 'king');
   });
 
   await step('every building places, finishes, renders and explains itself', async () => {

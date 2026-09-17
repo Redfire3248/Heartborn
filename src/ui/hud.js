@@ -1,4 +1,5 @@
 import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo } from './dom.js';
+import { AVATARS, avatarId, avatarArt, setLook } from '../game/avatars.js';
 import { iconUrl, spriteAvailable } from '../core/assets.js';
 import { TILE, ADULT_AGE, MAP_W, MAP_H, RESOURCES, DAY_LENGTH } from '../core/constants.js';
 import { BUILDINGS, ERAS, CATEGORIES, sizeOf, buildingSprite } from '../data/buildings.js';
@@ -715,8 +716,14 @@ export class HUD {
           it ? h('div.row', { style: { gap: '4px' } }, h('button.btn.sm.analyze-btn', { onclick: () => this.analyzeGear(it) }, 'Analyze'), h('button.btn.sm', { onclick: () => { unequip(g, slot); render(); } }, 'Take off')) : null);
       };
       body.replaceChildren(
-        h('div.row', icon('items/crown_leader', 40), h('div', h('h2', { style: { margin: 0 } }, v?.name || 'You'), h('div.faint', `Level ${r.level} · ${r.xp}/${xpToNext(r.level)} XP · ${r.questsDone} quests done`))),
+        h('div.row', spriteAvailable(avatarArt(avatarId(g))) ? icon(avatarArt(avatarId(g)), 48) : icon('items/crown_leader', 40), h('div', h('h2', { style: { margin: 0 } }, v?.name || 'You'), h('div.faint', `Level ${r.level} · ${r.xp}/${xpToNext(r.level)} XP · ${r.questsDone} quests done`))),
         h('div.char-derived', `Health ${st.maxHp} · Stamina ${st.maxStamina} · Damage x${st.dmgMult.toFixed(2)} · Crit ${Math.round(st.crit * 100)}% · Armour ${Math.round(st.armor * 100)}% · Speed x${st.speed.toFixed(2)}`),
+        spriteAvailable(avatarArt('king')) ? h('div.avatar-pick',
+          h('h3', 'Look'),
+          h('div.avatar-grid', AVATARS.map(a => h(`button.avatar-opt${avatarId(g) === a.id ? '.on' : ''}`, {
+            title: a.name, dataset: { avatar: a.id },
+            onclick: () => { setLook(g, a.id); this.hint(`You now look like the ${a.name}`, 1500); render(); },
+          }, icon(avatarArt(a.id), 44), h('span', a.name))))) : null,
         h('h3', r.points ? `Points to spend: ${r.points}` : 'Attributes'),
         statRow('might', 'Might', '+8% damage per point'),
         statRow('vigor', 'Vigor', '+12 health per point'),

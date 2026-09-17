@@ -1434,3 +1434,9 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .wp-preview { display: flex; align-items: center; gap: 10px; }
 .wp-theme { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; vertical-align: middle; }
 .world-picker h3 { margin: 10px 0 2px; }
+
+/* avatar choice in the character sheet */
+.avatar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
+.avatar-opt { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 10px; border: 2px solid var(--line); background: rgba(255,255,255,.04); color: inherit; font: inherit; font-size: 11px; cursor: pointer; }
+.avatar-opt:hover { background: rgba(255,255,255,.09); }
+.avatar-opt.on { border-color: #ffd76a; background: rgba(255,215,106,.12); }
