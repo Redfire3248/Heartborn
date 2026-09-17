@@ -26,7 +26,7 @@ export function installButton(cls = 'button.btn.sm.install-btn') {
         h('button.btn.primary', { onclick: () => m.close() }, 'Got it'),
       ]);
     }
-  } }, h('img', { src: 'icons/icon-32.png', width: 18, height: 18, alt: '', style: { imageRendering: 'pixelated', borderRadius: '4px' } }), 'Install app');
+  } }, h('img', { src: 'icons/app-32.png', width: 18, height: 18, alt: '', style: { imageRendering: 'pixelated', borderRadius: '4px' } }), 'Install app');
   const sync = () => { btn.hidden = isInstalled(); };   // always offered, unless the game already runs as an installed app
   sync();
   onInstallChange(sync);
@@ -37,7 +37,7 @@ export function loadingScreen() {
   const fill = h('i');
   const text = h('div.muted', 'Kindling the fire…');
   const el = h('div.screen.loading',
-    h('div.logo', h('img.logo-mark', { src: 'icons/icon-192.png', alt: '' }), h('h1', 'HEARTBORN')),
+    h('div.logo', h('img.logo-mark', { src: 'icons/app-192.png', alt: '' }), h('h1', 'HEARTBORN')),
     h('div.load-bar', fill),
     text);
   ui().append(el);
