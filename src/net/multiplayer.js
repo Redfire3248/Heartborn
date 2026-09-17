@@ -1,4 +1,6 @@
 import { on } from '../core/features.js';
+import { toolsOf, giveTool, dropTool } from '../game/tools.js';
+import { rpgOf } from '../game/rpg.js';
 import { cleanText } from './chatSafety.js';
 import {
   ref, onValue, onChildAdded, onChildRemoved, push, set, update, remove, serverTimestamp,
@@ -336,6 +338,46 @@ export class Multiplayer {
     this.g.log(`A ${type === 'alliance' ? 'messenger' : 'caravan'} sets out for ${to.villageName || 'their village'} — arrives in ${fmtMinutes(offer.deliverAt - offer.ts)}.`, 'event');
   }
 
+  /**
+   * Send an item trade: give = { res, gear: [items], tools: { key: n } }, want = { res, tools }.
+   * What you give leaves your inventory at once (held in the offer) and comes back if they decline.
+   */
+  async sendTrade(to, give = {}, want = {}) {
+    if (!to?.uid || to.uid === this.uid) throw new Error("That's you!");
+    const g = this.g, r = rpgOf(g);
+    give = { res: cleanRes(give.res), gear: (give.gear || []).filter(it => r.bag.includes(it)), tools: cleanRes(give.tools) };
+    want = { res: cleanRes(want.res), tools: cleanRes(want.tools) };
+    const empty = b => !Object.keys(b.res).length && !(b.gear?.length) && !Object.keys(b.tools).length;
+    if (empty(give) && empty(want)) throw new Error('Add something to the trade');
+    const owned = toolsOf(g);
+    for (const [k, n] of Object.entries(give.tools)) if ((owned[k] || 0) < n) throw new Error(`You do not have ${n} of that tool`);
+    if (!g.spend(give.res)) throw new Error('Not enough resources');
+    r.bag = r.bag.filter(it => !give.gear.includes(it));
+    for (const [k, n] of Object.entries(give.tools)) dropTool(g, k, n);
+    const id = push(ref(rtdb, `${this.w}offers/${to.uid}`)).key;
+    const offer = {
+      id, type: 'itemtrade', from: this.uid, fromName: this.name, fromVillage: g.state.owner.villageName,
+      to: to.uid, toName: to.name || '', toVillage: to.villageName || '', give: JSON.parse(JSON.stringify(give)), want, ts: Date.now(), status: 'pending', deliverAt: Date.now(),
+    };
+    try {
+      await update(ref(rtdb), { [`${this.w}offers/${to.uid}/${id}`]: offer, [`${this.w}offersSent/${this.uid}/${id}`]: offer });
+    } catch (e) {
+      this.receiveBundle(give);   // refund
+      throw e;
+    }
+    g.emit('change');
+    return offer;
+  }
+
+  /** Put a trade bundle into your inventory. */
+  receiveBundle(b = {}) {
+    const g = this.g, r = rpgOf(g);
+    for (const [k, v] of Object.entries(b.res || {})) g.state.resources[k] = (g.state.resources[k] || 0) + v;
+    for (const it of b.gear || []) r.bag.push(it);
+    for (const [k, n] of Object.entries(b.tools || {})) giveTool(g, k, n);
+    g.emit('change');
+  }
+
   handleInbox(all) {
     this.allOffers = Object.values(all);
     this.refreshInbox();
@@ -357,7 +399,14 @@ export class Multiplayer {
     const paths = {};
     const status = accept ? 'accepted' : 'declined';
     if (accept && offer.type === 'trade' && !g.spend(offer.want)) throw new Error('You cannot afford their request');
-    if (accept) {
+    if (accept && offer.type === 'itemtrade') {
+      const w = offer.want || {}, owned = toolsOf(g);
+      for (const [k, n] of Object.entries(w.tools || {})) if ((owned[k] || 0) < n) throw new Error(`You need ${n} ${k.replace(/_/g, ' ')}`);
+      if (!g.spend(w.res || {})) throw new Error('You cannot afford what they want');
+      for (const [k, n] of Object.entries(w.tools || {})) dropTool(g, k, n);
+      this.receiveBundle(offer.give);
+      g.log(`Traded with ${offer.fromName}.`, 'good');
+    } else if (accept) {
       for (const [k, v] of Object.entries(offer.give || {})) g.addResource(k, v);
       if (offer.type === 'alliance') paths[`${this.w}alliances/${this.uid}/${offer.from}`] = true;
       g.log(`Accepted ${offer.type} from ${offer.fromName}.`, 'good');
@@ -380,8 +429,12 @@ export class Multiplayer {
       if (done.length > 100) done.shift();
       if (o.status === 'accepted') {
         if (o.type === 'trade') for (const [k, v] of Object.entries(o.want || {})) g.addResource(k, v);
+        if (o.type === 'itemtrade') this.receiveBundle(o.want);
         if (o.type === 'alliance') set(ref(rtdb, `${this.w}alliances/${this.uid}/${o.to}`), true);
         g.log(`${o.toName || 'A player'} accepted your ${o.type}.`, 'good');
+      } else if (o.status === 'declined' && o.type === 'itemtrade') {
+        this.receiveBundle(o.give);
+        g.log(`${o.toName || 'A player'} declined your trade. Everything came back.`, 'info');
       } else if (o.status === 'declined') {
         for (const [k, v] of Object.entries(o.give || {})) g.addResource(k, v);
         g.log(`${o.toName || 'A player'} declined your ${o.type}. Refunded.`, 'info');

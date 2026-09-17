@@ -243,9 +243,10 @@ export function heroStats(g) {
   const r = rpgOf(g);
   const bonus = { dmg: 0, hp: 0, speed: 0 };
   for (const it of Object.values(r.gear)) for (const [k, n] of Object.entries(it?.bonus || {})) bonus[k] = (bonus[k] || 0) + n;
-  const armor = (r.gear.armor?.armor || 0) + (r.gear.helmet?.armor || 0) + (r.gear.shield?.armor || 0);
+  const ench = k => ['armor', 'helmet', 'shield'].reduce((a, s) => a + (r.gear[s]?.ench?.[k] || 0), 0);   // Protection and Vitality enchantments
+  const armor = (r.gear.armor?.armor || 0) + (r.gear.helmet?.armor || 0) + (r.gear.shield?.armor || 0) + ench('protection') * 0.03;
   return {
-    maxHp: Math.round(100 + (r.level - 1) * 10 + r.vigor * 12 + bonus.hp),
+    maxHp: Math.round(100 + (r.level - 1) * 10 + r.vigor * 12 + bonus.hp + ench('vitality') * 10),
     maxStamina: Math.round(100 + r.agility * 8 + (r.level - 1) * 3),
     dmgMult: 1 + r.might * 0.08 + (r.level - 1) * 0.04 + bonus.dmg,
     speed: 1 + r.agility * 0.03 + bonus.speed,

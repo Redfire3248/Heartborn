@@ -1,4 +1,5 @@
 import { TOOLS as ALL_TOOLS } from '../game/tools.js';
+import { ENCHANTS } from '../game/enchanting.js';
 import { h, icon, RES_ICON } from './dom.js';
 import { buildingSprite } from '../data/buildings.js';
 import { villagerSprite } from '../data/objects.js';
@@ -108,7 +109,7 @@ const HISTORY_KEY = 'hb_admin_history';
 // What each argument position expects, for autocomplete + hints.
 // Arrays are fixed choices; '...' repeats the pair before it (give res n res n …).
 // the strongest, most useful things are listed first everywhere in the console
-const TOP_COMMANDS = ['god', 'gear', 'items', 'tool', 'rich', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
+const TOP_COMMANDS = ['god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
 const commandRank = k => { const i = TOP_COMMANDS.indexOf(k); return i < 0 ? 999 : i; };
 const gearRank = d => (d.admin ? 1e6 : 0) + (d.minRarity || 0) * 1e4 + (d.damage || d.armor * 100 || d.block * 100 || 0);
 const creatureRank = d => (d.boss ? 1e6 : d.hostile ? 1e4 : 0) + (d.hp || 0);
@@ -123,7 +124,7 @@ const ARG_SPECS = {
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
   item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['mythic', 'legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], items: [['*', 'bomb', 'dynamite', 'med_kit', 'speed_potion', 'strength_potion', 'invisibility_potion', 'mana_potion', 'antidote', 'golden_apple', 'ammo_box'], 'number'], tool: ['tool', 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
-  build: ['building', 'number'], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
+  build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
 export class AdminConsole {
@@ -270,6 +271,8 @@ export class AdminConsole {
         ...Object.keys(CALLINGS).map(c => ({ value: `calling=${c}`, label: `calling=${c}`, detail: 'calling' })),
         ...Object.keys(TRAITS).map(t => ({ value: `traits=${t}`, label: `traits=${t}`, detail: TRAITS[t].label })),
       ];
+      case 'enchant': return [{ value: '*', label: '*', detail: 'every enchantment at max on all your gear and held tool' }, { value: 'list', label: 'list', detail: 'show every enchantment' }, { value: 'random', label: 'random', detail: 'a free random enchant' }, { value: 'clear', label: 'clear', detail: 'remove enchantments' }, { value: 'menu', label: 'menu', detail: 'open the Enchanting Table menu anywhere' },
+        ...Object.entries(ENCHANTS).map(([k, e]) => ({ value: k, label: k, detail: `${e.name} · max ${e.max} · ${e.for.join('/')}` }))];
       case 'building': return [star('one of every building'), ...Object.entries(BUILDINGS).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${ERAS[d.era].name}`, icon: buildingSprite(k) }))];
       case 'creature': return [star('every creature'), { value: 'hostile', label: 'hostile', detail: 'every monster' }, { value: 'boss', label: 'boss', detail: 'every boss' }, ...Object.entries(CREATURES).sort(([, a], [, b]) => creatureRank(b) - creatureRank(a)).map(([k, d]) => ({ value: k, label: k, detail: d.boss ? `BOSS · ${d.hp} hp` : d.hostile ? `hostile · ${d.hp} hp` : 'animal', icon: d.sprite }))];
       case 'event': return [{ value: 'list', label: 'list', detail: 'show all events' }, ...EVENTS.map(ev => ({ value: ev.id, label: ev.id, detail: ev.title, icon: ev.icon }))];
@@ -878,6 +881,121 @@ const COMMANDS = {
       const n = Math.max(1, Math.floor(Number(count) || 1));
       for (const k of keys) T.giveTool(this.game, k, n);
       this.print(`✓ gave ${keys.length > 1 ? `${keys.length} tools` : T.TOOLS[keys[0]].name}${n > 1 ? ` ×${n}` : ''} (open your Inventory with I)`, 'ok');
+    },
+  },
+  enchant: {
+    usage: 'enchant <enchantment|*|random|clear|list|menu> [level] [weapon|armor|helmet|shield|tool]', desc: 'Enchant your worn gear or held tool for free: enchant sharpness 5, enchant fortune 3 tool, enchant * (everything maxed), enchant clear weapon, enchant menu',
+    async run([key = 'list', a, b]) {
+      const E = await import('../game/enchanting.js');
+      const T = await import('../game/tools.js');
+      const g = this.game, r = rpgOf(g);
+      if (key === 'list') { for (const [k, e] of Object.entries(E.ENCHANTS)) this.print(`${k} · ${e.name} · max ${e.max} · ${e.for.join('/')} · ${e.desc(e.max)}`); return; }
+      if (key === 'menu') { if (!this.hud) throw new Error('no game screen'); this.toggle(); const M = await import('./enchantMenu.js'); M.openEnchantMenu(this.hud); return; }
+      const level = /^\d+$/.test(a || '') ? Number(a) : null;
+      const where = level == null ? a : b;
+      const heldTool = () => { const k = T.hotbarOf(g)[r.hotSel]; const key2 = T.TOOLS[k] && !T.TOOLS[k].utility ? k : Object.keys(T.toolsOf(g)).find(x => T.TOOLS[x] && !T.TOOLS[x].utility); return key2 ? { tool: key2 } : null; };
+      const targetFor = w => (w === 'tool' ? heldTool() : r.gear[w] ? { item: r.gear[w] } : null);
+      const nameOf = t => (t.tool ? T.TOOLS[t.tool].name : t.item.name);
+      const all = () => [...['weapon', 'armor', 'helmet', 'shield'].map(targetFor), heldTool()].filter(Boolean);
+      if (key === '*') {
+        let n = 0;
+        for (const t of all()) for (const [k, e] of Object.entries(E.ENCHANTS)) if (e.for.includes(E.targetKind(t))) { E.enchantsOf(g, t)[k] = e.max; n++; }
+        g.emit('change');
+        this.print(n ? `✓ ${n} enchantments at max on your gear and tool` : '✗ nothing to enchant (equip gear or hold a tool)', n ? 'ok' : 'err');
+        return;
+      }
+      const targets = where ? [targetFor(where)].filter(Boolean) : null;
+      if (key === 'clear') {
+        for (const t of targets || all()) { if (t.tool) delete r.toolEnch?.[t.tool]; else delete t.item.ench; }
+        g.emit('change'); this.print(`✓ enchantments removed${where ? ` from ${where}` : ' from all your gear and tool'}`, 'ok'); return;
+      }
+      if (key === 'random') {
+        const t = (targets || [targetFor('weapon') || heldTool()])[0];
+        if (!t) throw new Error('equip something or hold a tool');
+        const roll = E.rollEnchant(g, t, 1);
+        if (!roll) throw new Error('fully enchanted already');
+        E.enchant(g, t, { force: roll });
+        this.print(`✓ ${E.enchName(roll.key, roll.level)} on ${nameOf(t)}`, 'ok'); return;
+      }
+      const e = E.ENCHANTS[key];
+      if (!e) throw new Error(`unknown enchantment (enchant list). Try: ${Object.keys(E.ENCHANTS).join(', ')}`);
+      const t = (targets || [e.for.includes('tool') ? heldTool() : e.for.map(targetFor).find(Boolean)])[0];
+      if (!t) throw new Error(`nothing to put ${e.name} on: ${e.for.includes('tool') ? 'hold a tool' : `equip a ${e.for.join(' or ')}`}`);
+      if (!e.for.includes(E.targetKind(t))) throw new Error(`${e.name} only goes on ${e.for.join('/')}`);
+      const res = E.enchant(g, t, { force: { key, level: level ?? e.max } });
+      this.print(res.ok ? `✓ ${E.enchName(res.key, res.level)} on ${nameOf(t)}` : `✗ ${res.why}`, res.ok ? 'ok' : 'err');
+    },
+  },
+  station: {
+    usage: 'station <enchanting|crafting>', desc: 'Place an Enchanting Table or Crafting Table right next to you',
+    run([kind = 'enchanting']) {
+      const g = this.game;
+      const type = kind.startsWith('craft') ? 'crafting_table' : 'enchanting_table';
+      const v = heroOf(g);
+      if (!v) throw new Error('you need to be playing your hero');
+      const tx = Math.floor(v.x / 32), ty = Math.floor(v.y / 32);
+      const era = g.state.era;
+      for (const [k, n] of Object.entries(BUILDING_DEFS[type].cost)) g.state.resources[k] = (g.state.resources[k] || 0) + n;
+      let placed = null;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [1, 1], [-1, 1], [2, 1]]) {
+        g.state.era = Math.max(era, BUILDING_DEFS[type].era);
+        const r = g.placeBuilding(type, tx + dx, ty + dy);
+        g.state.era = era;
+        if (r?.ok) { placed = r.building; break; }
+      }
+      if (!placed) throw new Error('no free spot next to you');
+      g.finishBuilding(placed);
+      g.emit('change');
+      this.print(`✓ ${BUILDING_DEFS[type].name} placed next to you (press E beside it)`, 'ok');
+    },
+  },
+  trade: {
+    usage: 'trade <player>', desc: 'Open the trade window with a player (multiplayer worlds)',
+    async run([who]) {
+      if (!this.hud) throw new Error('no game screen');
+      if (!this.mp) throw new Error('trading works in multiplayer worlds');
+      const p = await this.resolve(who);
+      if (p.me) throw new Error("that's you");
+      this.toggle();
+      this.hud.tradeModal(p);
+    },
+  },
+  trades: {
+    usage: 'trades [accept|decline] [n]', desc: 'List the item trades waiting for you, or accept / decline one by number',
+    async run([act, n = '1']) {
+      if (!this.mp) throw new Error('trading works in multiplayer worlds');
+      const list = this.mp.inbox.filter(o => o.type === 'itemtrade');
+      const text = b => [...Object.entries(b?.res || {}).map(([k, v]) => `${v} ${k}`), ...(b?.gear || []).map(it => it.name), ...Object.entries(b?.tools || {}).map(([k, v]) => `${v} ${k}`)].join(', ') || 'nothing';
+      if (!act) {
+        if (!list.length) this.print('no trades waiting', 'dim');
+        list.forEach((o, i) => this.print(`${i + 1}. ${o.fromName}: gives ${text(o.give)} · wants ${text(o.want)}`));
+        return;
+      }
+      const o = list[Number(n) - 1];
+      if (!o) throw new Error('no trade with that number (type trades)');
+      await this.mp.respond(o, act === 'accept');
+      this.print(`✓ trade ${act === 'accept' ? 'accepted' : 'declined'}`, 'ok');
+    },
+  },
+  index: {
+    usage: 'index [*|clear]', desc: 'Open your Index, fill it completely (*) or empty it (clear)',
+    async run([arg]) {
+      const g = this.game, r = rpgOf(g);
+      if (arg === 'clear') { r.index = {}; g.emit('change'); this.print('✓ Index emptied', 'ok'); return; }
+      if (arg === '*') {
+        const O = await import('../data/objects.js'); const T = await import('../game/tools.js'); const F = await import('../game/forging.js');
+        const idx = (r.index ||= {});
+        const fill = (cat, keys) => { idx[cat] ||= {}; for (const k of keys) idx[cat][k] = Math.max(idx[cat][k] || 0, 1); };
+        fill('ore', Object.keys(O.OBJECTS).filter(k => O.OBJECTS[k].work === 'mine'));
+        fill('mob', Object.keys(O.CREATURES));
+        fill('gear', Object.values(CATALOG).flatMap(l => Object.keys(l)));
+        fill('tool', Object.keys(T.TOOLS));
+        fill('mat', F.MATERIAL_KEYS);
+        g.emit('change'); this.print('✓ everything is in your Index', 'ok'); return;
+      }
+      if (!this.hud) throw new Error('no game screen');
+      this.toggle();
+      const I = await import('./indexBook.js'); I.openIndex(this.hud);
     },
   },
   dungeon: {

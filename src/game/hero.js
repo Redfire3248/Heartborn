@@ -1,4 +1,5 @@
 import { doorOf } from './houses.js';
+import { enchantTraits } from './enchanting.js';
 import { gameTheme } from './worldTypes.js';
 import { TILE, WALK_SPEED, DAY_LENGTH, ADULT_AGE } from '../core/constants.js';
 import { traitEffects, abilityOf } from './forging.js';
@@ -200,9 +201,10 @@ function attack(g, v, st) {
   h.sinceAttackSwing = g.state.time;
   const finisher = h.combo === 3;
   if (finisher) h.atkAnim.dur = swingTime * 1.25;
-  const traitSp = w.traits?.length ? traitEffects(w.traits) : null;
+  const allTraits = [...(w.traits || []), ...enchantTraits(w)];   // forged traits and enchantments
+  const traitSp = allTraits.length ? traitEffects([...new Set(allTraits)]) : null;
   const sp = traitSp ? { ...traitSp, ...(BLADE_SPECIALS[w.base] || {}) } : BLADE_SPECIALS[w.base];
-  let dmg = w.dmg * st.dmgMult * strengthMult(v) * (crit ? 1.8 : 1) * (finisher ? 1.6 : 1) * (buffActive(g, 'strength') ? 1.5 : 1) * (w.ranged && buffActive(g, 'ammo') ? 1.3 : 1);
+  let dmg = w.dmg * st.dmgMult * strengthMult(v) * (1 + (w.ench?.sharpness || 0) * 0.08) * (crit ? 1.8 : 1) * (finisher ? 1.6 : 1) * (buffActive(g, 'strength') ? 1.5 : 1) * (w.ranged && buffActive(g, 'ammo') ? 1.3 : 1);
   if (sp?.riposte && h.riposte) { dmg *= sp.riposte; h.riposte = false; g.float(v.x, v.y - TILE * 1.6, 'RIPOSTE!', '#ffd76a'); }
   if (w.ranged) {
     fireShots(g, v, h, w, dmg, crit);

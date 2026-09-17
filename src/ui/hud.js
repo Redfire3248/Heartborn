@@ -1,4 +1,6 @@
 import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo } from './dom.js';
+import { openEnchantMenu } from './enchantMenu.js';
+import { atEnchantTable, ENCHANTS, enchName } from '../game/enchanting.js';
 import { openIndex } from './indexBook.js';
 import { openLayoutEditor, watchLayout } from './layoutEdit.js';
 import { quickCraft, setQuickCraft } from '../core/prefs.js';
@@ -25,7 +27,7 @@ import { BODY, bodyStat } from '../game/body.js';
 import { autoPickOn, runAutoPick } from '../game/autopick.js';
 import { arriveAbroad, leaveAbroad, spyActions } from '../game/abroad.js';
 import { rpgOf, heroStats, heroWeapon, xpToNext, spendPoint, equip, equipBest, gearScore, unequip, scrapGear, RARITY, CATALOG, BLADE_SPECIALS, questProgress } from '../game/rpg.js';
-import { gearIconKey } from '../render/gearArt.js';
+import { gearIconKey, hasArt } from '../render/gearArt.js';
 import { homeOf, residents } from '../game/homes.js';
 import { itemAt, pickUp, moveItem, dropFromPack, dropStack } from '../game/groundItems.js';
 const BADGE_TRAITS = ['gifted', 'knighted', 'versatile'];   // already shown as badges at the top of a profile
@@ -40,7 +42,6 @@ import { CONSUMABLES, itemsOf, buffActive } from '../game/consumables.js';
 import { on, buildingOn, eraFree } from '../core/features.js';
 import { ACTIONS, CONTROL_GROUPS, is, held, keyOf, keyLabel, setBind, resetBinds, RESERVED } from '../core/controls.js';
 import { TOOLS, toolsOf, hotbarOf, selectSlot, setSlot, swapSlots, TOOL_KINDS } from '../game/tools.js';
-import { hasArt } from '../render/gearArt.js';
 import { doorOf } from '../game/houses.js';
 import { LAW_CATEGORIES, DEFAULT_LAWS, LAW_COST, describeEffects } from '../data/laws.js';
 import { rally, standDown, tributeCost, payWarbandTribute, scoutSummary } from '../game/war.js';
@@ -167,7 +168,7 @@ export class HUD {
         this.bridgeKey = key;
         game.bridges = computeBridges(game.world, user.uid, players);
       });
-      mp.on('inbox', () => { this.updateBadges(); if (this.panel === 'world' && this.worldTab === 'offers') this.refreshPanel(); });
+      mp.on('inbox', () => { this.showIncomingTrades(); this.updateBadges(); if (this.panel === 'world' && this.worldTab === 'offers') this.refreshPanel(); });
       mp.on('announcement', a => { this.announce(`📜 ${a.text}`); this.toast({ text: `Announcement: ${a.text}`, kind: 'event' }); });
     }
   }
@@ -323,6 +324,7 @@ export class HUD {
       const potionDown = held(k, 'potion') || t.potion;
       let potion = potionDown && !this._potionHeld;
       if (potion && hg === g && atTable(g, heroOf(g))) { potion = false; this.openTable(); }
+      else if (potion && hg === g && atEnchantTable(g, heroOf(g))) { potion = false; openEnchantMenu(this); }
       this._potionHeld = potionDown;
       this._dashHeld = dashDown;
       const fights = !abroad || abroad.role === 'visitor';   // a visitor can fight other players; a disguised spy cannot
@@ -586,6 +588,7 @@ export class HUD {
     if (def.thorns) abilities.push(['Thorns', `Deals ${def.thorns} damage back to anything that hits your guard`]);
     if (def.parry >= 0.3) abilities.push(['Quick Parry', 'A long window to turn a blow aside and stagger the attacker']);
     if (def.slow && def.slow <= 0.35) abilities.push(['Wall of Iron', 'Blocks almost everything, but you move slowly behind it']);
+    for (const [k, l] of Object.entries(it.ench || {})) if (ENCHANTS[k]) abilities.push([`Enchanted: ${enchName(k, l)}`, ENCHANTS[k].desc(l)]);
     if (def.speed && def.speed <= 0.3) abilities.push(['Flurry', 'Strikes so fast your combos come out in a blur']);
     if (def.arc >= 2.2) abilities.push(['Wide Sweep', 'Cuts through every foe in a wide arc']);
     if (BLADE_SPECIALS[it.base]) abilities.unshift([BLADE_SPECIALS[it.base].name, BLADE_SPECIALS[it.base].desc]);
@@ -653,6 +656,7 @@ export class HUD {
       else abilities.push(['Master pickaxe', 'Mines every ore in the world']);
     }
     if (t.mythic) abilities.push(['Mythic', 'Made from a rare mythic material']);
+    for (const [k, l] of Object.entries(rpgOf(g).toolEnch?.[key] || {})) if (ENCHANTS[k]) abilities.push([`Enchanted: ${enchName(k, l)}`, ENCHANTS[k].desc(l)]);
     const recipe = RECIPES.find(r => r.id === `tool:${key}`);
     const owned = toolsOf(g)[key] || 0;
     const iconKey = hasArt(t.icon) ? t.icon : t.fallbackIcon || 'items/relic';
@@ -2248,6 +2252,7 @@ export class HUD {
             h('div.meta', h('span', h('span.dot' + (p.online ? '.on' : '')), ' ', p.name), me ? null : h('span', `🗺 ${fmtMinutes(travelMs(this.user.uid, p.uid))}`), h('span', `👥 ${p.pop}`), h('span', `☯ ${p.karma}`), h('span', ERAS[p.era || 0]?.name),
               !p.online && p.lastSeen ? h('span', timeAgo(p.lastSeen)) : null)),
           me ? null : h('div.col', { style: { gap: '4px' } },
+            h('button.btn.sm.primary', { onclick: () => this.tradeModal(p) }, 'Trade'),
             h('button.btn.sm', { onclick: () => this.offerModal(p) }, '🤝 Deal'),
             ally ? h('button.btn.sm.ghost', { onclick: () => mp.breakAlliance(p.uid) }, 'Break') : h('button.btn.sm.danger', { onclick: () => this.raidModal(p) }, '⚔ Raid'))));
       }
@@ -2289,6 +2294,7 @@ export class HUD {
     } else {
       if (!mp.inbox.length) body.append(h('div.muted', 'No offers yet. Visit other villages to trade, gift or form alliances.'));
       for (const o of mp.inbox) {
+        if (o.type === 'itemtrade') { body.append(this.tradeCard(o)); continue; }
         const title = { trade: 'Trade offer', gift: 'Gift', alliance: 'Alliance proposal' }[o.type];
         body.append(h('div.offer',
           h('div.row', icon(o.type === 'alliance' ? 'items/alliance' : o.type === 'gift' ? 'items/relic' : 'items/trade', 24), h('b', `${title} from ${o.fromVillage}`), h('div.spacer'), h('span.faint', timeAgo(o.ts))),
@@ -2300,6 +2306,85 @@ export class HUD {
       }
     }
     return [this.head('items/alliance', 'World', 'The shared realm'), tabs, body];
+  }
+
+  /** What a trade bundle holds, as chips: resources and materials, gear and tools. */
+  bundleView(b = {}) {
+    const res = b.res || {}, gear = b.gear || [], tools = b.tools || {};
+    const parts = [];
+    if (Object.keys(res).length) parts.push(costChips(res, null));
+    for (const it of gear) parts.push(h('span.chip.trade-gear', { style: { borderColor: RARITY[it.rarity]?.color }, title: it.name }, icon(gearIconKey(it) || 'items/relic', 18), it.name, Object.keys(it.ench || {}).length ? h('span.ench-mark', ' ✦') : null));
+    for (const [k, n] of Object.entries(tools)) if (TOOLS[k]) parts.push(h('span.chip', { title: TOOLS[k].name }, icon(hasArt(TOOLS[k].icon) ? TOOLS[k].icon : TOOLS[k].fallbackIcon, 18), `${TOOLS[k].name}${n > 1 ? ` x${n}` : ''}`));
+    return parts.length ? h('div.trade-bundle', ...parts) : h('span.faint', 'nothing');
+  }
+
+  /** An incoming trade, with Accept and Decline. */
+  tradeCard(o, onDone = null) {
+    const mp = this.mp;
+    const act = accept => mp.respond(o, accept).then(() => { this.hint(accept ? 'Trade done!' : 'Trade declined', 1500); play(accept ? 'reveal' : 'click'); onDone?.(); this.refreshPanel?.(); }).catch(e => this.hint(e.message, 2500));
+    return h('div.offer.trade-offer',
+      h('div.row', icon('items/trade', 24), h('b', `Trade from ${o.fromName || o.fromVillage || 'a player'}`), h('div.spacer'), h('span.faint', timeAgo(o.ts))),
+      h('div.row', h('span.faint', 'You get:'), this.bundleView(o.give)),
+      h('div.row', h('span.faint', 'They want:'), this.bundleView(o.want)),
+      h('div.row', h('div.spacer'),
+        h('button.btn.sm.ghost', { onclick: () => act(false) }, 'Decline'),
+        h('button.btn.sm.good', { onclick: () => act(true) }, 'Accept')));
+  }
+
+  /** A trade just arrived: show it at once (once per trade). */
+  showIncomingTrades() {
+    const mp = this.mp;
+    this._seenTrades ||= new Set();
+    for (const o of mp?.inbox || []) {
+      if (o.type !== 'itemtrade' || this._seenTrades.has(o.id)) continue;
+      this._seenTrades.add(o.id);
+      play('notify');
+      const m = modal([h('h2', 'Trade offer'), this.tradeCard(o, () => m.close())], { closeX: true, cls: 'trade-popup' });
+    }
+  }
+
+  /**
+   * Trade window (like Roblox trading): pick what you give from your bag, tools and materials, say what you want,
+   * and send it. What you give waits in escrow; if they decline it comes back.
+   */
+  tradeModal(p) {
+    const mp = this.mp;
+    if (!mp) { this.hint('Trading works in multiplayer worlds', 2000); return; }
+    if (p.uid === this.user?.uid) { this.hint("That's you!", 1500); return; }
+    const g = this.game, r = rpgOf(g);
+    const give = { res: {}, gear: new Set(), tools: {} }, want = { res: {}, tools: {} };
+    const keys = RESOURCES.filter(k => !['weapons', 'bombs', 'science', 'influence'].includes(k) && !MATERIALS[k]?.off);
+    const resIcon = k => (MATERIALS[k] ? matIcon(k) : RES_ICON[k]);
+    const err = h('div.error-text');
+    const m = modal([], { closeX: true, cls: 'trade-modal' });
+    const bump = (obj, k, n, max) => { obj[k] = Math.max(0, Math.min(max, (obj[k] || 0) + n)); if (!obj[k]) delete obj[k]; play('click'); render(); };
+    const render = () => {
+      const res = g.state.resources, owned = toolsOf(g);
+      const toolKeys = Object.keys(owned).filter(k => TOOLS[k]);
+      const giveCells = [
+        ...(r.bag || []).map(it => h(`button.trade-cell${give.gear.has(it.id) ? '.on' : ''}`, { title: `${it.name} (tap to add or take out)`, style: { borderColor: RARITY[it.rarity]?.color }, onclick: () => { give.gear.has(it.id) ? give.gear.delete(it.id) : give.gear.add(it.id); play('click'); render(); } }, icon(gearIconKey(it) || 'items/relic', 28))),
+        ...toolKeys.map(k => h(`button.trade-cell${give.tools[k] ? '.on' : ''}`, { title: `${TOOLS[k].name}: tap +1, right-click -1`, onclick: () => bump(give.tools, k, 1, owned[k]), oncontextmenu: e => { e.preventDefault(); bump(give.tools, k, -1, owned[k]); } }, icon(hasArt(TOOLS[k].icon) ? TOOLS[k].icon : TOOLS[k].fallbackIcon, 28), h('span.trade-n', String(owned[k] - (give.tools[k] || 0))))),
+        ...keys.filter(k => (res[k] || 0) >= 1).map(k => h(`button.trade-cell${give.res[k] ? '.on' : ''}`, { title: `${k}: tap +1, right-click +10 (shift-click -1)`, onclick: e => bump(give.res, k, e.shiftKey ? -1 : 1, Math.floor(res[k])), oncontextmenu: e => { e.preventDefault(); bump(give.res, k, 10, Math.floor(res[k])); } }, icon(resIcon(k), 28), h('span.trade-n', fmt(Math.floor(res[k]) - (give.res[k] || 0))))),
+      ];
+      const wantCells = keys.map(k => h(`button.trade-cell${want.res[k] ? '.on' : ''}`, { title: `${k}: tap +1, right-click +10 (shift-click -1)`, onclick: e => bump(want.res, k, e.shiftKey ? -1 : 1, 99999), oncontextmenu: e => { e.preventDefault(); bump(want.res, k, 10, 99999); } }, icon(resIcon(k), 28), want.res[k] ? h('span.trade-n', String(want.res[k])) : null));
+      const toolPick = h('select.input.trade-select', h('option', { value: '' }, 'Want a tool...'), ...Object.entries(TOOLS).sort((a, b) => (b[1].power || 0) - (a[1].power || 0)).map(([k, t]) => h('option', { value: k }, t.name)));
+      toolPick.onchange = () => { if (toolPick.value) bump(want.tools, toolPick.value, 1, 99); };
+      const giveBundle = { res: give.res, gear: (r.bag || []).filter(it => give.gear.has(it.id)), tools: give.tools };
+      m.el.replaceChildren(m.closeBtn,
+        h('h2', `Trade with ${p.villageName || p.name || 'player'}`),
+        h('div.faint', 'What you give waits safely until they answer. If they decline, you get it all back.'),
+        h('div.trade-cols',
+          h('div.trade-side', h('h3', 'You give'), this.bundleView(giveBundle), h('div.trade-grid', ...giveCells)),
+          h('div.trade-side', h('h3', 'You want'), this.bundleView(want), h('div.trade-grid', ...wantCells), toolPick)),
+        err,
+        h('div.row', h('button.btn.sm.ghost', { onclick: () => { give.res = {}; give.gear.clear(); give.tools = {}; want.res = {}; want.tools = {}; render(); } }, 'Clear'), h('div.spacer'),
+          h('button.btn.primary', { onclick: async () => {
+            try { await mp.sendTrade(p, giveBundle, want); m.close(); this.hint('Trade sent!', 1800); play('reveal'); }
+            catch (e) { err.textContent = e.message; }
+          } }, 'Send trade')));
+    };
+    render();
+    return m;
   }
 
   offerModal(p) {
@@ -3457,6 +3542,7 @@ export class HUD {
     this.houseEditor = new HouseEditor({
       game: g, building: b, hero, hint: (t, ms) => this.hint(t, ms),
       onCraft: () => { this.craftCat = this.craftCat || 'tools'; this.openPanel('craft'); },
+      onEnchant: () => openEnchantMenu(this),
       onClose: () => {
         this.houseEditor = null;
         if (g.hero) g.hero.inHouse = false;

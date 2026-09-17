@@ -135,6 +135,9 @@ export function workWith(g, work, baseHits, held = null) {
     hits = Math.max(1, hits);
   }
   if (hasTool(g, 'backpack')) yieldMult += 0.25;
+  const en = key && rpgOf(g).toolEnch?.[key];   // Efficiency and Fortune enchantments
+  if (en?.efficiency) hits = Math.max(1, hits - Math.ceil(en.efficiency / 2));
+  if (en?.fortune) yieldMult *= 1 + en.fortune * 0.2;
   return { key, hits, yieldMult };
 }
 

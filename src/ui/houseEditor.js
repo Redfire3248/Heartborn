@@ -99,8 +99,8 @@ const shade = (hex, k) => {
 };
 
 export class HouseEditor {
-  constructor({ game, building, hero, onClose, hint, onCraft }) {
-    Object.assign(this, { game: game, b: building, hero, onClose, hint, onCraft });
+  constructor({ game, building, hero, onClose, hint, onCraft, onEnchant }) {
+    Object.assign(this, { game: game, b: building, hero, onClose, hint, onCraft, onEnchant });
     this.floor = 0;
     this.mode = 'use';
     this.tool = null;          // { type, rot } while placing, { move: item, rot } while moving
@@ -361,6 +361,7 @@ export class HouseEditor {
   use(it) {
     if (BEDS.has(it.type)) this.sleep();
     else if (FURNITURE[it.type]?.station) { this.game.craftTableHere = true; this.onCraft?.(); }
+    else if (FURNITURE[it.type]?.enchant) { this.game.enchantTableHere = true; this.onEnchant?.(); }
     else if (it.type === 'stairs') this.goFloor(this.floor + 1);
     else if (it.type === 'landing') this.goFloor(this.floor - 1);
     else if (it.store) this.openStorage(it);
@@ -479,6 +480,7 @@ export class HouseEditor {
     this.el.remove();
     this.closed = true;
     this.game.craftTableHere = false;
+    this.game.enchantTableHere = false;
     this.onClose?.();
   }
 

@@ -46,6 +46,7 @@ export const FURNITURE = {
   stool:        { name: 'Stool',          cat: 'living',  w: 1, d: 1, h: 26,  color: '#9c6a3c', cost: { wood: 3 } },
   desk:         { name: 'Desk',           cat: 'living',  w: 2, d: 1, h: 56, color: '#704a2a', cost: { wood: 20 } },
   crafting_table: { name: 'Crafting Table', cat: 'living', w: 1, d: 1, h: 46, color: '#9a6a3a', cost: { wood: 10 }, station: true },
+  enchanting_table: { name: 'Enchanting Table', cat: 'living', w: 1, d: 1, h: 46, color: '#5a2d8a', cost: { stone: 20, gems: 5 }, enchant: true },
   bookshelf:    { name: 'Bookshelf',      cat: 'living',  w: 1, d: 1, h: 88, color: '#5f3f24', cost: { wood: 25 } },
   bunk_bed:     { name: 'Bunk Bed',       cat: 'living',  w: 1, d: 2, h: 84, color: '#8a5a32', cost: { wood: 30 } },
   nightstand:   { name: 'Nightstand',     cat: 'living',  w: 1, d: 1, h: 36, color: '#7d5230', cost: { wood: 8 } },
