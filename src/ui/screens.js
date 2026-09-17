@@ -1,4 +1,5 @@
 import { h, icon, avatar, GOOGLE_SVG, modal, fmt } from './dom.js';
+import { logoEmblem, logoEmbers } from './logo.js';
 import { friendlyAuthError } from '../net/firebase.js';
 import { installApp, canInstall, onInstallChange } from '../core/pwa.js';
 import { BUILD } from '../core/version.js';
@@ -27,7 +28,7 @@ export function loadingScreen() {
   const fill = h('i');
   const text = h('div.muted', 'Kindling the fire…');
   const el = h('div.screen.loading',
-    h('div.logo', h('img.logo-mark', { src: 'icons/icon-192.png', alt: '' }), h('h1', 'HEARTBORN')),
+    h('div.logo', logoEmbers(10), logoEmblem(96), h('h1', 'HEARTBORN')),
     h('div.load-bar', fill),
     text);
   ui().append(el);
@@ -47,6 +48,8 @@ export function loginScreen({ user, onSignIn, onEmailSignIn, onCreateAccount, on
   const card = h('div.card.login-card');
   const root = h('div.screen.login',
     h('div.logo',
+      logoEmbers(),
+      logoEmblem(104),
       h('h1', 'HEARTBORN'),
       h('div.tagline', h('span', 'One hero. Endless adventure.'), h('br'), h('span', 'Fight, explore, delve and build your home.'))),
     card,

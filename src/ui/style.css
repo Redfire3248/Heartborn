@@ -1695,3 +1695,23 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .char-sheet .bag-head { gap: 6px; }
 
 .an-recipe { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; font-size: 13px; }
+
+/* ---- the Heartborn logo: a pixel heart of fire above a crisp pixel wordmark ---- */
+.logo { isolation: isolate; }
+.logo-emblem { display: block; margin: 0 auto -4px; image-rendering: pixelated; filter: drop-shadow(0 0 18px rgba(255, 120, 40, .55)) drop-shadow(0 4px 0 rgba(0,0,0,.35)); }
+.logo h1 {
+  font-size: clamp(44px, 8.5vw, 96px); letter-spacing: 8px;
+  background: linear-gradient(180deg, #fff4c2 0%, #ffd76a 30%, #ff9a2a 62%, #e8521e 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-text-stroke: 3px #2a0c06; paint-order: stroke fill;
+  filter: drop-shadow(0 5px 0 #5a1a0a) drop-shadow(0 0 22px rgba(255, 110, 30, .35)) !important;
+  animation: none !important;
+}
+.logo .tagline { letter-spacing: 2px; line-height: 1.6; }
+.logo-embers { position: absolute; left: 0; right: 0; top: -10px; bottom: 0; pointer-events: none; z-index: -1; overflow: visible; }
+.logo-embers i { position: absolute; bottom: 20%; width: var(--s); height: var(--s); background: #ffb347; box-shadow: 0 0 6px #ff7a2a; opacity: 0; animation: ember linear infinite; }
+@keyframes ember { 0% { transform: translate(0, 0); opacity: 0; } 15% { opacity: .9; } 100% { transform: translate(var(--drift), -160px); opacity: 0; } }
+@media (max-width: 760px), (hover: none) { .logo h1 { -webkit-text-stroke-width: 2px; letter-spacing: 5px; } .logo-emblem { width: 80px !important; height: 80px !important; } }
+/* short screens: the title scrolls instead of cutting off the logo */
+.screen.login { overflow-y: auto; justify-content: safe center; padding-top: 16px; padding-bottom: 16px; }
+@media (max-width: 760px), (hover: none) { .logo-emblem { height: 84px !important; width: auto !important; } }
