@@ -20,7 +20,7 @@ export const THEMES = {
   volcanic: {
     name: 'Volcanic Isles', desc: 'Ash, obsidian and rivers of lava', color: '#ff7a3a', icon: 'effects/flame', weight: 1,
     wild: ['boar', 'snake'], night: ['fire_imp', 'goblin'], dungeon: ['fire_imp', 'fire_imp'], bosses: ['cave_troll', 'stone_golem'],
-    loot: ['flame_sword', 'fire_staff', 'maul', 'war_pick', 'double_axe'], mats: ['lava', 'obsidian'], ores: ['obsidian_ore', 'obsidian_ore', 'magmite_ore', 'coal_ore', 'titanium_ore'],
+    loot: ['flame_sword', 'fire_staff', 'maul', 'war_pick', 'double_axe'], mats: ['lava', 'obsidian'], ores: ['obsidian_ore', 'obsidian_ore', 'magmite_ore', 'coal_ore', 'titanium_ore', 'ruby_ore'],
   },
   desert: {
     name: 'Endless Desert', desc: 'Dunes, cacti and buried treasure', color: '#e8c070', icon: 'nature/cactus', weight: 1,
@@ -40,7 +40,7 @@ export const THEMES = {
   crystal: {
     name: 'Crystal Highlands', desc: 'Mountains full of ore and glowing crystals', color: '#c08aff', icon: 'nature/crystal_cluster', weight: 1,
     wild: ['deer', 'rabbit'], night: ['ghost', 'dark_mage'], dungeon: ['dark_mage', 'bat'], bosses: ['forest_spirit', 'stone_golem'],
-    loot: ['crystal_orb', 'spellbook', 'lightning_wand', 'thunder_sword', 'rapier'], mats: ['crystal', 'celestial', 'diamond'], ores: ['mythril_ore', 'silver_ore', 'gem_ore', 'crystal_cluster', 'voidstone_ore'],
+    loot: ['crystal_orb', 'spellbook', 'lightning_wand', 'thunder_sword', 'rapier'], mats: ['crystal', 'celestial', 'diamond'], ores: ['mythril_ore', 'silver_ore', 'gem_ore', 'crystal_cluster', 'voidstone_ore', 'amethyst_ore', 'amethyst_ore'],
   },
 };
 

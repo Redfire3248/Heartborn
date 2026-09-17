@@ -40,6 +40,8 @@ export const OBJECTS = {
   titanium_ore:    { sprite: 'nature/titanium_ore',    size: 0.9, work: 'mine', stone: [1, 2], titanium: [1, 2], charges: 2, tier: 6, rarity: 'Epic' },
   sunstone_ore:    { sprite: 'nature/sunstone_ore',    size: 0.9, work: 'mine', sunstone: [1, 2], gold: [0, 2], charges: 2, tier: 6, rarity: 'Epic' },
   voidstone_ore:   { sprite: 'nature/voidstone_ore',   size: 0.9, work: 'mine', voidstone: [1, 1], gems: [0, 1], charges: 1, tier: 9, rarity: 'Mythical' },
+  amethyst_ore:    { sprite: 'nature/amethyst_ore',    size: 0.9, work: 'mine', stone: [1, 2], gems: [1, 3], charges: 2, tier: 5, rarity: 'Rare' },
+  ruby_ore:        { sprite: 'nature/ruby_ore',        size: 0.9, work: 'mine', gems: [2, 3], gold: [0, 2], charges: 2, tier: 7, rarity: 'Epic' },
   crystal_cluster: { sprite: 'nature/crystal_cluster', size: 1.0, work: 'mine', gems: [1, 2], influence: [5, 10], charges: 1, tier: 8, rarity: 'Epic' },
 
   grave:           { sprite: 'buildings/grave',        size: 0.8 },

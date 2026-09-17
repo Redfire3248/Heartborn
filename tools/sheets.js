@@ -424,18 +424,26 @@ window.SHEETS = {
       "rogue_front", "rogue_back", "rogue_side"
     ]
   },
-  biomeOres: {
-    title: "Biome ores (placeholders until OresSheet.png)",
+  oreRocks: {
+    title: "Ores sheet top rows, ore rocks",
     folder: "nature",
     mode: "sprite",
     cols: 6,
-    names: ["copper_ore", "silver_ore", "obsidian_ore", "mythril_ore", "frostite_ore", "magmite_ore", "jade_ore", "cobalt_ore", "moonstone_ore", "titanium_ore", "sunstone_ore", "voidstone_ore"]
+    names: [
+      "copper_ore", "silver_ore", "obsidian_ore", "mythril_ore", "frostite_ore", "magmite_ore",
+      "jade_ore", "cobalt_ore", "moonstone_ore", "titanium_ore", "sunstone_ore", "voidstone_ore",
+      "coal_ore", "iron_ore", "gold_ore", "gem_ore", "ruby_ore", "amethyst_ore"
+    ]
   },
-  metalIcons: {
-    title: "Metal icons (placeholders)",
+  oreIcons: {
+    title: "Ores sheet bottom rows, ingots and gems",
     folder: "items",
     mode: "sprite",
     cols: 6,
-    names: ["icon_copper", "icon_silver", "icon_obsidian", "icon_mythril", "icon_frostite", "icon_magmite", "icon_jade", "icon_cobalt", "icon_moonstone", "icon_titanium", "icon_sunstone", "icon_voidstone"]
+    names: [
+      "icon_copper", "icon_silver", "icon_obsidian", "icon_mythril", "icon_frostite", "icon_magmite",
+      "icon_jade", "icon_cobalt", "icon_moonstone", "icon_titanium", "icon_sunstone", "icon_voidstone",
+      "icon_coal", "icon_iron", "icon_gold", "icon_gem", "icon_ruby", "icon_amethyst"
+    ]
   }
 };
