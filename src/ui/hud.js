@@ -36,7 +36,7 @@ import { RECIPES, CRAFT_CATS, canCraft, craft, needsTable, atTable, ownsTool, mi
 import { CONSUMABLES, itemsOf, buffActive } from '../game/consumables.js';
 import { on, buildingOn, eraFree } from '../core/features.js';
 import { ACTIONS, CONTROL_GROUPS, is, held, keyOf, keyLabel, setBind, resetBinds, RESERVED } from '../core/controls.js';
-import { TOOLS, toolsOf, hotbarOf, selectSlot, setSlot, swapSlots } from '../game/tools.js';
+import { TOOLS, toolsOf, hotbarOf, selectSlot, setSlot, swapSlots, TOOL_KINDS } from '../game/tools.js';
 import { hasArt } from '../render/gearArt.js';
 import { doorOf } from '../game/houses.js';
 import { LAW_CATEGORIES, DEFAULT_LAWS, LAW_COST, describeEffects } from '../data/laws.js';
@@ -605,6 +605,67 @@ export class HUD {
     play('ability');
   }
 
+/** Analyze a tool: its power, speed and yield, what it can mine, its material and how to craft it (same look as gear). */
+  analyzeTool(key) {
+    const g = this.game;
+    const t = TOOLS[key];
+    if (!t) return;
+    const power = t.power || 0;
+    const rarity = power > 10 ? 4 : power >= 9 ? 3 : power >= 6 ? 2 : power >= 3 ? 1 : 0;
+    const R = RARITY[rarity];
+    const stats = [];
+    const bar = (label, value, max, text) => ({ label, value, max, text });
+    if (t.power != null) stats.push(bar('Power', power, 14, String(power)));
+    const base = { pickaxe: 2, axe: 3 }[t.kind];
+    if (base) {
+      const hits = Math.max(1, base + 1 - Math.floor((power + 1) / 3));
+      stats.push(bar('Swings per rock or tree', 1 / hits, 1, `${hits}`));
+      stats.push(bar('Yield', 1 + power * 0.12, 3, `x${(1 + power * 0.12).toFixed(2)}`));
+    }
+    if (t.kind === 'shovel') stats.push(bar('Digs per find', 1 / Math.max(1, 4 - Math.floor(power / 3)), 1, String(Math.max(1, 4 - Math.floor(power / 3)))));
+    if (t.kind === 'hammer') stats.push(bar('Build speed', 1 + power * 0.15, 3.5, `x${(1 + power * 0.15).toFixed(2)}`));
+    const abilities = [[TOOL_KINDS[t.kind]?.name || t.name, t.does]];
+    if (t.kind === 'pickaxe') {
+      const ores = Object.entries(OBJECTS).filter(([, d]) => d.work === 'mine' && d.tier).sort((a, b) => a[1].tier - b[1].tier);
+      const can = ores.filter(([, d]) => d.tier <= power).map(([k]) => k.replace(/_ore$/, '').replace(/_/g, ' '));
+      const next = ores.find(([, d]) => d.tier > power);
+      abilities.push(['Can mine', can.length ? can.join(', ') : 'only plain rock']);
+      if (next) abilities.push(['Too weak for', `${next[0].replace(/_ore$/, '').replace(/_/g, ' ')} (needs power ${next[1].tier})`]);
+      else abilities.push(['Master pickaxe', 'Mines every ore in the world']);
+    }
+    if (t.mythic) abilities.push(['Mythic', 'Made from a rare mythic material']);
+    const recipe = RECIPES.find(r => r.id === `tool:${key}`);
+    const owned = toolsOf(g)[key] || 0;
+    const iconKey = hasArt(t.icon) ? t.icon : t.fallbackIcon || 'items/relic';
+    const bars = stats.map((s, i) => h('div.an-stat', { style: { animationDelay: `${0.9 + i * 0.12}s` } },
+      h('div.an-stat-top', h('span', s.label), h('b', s.text)),
+      h('div.an-bar', h('div', { style: { '--w': `${Math.max(3, Math.min(100, (s.value / s.max) * 100))}%`, animationDelay: `${1.0 + i * 0.12}s`, background: `linear-gradient(90deg, ${R.color}88, ${R.color})` } }))));
+    const abil = abilities.map(([name, text], i) => h('div.an-ability', { style: { animationDelay: `${1.2 + stats.length * 0.12 + i * 0.15}s` } }, h('span.an-ability-mark', '◆'), h('div', h('b', name), h('div.faint', text))));
+    const bg = h('div.analyze-bg', { onclick: e => { if (e.target === bg) close(); } },
+      h('div.analyze', { style: { '--rarity': R.color } },
+        h('div.an-stage', h('div.an-rays'), h('div.an-ring'), h('div.an-ring.two'), h('div.an-item', icon(iconKey, 128)), h('div.an-scan')),
+        h('div.an-body',
+          h('div.an-rarity', R.name.toUpperCase()),
+          h('h2.an-name', t.name),
+          h('div.an-kind.faint', `${TOOL_KINDS[t.kind]?.name || 'Tool'}${t.mat ? ` · ${t.mat}` : ''} · you have ${owned}`),
+          stats.length ? h('div.an-stats', bars) : '',
+          h('h3.an-head', 'What it does'),
+          h('div.an-abilities', abil),
+          recipe ? h('div.an-recipe', h('span.faint', `Craft${needsTable(recipe) ? ' (Crafting Table)' : ' (by hand)'}: `), costChips(recipe.cost, g.state.resources)) : '',
+          h('button.modal-x.an-x', { title: 'Close', onclick: () => close() }, hasArt('ui/close') ? icon('ui/close', 18) : '✕'))));
+    const close = () => { bg.classList.add('closing'); setTimeout(() => bg.remove(), 200); };
+    document.getElementById('ui').append(bg);
+    play('ability');
+  }
+
+  /** Analyze whatever a hotbar or inventory key is: a tool, or the weapon you carry. */
+  analyzeKey(k) {
+    if (!k) return;
+    if (TOOLS[k]) this.analyzeTool(k);
+    else if (k === 'weapon') { const w = rpgOf(this.game).gear.weapon; if (w) this.analyzeGear(w); else this.hint('Equip a weapon to analyze it', 1500); }
+    else this.hint('Nothing to analyze there', 1200);
+  }
+
   /** Your character: level, points to spend, gear you wear and loot in your bag. */
   /** Hotbar: nine slots along the bottom. The selected one is what you hold and what your swing does. */
   updateHotbar(v) {
@@ -625,6 +686,7 @@ export class HUD {
         title: info ? `${i + 1}: ${info.name} (drag to move)` : `${i + 1}: empty`,
         dataset: { slot: i },
         onclick: () => { if (this._dragged) return; selectSlot(g, i); this._hotbarKey = null; if (!this.els.invPanel.hidden) this.renderInventory(); },
+        oncontextmenu: e => { e.preventDefault(); this.analyzeKey(slots[i]); },
         onpointerdown: e => k && this.startSlotDrag(e, { from: i, value: k, icon: info.icon }),
       }, h('span.hot-num', String(i + 1)), info ? icon(info.icon, 28) : null, info?.count != null ? h('span.hot-count', String(info.count)) : null);
     }), h('button.hot-bag', { title: 'Inventory (I)', onclick: () => this.inventory() }, icon(hasArt('ui/inventory') ? 'ui/inventory' : 'tools/backpack', 24)));
@@ -742,6 +804,7 @@ export class HUD {
     const heldInfo = this.slotInfo(bar[r.hotSel], v);
     panel.replaceChildren(
       h('div.inv-head', h('b', 'Inventory'), h('div.spacer'),
+        h('button.btn.sm.analyze-btn', { title: 'Analyze the item under your cursor (or what you hold). Tip: right-click a hotbar slot', onclick: () => this.analyzeKey(this._invHover || bar[r.hotSel]) }, 'Analyze'),
         h('button.btn.sm', { title: 'Ores, metals and boss materials', onclick: () => openMaterialsBag(this) }, 'Materials'),
         h('button.btn.sm', { title: 'Craft (C). At a Crafting Table: everything', onclick: () => this.openTable() }, 'Craft'),
         h('button.btn.sm', { title: 'Your gear and stats (G)', onclick: () => this.characterSheet() }, 'Gear'),
@@ -944,7 +1007,7 @@ export class HUD {
     const potion = hold('hero-potion', 'potion', '', 'gear/health_potion', 26);
     this.els.potionCount = h('span.hero-potion-count', '0');
     potion.append(this.els.potionCount);
-    const ability = h('button.hero-btn.hero-ability', { title: 'Weapon ability (F)', onpointerdown: e => { e.preventDefault(); useAbility(this.dungeon || this.game); } }, icon('effects/magic_orb', 22), h('span', 'SKILL'), h('i.ability-cd'));
+    const ability = h('button.hero-btn.hero-ability', { title: 'Weapon ability (F)', onpointerdown: e => { e.preventDefault(); useWeaponAbility(this.dungeon || this.game); } }, icon('effects/magic_orb', 22), h('span', 'SKILL'), h('i.ability-cd'));
     this.els.abilityBtn = ability;
     this.els.heroPad.replaceChildren(stick, act, dash, block, potion, ability);
   }

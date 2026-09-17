@@ -53,4 +53,3 @@ export function updateDrops(g, dt) {
   }
 }
 
-void rpgOf;

@@ -178,4 +178,3 @@ export function abilityOf(item) {
   return id ? { id, ...ABILITIES[id] } : null;
 }
 
-void RARITY;

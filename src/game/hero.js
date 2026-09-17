@@ -1,3 +1,4 @@
+import { doorOf } from './houses.js';
 import { TILE, WALK_SPEED, DAY_LENGTH, ADULT_AGE } from '../core/constants.js';
 import { traitEffects, abilityOf } from './forging.js';
 import { popResource, updateDrops, lucky } from './loot.js';
@@ -170,12 +171,7 @@ function attack(g, v, st) {
     h.atkAnim = { t: 0, dur: swingTime };
     if (!tool) {   // a weapon (or bare hands) at nothing to fight: cut grass, pick berries and crops
       slashFx(g, v, h, w, false);
-      if (work(g, v, null)) { questProgress(g, 'gather', { v }); return; }
-      // smart tools: a tree or a rock in reach is worked with your best axe or pickaxe, no switching needed
-      for (const kind of ['axe', 'pickaxe']) {
-        const best = bestTool(g, kind);
-        if (best && work(g, v, best)) { questProgress(g, 'gather', { v }); return; }
-      }
+      if (work(g, v, null)) questProgress(g, 'gather', { v });   // hands and weapons only pick plants: trees need an axe, rocks a pickaxe
       return;
     }
     h.swing = 0.22;
@@ -706,6 +702,24 @@ export function updateHero(g, dt, controls = {}) {
     else if (ok(nx, v.y)) v.x = nx;
     else if (ok(v.x, ny)) v.y = ny;
   };
+  // standing inside something solid (a building finished around you): step out to the nearest free spot
+  if (!ok(v.x, v.y) && !h.dash) {
+    const inside = g.buildingAt(Math.floor(v.x / TILE), Math.floor(v.y / TILE));
+    const door = inside && BUILDINGS[inside.type]?.housing ? doorOf(g, inside) : null;
+    let spot = door && ok(door.x, door.y + 6) ? { x: door.x, y: door.y + 6 } : null;
+    const tx = Math.floor(v.x / TILE), ty = Math.floor(v.y / TILE);
+    for (let r = 1; r <= 8 && !spot; r++) {
+      let best = null, bd = Infinity;
+      for (let y = ty - r; y <= ty + r; y++) for (let x = tx - r; x <= tx + r; x++) {
+        const px = (x + 0.5) * TILE, py = (y + 0.5) * TILE;
+        if (!ok(px, py)) continue;
+        const d = Math.hypot(px - v.x, py - v.y);
+        if (d < bd) { bd = d; best = { x: px, y: py }; }
+      }
+      spot = best;
+    }
+    if (spot) { v.x = spot.x; v.y = spot.y; if (g.hero) g.hero.doorCd = 1.2; }
+  }
 
   // block: hold to raise your guard (slow, drains stamina); a block right as the blow lands is a parry
   const blocking = !!controls.block && h.stamina > 1 && !h.dash;

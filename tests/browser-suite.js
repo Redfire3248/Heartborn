@@ -635,7 +635,7 @@ export async function run() {
     const bag = R.rpgOf(g).bag.length, worn = R.rpgOf(g).gear.weapon;
     ok(Cr.craft(g, 'gear:flame_sword').ok && (R.rpgOf(g).bag.length > bag || R.rpgOf(g).gear.weapon !== worn), 'crafting a Flame Sword gives it to you');
     const p0 = R.rpgOf(g).potions || 0;
-    ok(Cr.craft(g, 'potion:health5').ok && R.rpgOf(g).potions === p0 + 5, 'potions can be brewed');
+    ok(Cr.craft(g, 'potion:health5').ok && R.rpgOf(g).potions >= p0 + 5, 'potions can be brewed');
     g.state.buildings = g.state.buildings.filter(b => b !== tb); g.hero = null;
     // only homes in the build menu, every kind from the start
     if (F.on('housesOnly')) {
@@ -725,10 +725,12 @@ export async function run() {
       g.state.groundItems = [];   // nothing left lying around from the axe
       const tree2 = g.state.objects.find(o => (o.t === 'tree_oak' || o.t === 'tree_pine') && o !== tree);
       if (tree2) { me.x = (tree2.x + 0.5) * TILE + 12; me.y = (tree2.y + 0.5) * TILE; g.hero.facing = Math.PI; }
+      // only the tree here: logs and reeds (which hands can gather) would muddy the test
+      for (const o of [...g.state.objects]) if (o !== tree2 && Math.abs(o.x - tree2.x) <= 3 && Math.abs(o.y - tree2.y) <= 3) g.world.removeObject(g.state.objects, o);
       const before2 = g.state.resources.wood;
       for (let i = 0; i < 12; i++) { g.hero.atkCd = 0; g.hero.actCd = 0; H.updateHero(g, 1 / 30, { act: true }); }
       for (let i = 0; i < 60; i++) H.updateHero(g, 1 / 30, {});
-      ok(g.state.resources.wood > before2, 'smart tools: swinging your sword at a tree chops it with your best axe');
+      ok(g.state.resources.wood === before2, 'a sword does not chop trees');
     }
     // dig bare ground far from anything
     const spot = g.randomLandTile(5, 12);

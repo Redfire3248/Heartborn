@@ -711,7 +711,8 @@ export class Renderer {
     const key = villagerSprite({ ...v, role });
     // zoomed far out (or a huge village): just the figure — shadows, tools, bars and emotes are too small to see
     if (this.camera.zoom < 1.1 || (g.state.villagers.length > 250 && this.camera.zoom < 1.8)) {
-      drawSprite(ctx, key, v.x, v.y, size, { flip: v._flip, offsetY });
+      const look = g.hero?.id === v.id ? avatarArt(avatarId(g), 'front') : null;   // you keep the look you picked, even from far away
+      drawSprite(ctx, look && hasArt(look) ? look : key, v.x, v.y, look && hasArt(look) ? size * 1.15 : size, { flip: look ? false : v._flip, offsetY });
       return;
     }
     const hero = g.hero?.id === v.id ? g.hero : null;
@@ -940,9 +941,9 @@ export class Renderer {
     // dash afterimages
     for (const tr of hero.trail || []) {
       ctx.globalAlpha = Math.max(0, tr.life / 0.25) * 0.35;
-      const bodyArt = `hero/${v.sex === 'f' ? 'girl' : 'boy'}_body_side`;
-      const body = hasArt(bodyArt) ? bodyArt : 'characters/king';
-      drawSprite(ctx, body, tr.x, tr.y, TILE * 0.92, { flip: Math.cos(hero.facing ?? 0) < 0, tint: '#9fd4ff' });
+      const look = avatarArt(avatarId(g), 'front');
+      const body = hasArt(look) ? look : 'characters/king';
+      drawSprite(ctx, body, tr.x, tr.y, TILE * 0.92, { tint: '#9fd4ff' });
     }
     ctx.globalAlpha = 1;
     // the swing: a bright arc in front of you
