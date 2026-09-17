@@ -132,7 +132,7 @@ export class Renderer {
       if (!v.away && inView(v.x, v.y)) items.push({ y: v.y, draw: () => this.drawVillager(g, v) });
     }
     // strangers from other lands (visitors, spies dressed as travellers), gliding to where they really are
-    if (!g.visiting) for (const st of g.strangers || []) {
+    for (const st of g.strangers || []) {
       st.x += (st.tx - st.x) * Math.min(1, dt * 8); st.y += (st.ty - st.y) * Math.min(1, dt * 8);
       if (inView(st.x, st.y)) items.push({ y: st.y, draw: () => this.drawStranger(g, st) });
     }
@@ -527,6 +527,7 @@ export class Renderer {
   drawStranger(g, st) {
     const v = st._v ||= { id: `s${st.id}`, age: 25, hp: 100, traits: [], skills: {}, inv: { pack: {} } };
     Object.assign(v, { name: st.name, sex: st.sex, job: st.job, profession: st.job, x: st.x, y: st.y, _walking: st._walking, _flip: st._flip });
+    if (st._hitFlash > 0) { st._hitFlash -= 1 / 60; v._whiteFlash = st._hitFlash; } else v._whiteFlash = 0;
     this.drawVillager(g, v);
     label(this.ctx, st.name, st.x, st.y + 7);
   }
@@ -557,15 +558,18 @@ export class Renderer {
   drawPlacedTorch(g, t) {
     const { ctx } = this;
     this.shadow(t.x, t.y, TILE * 0.25);
-    drawSprite(ctx, hasArt(TOOLS.torch.icon) ? TOOLS.torch.icon : TOOLS.torch.fallbackIcon || 'items/torch', t.x, t.y, TILE * 0.8, { rot: -Math.PI / 4 });
+    // the torch art leans (about 63 degrees): turn it upright about its middle so it stands on its spot
+    const size = TILE * 1.1;
+    drawSprite(ctx, hasArt(TOOLS.torch.icon) ? TOOLS.torch.icon : TOOLS.torch.fallbackIcon || 'items/torch', t.x, t.y - size * 0.42, size, { rot: -0.466, center: true });
+    const fx = t.x, fy = t.y - size * 0.82;   // the flame
     const f = 1 + Math.sin(this.time * 14 + t.x) * 0.15;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const grd = ctx.createRadialGradient(t.x + 4, t.y - 22, 0, t.x + 4, t.y - 22, 14 * f);
+    const grd = ctx.createRadialGradient(fx, fy, 0, fx, fy, 14 * f);
     grd.addColorStop(0, 'rgba(255,210,120,0.8)'); grd.addColorStop(1, 'rgba(255,120,40,0)');
-    ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(t.x + 4, t.y - 22, 14 * f, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(fx, fy, 14 * f, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-    if (Math.random() < 0.06) g.fx.particles.push({ x: t.x + 4, y: t.y - 24, vx: (Math.random() - 0.5) * 6, vy: -16, sprite: 'effects/spark', size: 4, life: 0.6, max: 0.6, rot: 0 });
+    if (Math.random() < 0.06) g.fx.particles.push({ x: fx, y: fy - 2, vx: (Math.random() - 0.5) * 6, vy: -16, sprite: 'effects/spark', size: 4, life: 0.6, max: 0.6, rot: 0 });
   }
 
   drawGroundItem(it) {

@@ -888,7 +888,8 @@ const COMMANDS = {
       const n = Math.max(1, Math.min(99, Math.floor(Number(floor) || 1)));
       if (this.hud.visiting || this.game.sail) throw new Error('come home first');
       this.toggle();
-      this.hud.enterDungeon(this.hud.dungeon?.dungeon.entrance || null, n);
+      this.hud.enterDungeon(null, n);   // works from the surface and from inside a dungeon (it keeps the same cave mouth)
+      this.print(`✓ floor ${n}`, 'ok');
     },
   },
 

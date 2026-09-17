@@ -6,7 +6,7 @@
 import { h, icon, modal } from './dom.js';
 import { RARITY, CATALOG } from '../game/rpg.js';
 import { gearIconKey, hasArt } from '../render/gearArt.js';
-import { MATERIALS, MATERIAL_KEYS, TRAITS, forgePreview, canPay, forge, abilityOf } from '../game/forging.js';
+import { MATERIALS, MATERIAL_KEYS, TRAITS, forgePreview, canPay, forge, abilityOf, rollForgeBase } from '../game/forging.js';
 import { RECIPES, needsTable, canCraft, missingToDiscover } from '../game/crafting.js';
 import { heroOf } from '../game/hero.js';
 import { forgeMinigame } from './forge.js';
@@ -15,7 +15,7 @@ import { costChips } from './dom.js';
 
 const MAX_SLOTS = 4;
 const fmtN = n => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.floor(n)));
-const matIcon = k => (hasArt(MATERIALS[k].icon) ? MATERIALS[k].icon : 'items/relic');
+export const matIcon = k => (hasArt(MATERIALS[k].icon) ? MATERIALS[k].icon : 'items/relic');
 
 /** The Materials bag: a grid of everything you can forge with. */
 export function openMaterialsBag(hud) {
@@ -107,10 +107,13 @@ export function openTableMenu(hud, { atTable = false, tab = null } = {}) {
       disabled: !p.ok || !canPay(g, mix),
       onclick: () => {
         m.el.classList.add('forging');
-        forgeMinigame({ root: document.getElementById('ui'), title: `Forging a ${hud._forgeKind}`, iconKey: 'buildings/workshop', stages: ['heat', 'hammer', 'quench'], tier: p.rarity }).then(score => {
+        const base = rollForgeBase(p);
+        const bdef = CATALOG.weapon[base] || CATALOG.armor[base] || CATALOG.helmet[base] || CATALOG.shield[base];
+        const revealIcon = gearIconKey({ base, icon: bdef?.icon, slot: CATALOG.weapon[base] ? 'weapon' : 'armor' }) || 'items/relic';
+        forgeMinigame({ root: document.getElementById('ui'), title: `Forging a ${hud._forgeKind}`, iconKey: 'buildings/workshop', revealIcon, stages: ['heat', 'hammer', 'quench'], tier: p.rarity }).then(score => {
           m.el.classList.remove('forging');
           if (score == null) return;
-          const r = forge(g, mix, hud._forgeKind, { score, hero });
+          const r = forge(g, mix, hud._forgeKind, { score, hero, base });
           if (!r.ok) { hud.hint(r.why, 1800); render(); return; }
           if (hero) g.puff({ x: hero.x, y: hero.y - 14 }, 'effects/spark', 12, 18);
           hud.craftReveal({ made: r.item.name, item: r.item, quality: null, extra: 0, recipe: { icon: r.item.icon }, score, bump: r.bump });

@@ -122,7 +122,7 @@ export async function run() {
     ok(r.ok && g.state.resources.silver === 0 && g.state.resources.lich_soul === 0 && r.item.traits.includes('holy') && r.item.name.includes('Silver'), 'forging uses the materials and makes a Silver weapon with its traits', r.item?.name);
     Object.assign(g.state.resources, { iron: 6 });
     ok(F.forge(g, { iron: 6 }, 'armour', { hero: me }).item?.slot !== 'weapon', 'the forge makes armour too');
-    ok(Object.keys(F.BOSS_MATERIAL).length === 7 && F.BOSS_MATERIAL.lich === 'lich_soul', 'every boss has its own material');
+    ok(Object.keys(F.BOSS_MATERIAL).length === 6 && F.BOSS_MATERIAL.lich === 'lich_soul' && !F.BOSS_MATERIAL.cave_troll, 'every boss has its own material (Troll Hide is switched off)');
     R.equip(g, r.item.id);
     ok(!!F.abilityOf(r.item) && F.abilityOf({ base: 'rapier', traits: ['holy'] }).name === 'Holy Light', 'holy weapons have Holy Light (special weapons keep their own)');
     const sk = g.spawnCreature('skeleton', me.x + 30, me.y); sk._eliteRolled = true;

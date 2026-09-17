@@ -135,10 +135,19 @@
         },
         "strangers": {
           "$host": {
-            ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && auth != null && auth.uid === $host",
+            ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && auth != null",
             "$id": {
               ".write": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && auth != null && ((!data.exists() && newData.child('from').val() === auth.uid) || (data.exists() && data.child('from').val() === auth.uid) || (auth.uid === $host && !newData.exists()))",
               ".validate": "!newData.exists() || (newData.hasChildren(['from', 'x', 'y', 'ts']) && newData.child('x').isNumber() && newData.child('y').isNumber() && (newData.child('name').val() == null || (newData.child('name').isString() && newData.child('name').val().length <= 40)))"
+            }
+          }
+        },
+        "pvpHits": {
+          "$uid": {
+            ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && auth != null && auth.uid === $uid",
+            "$id": {
+              ".write": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && auth != null && ((!data.exists() && newData.child('from').val() === auth.uid) || (auth.uid === $uid && !newData.exists()))",
+              ".validate": "!newData.exists() || (newData.hasChildren(['from', 'dmg', 'x', 'y', 'ts']) && newData.child('dmg').isNumber() && newData.child('dmg').val() >= 0 && newData.child('dmg').val() <= 200)"
             }
           }
         },

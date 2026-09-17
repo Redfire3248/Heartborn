@@ -3,7 +3,7 @@
  * quality of what comes out.
  *
  *  Heat    hold to pump the bellows and keep the needle in the glowing zone until the bar fills
- *  Hammer  a marker swings across the bar: strike when it is on the sweet spot (better things need more strikes)
+ *  Hammer  rings shrink onto the target: strike as each one lines up (better things need more strikes)
  *  Quench  press when the shrinking ring meets the target
  *
  * Space, click or tap does everything. Skip gives an ordinary result.
@@ -17,7 +17,7 @@ const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
  * Runs the minigames for a recipe. `stages` is a list of 'heat' | 'hammer' | 'quench'; `tier` (0..4) makes them harder.
  * Resolves with a score from 0 (botched) to 1 (perfect), or null if the player backs out.
  */
-export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
+export function forgeMinigame({ root, title, iconKey, revealIcon = iconKey, stages, tier = 0 }) {
   return new Promise(resolve => {
     const scores = [];
     let stageIndex = 0, raf = 0, input = null, done = false;
@@ -26,6 +26,13 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
     const arena = h('div.forge-arena');
     const dots = h('div.forge-dots', stages.map(() => h('i')));
     const verdict = h('div.forge-verdict');
+    // what you are making: a black shape that fills with colour as you forge well
+    const reveal = h('div.forge-reveal', icon(revealIcon, 64));
+    const setReveal = partial => {
+      const k = clamp((scores.reduce((a, b) => a + b, 0) + (partial || 0)) / stages.length);
+      reveal.style.setProperty('--reveal', k.toFixed(3));
+    };
+    setReveal(0);
     const el = h('div.forge',
       h('div.forge-card',
         h('div.forge-head', icon(iconKey, 34), h('div', h('b', title), dots), h('div.spacer'),
@@ -42,7 +49,7 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
     };
     window.addEventListener('keydown', onKey, true);
     window.addEventListener('keyup', onKey, true);
-    arena.addEventListener('pointerdown', e => { e.preventDefault(); press(true); });
+    arena.addEventListener('pointerdown', e => { e.preventDefault(); if (input) input(true, e); });
     window.addEventListener('pointerup', () => press(false));
 
     function finish(score) {
@@ -68,6 +75,31 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
       }
     };
 
+    /** A random spot on the weapon's shape (a solid pixel of its picture), as % of the arena. */
+    let shape = null;
+    const spotOnWeapon = () => {
+      const img = reveal.querySelector('img');
+      const ar = arena.getBoundingClientRect(), ir = img?.getBoundingClientRect();
+      if (!img || !ir?.width || !ar.width) return { x: 30 + Math.random() * 40, y: 30 + Math.random() * 40 };
+      try {
+        if (!shape && img.complete && img.naturalWidth) {
+          const c = document.createElement('canvas'); c.width = 48; c.height = 48;
+          const cx = c.getContext('2d'); cx.drawImage(img, 0, 0, 48, 48);
+          const d = cx.getImageData(0, 0, 48, 48).data, pts = [];
+          for (let y = 4; y < 44; y++) for (let x = 4; x < 44; x++) if (d[(y * 48 + x) * 4 + 3] > 160) pts.push([x / 48, y / 48]);
+          shape = pts.length ? pts : [];
+        }
+      } catch { shape = []; }
+      const [fx, fy] = shape?.length ? shape[Math.floor(Math.random() * shape.length)] : [0.25 + Math.random() * 0.5, 0.25 + Math.random() * 0.5];
+      return { x: ((ir.left - ar.left) + fx * ir.width) / ar.width * 100, y: ((ir.top - ar.top) + fy * ir.height) / ar.height * 100 };
+    };
+
+    /** A click or tap counts only on (or right next to) the ring. */
+    const onTarget = (e, target) => {
+      const r = target.getBoundingClientRect();
+      return Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2)) < Math.max(40, r.width * 0.75);
+    };
+
     const say = (text, cls) => {
       verdict.textContent = text;
       verdict.className = `forge-verdict show ${cls}`;
@@ -77,11 +109,13 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
 
     const next = score => {
       scores.push(score);
+      setReveal(0);
       dots.children[stageIndex].className = score > 0.85 ? 'perfect' : score > 0.55 ? 'good' : 'poor';
       stageIndex++;
       input = null;
       if (stageIndex >= stages.length) {
         const total = scores.reduce((a, b) => a + b, 0) / scores.length;
+        reveal.classList.add('done');
         say(total > 0.85 ? 'Flawless!' : total > 0.6 ? 'Well forged' : total > 0.35 ? 'It will do' : 'Botched...', total > 0.85 ? 'perfect' : total > 0.6 ? 'good' : 'poor');
         setTimeout(() => finish(total), 700);
         return;
@@ -91,7 +125,7 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
 
     const runStage = kind => {
       cancelAnimationFrame(raf);
-      arena.replaceChildren();
+      arena.replaceChildren(reveal);
       if (kind === 'heat') heat();
       else if (kind === 'hammer') hammer();
       else quench();
@@ -129,44 +163,52 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
       raf = requestAnimationFrame(tick);
     }
 
-    // ------------------------------------------------------------ hammer: strike on the sweet spot
+    // ------------------------------------------------------------ hammer: a ring shrinks onto the anvil, strike as it meets the target (once per strike)
     function hammer() {
-      const strikes = 3 + Math.min(3, tier);
+      const strikes = 3 + Math.min(2, tier);
       stageName.textContent = 'Hammer it into shape';
-      stageHint.textContent = `Press Space (or tap) when the marker is on the glowing spot. ${strikes} strikes.`;
-      const spot = h('div.hammer-spot'), marker = h('div.hammer-marker'), count = h('div.hammer-count');
+      stageHint.textContent = `Press Space (or tap) when the ring lines up with the target circle. ${strikes} strikes.`;
+      const ring = h('div.quench-ring.hammer-ring'), target = h('div.quench-target.hammer-target'), count = h('div.hammer-count');
       const hammerIcon = h('div.forge-hammer');
-      arena.append(h('div.forge-anvil', h('div.forge-ingot')), hammerIcon, h('div.hammer-bar', spot, marker), count);
-      let pos = 0, dir = 1, left = strikes, got = 0, speed = 0.9 + tier * 0.28, last = performance.now(), locked = 0;
-      const spotW = 0.16 - tier * 0.02;
-      let spotAt = 0.2 + Math.random() * 0.6;
-      const place = () => { spot.style.left = `${(spotAt - spotW / 2) * 100}%`; spot.style.width = `${spotW * 100}%`; count.textContent = `${strikes - left + 1} / ${strikes}`; };
-      place();
-      input = down => {
-        if (!down || locked > 0) return;
-        const off = Math.abs(pos - spotAt) / (spotW / 2);
-        const s = off <= 0.35 ? 1 : off <= 1 ? 0.75 : off <= 2 ? 0.3 : 0;
+      arena.append(h('div.quench-wrap', target, ring), hammerIcon, count);
+      const moveTo = () => { const { x, y } = spotOnWeapon(); for (const el of [target, ring]) { el.style.left = `${x}%`; el.style.top = `${y}%`; } };
+      moveTo();
+      const at = 0.42;
+      let left = strikes, got = 0, t0 = performance.now(), dur = 1.6 - tier * 0.1, wait = 0;
+      const begin = () => { t0 = performance.now(); wait = 0; moveTo(); ring.style.transform = 'translate(-50%, -50%) scale(1)'; count.textContent = `${strikes - left + 1} / ${strikes}`; };
+      begin();
+      const strike = s => {
         got += s;
+        setReveal(got / strikes);
         play(s ? 'anvil' : 'hit');
         say(s === 1 ? 'Perfect!' : s >= 0.75 ? 'Good' : s ? 'Close' : 'Miss', s === 1 ? 'perfect' : s >= 0.75 ? 'good' : 'poor');
         arena.classList.remove('strike'); void arena.offsetWidth; arena.classList.add('strike');
         hammerIcon.classList.remove('swing'); void hammerIcon.offsetWidth; hammerIcon.classList.add('swing');
-        sparks(0.5, 0.78, s === 1 ? 26 : s ? 14 : 5, s === 1 ? '#fff4a0' : s ? '#ffb347' : '#8a8a8a');
+        sparks(parseFloat(target.style.left) / 100, parseFloat(target.style.top) / 100, s === 1 ? 26 : s ? 14 : 5, s === 1 ? '#fff4a0' : s ? '#ffb347' : '#8a8a8a');
         left--;
-        locked = 0.18;
-        if (left <= 0) { input = null; setTimeout(() => next(got / strikes), 250); return; }
-        spotAt = 0.15 + Math.random() * 0.7;
-        speed *= 1.08;
-        place();
+        if (left <= 0) { input = null; setTimeout(() => next(got / strikes), 300); return; }
+        wait = performance.now() + 380;   // a short breath before the next ring
+        dur = Math.max(0.9, dur * 0.95);
+      };
+      input = (down, e) => {
+        if (!down || wait || (e && !onTarget(e, target))) return;
+        const k = 1 - (performance.now() - t0) / 1000 / dur;
+        const off = Math.abs(k - at);
+        strike(off < 0.05 ? 1 : off < 0.12 ? 0.75 : off < 0.22 ? 0.35 : 0);
       };
       const tick = now => {
-        const dt = Math.min(0.05, (now - last) / 1000); last = now;
-        if (locked > 0) locked -= dt;
-        pos += dir * speed * dt;
-        if (pos > 1) { pos = 1; dir = -1; } else if (pos < 0) { pos = 0; dir = 1; }
-        marker.style.left = `${pos * 100}%`;
-        const over = Math.abs(pos - spotAt) <= spotW / 2;
-        marker.classList.toggle('on-spot', over); spot.classList.toggle('on-spot', over);
+        if (!input) return;
+        if (wait) {
+          ring.style.opacity = '0';
+          if (now >= wait) { ring.style.opacity = ''; begin(); }
+        } else {
+          const k = 1 - (now - t0) / 1000 / dur;
+          ring.style.transform = `translate(-50%, -50%) scale(${Math.max(0, k)})`;
+          const near = Math.abs(k - at) < 0.12;
+          target.classList.toggle('on-spot', near); ring.classList.toggle('on-spot', near);
+          if (k <= 0) strike(0);
+        }
+        target.style.transform = `translate(-50%, -50%) scale(${at})`;
         if (input) raf = requestAnimationFrame(tick);
       };
       raf = requestAnimationFrame(tick);
@@ -178,10 +220,11 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
       stageHint.textContent = 'Press Space (or tap) when the shrinking ring lines up with the target circle.';
       const ring = h('div.quench-ring'), target = h('div.quench-target');
       arena.append(h('div.quench-wrap', target, ring, h('div.quench-steam')));
+      { const { x, y } = spotOnWeapon(); for (const el of [target, ring]) { el.style.left = `${x}%`; el.style.top = `${y}%`; } }
       const dur = 1.5 - tier * 0.15, t0 = performance.now();
       const at = 0.42;   // the target's size compared to where the ring starts
-      input = down => {
-        if (!down) return;
+      input = (down, e) => {
+        if (!down || (e && !onTarget(e, target))) return;
         const k = 1 - (performance.now() - t0) / 1000 / dur;
         const off = Math.abs(k - at);
         const s = off < 0.04 ? 1 : off < 0.1 ? 0.75 : off < 0.2 ? 0.35 : 0;

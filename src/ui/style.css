@@ -1785,3 +1785,32 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .layout-title { cursor: pointer; }
 .layout-title .faint { font-size: 10px; font-weight: 400; }
 .layout-boxes { position: relative; z-index: 1; }
+
+/* hammer rings: gold, with the strike count above */
+.hammer-ring { border-color: #ffcf5a; box-shadow: 0 0 10px #ffcf5a; }
+.forge-arena .hammer-count { top: 8px; }
+
+/* forge: the piece you are making, black at first, coloured in as you forge well */
+.forge-reveal { --reveal: 0; display: grid; place-items: center; margin: 8px auto 0; width: 84px; height: 84px; border-radius: 50%; background: radial-gradient(circle, rgba(255,160,60,calc(var(--reveal) * .45)), transparent 70%); }
+.forge-reveal img { width: 64px; height: 64px; image-rendering: pixelated; transition: filter .35s ease;
+  filter: brightness(var(--reveal)) saturate(var(--reveal)) drop-shadow(0 0 calc(var(--reveal) * 10px) rgba(255, 200, 90, .8)); }
+.forge-reveal.done img { animation: reveal-pop .5s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes reveal-pop { 0% { transform: scale(1); } 50% { transform: scale(1.25); } 100% { transform: scale(1); } }
+.quench-target, .quench-ring { cursor: pointer; }
+.hot-slot, .inv-cell { touch-action: none; }
+.inv-panel.drop-here { outline: 2px dashed #9fe0ff; outline-offset: 2px; }
+
+/* top bar: materials that do not fit fold into +N */
+.res.overflow { display: none !important; }
+.res-more { min-width: 0; border: 1px solid rgba(255, 215, 106, .45); background: rgba(255, 215, 106, .1); color: var(--gold); font: inherit; cursor: pointer; justify-content: center; }
+.res-more .v { font-weight: 700; }
+.mat-res { cursor: pointer; }
+.topbar .card > .res { flex-shrink: 0; }
+
+/* the weapon being forged fills the arena; rings land on it */
+.forge-arena .forge-reveal { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); width: 150px; height: 150px; margin: 0; pointer-events: none; z-index: 0; }
+.forge-arena .forge-reveal img { width: 124px; height: 124px; }
+.forge-arena .quench-wrap { z-index: 1; }
+.forge-arena .quench-target, .forge-arena .quench-ring { width: 96px; height: 96px; }
+.forge-arena { height: 170px; }
+.footer-note { display: none !important; }

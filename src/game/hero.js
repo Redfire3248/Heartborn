@@ -226,6 +226,19 @@ function attack(g, v, st) {
     if (sp?.swift && Math.random() < sp.swift && g.state.creatures.includes(c)) { hitCreature(g, v, c, blow * 0.6, false, { stun: 0 }); g.float(c.x + 8, c.y - TILE * 1.2, 'Swift!', '#9fffe0'); }
     hits++;
   }
+  // other players on this island: the blow is sent to them
+  if (g.pvp) for (const p of g.strangers || []) {
+    if (!p.from) continue;
+    const d = Math.hypot(p.x - v.x, p.y - v.y);
+    const arc = sp?.whirl && finisher ? Math.PI * 2 : w.arc;
+    if (d > w.range * TILE + TILE * 0.4 || (d > TILE * 0.4 && angleDiff(Math.atan2(p.y - v.y, p.x - v.x), h.facing) > arc / 2 + 0.25)) continue;
+    const blow = dmg * 0.6;   // players take less than monsters do, so fights last a few swings
+    g.pvp(p.from, blow, v.x, v.y, v.name);
+    p._hitFlash = 0.18;
+    g.float(p.x, p.y - TILE * 1.3, String(Math.round(blow)), crit || finisher ? '#ffd76a' : '#ffffff');
+    g.anim('combat/hit', p.x, p.y - 12, { size: 30, dur: 0.25 });
+    hits++;
+  }
   if (sp?.shockwave && (finisher || sp.shockwave.always)) {   // the claymore's finisher: a ring of force around you
     g.anim('combat/poof', v.x, v.y - 6, { size: TILE * sp.shockwave.radius * 2, dur: 0.4 });
     g.fx.shake = Math.max(g.fx.shake, 1.4);
@@ -574,7 +587,8 @@ export function knockOutHero(g, v) {
 function placeTorch(g, v, h) {
   const list = (g.state.torches ||= []);
   const a = h.facing ?? Math.PI / 2;
-  const x = v.x + Math.cos(a) * TILE, y = v.y + Math.sin(a) * TILE;
+  // in front of you, on the middle of that tile (so torches line up neatly, like Minecraft)
+  const x = (Math.floor((v.x + Math.cos(a) * TILE) / TILE) + 0.5) * TILE, y = (Math.floor((v.y + Math.sin(a) * TILE) / TILE) + 0.5) * TILE;
   const near = list.find(t => Math.hypot(t.x - x, t.y - y) < TILE * 0.9);
   if (near) {
     g.state.torches = list.filter(t => t !== near);

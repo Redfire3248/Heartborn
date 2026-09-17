@@ -2,7 +2,8 @@ import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, 
 import { openLayoutEditor, watchLayout } from './layoutEdit.js';
 import { quickCraft, setQuickCraft } from '../core/prefs.js';
 import { TRAITS as FORGE_TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
-import { openTableMenu, openMaterialsBag } from './tableMenu.js';
+import { openTableMenu, openMaterialsBag, matIcon } from './tableMenu.js';
+import { MATERIALS, MATERIAL_KEYS } from '../game/forging.js';
 import { forgeMinigame } from './forge.js';
 import { heroBiome, THEMES } from '../game/worldTypes.js';
 import { AVATARS, avatarId, avatarArt, setLook } from '../game/avatars.js';
@@ -29,7 +30,7 @@ import { itemAt, pickUp, moveItem, dropFromPack, dropStack } from '../game/groun
 const BADGE_TRAITS = ['gifted', 'knighted', 'versatile'];   // already shown as badges at the top of a profile
 const BODY_COLOR = { strength: '#ff8a5a', speed: '#7fd4ff', stamina: '#8fe07a' };
 const BODY_TIP = { strength: 'Heavy work (chopping, mining, building, farming, forging) and fighting go faster and hit harder', speed: 'Walks and runs faster', stamina: 'Works harder, gets hungry more slowly and takes less damage' };
-import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, avatarOf, useAbility as useWeaponAbility } from '../game/hero.js';
+import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, avatarOf, useAbility as useWeaponAbility, damageHero, knockOutHero } from '../game/hero.js';
 import { makeVisitGame } from '../game/visit.js';
 import { makeDungeonGame, leaveSurface, returnFromDungeon, bossOf } from '../game/dungeon.js';
 import { HouseEditor } from './houseEditor.js';
@@ -149,6 +150,9 @@ export class HUD {
     game.on('dungeon', e => setTimeout(() => this.enterDungeon(e), 0));
     game.on('house', b => setTimeout(() => this.enterHouse(b), 0));
     if (mp) {
+      // player vs player
+      game.pvp = (uid, dmg, x, y, name) => mp.sendHit(uid, dmg, x, y, name);
+      mp.on('pvpHit', hit => this.takePlayerHit(hit));
       mp.on('chat', () => this.panel === 'world' && this.worldTab === 'chat' && this.refreshPanel());
       mp.on('players', () => this.panel === 'world' && this.worldTab === 'players' && this.refreshPanel());
       mp.on('armies', () => this.panel === 'world' && this.worldTab === 'players' && this.refreshPanel());
@@ -178,6 +182,11 @@ export class HUD {
       this.els.res[k] = { el, v, cap };
       resCard.append(el);
     }
+    // your ores and boss materials follow; what does not fit folds into a +N button (opens the Materials bag)
+    this.els.resCard = resCard;
+    this.els.matRes = {};
+    this.els.resMore = h('button.res.res-more', { title: 'More materials', hidden: true, onclick: () => openMaterialsBag(this) }, h('span.v', '+0'));
+    resCard.append(this.els.resMore);
     this.els.pop = h('span.v', '3');
     this.els.housing = h('span.cap', '');
     if (!g.solo) resCard.prepend(h('div.res', { title: 'Population / housing' }, icon('items/population', 24), h('div', this.els.pop, this.els.housing)));
@@ -314,7 +323,8 @@ export class HUD {
       if (potion && hg === g && atTable(g, heroOf(g))) { potion = false; this.openTable(); }
       this._potionHeld = potionDown;
       this._dashHeld = dashDown;
-      if (abroad || (!g.paused && !g.pendingEvent)) updateHero(hg, dt, { mx, my, act: !abroad && (held(k, 'attack') || t.act), dash: !abroad && dash, potion: !abroad && potion, block: !abroad && (held(k, 'block') || t.block) });
+      const fights = !abroad || abroad.role === 'visitor';   // a visitor can fight other players; a disguised spy cannot
+      if (abroad || (!g.paused && !g.pendingEvent)) updateHero(hg, dt, { mx, my, act: fights && (held(k, 'attack') || t.act), dash: fights && dash, potion: !abroad && potion, block: fights && (held(k, 'block') || t.block) });
       if (hg === this.dungeon) { this.tickDungeon(); if (performance.now() - (this._mapDrawnAt || 0) > 150) { this._mapDrawnAt = performance.now(); this.drawDungeonMap(); } }
       if (this.mobilePlace && this.buildType && hg === g && !this.mobilePlace.manual) {   // the house waits just in front of you
         const hv = heroOf(g);
@@ -341,7 +351,10 @@ export class HUD {
       if (v) { this.follow = null; c.x += (v.x - c.x) * Math.min(1, dt * 6); c.y += (v.y - c.y) * Math.min(1, dt * 6); }
     } else {
       this.ensureAvatar();
-      if (abroad && v && this.mp && abroad.hostUid) this.mp.publishStranger(abroad.hostUid, abroad.strangerId, v, { disguised: abroad.role === 'spy' });
+      const me = heroOf(abroad ? abroad.land : g);
+      if (abroad && me && this.mp && abroad.hostUid) this.mp.publishStranger(abroad.hostUid, abroad.strangerId, me, { disguised: abroad.role === 'spy' });
+      // at home with visitors about: they see you walking too (so you can fight)
+      else if (!abroad && !this.dungeon && me && this.mp && this.user && g.strangers?.length) this.mp.publishStranger(this.user.uid, `host_${this.user.uid}`, me);
     }
     this.tickTimer -= dt;
     if (this.tickTimer > 0) return;
@@ -366,6 +379,7 @@ export class HUD {
       }
       this.prevRes[k] = val;
     }
+    this.updateResOverflow();
     if (this.els.pop.textContent !== String(s.villagers.length)) this.els.pop.textContent = s.villagers.length;
     if (this.els.housing.textContent !== `/${g.housing}`) this.els.housing.textContent = `/${g.housing}`;
     this.els.karmaDot.style.left = `${(s.karma + 100) / 2}%`;
@@ -478,7 +492,7 @@ export class HUD {
     this.updateHotbar(!abroad && v ? v : null);
     const bar = this.els.heroBar, pad = this.els.heroPad;
     this.root.classList.toggle('leading', !!v);
-    pad.classList.toggle('abroad', !!abroad);
+    pad.classList.toggle('abroad', !!abroad && abroad.role === 'spy');
     if (!v) {
       if (!bar.hidden) { bar.hidden = true; pad.hidden = true; bar.replaceChildren(); pad.replaceChildren(); this._heroKey = null; Object.assign(this.leadInput, { mx: 0, my: 0, act: false, dash: false, block: false }); }
       return;
@@ -676,6 +690,8 @@ export class HUD {
     if (!v || this.houseEditor) { if (!bar.hidden) { bar.hidden = true; this.els.invPanel.hidden = true; } return; }
     const slots = hotbarOf(g);
     const r = rpgOf(g);
+    // used up (0 left): the slot empties instead of showing a 0
+    slots.forEach((k, i) => { if ((k === 'potion' && !(r.potions > 0)) || (k?.startsWith?.('item:') && !(itemsOf(g)[k.slice(5)] > 0))) slots[i] = null; });
     const w = heroWeapon(g, v);
     const tools = toolsOf(g);
     const key = [slots.join(), r.hotSel, r.potions || 0, w.name, Object.entries(tools).join(), Object.entries(itemsOf(g)).join()].join('|');
@@ -711,8 +727,10 @@ export class HUD {
       if (!ghost && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 8) return;
       if (!ghost) { ghost = h('div.hot-ghost', icon(drag.icon, 32)); document.body.append(ghost); this._dragged = true; }
       ghost.style.left = `${ev.clientX}px`; ghost.style.top = `${ev.clientY}px`;
-      const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest?.('.hot-slot');
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      const over = under?.closest?.('.hot-slot');
       for (const s of this.els.hotbar.querySelectorAll('.hot-slot')) s.classList.toggle('drop', s === over);
+      this.els.invPanel.classList.toggle('drop-here', drag.from != null && !!under?.closest?.('.inv-panel'));
     };
     const up = ev => {
       window.removeEventListener('pointermove', move);
@@ -720,15 +738,18 @@ export class HUD {
       window.removeEventListener('pointercancel', up);
       if (!ghost) return;
       ghost.remove();
-      const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest?.('.hot-slot');
+      this.els.invPanel.classList.remove('drop-here');
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      const over = under?.closest?.('.hot-slot');
       const to = over ? Number(over.dataset.slot) : -1;
       const g = this.game;
       if (to >= 0) {
         if (drag.from != null) swapSlots(g, drag.from, to);
         else setSlot(g, to, drag.value);
         play('click');
-      } else if (drag.from != null && !over && !ev.target?.closest?.('.inv-panel')) {
-        setSlot(g, drag.from, null);   // dragged off the bar: take it out of the hotbar (you still own it)
+      } else if (drag.from != null && !over) {
+        setSlot(g, drag.from, null);   // dragged off the bar or back into the bag: take it out of the hotbar (you still own it)
+        play('click');
       }
       this._hotbarKey = null;
       this.updateHotbar(heroOf(this.dungeon || g) || heroOf(g));
@@ -924,6 +945,7 @@ export class HUD {
     this.onAbroad?.(land, { ...profile, uid: m.to, spy: true });
     const copy = arriveAbroad(land, agent, { role: 'spy' });
     this.abroad = { land, role: 'spy', mission: m, hostUid: m.to, strangerId: `${this.user.uid}_${m.id}` };
+    this.joinIsland(land, m.to);
     Object.assign(this.renderer.camera, { x: copy.x, y: copy.y, zoom: 2.4 });
     this.hint(`You are ${agent.name}, disguised in ${profile.villageName}. Walk to a building or a person and choose what to do.`, 7000);
   }
@@ -934,13 +956,38 @@ export class HUD {
     if (!person) return;
     const copy = arriveAbroad(land, person, { role: 'visitor' });
     this.abroad = { land, role: 'visitor', hostUid: profile.uid, strangerId: this.user.uid };
+    this.joinIsland(land, profile.uid);
     Object.assign(this.renderer.camera, { x: copy.x, y: copy.y, zoom: 2.4 });
+  }
+
+  /** On someone else's island: see the players there live, and fight them. */
+  joinIsland(land, hostUid) {
+    if (!this.mp) return;
+    land.pvp = (uid, dmg, x, y, name) => this.mp.sendHit(uid, dmg, x, y, name);
+    this.mp.watchIsland(hostUid, land);
+  }
+
+  /** Another player hit you: it lands on whoever you are playing right now (not while you are in a dungeon or at home indoors). */
+  takePlayerHit(hit) {
+    if (this.dungeon) return;
+    const g = this.abroad?.land || this.game;
+    const v = heroOf(g);
+    if (!v || !g.hero) return;
+    const from = { x: hit.x, y: hit.y };
+    const dmg = damageHero(g, v, hit.dmg, from);
+    if (!dmg) return;
+    v.hp -= dmg;
+    v._hurtFlash = 0.25;
+    g.fx.shake = Math.max(g.fx.shake, 0.6);
+    g.float(v.x, v.y - TILE * 1.3, `-${Math.round(dmg)}`, '#ff6a5a');
+    if (v.hp <= 0) { knockOutHero(g, v); this.toast({ text: `${hit.name || 'Another player'} knocked you out`, kind: 'bad' }); }
   }
 
   leaveAbroad() {
     const ab = this.abroad;
     if (!ab) return;
     this.mp?.clearStranger(ab.hostUid, ab.strangerId);
+    this.mp?.unwatchIsland();
     if (ab.mission && this.mp?.infiltrating === ab.mission.id) this.mp.infiltrating = null;   // the spy waits; take control again before time runs out
     leaveAbroad(ab.land);
     this.abroad = null;
@@ -1039,6 +1086,37 @@ export class HUD {
   toggleGoals() {
     const on = this.els.goals.classList.toggle('collapsed');
     try { localStorage.setItem('hb-goals-collapsed', on ? '1' : '0'); } catch {}
+  }
+
+  /** Top bar: owned materials after the main resources, as many as fit, then +N for the rest. */
+  updateResOverflow() {
+    const s = this.game.state, card = this.els.resCard, more = this.els.resMore;
+    for (const k of MATERIAL_KEYS) {
+      if (TOP_RES.includes(k)) continue;
+      const n = Math.floor(s.resources[k] || 0);
+      let e = this.els.matRes[k];
+      if (n > 0 && !e) {
+        const v = h('span.v', '0');
+        e = this.els.matRes[k] = { v, el: h('div.res.mat-res', { title: MATERIALS[k].name, onclick: () => openMaterialsBag(this) }, icon(matIcon(k), 24), h('div', v)) };
+        card.insertBefore(e.el, more);
+      } else if (!n && e) { e.el.remove(); delete this.els.matRes[k]; continue; }
+      if (e) { const t = fmt(n); if (e.v.textContent !== t) e.v.textContent = t; }
+    }
+    const all = [...card.querySelectorAll('.res:not(.res-more)')].filter(el => !el.hidden);
+    const key = `${innerWidth}x${innerHeight}|${all.map(el => el.textContent).join()}`;
+    if (key === this._resFitKey) return;
+    this._resFitKey = key;
+    for (const el of all) el.classList.remove('overflow');
+    more.hidden = true;
+    const tooBig = () => card.scrollWidth > card.clientWidth + 1 || card.offsetHeight > 80;   // items do not shrink, so an overfull bar shows up as overflow
+    let hidden = 0;
+    for (let i = all.length - 1; i > 0 && tooBig(); i--) {
+      all[i].classList.add('overflow');
+      hidden++;
+      more.hidden = false;
+      more.firstChild.textContent = `+${hidden}`;
+    }
+    more.title = hidden ? `${hidden} more: open your Materials` : 'More materials';
   }
 
   /** Rebuild the rows only when the set of goals (or which are done) changes; otherwise just move the bars. */
@@ -2019,7 +2097,7 @@ export class HUD {
     if (this.deedsTab === 'laws') return [this.head('items/scroll', 'Rule the Realm', 'Your laws decide what your civilization becomes'), tabs, this.autoPickToggle(), this.lawsBody()];
     const body = h('div.side-body');
     body.append(h('div.faint', 'Your powers as guide. Good deeds raise karma (luck, happiness, wanderers). Evil deeds pay now — and invite curses, ghosts and rebellion.'));
-    for (const d of DEEDS) {
+    for (const d of DEEDS.filter(x => x.id !== 'smite')) {   // Divine Smite is switched off
       const evil = (d.karma || 0) < 0;
       const lockedBy = d.requires && !g.hasBuilding(d.requires) ? `Needs ${BUILDINGS[d.requires].name}` : null;
       const btn = h(`button.btn.sm${evil ? '.evil' : '.primary'}`, {
@@ -2965,10 +3043,8 @@ export class HUD {
           h('div.title', name[0].toUpperCase() + name.slice(1)),
           def.hostile ? h('span.chip.bad', 'Hostile') : h('span.chip.good', def.tame ? 'Tame' : 'Wild'))),
       h('div.stat', h('span', 'Health'), bar((c.hp ?? maxHp(c)) / maxHp(c), '#ff5a4a'), h('span', Math.ceil(c.hp ?? maxHp(c)))),
-      def.hostile ? h('div.faint', `Deals ${def.damage} damage. Warriors will hunt it down.`) : h('div.faint', def.food ? 'Hunters can bring it down for food.' : 'Harmless.'),
-      def.hostile ? h('div.row', { style: { flexWrap: 'wrap', gap: '6px' } },
-        h('button.btn.evil', { onclick: () => { const r = smiteCreature(g, c); if (r.error) this.hint(r.error, 1500); } }, h('span', '⚡ Divine Smite'), costChips({ influence: 20 }, g.state.resources)),
-        h('button.btn.danger', { onclick: () => { const r = throwBomb(g, c); this.hint(r.error || r.text, 1800); } }, h('span', '💣 Throw bomb'), costChips({ bombs: 1 }, g.state.resources))) : null,
+      def.hostile ? h('div.faint', `Deals ${def.damage} damage.`) : h('div.faint', def.food ? 'Hunters can bring it down for food.' : 'Harmless.'),
+      // no Divine Smite or Throw bomb buttons any more
     ];
   }
 

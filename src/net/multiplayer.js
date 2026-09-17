@@ -148,10 +148,13 @@ export class Multiplayer {
       const all = snap.val() || {};
       const now = Date.now();
       const prev = new Map((this.g.strangers || []).map(s => [s.id, s]));
-      this.g.strangers = Object.entries(all).filter(([, s]) => now - (s.ts || 0) < 20_000).map(([id, s]) => {
-        const old = prev.get(id);
-        return { id, name: s.name, sex: s.sex, job: s.job, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
-      });
+      this.g.strangers = this.strangerList(all, prev);
+    }));
+    // player vs player: blows other players land on you
+    this.unsubs.push(onChildAdded(ref(rtdb, `${this.w}pvpHits/${this.uid}`), snap => {
+      const hit = snap.val();
+      remove(snap.ref).catch(() => {});
+      if (hit && Date.now() - (hit.ts || 0) < 5000) this.emit('pvpHit', hit);
     }));
     const offBattle = this.g.on('battleEnd', r => { if (r.kind === 'player') this.finishLiveBattle(r); });
     this.unsubs.push(offBattle);
@@ -855,6 +858,32 @@ export class Multiplayer {
       name: disguised ? 'Traveller' : String(v.name || 'Visitor').slice(0, 40), job: disguised ? 'gather' : String(v.job || 'idle').slice(0, 20),
       walking: !!v._walking, flip: !!v._flip, ts: now,
     }).catch(() => {});
+  }
+
+  /** Everyone walking an island (not you), gliding from where they were to where they are. */
+  strangerList(all, prev) {
+    const now = Date.now();
+    return Object.entries(all).filter(([, s]) => now - (s.ts || 0) < 20_000 && s.from !== this.uid).map(([id, s]) => {
+      const old = prev.get(id);
+      return { id, from: s.from, name: s.name, sex: s.sex, job: s.job, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
+    });
+  }
+
+  /** While you walk someone else's island: see the owner and the other visitors there, live. */
+  watchIsland(hostUid, land) {
+    this.unwatchIsland();
+    this._islandOff = onValue(ref(rtdb, `${this.w}strangers/${hostUid}`), snap => {
+      const prev = new Map((land.strangers || []).map(s => [s.id, s]));
+      land.strangers = this.strangerList(snap.val() || {}, prev);
+    }, () => {});
+  }
+
+  unwatchIsland() { this._islandOff?.(); this._islandOff = null; }
+
+  /** Hit another player: they take it on their side (their dodge, guard and armour still count). */
+  sendHit(uid, dmg, x, y, name) {
+    if (!uid || uid === this.uid) return;
+    push(ref(rtdb, `${this.w}pvpHits/${uid}`), { from: this.uid, name: String(name || 'Someone').slice(0, 40), dmg: Math.max(0, Math.min(200, Math.round(dmg))), x: Math.round(x), y: Math.round(y), ts: Date.now() }).catch(() => {});
   }
 
   clearStranger(hostUid, id) {

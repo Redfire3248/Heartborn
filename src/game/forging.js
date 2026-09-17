@@ -31,7 +31,7 @@ export const MATERIALS = {
   sunstone:     { name: 'Sunstone', mult: 1.5, rarity: 3, trait: 'holy', icon: 'items/icon_sunstone', pool: ['holy_sword', 'holy_scepter', 'falchion'] },
   voidstone:    { name: 'Voidstone', mult: 1.95, rarity: 4, trait: 'magic', icon: 'items/icon_voidstone', pool: ['crystal_orb', 'thunder_sword', 'spellbook', 'runic_blade'] },
   // boss materials
-  troll_hide:   { name: 'Troll Hide', mult: 1.5, rarity: 3, trait: 'quake', boss: 'cave_troll', icon: 'characters/cave_troll', pool: ['maul', 'great_axe', 'club', 'greatsword'] },
+  troll_hide:   { off: true, name: 'Troll Hide', mult: 1.5, rarity: 3, trait: 'quake', boss: 'cave_troll', icon: 'characters/cave_troll', pool: ['maul', 'great_axe', 'club', 'greatsword'] },
   slime_core:   { name: 'Slime Core', mult: 1.45, rarity: 3, trait: 'poison', boss: 'slime_king', icon: 'characters/slime', pool: ['whip', 'bone_wand', 'kukri'] },
   spider_silk:  { name: 'Spider Silk', mult: 1.5, rarity: 3, trait: 'poison', boss: 'spider_queen', icon: 'characters/giant_spider', pool: ['twin_daggers', 'crossbow', 'naginata'] },
   spirit_bark:  { name: 'Spirit Bark', mult: 1.65, rarity: 4, trait: 'heal', boss: 'forest_spirit', icon: 'characters/forest_spirit', pool: ['druid_staff', 'longbow', 'holy_sword', 'quarterstaff'] },
@@ -39,8 +39,8 @@ export const MATERIALS = {
   lich_soul:    { name: 'Lich Soul', mult: 1.85, rarity: 4, trait: 'drain', boss: 'lich', icon: 'characters/lich', pool: ['necro_staff', 'shadow_blade', 'scythe'] },
   dragon_scale: { name: 'Dragon Scale', mult: 2.1, rarity: 4, trait: 'burn', boss: 'dragon', icon: 'characters/dragon', pool: ['flame_sword', 'holy_sword', 'thunder_sword', 'greatsword'] },
 };
-export const BOSS_MATERIAL = Object.fromEntries(Object.entries(MATERIALS).filter(([, m]) => m.boss).map(([k, m]) => [m.boss, k]));
-export const MATERIAL_KEYS = Object.keys(MATERIALS);
+export const BOSS_MATERIAL = Object.fromEntries(Object.entries(MATERIALS).filter(([, m]) => m.boss && !m.off).map(([k, m]) => [m.boss, k]));
+export const MATERIAL_KEYS = Object.keys(MATERIALS).filter(k => !MATERIALS[k].off);
 
 /** What each trait does on your weapon. */
 export const TRAITS = {
@@ -120,14 +120,19 @@ export const canPay = (g, mix) => Object.entries(mix).every(([k, n]) => (g.state
  * Forge it: use the materials and roll the result. `score` (0..1) is how well the minigames went:
  * it can raise the rarity and the power a little. Returns { ok, item, preview }.
  */
-export function forge(g, mix, kind = 'weapon', { score = 0.5, hero = null } = {}) {
+/** Rolls which piece a mix makes (from the preview's odds), so the forge can show it before it is done. */
+export function rollForgeBase(p) {
+  let x = Math.random();
+  for (const o of p.odds) { x -= o.chance; if (x < 0) return o.base; }
+  return p.odds[p.odds.length - 1].base;
+}
+
+export function forge(g, mix, kind = 'weapon', { score = 0.5, hero = null, base = null } = {}) {
   const p = forgePreview(mix, kind);
   if (!p.ok) return { ok: false, why: p.why };
   if (!canPay(g, mix)) return { ok: false, why: 'You do not have those materials' };
   for (const [k, n] of Object.entries(mix)) g.state.resources[k] -= n;
-  let x = Math.random();
-  let base = p.odds[p.odds.length - 1].base;
-  for (const o of p.odds) { x -= o.chance; if (x < 0) { base = o.base; break; } }
+  if (!base || !p.odds.some(o => o.base === base)) base = rollForgeBase(p);
   const luck = luckOf(g);
   const bump = Math.random() < Math.max(0, score - 0.6) * 0.9 + luck * 0.3 ? 1 : 0;   // a great forging can lift the rarity
   const it = makeGear(g, base, Math.min(4, p.rarity + bump));
