@@ -19,7 +19,7 @@ import { arriveAbroad, leaveAbroad, spyActions } from '../game/abroad.js';
 import { rpgOf, heroStats, heroWeapon, xpToNext, spendPoint, equip, equipBest, gearScore, unequip, scrapGear, RARITY, CATALOG, BLADE_SPECIALS } from '../game/rpg.js';
 import { gearIconKey } from '../render/gearArt.js';
 import { homeOf, residents } from '../game/homes.js';
-import { itemAt, pickUp, moveItem, dropFromPack } from '../game/groundItems.js';
+import { itemAt, pickUp, moveItem, dropFromPack, dropStack } from '../game/groundItems.js';
 const BADGE_TRAITS = ['gifted', 'knighted', 'versatile'];   // already shown as badges at the top of a profile
 const BODY_COLOR = { strength: '#ff8a5a', speed: '#7fd4ff', stamina: '#8fe07a' };
 const BODY_TIP = { strength: 'Heavy work (chopping, mining, building, farming, forging) and fighting go faster and hit harder', speed: 'Walks and runs faster', stamina: 'Works harder, gets hungry more slowly and takes less damage' };
@@ -27,7 +27,7 @@ import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, a
 import { makeVisitGame } from '../game/visit.js';
 import { makeDungeonGame, leaveSurface, returnFromDungeon, bossOf } from '../game/dungeon.js';
 import { HouseEditor } from './houseEditor.js';
-import { RECIPES, CRAFT_CATS, canCraft, craft } from '../game/crafting.js';
+import { RECIPES, CRAFT_CATS, canCraft, craft, needsTable, atTable, ownsTool } from '../game/crafting.js';
 import { CONSUMABLES, itemsOf, buffActive } from '../game/consumables.js';
 import { on, buildingOn, eraFree } from '../core/features.js';
 import { ACTIONS, CONTROL_GROUPS, is, held, keyOf, keyLabel, setBind, resetBinds, RESERVED } from '../core/controls.js';
@@ -379,7 +379,10 @@ export class HUD {
     if (is(k, 'character') && !this.game.sail) { this.toggleLead(); return; }
     if (is(k, 'inventory')) { this.inventory(); return; }
     const slot = ACTIONS.findIndex(a => a.id.startsWith('hot') && is(k, a.id)) - ACTIONS.findIndex(a => a.id === 'hot1');
+    // like Minecraft: hover something in the inventory and press a number to put it in that hotbar slot
+    if (slot >= 0 && this._invHover && !this.els.invPanel.hidden) { setSlot(this.game, slot, this._invHover); this._hotbarKey = null; this.renderInventory(); return; }
     if (slot >= 0 && (this.game.hero || this.dungeon)) { selectSlot(this.game, slot); this._hotbarKey = null; return; }
+    if (is(k, 'drop') && (this.game.hero || this.dungeon)) { this.dropHeld(); return; }
     if (this.game.hero) {   // walking your ruler: WASD move, Space strikes, Esc stops
       if (is(k, 'attack') || k === ' ' || k.startsWith('arrow')) e.preventDefault?.();
       if (k === 'escape' && !this.buildType && !this.demolishMode && !this.game.selected && !this.panel) return;
@@ -671,6 +674,18 @@ export class HUD {
     if (!panel.hidden) this.renderInventory();
   }
 
+  /** Drop one of whatever you hold (or the hovered inventory slot) on the ground in front of you. */
+  dropHeld(key = null) {
+    const g = this.dungeon || this.game;
+    const bar = hotbarOf(this.game);
+    key ||= bar[rpgOf(this.game).hotSel];
+    if (!key || key === 'weapon') { this.hint('Nothing to drop', 1000); return; }
+    const it = dropStack(g, heroOf(g), key, 1);
+    if (!it) { this.hint('Nothing to drop', 1000); return; }
+    this._hotbarKey = null;
+    if (!this.els.invPanel.hidden) this.renderInventory();
+  }
+
   renderInventory() {
     const g = this.game, panel = this.els.invPanel;
     const v = heroOf(this.dungeon || g) || heroOf(g);
@@ -681,20 +696,33 @@ export class HUD {
       const info = this.slotInfo(k, v);
       const inBar = bar.indexOf(k);
       return h('button.inv-cell' + (inBar === r.hotSel ? '.held' : inBar >= 0 ? '.inbar' : '') + extra, {
-        title: k === 'weapon' || k === 'potion' ? info.name : info.does ? `${info.name}: ${info.does}` : `${info.name}: ${TOOLS[k]?.does || ''}`,
-        onclick: () => { if (this._dragged) return; setSlot(g, r.hotSel, k); this._hotbarKey = null; this.renderInventory(); },
+        title: `${info.name}${info.count > 1 ? ` ×${info.count}` : ''}`,
+        // click: into your hotbar (the first empty slot) or, if it is already there, hold it
+        onclick: () => {
+          if (this._dragged) return;
+          if (inBar >= 0) selectSlot(g, inBar);
+          else { const free = bar.indexOf(null); setSlot(g, free >= 0 ? free : r.hotSel, k); }
+          this._hotbarKey = null; this.renderInventory();
+        },
+        oncontextmenu: e => { e.preventDefault(); this.dropHeld(k); },   // right-click drops one
+        onmouseenter: () => { this._invHover = k; },
+        onmouseleave: () => { if (this._invHover === k) this._invHover = null; },
         onpointerdown: e => this.startSlotDrag(e, { from: null, value: k, icon: info.icon }),
       }, icon(info.icon, 30), info.count != null ? h('span.hot-count', String(info.count)) : null, inBar >= 0 ? h('span.hot-num', String(inBar + 1)) : null);
     };
     const keys = Object.keys(owned).filter(k => TOOLS[k]).sort((a, b) => (TOOLS[a].kind > TOOLS[b].kind ? 1 : TOOLS[a].kind < TOOLS[b].kind ? -1 : TOOLS[b].power - TOOLS[a].power));
     const heldInfo = this.slotInfo(bar[r.hotSel], v);
     panel.replaceChildren(
-      h('div.inv-head', h('b', 'Inventory'), h('span.faint', `Click or drag something onto a slot (now: slot ${r.hotSel + 1}). Drag slots to rearrange.`), h('div.spacer'),
-        bar[r.hotSel] ? h('button.btn.sm', { onclick: () => { setSlot(g, r.hotSel, null); this._hotbarKey = null; this.renderInventory(); } }, 'Empty slot') : null,
-        h('button.btn.sm', { onclick: () => this.characterSheet() }, 'Gear'),
+      h('div.inv-head', h('b', 'Inventory'), h('div.spacer'),
+        h('button.btn.sm', { title: 'Your gear and stats (G)', onclick: () => this.characterSheet() }, 'Gear'),
         h('button.modal-x.inv-x', { title: 'Close (I)', onclick: () => { panel.hidden = true; } }, hasArt('ui/close') ? icon('ui/close', 16) : '✕')),
-      h('div.inv-cells', cell('weapon'), cell('potion'), ...Object.keys(itemsOf(g)).filter(k => CONSUMABLES[k]).map(k => cell(`item:${k}`)), ...keys.map(k => cell(k))),
-      heldInfo ? h('div.faint.inv-hint', `Holding: ${heldInfo.name}${TOOLS[bar[r.hotSel]] ? ` · ${TOOLS[bar[r.hotSel]].does}` : ''}`) : null);
+      (() => {
+        const filled = [cell('weapon'), ...((r.potions || 0) > 0 ? [cell('potion')] : []), ...Object.keys(itemsOf(g)).filter(k => CONSUMABLES[k] && itemsOf(g)[k] > 0).map(k => cell(`item:${k}`)), ...keys.map(k => cell(k))];
+        const size = Math.max(27, Math.ceil(filled.length / 9) * 9);   // a fixed grid of slots, like a chest
+        return h('div.inv-cells', ...filled, ...Array.from({ length: size - filled.length }, () => h('div.inv-cell.empty')));
+      })(),
+      h('div.faint.inv-hint', 'Click: to hotbar · hover + 1-9: that slot · right-click: drop'));
+    void heldInfo;
   }
 
   characterSheet() {
@@ -1405,11 +1433,17 @@ export class HUD {
     const owned = toolsOf(g);
     const fill = () => {
       const q = this.craftQuery.trim().toLowerCase();
-      const list = RECIPES.filter(r => (q ? `${r.name} ${r.desc} ${r.cat}`.toLowerCase().includes(q) : r.cat === this.craftCat));
+      const list = RECIPES.filter(r => (q ? `${r.name} ${r.desc} ${r.cat}`.toLowerCase().includes(q) : r.cat === this.craftCat))
+        .sort((a, b) => Number(needsTable(a)) - Number(needsTable(b)));   // what you can make by hand first
+      const table = atTable(g, heroOf(g));
       body.replaceChildren(
-        h('div.faint', q ? `${list.length} recipe${list.length === 1 ? '' : 's'} match “${this.craftQuery.trim()}”` : 'Crafting is instant. Better materials need rarer resources: iron, gold and gems come from mining and dungeons.'),
+        h(`div.craft-station${table ? '.on' : ''}`, icon('buildings/workshop', 28),
+          h('div', h('b', table ? 'At a Crafting Table' : 'Crafting by hand'),
+            h('div.faint', table ? 'You can craft everything here.' : 'Basics only. Stand by a Crafting Table (Build menu, 10 wood) for the rest.'))),
+        q ? h('div.faint', `${list.length} recipe${list.length === 1 ? '' : 's'} match “${this.craftQuery.trim()}”`) : null,
         h('div.craft-list', list.map(r => {
-          const ok = canCraft(g, r);
+          const ok = canCraft(g, r, heroOf(g));
+          const locked = needsTable(r) && !table, owned = ownsTool(g, r);
           const have = r.makes.tool ? owned[r.makes.tool] || 0 : r.makes.potion ? rpgOf(g).potions || 0 : r.makes.item ? itemsOf(g)[r.makes.item] || 0 : null;
           const ic = hasArt(r.icon) ? r.icon : r.fallbackIcon || r.icon;
           return h(`div.craft-card${ok ? '' : '.cant'}`,
@@ -1417,10 +1451,10 @@ export class HUD {
             h('div.craft-info',
               h('b', { style: r.rarity ? { color: RARITY[r.rarity].color } : null }, r.name),
               h('div.faint.craft-desc', r.desc),
-              h('div.craft-cost', costChips(r.cost, g.state.resources))),
+              h('div.craft-cost', costChips(r.cost, g.state.resources), locked ? h('span.craft-lock', 'Needs a Crafting Table') : null)),
             h('div.craft-side',
               have != null ? h('span.faint', `Have ${have}`) : null,
-              h(`button.btn.sm${ok ? '.primary' : ''}`, { disabled: !ok, onclick: () => {
+              h(`button.btn.sm${ok ? '.primary' : ''}`, { disabled: !ok, title: owned ? 'You already have one' : locked ? 'Stand next to a Crafting Table' : '', onclick: () => {
                 const res = craft(g, r.id, heroOf(this.dungeon || g) || heroOf(g));
                 if (!res.ok) { this.hint(res.why, 1800); return; }
                 play('ability'); this.hint(`Crafted ${res.made}`, 1500); this._hotbarKey = null; fill();
@@ -3118,8 +3152,10 @@ export class HUD {
     Object.assign(this.leadInput, { mx: 0, my: 0, act: false, dash: false, block: false });
     this.houseEditor = new HouseEditor({
       game: g, building: b, hero, hint: (t, ms) => this.hint(t, ms),
+      onCraft: () => { this.craftCat = this.craftCat || 'tools'; this.openPanel('craft'); },
       onClose: () => {
         this.houseEditor = null;
+        if (this.panel === 'craft') this.closePanel();
         const v = heroOf(g);
         if (v) { const d = doorOf(g, b); v.x = d.x; v.y = d.y + 10; if (g.hero) g.hero.doorCd = 1.5; }
         this.requestRefresh();

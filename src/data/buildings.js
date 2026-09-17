@@ -77,6 +77,7 @@ export const BUILDINGS = {
   smelter:         { name: 'Smelter',          era: 2, size: 2, cost: { stone: 60, coal: 10 },              work: 34, bonus: { mine: 0.3 }, daily: { iron: 2 }, desc: '+30% ore from mining and +2 iron a day.' },
   carpenter:       { name: 'Carpenter',        era: 1, size: 1, cost: { wood: 30, stone: 10 },              work: 20, bonus: { chop: 0.15, build: 0.3 }, desc: 'Builders work 30% faster, +15% wood.' },
   warehouse:       { name: 'Warehouse',        era: 1, size: 2, cost: { wood: 50, stone: 20 },              work: 26, storage: 400, desc: '+400 storage for every resource.' },
+  crafting_table:  { name: 'Crafting Table',   era: 0, size: 1, cost: { wood: 10 },                         work: 4, sprite: 'buildings/workshop', craftStation: true, desc: 'Stand next to it to craft weapons, tools, armour and potions. Only a few basics can be made by hand.' },
   workshop:        { name: 'Workshop',         era: 0, size: 1, cost: { wood: 20 },                         work: 14, storage: 60, bonus: { build: 0.15 }, desc: 'Tools and benches: builders work 15% faster, +60 storage.' },
 
   // ---- Civic
@@ -170,7 +171,7 @@ export const CATEGORIES = [
   ['intrigue', 'Espionage & War Machines'], ['science', 'Science'], ['industry2', 'Industry & Future Tech'],
 ];
 const CAT = {
-  homes: 'campfire tent stockpile hut house granary warehouse workshop palace',
+  homes: 'crafting_table campfire tent stockpile hut house granary warehouse workshop palace',
   food: 'farm windmill fishing_hut harbor shipyard orchard pasture hunters_lodge apiary bakery brewery',
   industry: 'lumber_mill mine_entrance blacksmith quarry charcoal_kiln smelter carpenter',
   military: 'barracks watchtower wall_wood gate_wood wall_stone gate_stone craft_hut weaponsmith armory training_ground guard_post siege_workshop stone_tower fortress',

@@ -99,8 +99,8 @@ const shade = (hex, k) => {
 };
 
 export class HouseEditor {
-  constructor({ game, building, hero, onClose, hint }) {
-    Object.assign(this, { game: game, b: building, hero, onClose, hint });
+  constructor({ game, building, hero, onClose, hint, onCraft }) {
+    Object.assign(this, { game: game, b: building, hero, onClose, hint, onCraft });
     this.floor = 0;
     this.mode = 'use';
     this.tool = null;          // { type, rot } while placing, { move: item, rot } while moving
@@ -360,6 +360,7 @@ export class HouseEditor {
   /** Use mode: stairs go up, the landing goes down, storage opens, a bed sleeps through the night. */
   use(it) {
     if (BEDS.has(it.type)) this.sleep();
+    else if (FURNITURE[it.type]?.station) { this.game.craftTableHere = true; this.onCraft?.(); }
     else if (it.type === 'stairs') this.goFloor(this.floor + 1);
     else if (it.type === 'landing') this.goFloor(this.floor - 1);
     else if (it.store) this.openStorage(it);
@@ -408,27 +409,62 @@ export class HouseEditor {
     this.refreshUI();
   }
 
+  /**
+   * Storage like Minecraft: the chest's slots on top, what you carry below. Click a slot (or drag it to the other
+   * grid) to move the whole stack across. Hover a slot to see what it is.
+   */
   openStorage(it) {
     const def = FURNITURE[it.type];
     const g = this.game, hero = this.hero;
-    let m;
+    const COLS = 9;
+    let m, dragging = null;
+    const info = h('div.inv-info', 'Click a slot or drag it to the other side to move it');
+    const move = stack => {
+      const r = stack.side === 'chest'
+        ? (stack.gear ? takeGear(g, it, stack.gear.id) : takeItem(g, it, hero, stack.key, stack.count))
+        : (stack.gear ? storeGear(g, it, stack.gear.id) : storeItem(g, it, hero, stack.key, stack.count));
+      if (r && !r.ok) this.hint?.(r.why, 1800);
+      render();
+    };
+    const cell = (stack, side) => {
+      if (!stack) {
+        return h('div.inv-slot.empty', {
+          ondragover: e => { if (dragging && dragging.side !== side) e.preventDefault(); },
+          ondrop: e => { e.preventDefault(); if (dragging && dragging.side !== side) move(dragging); dragging = null; },
+        });
+      }
+      stack.side = side;
+      const color = stack.gear ? RARITY[stack.gear.rarity]?.color : null;
+      const name = stack.gear ? stack.gear.name : itemLabel(stack.key);
+      return h('button.inv-slot', {
+        draggable: true, title: `${name}${stack.count > 1 ? ` ×${stack.count}` : ''}`, style: color ? { borderColor: color, boxShadow: `inset 0 0 10px ${color}44` } : null,
+        onclick: () => move(stack),
+        onmouseenter: () => { info.textContent = `${name}${stack.count > 1 ? ` ×${stack.count}` : ''} · click to ${side === 'chest' ? 'take' : 'store'}`; },
+        ondragstart: e => { dragging = stack; e.dataTransfer?.setData('text/plain', name); },
+        ondragend: () => { dragging = null; },
+        ondragover: e => { if (dragging && dragging.side !== side) e.preventDefault(); },
+        ondrop: e => { e.preventDefault(); if (dragging && dragging.side !== side) move(dragging); dragging = null; },
+      }, icon(stack.gear ? gearIconKey(stack.gear) || 'items/relic' : ITEMS[stack.key]?.icon || 'items/relic', 30), stack.count > 1 ? h('span.inv-count', stack.count) : null);
+    };
+    const grid = (stacks, size, side) => {
+      const n = Math.max(size, stacks.length);
+      return h('div.inv-grid', {
+        ondragover: e => { if (dragging && dragging.side !== side) e.preventDefault(); },
+        ondrop: e => { e.preventDefault(); if (dragging && dragging.side !== side) move(dragging); dragging = null; },
+      }, Array.from({ length: n }, (_, i) => cell(stacks[i], side)));
+    };
     const render = () => {
-      const pack = Object.entries(hero?.inv?.pack || {}).filter(([k, n]) => n > 0 && ITEMS[k]);
-      const bag = g.state.rpg?.bag || [];
-      const stored = Object.entries(it.store.items);
-      const row = (ic, name, count, label, fn, color) => h('div.store-row', icon(ic, 22), h('span', { style: color ? { color } : null }, name), count ? h('span.faint', `×${count}`) : null, h('div.spacer'), h('button.btn.sm', { onclick: () => { const r = fn(); if (r && !r.ok) this.hint?.(r.why, 1800); render(); } }, label));
+      const chest = [...Object.entries(it.store.items).map(([key, count]) => ({ key, count })), ...it.store.gear.map(gear => ({ gear, count: 1 }))];
+      const mine = [...Object.entries(hero?.inv?.pack || {}).filter(([k, n]) => n > 0 && ITEMS[k]).map(([key, count]) => ({ key, count })), ...(g.state.rpg?.bag || []).map(gear => ({ gear, count: 1 }))];
+      const all = (list, fn) => () => { for (const st of list) { const r = fn(st); if (r && !r.ok) { this.hint?.(r.why, 1800); break; } } render(); };
       m.el.replaceChildren(m.closeBtn,
-        h('h2', def.name), h('div.faint', `Adds ${def.storage} to your storage · ${slotsLeft(it)} of ${def.slots} spaces free`),
-        h('div.store-cols',
-          h('div.store-col', h('b', 'Inside'),
-            !stored.length && !it.store.gear.length ? h('div.faint', 'Empty') : null,
-            ...stored.map(([k, n]) => row(ITEMS[k]?.icon || 'items/relic', itemLabel(k), n, 'Take', () => takeItem(g, it, hero, k, n))),
-            ...it.store.gear.map(x => row(gearIconKey(x) || 'items/relic', x.name, 0, 'Take', () => takeGear(g, it, x.id), RARITY[x.rarity]?.color))),
-          h('div.store-col', h('b', 'You carry'),
-            !pack.length && !bag.length ? h('div.faint', 'Nothing to store') : null,
-            ...pack.map(([k, n]) => row(ITEMS[k].icon, ITEMS[k].label, n, 'Store', () => storeItem(g, it, hero, k, n))),
-            ...bag.map(x => row(gearIconKey(x) || 'items/relic', x.name, 0, 'Store', () => storeGear(g, it, x.id), RARITY[x.rarity]?.color)))),
-      );
+        h('div.inv-head', h('h2', def.name), h('span.faint', `${slotsLeft(it)} of ${def.slots} slots free · +${def.storage} storage`), h('div.spacer'),
+          h('button.btn.sm', { disabled: !chest.length, onclick: all(chest, st => (st.gear ? takeGear(g, it, st.gear.id) : takeItem(g, it, hero, st.key, st.count))) }, 'Take all')),
+        grid(chest, def.slots, 'chest'),
+        h('div.inv-head', h('b', 'Inventory'), h('div.spacer'),
+          h('button.btn.sm', { disabled: !mine.length, onclick: all(mine, st => (st.gear ? storeGear(g, it, st.gear.id) : storeItem(g, it, hero, st.key, st.count))) }, 'Store all')),
+        grid(mine, COLS * 3, 'inv'),
+        info);
     };
     m = modal([], { onClose: () => {}, cls: 'store-modal' });
     render();
@@ -442,6 +478,7 @@ export class HouseEditor {
     this.storage?.close?.();
     this.el.remove();
     this.closed = true;
+    this.game.craftTableHere = false;
     this.onClose?.();
   }
 
@@ -733,10 +770,9 @@ export class HouseEditor {
     const hot = this.mode === 'remove' ? '#ff6a5a' : this.mode === 'use' ? '#ffffff' : '#ffd76a';
     ctx.strokeStyle = hot; ctx.lineWidth = 3; ctx.lineCap = 'round';
     ctx.shadowColor = this.mode === 'remove' ? 'rgba(255,80,60,0.8)' : 'rgba(255,200,80,0.8)'; ctx.shadowBlur = 8;
-    ctx.beginPath(); ctx.moveTo(a.x, a.y + 3); ctx.lineTo(b.x, b.y + 3); ctx.lineTo(c.x, c.y + 3); ctx.stroke();
     ctx.shadowBlur = 0;
     const top = iso(box.x + box.w / 2, box.y + box.d / 2);
-    const hint = this.mode === 'remove' ? ' (click to remove)' : this.mode === 'use' ? (BEDS.has(it.type) ? ' (sleep)' : it.type === 'stairs' ? ' (go up)' : it.type === 'landing' ? ' (go down)' : it.store ? ' (open)' : '') : '';
+    const hint = this.mode === 'remove' ? ' (click to remove)' : this.mode === 'use' ? (BEDS.has(it.type) ? ' (sleep)' : FURNITURE[it.type]?.station ? ' (craft)' : it.type === 'stairs' ? ' (go up)' : it.type === 'landing' ? ' (go down)' : it.store ? ' (open)' : '') : '';
     const text = def.name + hint;
     ctx.font = 'bold 13px system-ui, sans-serif'; ctx.textAlign = 'center';
     const tw = ctx.measureText(text).width;

@@ -152,6 +152,14 @@ export const buildMult = g => { const k = bestTool(g, 'hammer'); return k ? 1 + 
 /** Extra dungeon light (in tiles). */
 export const lightBonus = g => (hasTool(g, 'lantern') ? 2.5 : hasTool(g, 'torch') ? 1.2 : 0) + (hasTool(g, 'spyglass') ? 1.5 : 0);
 
+/** How far your own light reaches (tiles): a torch or lantern in your hand lights up a big circle. */
+export function heroLight(g, inDungeon) {
+  const held = heldSlot(g);
+  const inHand = held === 'lantern' ? 6 : held === 'torch' ? 5 : 0;
+  const carried = hasTool(g, 'lantern') ? 2.5 : hasTool(g, 'torch') ? 1.5 : 0;
+  return Math.max(inHand, (inDungeon ? 5 : 1.1) + carried);
+}
+
 /** Show the tool in your hands for a moment. */
 export function flashTool(g, key) {
   if (g.hero && key) g.hero.toolFlash = { key, t: 0.45 };
@@ -177,13 +185,8 @@ export function dig(g, v, key = bestTool(g, 'shovel')) {
   if (Math.random() < 0.28 + luck * 0.02) add('gold', 2 + Math.random() * (3 + luck));
   if (Math.random() < 0.12 + luck * 0.01) add('food', 1 + Math.random() * 2);   // roots and tubers
   if (Math.random() < 0.03 + luck * 0.006) add('gems', 1);
-  // now and then something buried: a tool or a potion
-  if (Math.random() < 0.02 + t.power * 0.003) {
-    const pool = Object.keys(TOOLS).filter(k => TOOLS[k].power <= 3 + t.power / 2);
-    const found = pool[Math.floor(Math.random() * pool.length)];
-    giveTool(g, found);
-    got.push(`found a ${TOOLS[found].name}!`);
-  }
+  // now and then something buried: a little iron or coal (tools are crafted, never dug up)
+  if (Math.random() < 0.05 + t.power * 0.004) add(Math.random() < 0.5 ? 'iron' : 'coal', 1 + Math.random() * 3);
   g.float(v.x, v.y - TILE * 1.3, got.length ? got.join('  ') : 'Just dirt', got.length ? '#e0c090' : '#a89a88');
   return true;
 }

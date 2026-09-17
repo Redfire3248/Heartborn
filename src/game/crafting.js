@@ -103,13 +103,31 @@ RECIPES.push({ id: 'potion:health5', cat: 'potions', name: '5 Health Potions', i
 
 export const CRAFT_CATS = [['tools', 'Tools'], ['weapons', 'Weapons'], ['armour', 'Armour & Shields'], ['potions', 'Potions & Items']];
 
-export const canCraft = (g, recipe) => Object.entries(recipe.cost).every(([k, n]) => (g.state.resources[k] || 0) >= n);
+export const canAfford = (g, recipe) => Object.entries(recipe.cost).every(([k, n]) => (g.state.resources[k] || 0) >= n);
+
+/** Like Minecraft: a few basics by hand, everything else at a Crafting Table. */
+const HAND = new Set(['tool:pickaxe_wood', 'tool:axe_wood', 'tool:shovel_wood', 'tool:hoe_wood', 'tool:sickle_wood', 'tool:hammer_wood', 'tool:fishing_rod_wood', 'tool:torch', 'potion:health']);
+export const needsTable = recipe => !HAND.has(recipe.id);
+
+/** Is a Crafting Table in reach: one built outside within a few steps, or one in the house you are in? */
+export function atTable(g, hero = null) {
+  if (g.craftTableHere) return true;   // set while you are inside a house that has one
+  const v = hero || g.state.villagers?.find(x => x.id === g.hero?.id);
+  if (!v) return false;
+  return (g.state.buildings || []).some(b => b.type === 'crafting_table' && b.built !== false && Math.hypot((b.tx + 0.5) * TILE - v.x, (b.ty + 0.5) * TILE - v.y) < TILE * 3.5);
+}
+
+/** How many of this tool you already carry (tools stack). */
+export const ownsTool = () => false;
+
+export const canCraft = (g, recipe, hero = null) => canAfford(g, recipe) && (!needsTable(recipe) || atTable(g, hero)) && !ownsTool(g, recipe);
 
 /** Make it: pay the cost and hand it over. */
 export function craft(g, id, hero = null) {
   const recipe = RECIPES.find(r => r.id === id);
   if (!recipe) return { ok: false, why: 'Unknown recipe' };
-  if (!canCraft(g, recipe)) return { ok: false, why: 'Not enough resources' };
+  if (needsTable(recipe) && !atTable(g, hero)) return { ok: false, why: 'You need to be at a Crafting Table' };
+  if (!canAfford(g, recipe)) return { ok: false, why: 'Not enough resources' };
   for (const [k, n] of Object.entries(recipe.cost)) g.state.resources[k] -= n;
   const m = recipe.makes;
   let made = recipe.name;

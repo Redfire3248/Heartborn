@@ -9,7 +9,7 @@ import { speedMult, strengthMult } from './body.js';
 import { heroStats, heroWeapon, onHeroKill, questProgress, updateQuests, rpgOf, SHIELDS, BLADE_SPECIALS, UNDEAD } from './rpg.js';
 import { updateTreasure, chestNear, openChest, drinkPotion, entranceNear } from './treasure.js';
 import { homeDoorNear } from './houses.js';
-import { workWith, flashTool, dig, fish, buildMult, heldSlot, hasTool, TOOLS, WORK_OF_KIND, HAND_WORK, canMine, pickaxeFor } from './tools.js';
+import { workWith, flashTool, dig, fish, buildMult, heldSlot, hasTool, TOOLS, WORK_OF_KIND, HAND_WORK, canMine, pickaxeFor, giveTool, dropTool } from './tools.js';
 import { useItem, buffActive, updateBuffs } from './consumables.js';
 import { BUILDINGS, sizeOf } from '../data/buildings.js';
 
@@ -172,6 +172,7 @@ function attack(g, v, st) {
       return;
     }
     h.swing = 0.22;
+    if (tool === 'torch') { placeTorch(g, v, h); return; }
     const kind = TOOLS[tool].kind;
     if (WORK_OF_KIND[kind]) { if (work(g, v, tool)) questProgress(g, 'gather', { v }); else nothingFor(g, v, tool); }
     else if (kind === 'shovel') { if (g.dungeon || g.visiting || !dig(g, v, tool)) nothingFor(g, v, tool); }
@@ -462,6 +463,25 @@ export function knockOutHero(g, v) {
   return true;
 }
 
+/** Place a torch on the ground in front of you (it lights the area for good); swing at a placed torch to take it back. */
+function placeTorch(g, v, h) {
+  const list = (g.state.torches ||= []);
+  const a = h.facing ?? Math.PI / 2;
+  const x = v.x + Math.cos(a) * TILE, y = v.y + Math.sin(a) * TILE;
+  const near = list.find(t => Math.hypot(t.x - x, t.y - y) < TILE * 0.9);
+  if (near) {
+    g.state.torches = list.filter(t => t !== near);
+    giveTool(g, 'torch');
+    g.float(near.x, near.y - TILE, '+1 Torch', '#ffe7a0');
+    return;
+  }
+  if (!g.world.walkable(x, y)) { g.float(x, y - TILE, 'No room for a torch', '#cfc6e0'); return; }
+  list.push({ x, y });
+  dropTool(g, 'torch', 1);
+  g.puff({ x, y: y - 10 }, 'effects/spark', 4, 8);
+  g.emit('change');
+}
+
 /** A tool swung where it has nothing to do: say what it is for (not on every swing). */
 function nothingFor(g, v, key) {
   const h = g.hero;
@@ -637,7 +657,10 @@ export function updateHero(g, dt, controls = {}) {
 
   // items on the ground go into your pack as you walk over them
   for (const it of [...(g.state.groundItems || [])]) {
-    if (Math.hypot(it.x - v.x, it.y - v.y) < TILE * 0.7) pickUp(g, v, it);
+    if (it.noPickUntil && g.state.time < it.noPickUntil) continue;   // just dropped
+    const d = Math.hypot(it.x - v.x, it.y - v.y);
+    if (d < TILE * 0.7) pickUp(g, v, it);
+    else if (d < TILE * 1.5) { const k = Math.min(1, dt * 6); it.x += (v.x - it.x) * k; it.y += (v.y - it.y) * k; }
   }
 
   // ATTACK: swing your weapon in an arc (or loose an arrow); with nothing to fight nearby it works the land

@@ -1,4 +1,5 @@
 import { TILE } from '../core/constants.js';
+import { stackIcon } from '../game/groundItems.js';
 import { drawSprite, sprite } from '../core/assets.js';
 import { BOATS, fleetOf } from '../game/sailing.js';
 import { TerrainPainter } from './terrain.js';
@@ -13,7 +14,7 @@ import { gearIconKey, hasArt } from './gearArt.js';
 import { avatarId, avatarArt } from '../game/avatars.js';
 import { trapUp } from '../game/dungeon.js';
 import { DESIGNS, doorOf, isHome, builderOf } from '../game/houses.js';
-import { TOOLS, lightBonus, heldSlot, hasTool as hasToolG } from '../game/tools.js';
+import { TOOLS, lightBonus, heldSlot, hasTool as hasToolG, heroLight } from '../game/tools.js';
 import { CONSUMABLES } from '../game/consumables.js';
 import { SHOTS, maxHp } from '../game/creatures.js';
 import { spriteAvailable, spriteVersion } from '../core/assets.js';
@@ -146,6 +147,7 @@ export class Renderer {
       if (hasArt('dungeon/bones')) for (const p of d.props || []) if (inView(p.x, p.y)) items.push({ y: ['puddle', 'floor_grate', 'bones', 'rubble', 'cobweb'].includes(p.kind) ? p.y - TILE * 2 : p.y, draw: () => drawSprite(this.ctx, `dungeon/${p.kind}`, p.x, p.y + TILE * 0.35, TILE * ({ pillar: 1.3, cage: 1.1, chains: 1.1, altar: 1.3, glow_crystal: 0.9, cobweb: 1 }[p.kind] || 0.8), { flip: p.flip }) });
       if (d.key) items.push({ y: d.key.y, draw: () => this.drawKey(d.key) });
     }
+    for (const t of g.state.torches || []) if (inView(t.x, t.y)) items.push({ y: t.y, draw: () => this.drawPlacedTorch(g, t) });
     if (!g.visiting) for (const it of g.state.groundItems || []) {
       if (inView(it.x, it.y)) items.push({ y: it.y, draw: () => this.drawGroundItem(it) });
     }
@@ -535,6 +537,21 @@ export class Renderer {
   }
 
   /** An item lying on the ground: bobbing gently over its shadow, with a count. */
+  /** A torch stuck in the ground: its flame flickers and sparks rise. */
+  drawPlacedTorch(g, t) {
+    const { ctx } = this;
+    this.shadow(t.x, t.y, TILE * 0.25);
+    drawSprite(ctx, hasArt(TOOLS.torch.icon) ? TOOLS.torch.icon : TOOLS.torch.fallbackIcon || 'items/torch', t.x, t.y, TILE * 0.8, { rot: -Math.PI / 4 });
+    const f = 1 + Math.sin(this.time * 14 + t.x) * 0.15;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const grd = ctx.createRadialGradient(t.x + 4, t.y - 22, 0, t.x + 4, t.y - 22, 14 * f);
+    grd.addColorStop(0, 'rgba(255,210,120,0.8)'); grd.addColorStop(1, 'rgba(255,120,40,0)');
+    ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(t.x + 4, t.y - 22, 14 * f, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    if (Math.random() < 0.06) g.fx.particles.push({ x: t.x + 4, y: t.y - 24, vx: (Math.random() - 0.5) * 6, vy: -16, sprite: 'effects/spark', size: 4, life: 0.6, max: 0.6, rot: 0 });
+  }
+
   drawGroundItem(it) {
     const { ctx } = this;
     const bob = Math.sin(this.time * 3 + it.x * 0.1) * 1.5;
@@ -548,7 +565,8 @@ export class Renderer {
       ctx.beginPath(); ctx.ellipse(it.x, it.y, TILE * 0.45, TILE * 0.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
       if (it.gear.rarity >= 2 && Math.random() < 0.05) this.lastGame?.fx.particles.push({ x: it.x, y: it.y - 6, vx: 0, vy: -14, sprite: 'effects/spark', size: 6, life: 0.6, max: 0.6, rot: 0 });
     }
-    drawSprite(ctx, gearIconKey(it.gear) || ITEMS[it.item]?.icon || 'items/relic', it.x, it.y - 3 + bob, TILE * 0.55);
+    const ic = it.gear ? gearIconKey(it.gear) : stackIcon(it);
+    drawSprite(ctx, hasArt(ic) ? ic : (it.tool && TOOLS[it.tool]?.fallbackIcon) || ic || 'items/relic', it.x, it.y - 3 + bob, TILE * 0.55);
     if (it.count > 1 && this.camera.zoom >= 1.5) label(ctx, `×${it.count}`, it.x + 8, it.y + 4);
   }
 
@@ -744,7 +762,7 @@ export class Renderer {
       const len = size * 0.72 * (WEAPONS[w.base]?.length || 1);
       const cx = weaponHand.x + Math.cos(blade) * len * 0.32, cy = weaponHand.y + Math.sin(blade) * len * 0.32;
       // gear icons are drawn pointing up and to the right (45 degrees): turn them to the blade direction
-      drawSprite(ctx, weaponKey, cx, cy, len, { rot: blade + Math.PI / 4, center: true, full: true, tint: tint === '#ffffff' ? '#ffffff' : null, solid: tint === '#ffffff' });
+      drawSprite(ctx, weaponKey, cx, cy, len, { rot: blade + Math.PI / 4 + (tool || held === 'potion' || held?.startsWith?.('item:') ? 0 : WEAPONS[w.base]?.iconRot || 0), center: true, full: true, tint: tint === '#ffffff' ? '#ffffff' : null, solid: tint === '#ffffff' });
     };
     const drawShield = () => {
       if (!shieldKey) return;
@@ -1166,7 +1184,8 @@ export class Renderer {
       const r = def.light || (def.housing ? 2.2 : 0);
       if (r) lights.push({ ...g.buildingCenter(b), r: r * TILE });
     }
-    for (const v of g.state.villagers) if (!v.away) lights.push({ x: v.x, y: v.y - 8, r: TILE * (g.dungeon ? 6 + lightBonus(g) : 1.1) });
+    for (const v of g.state.villagers) if (!v.away) lights.push({ x: v.x, y: v.y - 8, r: TILE * (g.hero?.id === v.id ? heroLight(g, !!g.dungeon) + (g.dungeon ? lightBonus(g) * 0.3 : 0) : 1.1) });
+    for (const t of g.state.torches || []) lights.push({ x: t.x, y: t.y - 10, r: TILE * 5 });   // placed torches
     if (g.dungeon) {
       for (const t of g.dungeon.torches) lights.push({ x: t.x, y: t.y - TILE * 0.4, r: TILE * 3.4 });
       for (const p of g.dungeon.props || []) if (p.kind === 'glow_crystal') lights.push({ x: p.x, y: p.y, r: TILE * 1.8 });

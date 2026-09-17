@@ -1,7 +1,9 @@
 import { TILE } from '../core/constants.js';
 import { ITEMS } from '../data/people.js';
 import { addItem, takeItem } from './dynasty.js';
-import { takeGear } from './rpg.js';
+import { takeGear, rpgOf } from './rpg.js';
+import { TOOLS, toolsOf, dropTool, giveTool, hotbarOf } from './tools.js';
+import { CONSUMABLES, itemsOf, giveItem } from './consumables.js';
 
 /*
  * Items lying on the ground: dropped from a pack (drag it off onto the map), or by the admin `drop` command.
@@ -27,6 +29,44 @@ export function dropFromPack(g, v, item, count, x, y) {
   return n ? dropItem(g, item, n, x, y) : null;
 }
 
+/**
+ * Drop what is in a hotbar slot (or an inventory key) in front of you: tools, potions, bombs... It lands on the
+ * ground, and after a moment you (or anyone) can pick it up again by walking over it.
+ */
+export function dropStack(g, v, key, count = 1) {
+  if (!v || !key || key === 'weapon') return null;
+  const a = g.hero?.facing ?? Math.PI / 2;
+  const x = v.x + Math.cos(a) * TILE * 2.2, y = v.y + Math.sin(a) * TILE * 2.2;
+  const base = { id: `gi${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`, x, y, noPickUntil: g.state.time + 1.2 };
+  let it = null;
+  if (key === 'potion') {
+    const r = rpgOf(g);
+    const n = Math.min(count, r.potions || 0);
+    if (!n) return null;
+    r.potions -= n;
+    it = { ...base, potion: true, count: n };
+  } else if (key.startsWith('item:')) {
+    const k = key.slice(5), bag = itemsOf(g);
+    const n = Math.min(count, bag[k] || 0);
+    if (!n) return null;
+    bag[k] -= n;
+    if (!bag[k]) { delete bag[k]; const bar = hotbarOf(g); const i = bar.indexOf(key); if (i >= 0) bar[i] = null; }
+    it = { ...base, consumable: k, count: n };
+  } else if (TOOLS[key]) {
+    const n = Math.min(count, toolsOf(g)[key] || 0);
+    if (!n || !dropTool(g, key, n)) return null;
+    it = { ...base, tool: key, count: n };
+  }
+  if (!it) return null;
+  groundItems(g).push(it);
+  g.puff({ x, y }, 'effects/dust', 3, 6);
+  g.emit('change');
+  return it;
+}
+
+export const stackIcon = it => (it.tool ? TOOLS[it.tool]?.icon : it.consumable ? CONSUMABLES[it.consumable]?.icon : it.potion ? 'gear/health_potion' : ITEMS[it.item]?.icon);
+export const stackName = it => (it.tool ? TOOLS[it.tool]?.name : it.consumable ? CONSUMABLES[it.consumable]?.name : it.potion ? 'Health Potion' : it.gear ? it.gear.name : ITEMS[it.item]?.label || it.item);
+
 export function itemAt(g, x, y, r = TILE * 0.7) {
   let best = null, bd = r;
   for (const it of groundItems(g)) {
@@ -42,6 +82,14 @@ export function pickUp(g, v, it) {
   g.state.groundItems = list.filter(x => x !== it);
   // loot from a fight: weapons, armour and trinkets are yours (the player's), whoever picks them up
   if (it.gear) { takeGear(g, it.gear, v); return true; }
+  if (it.tool || it.consumable || it.potion) {
+    if (it.tool) giveTool(g, it.tool, it.count);
+    else if (it.consumable) giveItem(g, it.consumable, it.count);
+    else rpgOf(g).potions = (rpgOf(g).potions || 0) + it.count;
+    g.float(it.x, it.y - TILE, `+${it.count > 1 ? it.count + ' ' : ''}${stackName(it)}`, '#ffe7a0');
+    g.emit('change');
+    return true;
+  }
   addItem(v, it.item, it.count);
   g.float(it.x, it.y - TILE, `${v.name}: +${it.count} ${ITEMS[it.item]?.label || it.item}`, '#ffe7a0');
   g.emit('change');

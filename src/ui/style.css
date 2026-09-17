@@ -1464,3 +1464,38 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .bag-cell.rarity-admin { animation: rarity-pulse 1s ease-in-out infinite, rarity-hue 3s linear infinite; }
 @keyframes rarity-pulse { 50% { filter: brightness(1.25); } }
 @keyframes rarity-hue { to { filter: hue-rotate(360deg); } }
+
+/* crafting: where you are crafting */
+.craft-station { display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin-bottom: 8px; border-radius: 10px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04); }
+.craft-station.on { border-color: rgba(111,224,122,.5); background: rgba(111,224,122,.08); }
+.craft-lock { margin-left: 6px; font-size: 11px; color: #ffb3aa; }
+/* the Craft menu opened from a table inside a house sits above the house view */
+#ui.in-house > .side { z-index: 340; }
+
+/* storage like Minecraft: slot grids */
+.store-modal { width: min(560px, 96vw); }
+.inv-head { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.inv-head h2 { margin: 0; }
+.inv-grid { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; padding: 6px; border-radius: 10px; background: rgba(0,0,0,.28); max-height: 34vh; overflow-y: auto; }
+.inv-slot { position: relative; aspect-ratio: 1; display: grid; place-items: center; padding: 0; border-radius: 6px; border: 2px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: inherit; cursor: pointer; min-width: 0; }
+.inv-slot:hover { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.4); }
+.inv-slot.empty { cursor: default; background: rgba(255,255,255,.025); }
+.inv-slot img { width: 76%; height: 76%; object-fit: contain; image-rendering: pixelated; pointer-events: none; }
+.inv-count { position: absolute; right: 3px; bottom: 1px; font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 1px 0 #000, 1px 0 0 #000, -1px 0 0 #000, 0 -1px 0 #000; pointer-events: none; }
+.inv-info { margin-top: 6px; font-size: 12px; color: #cfc6e0; min-height: 16px; }
+@media (max-width: 520px) { .inv-grid { gap: 3px; padding: 4px; } .inv-count { font-size: 10px; } }
+
+/* inventory: a fixed grid of slots */
+.inv-cells { display: grid !important; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; }
+.inv-cell.empty { aspect-ratio: 1; border-radius: 8px; border: 2px solid rgba(255,255,255,.06); background: rgba(255,255,255,.025); }
+.inv-hint { font-size: 11px; opacity: .7; }
+/* every inventory slot is the same square and the grid is evenly spaced */
+.inv-cells { grid-template-columns: repeat(9, 48px); justify-content: start; gap: 6px; }
+.inv-cells > .inv-cell { width: 48px !important; height: 48px !important; aspect-ratio: auto; margin: 0; }
+.inv-panel { width: auto; max-width: calc(100vw - 16px); }
+@media (max-width: 560px) {
+  .inv-cells { grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 3px; }
+  .inv-cells > .inv-cell { width: auto !important; height: auto !important; aspect-ratio: 1; }
+  .inv-panel { width: calc(100vw - 16px); }
+}
+.store-modal > .inv-head:first-of-type { padding-right: 40px; }

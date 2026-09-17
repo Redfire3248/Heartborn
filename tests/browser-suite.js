@@ -566,12 +566,19 @@ export async function run() {
     g.state.resources.iron = 0;
     ok(!Cr.craft(g, 'tool:pickaxe_iron').ok, 'you cannot craft without the resources');
     Object.assign(g.state.resources, { iron: 500, wood: 500, gold: 500, gems: 200, coal: 200, food: 500, stone: 500 });
+    ok(!Cr.craft(g, 'tool:pickaxe_iron').ok && Cr.craft(g, 'tool:pickaxe_wood').ok, 'away from a Crafting Table only the basics can be crafted');
+    const me = g.state.villagers[0];
+    g.hero = { id: me.id };
+    const tb = { id: 'tbl', type: 'crafting_table', tx: Math.floor(me.x / TILE), ty: Math.floor(me.y / TILE), size: 1, built: true };
+    g.state.buildings.push(tb);
+    ok(Cr.atTable(g, me), 'standing next to a Crafting Table lets you craft everything');
     const iron = g.state.resources.iron;
     ok(Cr.craft(g, 'tool:pickaxe_iron').ok && To.hasTool(g, 'pickaxe_iron') && g.state.resources.iron < iron, 'crafting a tool uses resources and gives the tool');
     const bag = R.rpgOf(g).bag.length, worn = R.rpgOf(g).gear.weapon;
     ok(Cr.craft(g, 'gear:flame_sword').ok && (R.rpgOf(g).bag.length > bag || R.rpgOf(g).gear.weapon !== worn), 'crafting a Flame Sword gives it to you');
     const p0 = R.rpgOf(g).potions || 0;
     ok(Cr.craft(g, 'potion:health5').ok && R.rpgOf(g).potions === p0 + 5, 'potions can be brewed');
+    g.state.buildings = g.state.buildings.filter(b => b !== tb); g.hero = null;
     // only homes in the build menu, every kind from the start
     if (F.on('housesOnly')) {
       ok(F.buildingOn('house') && F.buildingOn('castle') && !F.buildingOn('farm') && !F.buildingOn('campfire'), 'the build menu offers homes only');

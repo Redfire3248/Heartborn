@@ -32,8 +32,8 @@ export const BUILDING_FEATURE = {
   courthouse: 'court', embassy: 'empire', employment_office: 'people',
 };
 export const buildingOn = type => {
-  if (on('housesOnly')) return !!BUILDINGS[type]?.housing && type !== 'campfire';
+  if (on('housesOnly')) return (!!BUILDINGS[type]?.housing && type !== 'campfire') || !!BUILDINGS[type]?.craftStation;
   return !BUILDING_FEATURE[type] || on(BUILDING_FEATURE[type]);
 };
 /** In houses-only mode every home can be built whatever the era. */
-export const eraFree = type => on('housesOnly') && !!BUILDINGS[type]?.housing;
+export const eraFree = type => on('housesOnly') && (!!BUILDINGS[type]?.housing || !!BUILDINGS[type]?.craftStation);

@@ -122,7 +122,7 @@ export const WEAPONS = {
   freeze_ray: { name: 'Freeze Ray', dmg: 80, range: 10, speed: 0.1, ranged: true, admin: true, noLoot: true, minRarity: 3, shot: { kind: 'ice_shard', speed: 24, pierce: 5, freeze: 3 }, icon: 'armory/freeze_ray' },
   black_hole_gun: { name: 'Black Hole Gun', dmg: 120, range: 10, speed: 0.9, ranged: true, admin: true, noLoot: true, minRarity: 3, shot: { kind: 'dark_orb', speed: 8, explode: 4, pull: true, explodeAtEnd: true }, icon: 'armory/black_hole_gun' },
   banana_blaster: { name: 'Banana Blaster', dmg: 90, range: 9, speed: 0.12, ranged: true, admin: true, noLoot: true, minRarity: 3, shot: { kind: 'banana', speed: 15, count: 2, spread: 0.2, kb: 4 }, icon: 'armory/banana_blaster' },
-  ban_hammer: { name: 'BAN HAMMER', dmg: 9999, range: 3, speed: 0.5, arc: 6.3, stun: 3, admin: true, noLoot: true, minRarity: 3, icon: 'armory/ban_hammer', length: 1.5 },
+  ban_hammer: { name: 'BAN HAMMER', dmg: 9999, range: 3, speed: 0.5, arc: 6.3, stun: 3, admin: true, noLoot: true, minRarity: 3, icon: 'armory/ban_hammer', length: 1.5, iconRot: Math.PI / 2 },
   god_sword: { name: 'God Sword', dmg: 999, range: 3, speed: 0.25, arc: 6.3, crit: 0.5, admin: true, noLoot: true, minRarity: 3, icon: 'armory/god_sword', length: 1.5 },
   infinity_blade: { name: 'Infinity Blade', dmg: 700, range: 2.2, speed: 0.2, arc: 3, admin: true, noLoot: true, minRarity: 3, icon: 'armory/infinity_blade', length: 1.3 },
   energy_sword: { name: 'Energy Sword', dmg: 400, range: 1.8, speed: 0.15, arc: 2.4, admin: true, noLoot: true, minRarity: 3, icon: 'armory/energy_sword', length: 1.2 },
@@ -130,7 +130,7 @@ export const WEAPONS = {
   storm_god_hammer: { name: 'Storm God Hammer', dmg: 900, range: 2, speed: 0.45, arc: 3, stun: 2, admin: true, noLoot: true, minRarity: 3, icon: 'armory/storm_god_hammer', length: 1.2 },
   chaos_staff: { name: 'Chaos Staff', dmg: 300, range: 12, speed: 0.15, ranged: true, admin: true, noLoot: true, minRarity: 3, shot: { kind: 'chaos', speed: 14 }, icon: 'armory/chaos_staff' },
   dev_wrench: { name: 'Dev Wrench', dmg: 5000, range: 2, speed: 0.3, arc: 3, stun: 3, admin: true, noLoot: true, minRarity: 3, icon: 'armory/dev_wrench', length: 1.1 },
-  golden_frying_pan: { name: 'Golden Frying Pan', dmg: 350, range: 1.5, speed: 0.3, arc: 2.5, stun: 2, kb: 3, admin: true, noLoot: true, minRarity: 3, icon: 'armory/golden_frying_pan', length: 1.0 },
+  golden_frying_pan: { name: 'Golden Frying Pan', dmg: 350, range: 1.5, speed: 0.3, arc: 2.5, stun: 2, kb: 3, admin: true, noLoot: true, minRarity: 3, icon: 'armory/golden_frying_pan', length: 1.0, iconRot: Math.PI },   // the picture has its handle top-right
   rubber_chicken: { name: 'Rubber Chicken', dmg: 1, range: 1.6, speed: 0.15, arc: 3, kb: 12, admin: true, noLoot: true, minRarity: 3, icon: 'armory/rubber_chicken', length: 1.0 },
   void_dagger: { name: 'Void Dagger', dmg: 900, range: 1.4, speed: 0.12, arc: 2, admin: true, noLoot: true, minRarity: 3, icon: 'armory/void_dagger', length: 0.8 },
 };
@@ -321,10 +321,11 @@ export function makeGear(g, base, rarity = 0) {
 }
 
 /** A random piece of loot, stronger with rarity (rare kinds only drop at their rarity or above). */
-export function rollGear(g, { boss = false, slot = null } = {}) {
+export function rollGear(g, { boss = false, slot = null, weapons = boss } = {}) {
   const rarity = pickRarity(g, boss);
   const roll = Math.random();
-  const kind = slot || (roll < 0.42 ? 'weapon' : roll < 0.58 ? 'shield' : roll < 0.76 ? 'armor' : roll < 0.88 ? 'helmet' : 'trinket');
+  // weapons are crafted: only bosses drop them; everything else drops shields, armour, helmets and trinkets
+  const kind = slot || (weapons && roll < 0.42 ? 'weapon' : roll < 0.62 ? 'shield' : roll < 0.8 ? 'armor' : roll < 0.9 ? 'helmet' : 'trinket');
   const options = Object.entries(CATALOG[kind]).filter(([, d]) => !d.noLoot && !d.admin && d.icon !== null && (d.minRarity || 0) <= rarity);
   // each world has favourite weapons: a third of weapon drops come from them
   const fav = kind === 'weapon' && g?.state ? gameTheme(g).loot.filter(b => CATALOG.weapon[b] && !CATALOG.weapon[b].admin) : [];
@@ -478,7 +479,7 @@ export function onHeroKill(g, c, v) {
   if (c.bounty) questProgress(g, 'bounty', { v });
   const chance = boss || c.elite ? 1 : def.hostile ? 0.2 : 0.03;
   if (Math.random() < chance) {
-    const it = rollGear(g, { boss: boss || !!c.elite });
+    const it = rollGear(g, { boss: boss || !!c.elite, weapons: !!def.boss });
     (g.state.groundItems ||= []).push({ id: it.id, gear: it, item: null, count: 1, x: c.x + (Math.random() - 0.5) * 10, y: c.y + (Math.random() - 0.5) * 10 });
     g.float(c.x, c.y - TILE * 1.2, `${RARITY[it.rarity].name} loot!`, RARITY[it.rarity].color);
   }
