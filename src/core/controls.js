@@ -13,6 +13,7 @@ export const ACTIONS = [
   { id: 'block', label: 'Block (hold)', group: 'Fighting', def: 'q' },
   { id: 'potion', label: 'Drink a potion', group: 'Fighting', def: 'e' },
   { id: 'drop', label: 'Drop the held item', group: 'Fighting', def: 'z' },
+  { id: 'ability', label: 'Weapon ability', group: 'Fighting', def: 'f' },
   { id: 'character', label: 'Character', group: 'Screens', def: 'g' },
   { id: 'inventory', label: 'Inventory', group: 'Screens', def: 'i' },
   { id: 'map', label: 'World map', group: 'Screens', def: 'v' },

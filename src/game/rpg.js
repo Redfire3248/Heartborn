@@ -1,4 +1,5 @@
 import { TILE } from '../core/constants.js';
+import { BOSS_MATERIAL, MATERIALS } from './forging.js';
 import { popResource, lucky, ORE_RESOURCE } from './loot.js';
 import { gameTheme } from './worldTypes.js';
 import { CREATURES } from '../data/objects.js';
@@ -485,6 +486,12 @@ export function onHeroKill(g, c, v) {
       const n = (1 + Math.floor(Math.random() * 3)) * (boss ? 5 : c.elite ? 2 : 1) * (big ? 3 : 1);
       if (res) for (let i = 0; i < Math.min(n, 5); i++) popResource(g, res, i === Math.min(n, 5) - 1 ? n - Math.min(n, 5) + 1 : 1, c.x, c.y);
       if (big) g.float(c.x, c.y - TILE * 1.6, 'LUCKY DROP! x3', '#ffd76a');
+    }
+    const bm = BOSS_MATERIAL[c.t];
+    if (bm) {
+      const n = 2 + Math.floor(Math.random() * 3) + (lucky(g, 0.15) ? 2 : 0);
+      for (let i = 0; i < n; i++) popResource(g, bm, 1, c.x, c.y);
+      g.float(c.x, c.y - TILE * 2, `${MATERIALS[bm].name} x${n}!`, '#ff4d6d');
     }
     if (lucky(g, boss ? 0.6 : 0.02)) popResource(g, 'gold', 5 + Math.floor(Math.random() * (boss ? 60 : 10)), c.x, c.y);
     questProgress(g, 'slayType', { type: c.t, v });

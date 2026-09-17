@@ -1,4 +1,6 @@
 import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo } from './dom.js';
+import { TRAITS as FORGE_TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
+import { openTableMenu, openMaterialsBag } from './tableMenu.js';
 import { forgeMinigame } from './forge.js';
 import { heroBiome, THEMES } from '../game/worldTypes.js';
 import { AVATARS, avatarId, avatarArt, setLook } from '../game/avatars.js';
@@ -25,7 +27,7 @@ import { itemAt, pickUp, moveItem, dropFromPack, dropStack } from '../game/groun
 const BADGE_TRAITS = ['gifted', 'knighted', 'versatile'];   // already shown as badges at the top of a profile
 const BODY_COLOR = { strength: '#ff8a5a', speed: '#7fd4ff', stamina: '#8fe07a' };
 const BODY_TIP = { strength: 'Heavy work (chopping, mining, building, farming, forging) and fighting go faster and hit harder', speed: 'Walks and runs faster', stamina: 'Works harder, gets hungry more slowly and takes less damage' };
-import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, avatarOf } from '../game/hero.js';
+import { startLead, endLead, heroOf, updateHero, bountyOf, compass, setAvatar, avatarOf, useAbility as useWeaponAbility } from '../game/hero.js';
 import { makeVisitGame } from '../game/visit.js';
 import { makeDungeonGame, leaveSurface, returnFromDungeon, bossOf } from '../game/dungeon.js';
 import { HouseEditor } from './houseEditor.js';
@@ -68,7 +70,7 @@ import { play, soundSettings, setVolume } from '../core/sound.js';
 import { cleanText, mutedPlayers, setMuted, reportMessage } from '../net/chatSafety.js';
 import { BUILD, LATEST_CHANGES, checkLatest } from '../core/version.js';
 
-const TOP_RES = ['food', 'wood', 'stone', 'coal', 'iron', 'copper', 'silver', 'obsidian', 'mythril', 'frostite', 'magmite', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];
+const TOP_RES = ['food', 'wood', 'stone', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];   // ores, metals and boss materials are in the Materials bag
 // bombs and science only appear once they matter
 const SHOW_WHEN = {
   bombs: g => !g.solo && (g.state.resources.bombs > 0 || g.hasBuilding('powder_mill')), science: g => !g.solo && (g.state.resources.science > 0 || g.state.era >= 3),
@@ -96,7 +98,6 @@ const MINI_SCALE = 4;   // minimap canvas pixels per tile
 
 const DOCK_GROUPS = [
   { id: 'build', short: 'Build', icon: 'ui/build', tip: 'Build (B)', tabs: [['build', 'Build']] },
-  { id: 'craft', short: 'Craft', icon: 'items/hammer', tip: 'Craft (C)', tabs: [['craft', 'Craft']] },
   { id: 'people', short: 'People', icon: 'items/population', tip: 'People & Court (J)', tabs: [['jobs', '👥 People & Jobs'], ['court', '👑 Court']] },
   { id: 'rule', short: 'Rule', icon: 'items/scroll', tip: 'Rule, Empire & Chronicle (K)', tabs: [['deeds', '📜 Laws'], ['empire', '👑 Empire'], ['log', '📖 Chronicle']] },
   { id: 'realm', short: 'World', icon: 'ui/map', tip: 'Realm & Multiplayer (M)', tabs: [['world', '🌍 World'], ['ranks', '🏆 Rankings']], alias: ['map'], map: true },
@@ -306,7 +307,8 @@ export class HUD {
       const dashDown = held(k, 'dash') || t.dash;
       const dash = dashDown && !this._dashHeld;
       const potionDown = held(k, 'potion') || t.potion;
-      const potion = potionDown && !this._potionHeld;
+      let potion = potionDown && !this._potionHeld;
+      if (potion && hg === g && atTable(g, heroOf(g))) { potion = false; this.openTable(); }
       this._potionHeld = potionDown;
       this._dashHeld = dashDown;
       if (abroad || (!g.paused && !g.pendingEvent)) updateHero(hg, dt, { mx, my, act: !abroad && (held(k, 'attack') || t.act), dash: !abroad && dash, potion: !abroad && potion, block: !abroad && (held(k, 'block') || t.block) });
@@ -320,6 +322,7 @@ export class HUD {
       if (this.mobilePlace && (Math.abs(mx) > 0.2 || Math.abs(my) > 0.2)) this.mobilePlace.manual = false;   // walking brings it back in front of you
       this.updateBossBar(hg, dt);
       if (hg._pickSound) { hg._pickSound = false; play('pickup'); }
+      if (this.els.abilityBtn && hg.hero) { const left = Math.max(0, (hg.hero.abilityReady || 0) - hg.state.time), max = hg.hero.abilityMax || 1; this.els.abilityBtn.style.setProperty('--cd', String(left / max)); this.els.abilityBtn.classList.toggle('cooling', left > 0); }
       if (hg === g && !this.houseEditor) {
         const biome = heroBiome(g);
         if (biome && biome !== this._biome) {
@@ -402,6 +405,8 @@ export class HUD {
     if (slot >= 0 && this._invHover && !this.els.invPanel.hidden) { setSlot(this.game, slot, this._invHover); this._hotbarKey = null; this.renderInventory(); return; }
     if (slot >= 0 && (this.game.hero || this.dungeon)) { selectSlot(this.game, slot); this._hotbarKey = null; return; }
     if (is(k, 'drop') && (this.game.hero || this.dungeon)) { this.dropHeld(); return; }
+    if (is(k, 'ability') && (this.game.hero || this.dungeon)) { useWeaponAbility(this.dungeon || this.game); return; }
+    if (is(k, 'craft') && this.game.hero) { this.openTable(); return; }
     if (this.game.hero) {   // walking your ruler: WASD move, Space strikes, Esc stops
       if (is(k, 'attack') || k === ' ' || k.startsWith('arrow')) e.preventDefault?.();
       if (k === 'escape' && !this.buildType && !this.demolishMode && !this.game.selected && !this.panel) return;
@@ -420,7 +425,7 @@ export class HUD {
     else if (is(k, 'rebuild') && this.lastBuild) { if (this.game.canAfford(BUILDINGS[this.lastBuild].cost)) this.startBuild(this.lastBuild); else this.hint(`Not enough resources for another ${BUILDINGS[this.lastBuild].name}`, 1500); }
     else if (k === '/') { e.preventDefault?.(); this.buildSearchFocused = true; if (this.panel === 'build') this.panelEl?.querySelector('.build-search')?.focus(); else this.openPanel('build'); }
     else if (is(k, 'build')) this.togglePanel('build');
-    else if (is(k, 'craft')) this.togglePanel('craft');
+    else if (is(k, 'craft')) this.openTable();
     else if (is(k, 'jobs') && on('people')) this.togglePanel('jobs');
     else if (is(k, 'court') && on('court')) this.togglePanel('court');
     else if (is(k, 'deeds') && on('laws')) this.togglePanel('deeds');
@@ -693,6 +698,12 @@ export class HUD {
     if (!panel.hidden) this.renderInventory();
   }
 
+/** The Crafting Table menu (at a table), or hand crafting (anywhere). */
+  openTable() {
+    if (this._tableModal && document.body.contains(this._tableModal.el)) return;
+    this._tableModal = openTableMenu(this, { atTable: atTable(this.game, heroOf(this.game)) });
+  }
+
   /** Drop one of whatever you hold (or the hovered inventory slot) on the ground in front of you. */
   dropHeld(key = null) {
     const g = this.dungeon || this.game;
@@ -733,6 +744,8 @@ export class HUD {
     const heldInfo = this.slotInfo(bar[r.hotSel], v);
     panel.replaceChildren(
       h('div.inv-head', h('b', 'Inventory'), h('div.spacer'),
+        h('button.btn.sm', { title: 'Ores, metals and boss materials', onclick: () => openMaterialsBag(this) }, 'Materials'),
+        h('button.btn.sm', { title: 'Craft (C). At a Crafting Table: everything', onclick: () => this.openTable() }, 'Craft'),
         h('button.btn.sm', { title: 'Your gear and stats (G)', onclick: () => this.characterSheet() }, 'Gear'),
         h('button.modal-x.inv-x', { title: 'Close (I)', onclick: () => { panel.hidden = true; } }, hasArt('ui/close') ? icon('ui/close', 16) : '✕')),
       (() => {
@@ -925,7 +938,9 @@ export class HUD {
     const potion = hold('hero-potion', 'potion', '', 'gear/health_potion', 26);
     this.els.potionCount = h('span.hero-potion-count', '0');
     potion.append(this.els.potionCount);
-    this.els.heroPad.replaceChildren(stick, act, dash, block, potion);
+    const ability = h('button.hero-btn.hero-ability', { title: 'Weapon ability (F)', onpointerdown: e => { e.preventDefault(); useAbility(this.dungeon || this.game); } }, icon('effects/magic_orb', 22), h('span', 'SKILL'), h('i.ability-cd'));
+    this.els.abilityBtn = ability;
+    this.els.heroPad.replaceChildren(stick, act, dash, block, potion, ability);
   }
 
   /** Cancel / Done / Undo buttons while placing or demolishing: the on-screen right-click and Esc. */
@@ -1552,6 +1567,9 @@ export class HUD {
       q ? h('span.craft-quality', { style: { color: q.color, borderColor: q.color } }, q.id === 'masterwork' ? 'MASTERWORK!' : q.name) : null,
       res.score != null ? h('span.faint', `Forging ${Math.round(res.score * 100)}%`) : null,
       it?.dmg ? h('span.faint', `${it.dmg} damage`) : it?.armor ? h('span.faint', `${Math.round(it.armor * 100)}% armour`) : null,
+      it?.traits?.length ? h('div.forge-stats', ...it.traits.map(t => h('span.trait-chip', { style: { color: FORGE_TRAITS[t].color, borderColor: FORGE_TRAITS[t].color } }, FORGE_TRAITS[t].name))) : null,
+      it && weaponAbility(it) ? h('span', { style: { color: weaponAbility(it).color, fontWeight: 700 } }, `Ability (F): ${weaponAbility(it).name}`) : null,
+      res.bump ? h('span.craft-lucky', 'Forged to a higher rarity!') : null,
       res.extra ? h('span.craft-lucky', `Lucky craft! You made ${res.extra + 1}`) : null);
     this.root.append(el);
     play(q?.id === 'masterwork' || res.extra ? 'reveal' : 'ability');

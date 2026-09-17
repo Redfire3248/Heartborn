@@ -25,7 +25,7 @@ export const MAX_SKILL = 10;
 // Economy
 export const BASE_STORAGE = 100;
 export const BASE_HOUSING = 6;       // sleeping under the stars
-export const RESOURCES = ['food', 'wood', 'stone', 'coal', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence', 'copper', 'silver', 'obsidian', 'mythril', 'frostite', 'magmite'];
+export const RESOURCES = ['food', 'wood', 'stone', 'coal', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence', 'copper', 'silver', 'obsidian', 'mythril', 'frostite', 'magmite', 'troll_hide', 'slime_core', 'spider_silk', 'spirit_bark', 'golem_heart', 'lich_soul', 'dragon_scale'];
 
 // Saving / multiplayer
 export const AUTOSAVE_SECONDS = 30;

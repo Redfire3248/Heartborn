@@ -103,6 +103,34 @@ export async function run() {
     ok(deleted === null, 'nothing deleted by accident');
   });
 
+  await step('the Forge: materials in, a random weapon out; boss materials; abilities', async () => {
+    const F = await import('/src/game/forging.js');
+    const H = await import('/src/game/hero.js');
+    const R = await import('/src/game/rpg.js');
+    const g = new Game(newState({ uid: 'fg', name: 'T', villageName: 'V' }));
+    g.state.creatures = [];
+    const me = g.state.villagers[0];
+    H.startLead(g, me);
+    ok(!F.forgePreview({ iron: 2 }).ok, 'the forge needs at least 3 materials');
+    const iron = F.forgePreview({ iron: 4 });
+    const holy = F.forgePreview({ silver: 3, lich_soul: 1 });
+    ok(iron.ok && iron.odds.every(o => R.CATALOG.weapon[o.base]) && Math.abs(iron.odds.reduce((a, o) => a + o.chance, 0) - 1) < 1e-6, 'a preview lists real weapons whose chances add up to 100%');
+    ok(holy.mult > iron.mult && holy.rarity > iron.rarity && holy.traits.includes('holy') && holy.traits.includes('drain'), 'better materials give more power, rarity and their traits', JSON.stringify(holy.traits));
+    ok(!F.forge(g, { silver: 3, lich_soul: 1 }).ok, 'you cannot forge without the materials');
+    Object.assign(g.state.resources, { silver: 3, lich_soul: 1 });
+    const r = F.forge(g, { silver: 3, lich_soul: 1 }, 'weapon', { score: 1, hero: me });
+    ok(r.ok && g.state.resources.silver === 0 && g.state.resources.lich_soul === 0 && r.item.traits.includes('holy') && r.item.name.startsWith('Silver'), 'forging uses the materials and makes a Silver weapon with its traits', r.item?.name);
+    Object.assign(g.state.resources, { iron: 6 });
+    ok(F.forge(g, { iron: 6 }, 'armour', { hero: me }).item?.slot !== 'weapon', 'the forge makes armour too');
+    ok(Object.keys(F.BOSS_MATERIAL).length === 7 && F.BOSS_MATERIAL.lich === 'lich_soul', 'every boss has its own material');
+    R.equip(g, r.item.id);
+    ok(F.abilityOf(r.item)?.name === 'Holy Light', 'holy weapons have Holy Light');
+    const sk = g.spawnCreature('skeleton', me.x + 30, me.y); sk._eliteRolled = true;
+    const before = sk.hp ?? 999;
+    ok(H.useAbility(g) && (!g.state.creatures.includes(sk) || sk.hp < before), 'using the ability hurts foes around you');
+    ok(!H.useAbility(g), 'then it has a cooldown');
+  });
+
   await step('Mythic and Admin rarities', async () => {
     const R = await import('/src/game/rpg.js');
     const g = new Game(newState({ uid: 'ry', name: 'T', villageName: 'V' }));
@@ -624,8 +652,8 @@ export async function run() {
     const C = await import('/src/core/controls.js');
     C.resetBinds();
     ok(C.is('w', 'up') && C.is(' ', 'attack') && C.is('1', 'hot1'), 'default keys: WASD, Space, 1-9');
-    const swapped = C.setBind('attack', 'f');
-    ok(C.is('f', 'attack') && !swapped, 'a free key can be bound');
+    const swapped = C.setBind('attack', 'y');
+    ok(C.is('y', 'attack') && !swapped, 'a free key can be bound');
     const sw2 = C.setBind('up', 'q');
     ok(C.is('q', 'up') && C.keyOf('block') === 'w' && sw2 === 'block', 'a key already in use swaps with the other action');
     ok(C.held(new Set(['q']), 'up'), 'held keys follow the new binding');

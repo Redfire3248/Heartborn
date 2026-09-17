@@ -162,6 +162,20 @@ export class Renderer {
     this.drawGhost(g);
     this.drawShots(g);
     this.drawBolts(g, dt);
+    if (g.fx.flashes?.length) {   // ability bursts
+      const { ctx } = this;
+      for (const f of g.fx.flashes) {
+        f.life -= dt;
+        const k = Math.max(0, f.life / f.max), r = f.r * (1.1 - k * 0.5);
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        const gr = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
+        gr.addColorStop(0, f.color); gr.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = k * 0.8; ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = k; ctx.strokeStyle = f.color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(f.x, f.y, r * 0.9, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+      g.fx.flashes = g.fx.flashes.filter(f => f.life > 0);
+    }
     this.drawParticles(g);
     this.drawBeams(g);
     this.drawStrikes(g);
@@ -647,6 +661,14 @@ export class Renderer {
     const design = def.housing ? (b.design || 0) : 0;
     const styled = design && spriteAvailable(`${buildingSprite(b.type)}_style${design}`) ? `${buildingSprite(b.type)}_style${design}` : buildingSprite(b.type);
     drawSprite(ctx, styled, x, y, size, { tint: blighted ? '#553311' : styled === buildingSprite(b.type) ? DESIGNS[design]?.tint : null });
+    if (b.type === 'crafting_table' && g.hero && !g.visiting) {
+      const hero = g.state.villagers.find(v => v.id === g.hero.id), c = g.buildingCenter(b);
+      if (hero && Math.hypot(hero.x - c.x, hero.y - c.y) < TILE * 3.5) {
+        ctx.font = 'bold 8px system-ui, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillText('E  Crafting Table', c.x + 0.6, y - TILE * 1.25 + 0.6);
+        ctx.fillStyle = '#ffd76a'; ctx.fillText('E  Crafting Table', c.x, y - TILE * 1.25);
+      }
+    }
     if (isHome(b) && g.hero && !g.visiting) {
       const hero = g.state.villagers.find(v => v.id === g.hero.id);
       const door = doorOf(g, b);

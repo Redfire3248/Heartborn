@@ -1,4 +1,5 @@
 import { TILE, WALK_SPEED, DAY_LENGTH, ADULT_AGE } from '../core/constants.js';
+import { traitEffects, abilityOf } from './forging.js';
 import { popResource, updateDrops, lucky } from './loot.js';
 import { CREATURES, OBJECTS } from '../data/objects.js';
 import { damageCreature, maxHp } from './creatures.js';
@@ -197,7 +198,8 @@ function attack(g, v, st) {
   h.sinceAttackSwing = g.state.time;
   const finisher = h.combo === 3;
   if (finisher) h.atkAnim.dur = swingTime * 1.25;
-  const sp = BLADE_SPECIALS[w.base];
+  const traitSp = w.traits?.length ? traitEffects(w.traits) : null;
+  const sp = traitSp ? { ...traitSp, ...(BLADE_SPECIALS[w.base] || {}) } : BLADE_SPECIALS[w.base];
   let dmg = w.dmg * st.dmgMult * strengthMult(v) * (crit ? 1.8 : 1) * (finisher ? 1.6 : 1) * (buffActive(g, 'strength') ? 1.5 : 1) * (w.ranged && buffActive(g, 'ammo') ? 1.3 : 1);
   if (sp?.riposte && h.riposte) { dmg *= sp.riposte; h.riposte = false; g.float(v.x, v.y - TILE * 1.6, 'RIPOSTE!', '#ffd76a'); }
   if (w.ranged) {
@@ -214,11 +216,13 @@ function attack(g, v, st) {
     const reach = w.range * TILE + CREATURES[c.t].size * TILE * 0.4;
     const arc = sp?.whirl && finisher ? Math.PI * 2 : w.arc;   // a whirlwind finisher hits all the way round
     if (d > reach || (d > TILE * 0.4 && angleDiff(Math.atan2(c.y - v.y, c.x - v.x), h.facing) > arc / 2 + 0.25)) continue;
-    const blow = sp?.undead && UNDEAD.has(c.t) ? dmg * sp.undead : dmg;
+    let blow = sp?.undead && UNDEAD.has(c.t) ? dmg * sp.undead : dmg;
+    if (sp?.keen && Math.random() < sp.keen) { blow *= 2; g.float(c.x, c.y - TILE * 1.5, 'KEEN!', '#ff8a7a'); }
     hitCreature(g, v, c, blow, crit || finisher, finisher ? { ...w, stun: (w.stun || 0) + 0.4, finisher: true } : w);
     if (w.base === 'rubber_chicken') g.float(c.x, c.y - TILE * 1.4, 'SQUEAK!', '#ffe07a');
     if (w.base === 'golden_frying_pan') g.float(c.x, c.y - TILE * 1.4, 'BONK!', '#ffd76a');
     if (sp) bladeSpecial(g, v, c, blow, sp, finisher);
+    if (sp?.swift && Math.random() < sp.swift && g.state.creatures.includes(c)) { hitCreature(g, v, c, blow * 0.6, false, { stun: 0 }); g.float(c.x + 8, c.y - TILE * 1.2, 'Swift!', '#9fffe0'); }
     hits++;
   }
   if (sp?.shockwave && (finisher || sp.shockwave.always)) {   // the claymore's finisher: a ring of force around you
@@ -229,6 +233,102 @@ function attack(g, v, st) {
   if (sp?.whirl && finisher) g.anim('combat/crit_slash', v.x, v.y - 10, { size: w.range * TILE * 2.4, dur: 0.3, rot: h.facing + Math.PI });
   if (hits) g.fx.shake = Math.max(g.fx.shake, finisher ? 1.1 : crit ? 0.8 : 0.35);
   if (finisher) g.float(v.x, v.y - TILE * 1.6, 'COMBO!', '#9fd4ff');
+}
+
+/**
+ * Your weapon's active ability (F): Holy Light, Flame Wave, Frost Nova and more. Each has a cooldown.
+ * Returns false (and says why) when there is no ability or it is not ready.
+ */
+export function useAbility(g) {
+  const v = heroOf(g), h = g.hero;
+  if (!v || !h) return false;
+  const w = heroWeapon(g, v);
+  const ab = abilityOf(rpgOf(g).gear.weapon || w);
+  if (!ab) { g.float(v.x, v.y - TILE * 1.4, 'This weapon has no ability', '#cfc6e0'); return false; }
+  const now = g.state.time;
+  h.abilityReady ??= 0;
+  if (now < h.abilityReady) { g.float(v.x, v.y - TILE * 1.4, `${ab.name}: ${Math.ceil(h.abilityReady - now)}s`, '#cfc6e0'); return false; }
+  h.abilityReady = now + ab.cd;
+  h.abilityMax = ab.cd;
+  const st = heroStats(g);
+  const base = (w.dmg || 10) * st.dmgMult;
+  const foes = r => g.state.creatures.filter(c => CREATURES[c.t]?.hostile && Math.hypot(c.x - v.x, c.y - v.y) < TILE * r);
+  const flash = (r, color) => (g.fx.flashes ||= []).push({ x: v.x, y: v.y - 10, r: TILE * r, color, life: 0.5, max: 0.5 });
+  const daze = (c, s) => { if (!CREATURES[c.t]?.boss) c._stunned = Math.max(c._stunned || 0, s); };
+  g.float(v.x, v.y - TILE * 1.9, ab.name.toUpperCase() + '!', ab.color);
+  g.fx.shake = Math.max(g.fx.shake, 1.2);
+  switch (ab.id) {
+    case 'holy_light':
+      flash(4, '#fff3b0');
+      v.hp = Math.min(st.maxHp, v.hp + st.maxHp * 0.25);
+      for (const c of foes(4)) { hitCreature(g, v, c, base * (UNDEAD.has(c.t) ? 5 : 2.5), true, { stun: 0 }); daze(c, 1.2); }
+      for (let i = 0; i < 16; i++) g.fx.particles.push({ x: v.x, y: v.y - 10, vx: Math.cos(i / 16 * Math.PI * 2) * 90, vy: Math.sin(i / 16 * Math.PI * 2) * 90, sprite: 'effects/spark', size: 8, life: 0.6, max: 0.6, rot: 0 });
+      break;
+    case 'flame_wave':
+      flash(3, '#ff9a3a');
+      for (const c of foes(4.5)) {
+        if (angleDiff(Math.atan2(c.y - v.y, c.x - v.x), h.facing) > 1.1) continue;
+        hitCreature(g, v, c, base * 2, false, { stun: 0 });
+        if (g.state.creatures.includes(c)) c._burn = { dps: 8, until: now + 4, by: v.id };
+      }
+      for (let i = 0; i < 14; i++) { const a = h.facing + (Math.random() - 0.5) * 2; g.fx.particles.push({ x: v.x, y: v.y - 8, vx: Math.cos(a) * 150, vy: Math.sin(a) * 150, sprite: 'effects/flame', size: 12, life: 0.5, max: 0.5, rot: 0 }); }
+      break;
+    case 'frost_nova':
+      flash(3.5, '#9fd4ff');
+      for (const c of foes(3.5)) {
+        hitCreature(g, v, c, base * 1.3, false, { stun: 0 });
+        if (!g.state.creatures.includes(c)) continue;
+        c._chill = { k: 0.4, until: now + 4 };
+        if (!CREATURES[c.t]?.boss) { c._stunned = Math.max(c._stunned || 0, 2.5); c._frozen = now + 2.5; }
+      }
+      break;
+    case 'thunderstorm':
+      for (const c of foes(7).slice(0, 4)) {
+        (g.fx.bolts ||= []).push({ x0: c.x + (Math.random() - 0.5) * 40, y0: c.y - 160, x1: c.x, y1: c.y - 10, life: 0.3 });
+        hitCreature(g, v, c, base * 2.2, true, { stun: 0 });
+        daze(c, 0.8);
+      }
+      flash(2, '#fff27a');
+      break;
+    case 'shadow_step': {
+      const c = foes(8).sort((a, b) => Math.hypot(a.x - v.x, a.y - v.y) - Math.hypot(b.x - v.x, b.y - v.y))[0];
+      if (!c) { h.abilityReady = now + 1; g.float(v.x, v.y - TILE * 1.4, 'No foe in reach', '#cfc6e0'); return false; }
+      g.puff({ x: v.x, y: v.y - 8 }, 'effects/ghost_wisp', 6, 10);
+      const a = Math.atan2(c.y - v.y, c.x - v.x);
+      const bx = c.x + Math.cos(a) * TILE * 0.8, by = c.y + Math.sin(a) * TILE * 0.8;
+      if (g.world.walkable(bx, by)) { v.x = bx; v.y = by; }
+      h.facing = a + Math.PI;
+      h.iframes = Math.max(h.iframes || 0, 0.5);
+      hitCreature(g, v, c, base * 3, true, { stun: 0.5 });
+      flash(1.5, '#b06aff');
+      break;
+    }
+    case 'soul_reap': {
+      let n = 0;
+      for (const c of foes(3)) { hitCreature(g, v, c, base * 1.6, false, { stun: 0 }); n++; }
+      v.hp = Math.min(st.maxHp, v.hp + n * st.maxHp * 0.06);
+      g.anim('combat/crit_slash', v.x, v.y - 10, { size: TILE * 6, dur: 0.35, rot: h.facing });
+      flash(3, '#8aff9a');
+      break;
+    }
+    case 'iaido': {
+      const a = h.facing;
+      for (let s = 0; s < 8; s++) { const nx = v.x + Math.cos(a) * TILE * 0.6, ny = v.y + Math.sin(a) * TILE * 0.6; if (!g.world.walkable(nx, ny)) break; v.x = nx; v.y = ny; g.anim('combat/dust', v.x, v.y, { size: 16, dur: 0.25 }); for (const c of foes(1.2)) if (!c._iaido) { c._iaido = true; hitCreature(g, v, c, base * 2.4, true, { stun: 0.3 }); } }
+      for (const c of g.state.creatures) delete c._iaido;
+      h.iframes = Math.max(h.iframes || 0, 0.4);
+      break;
+    }
+    case 'regrowth':
+      h.regrow = { per: st.maxHp * 0.1, left: 4, tick: 0 };
+      flash(2, '#7aff9a');
+      break;
+    case 'earthsplitter':
+      g.anim('combat/poof', v.x, v.y - 6, { size: TILE * 6, dur: 0.45 });
+      g.fx.shake = Math.max(g.fx.shake, 2.2);
+      for (const c of foes(3.2)) { hitCreature(g, v, c, base * 2, false, { stun: 0 }); daze(c, 1.5); }
+      break;
+  }
+  return true;
 }
 
 /** The slash animation in front of you, turned the way you swing (gold on a critical hit). */
@@ -671,6 +771,7 @@ export function updateHero(g, dt, controls = {}) {
 
   // items on the ground go into your pack as you walk over them
   updateDrops(g, dt);
+  if (h.regrow && h.regrow.left > 0) { h.regrow.tick -= dt; if (h.regrow.tick <= 0) { h.regrow.tick = 1; h.regrow.left--; v.hp = Math.min(st.maxHp, v.hp + h.regrow.per); g.float(v.x, v.y - TILE * 1.3, `+${Math.round(h.regrow.per)}`, '#7aff9a'); } }
   for (const it of [...(g.state.groundItems || [])]) {
     if ((it.noPickUntil && g.state.time < it.noPickUntil) || it.pickIn > 0) continue;   // just dropped
     const d = Math.hypot(it.x - v.x, it.y - v.y);

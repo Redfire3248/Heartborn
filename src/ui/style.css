@@ -1577,3 +1577,41 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .quench-ring { border: 4px solid #ff9a3a; box-shadow: 0 0 10px #ff9a3a; }
 .forge-arena.steam .quench-steam { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; border-radius: 50%; background: rgba(230,240,255,.6); animation: steam .6s ease-out forwards; }
 @keyframes steam { to { transform: translate(-50%, -120%) scale(14); opacity: 0; } }
+
+/* ---- Crafting Table: Forge and Workbench ---- */
+.table-modal { width: min(620px, 96vw); max-height: 90vh; overflow-y: auto; }
+.table-modal.forging { opacity: .3; }
+.table-head { display: flex; align-items: center; gap: 10px; }
+.table-head h2 { margin: 0; }
+.forge-tab { display: flex; flex-direction: column; gap: 10px; }
+.forge-kinds { display: flex; gap: 6px; }
+.forge-slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.forge-slot { position: relative; aspect-ratio: 1; display: grid; place-items: center; border-radius: 12px; border: 2px solid; background: radial-gradient(circle at 50% 70%, rgba(255,140,40,.2), rgba(0,0,0,.35)); cursor: pointer; }
+.forge-slot.empty { border: 2px dashed rgba(255,255,255,.18); color: rgba(255,255,255,.3); font-size: 26px; cursor: default; }
+.forge-slot-n { position: absolute; right: 6px; bottom: 4px; font-weight: 800; text-shadow: 0 1px 0 #000; }
+.forge-slot-name { position: absolute; left: 0; right: 0; top: 4px; font-size: 10px; text-align: center; color: #cfc6e0; }
+.forge-preview { padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.25); min-height: 40px; }
+.forge-stats { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-weight: 700; }
+.trait-chip { padding: 1px 8px; border: 1px solid; border-radius: 999px; font-size: 12px; }
+.forge-odds { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; }
+.odd { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.odd-ab { font-size: 11px; font-weight: 700; }
+.odd-bar { width: 90px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; }
+.odd-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ff9a3a, #ffd76a); }
+.odd-pct { width: 34px; text-align: right; font-size: 12px; color: #cfc6e0; }
+.forge-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.forge-go { min-width: 140px; }
+.mat-modal { width: min(520px, 96vw); }
+.mat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; }
+.mat-cell { position: relative; aspect-ratio: 1; display: grid; place-items: center; padding: 0; border-radius: 10px; border: 2px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: inherit; font: inherit; cursor: pointer; }
+.mat-cell.empty { border-color: rgba(255,255,255,.05); background: rgba(255,255,255,.02); cursor: default; }
+.mat-cell.used { opacity: .4; }
+.mat-cell:hover:not(.empty) { background: rgba(255,255,255,.14); }
+.mat-count { position: absolute; right: 4px; bottom: 2px; font-size: 11px; font-weight: 800; text-shadow: 0 1px 0 #000, 1px 0 0 #000, -1px 0 0 #000; }
+.mat-info { margin-top: 8px; font-size: 12px; color: #cfc6e0; min-height: 32px; }
+
+/* the ability button and its cooldown */
+.hero-ability { position: relative; overflow: hidden; }
+.hero-ability .ability-cd { position: absolute; inset: 0; background: conic-gradient(rgba(0,0,0,.6) calc(var(--cd, 0) * 360deg), transparent 0); pointer-events: none; border-radius: inherit; }
+.hero-ability { position: fixed; z-index: 14; right: 132px; bottom: calc(238px + env(safe-area-inset-bottom)); width: 52px; height: 52px; border-radius: 50%; border: 2px solid #c08aff; background: radial-gradient(circle at 35% 30%, #4a2d7a, #1a1030); color: #fff; font: inherit; font-size: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; touch-action: none; box-shadow: 0 3px 0 #0b0712; }
+.hero-ability.cooling { filter: saturate(.4); }
