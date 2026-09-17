@@ -1814,3 +1814,16 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .forge-arena .quench-target, .forge-arena .quench-ring { width: 96px; height: 96px; }
 .forge-arena { height: 170px; }
 .footer-note { display: none !important; }
+
+/* notifications stay out of the middle: near the top, small, stacked under the save warning */
+.announce, .leading .announce { top: calc(env(safe-area-inset-top) + 100px) !important; }
+.announce div { font-size: clamp(15px, 2.4vw, 22px); padding: 5px 22px; }
+.hint, .leading .hint { top: calc(env(safe-area-inset-top) + 142px) !important; bottom: auto !important; font-size: 12px; padding: 5px 10px; max-width: min(440px, calc(100vw - 24px)); }
+@media (max-width: 760px) and (min-height: 521px) {
+  .announce, .leading .announce { top: calc(env(safe-area-inset-top) + 152px) !important; }
+  .hint, .leading .hint { top: calc(env(safe-area-inset-top) + 192px) !important; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .announce, .leading .announce { top: 76px !important; }
+  .hint, .leading .hint { top: 108px !important; }
+}
