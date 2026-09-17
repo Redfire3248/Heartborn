@@ -1,4 +1,5 @@
 import { TILE } from '../core/constants.js';
+import { specialDrop } from './forging.js';
 import { ITEMS } from '../data/people.js';
 import { addItem, takeItem } from './dynasty.js';
 import { takeGear, rpgOf } from './rpg.js';
@@ -81,9 +82,10 @@ export function pickUp(g, v, it) {
   if (!list.includes(it)) return false;
   g.state.groundItems = list.filter(x => x !== it);
   // loot from a fight: weapons, armour and trinkets are yours (the player's), whoever picks them up
-  if (it.gear) { takeGear(g, it.gear, v); return true; }
+  if (it.gear) { if (it.gear.rarity >= 3) g.emit('rareLoot', { gear: it.gear }); takeGear(g, it.gear, v); return true; }
   if (it.res) {   // a popped resource
     const got = g.addResource(it.res, it.count) ?? it.count;
+    if (specialDrop(it.res) >= 0) g.emit('rareLoot', { res: it.res, count: got });
     const now = g.state.time;
     // one float per resource while you scoop up a pile
     const f = (g._pickFloat ||= {});

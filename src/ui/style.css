@@ -1879,3 +1879,18 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .trade-gear { border: 1px solid; }
 .trade-select { width: 100%; }
 .trade-offer { border-color: rgba(255, 215, 106, .45); }
+
+/* rare drop reveal */
+.rare-loot { --glow: #ffb347; position: fixed; left: 50%; top: 34%; transform: translate(-50%, -50%); z-index: 380; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px 28px 14px; pointer-events: auto; cursor: pointer; animation: rare-in .45s cubic-bezier(.2, 1.5, .4, 1); }
+.rare-loot.out { animation: rare-out .4s ease-in forwards; }
+.rare-loot > *:not(.rare-rays):not(.rare-burst) { position: relative; }
+.rare-rays { position: absolute; inset: -70%; background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--glow) 30%, transparent) 0 8deg, transparent 8deg 24deg); animation: reveal-spin 7s linear infinite; pointer-events: none; mask: radial-gradient(circle, #000 20%, transparent 62%); -webkit-mask: radial-gradient(circle, #000 20%, transparent 62%); }
+.rare-burst { position: absolute; inset: 10%; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--glow) 55%, transparent), transparent 70%); animation: rare-pulse 1.2s ease-in-out infinite; pointer-events: none; }
+.rare-sub { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--glow); text-shadow: 0 0 10px var(--glow), 0 2px 0 #000; }
+.rare-icon { filter: drop-shadow(0 0 16px var(--glow)); animation: reveal-float 2s ease-in-out infinite; }
+.rare-icon img { image-rendering: pixelated; }
+.rare-name { font-size: 20px; color: #fff; text-shadow: 0 0 14px var(--glow), 0 2px 0 #000; }
+.rare-count { font-weight: 700; color: var(--glow); text-shadow: 0 2px 0 #000; }
+@keyframes rare-in { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.3) rotate(-8deg); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes rare-out { to { opacity: 0; transform: translate(-50%, -80%) scale(.85); } }
+@keyframes rare-pulse { 50% { transform: scale(1.15); opacity: .7; } }

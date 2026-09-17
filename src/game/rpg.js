@@ -556,6 +556,9 @@ export function onHeroKill(g, c, v) {
     if (bm) {
       const n = 2 + Math.floor(Math.random() * 3) + (lucky(g, 0.15) ? 2 : 0);
       for (let i = 0; i < n; i++) popResource(g, bm, 1, c.x, c.y);
+      g.anim?.('combat/poof', c.x, c.y - 10, { size: TILE * 3, dur: 0.5 });
+      g.puff?.({ x: c.x, y: c.y - 14 }, 'effects/spark', 24, 36);
+      if (g.fx) g.fx.shake = Math.max(g.fx.shake, 1.4);
       g.float(c.x, c.y - TILE * 2, `${MATERIALS[bm].name} x${n}!`, '#ff4d6d');
     }
     if (lucky(g, boss ? 0.6 : 0.02)) popResource(g, 'gold', 5 + Math.floor(Math.random() * (boss ? 60 : 10)), c.x, c.y);

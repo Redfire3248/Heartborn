@@ -151,6 +151,7 @@ export class HUD {
     // go in once the current swing or step has finished (never in the middle of updating the hero)
     game.on('dungeon', e => setTimeout(() => this.enterDungeon(e), 0));
     game.on('house', b => setTimeout(() => this.enterHouse(b), 0));
+    game.on('rareLoot', d => this.rareLootReveal(d));
     game.on('discover', () => { if (!this._indexToastAt || performance.now() - this._indexToastAt > 4000) { this._indexToastAt = performance.now(); this.toast({ text: 'New entry in your Index (N)', kind: 'event' }); } });
     if (mp) {
       // player vs player
@@ -1726,6 +1727,35 @@ export class HUD {
   }
 
   /** What you just crafted, shown big: its quality, rarity and any lucky bonus. */
+  /** A boss material, rare metal or Legendary+ gear was picked up: show it off (several at once merge into one card). */
+  rareLootReveal(d) {
+    const key = d.gear ? `gear:${d.gear.id}` : `res:${d.res}`;
+    const now = performance.now();
+    const open = this.root.querySelector('.rare-loot');
+    if (open && open.dataset.key === key && now - (this._rareAt || 0) < 2500) {   // more of the same: add to the count
+      this._rareCount = (this._rareCount || 0) + (d.count || 1);
+      open.querySelector('.rare-count').textContent = `x${this._rareCount}`;
+      this._rareAt = now;
+      return;
+    }
+    open?.remove();
+    this._rareAt = now; this._rareCount = d.count || 1;
+    let name, iconKey, rarity, sub;
+    if (d.gear) { name = d.gear.name; iconKey = gearIconKey(d.gear) || 'items/relic'; rarity = d.gear.rarity; sub = 'Rare loot'; }
+    else { const mt = MATERIALS[d.res]; name = mt?.name || d.res; iconKey = mt ? matIcon(d.res) : RES_ICON[d.res]; rarity = Math.max(3, mt?.rarity || 3); sub = mt?.boss ? 'Boss material' : 'Rare material'; }
+    const R = RARITY[Math.min(4, rarity)];
+    const el = h('div.rare-loot', { dataset: { key }, style: { '--glow': R.color }, onclick: () => el.remove() },
+      h('div.rare-rays'), h('div.rare-burst'),
+      h('div.rare-sub', `${R.name.toUpperCase()} · ${sub.toUpperCase()}`),
+      h('div.rare-icon', icon(iconKey, 84)),
+      h('b.rare-name', name),
+      d.gear ? null : h('span.rare-count', `x${this._rareCount}`));
+    this.root.append(el);
+    play('reveal');
+    clearTimeout(this._rareTimer);
+    this._rareTimer = setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 400); }, 2600);
+  }
+
   craftReveal(res) {
     const it = res.item, q = res.quality, rec = res.recipe;
     const color = it ? RARITY[it.rarity].color : '#9fe0ff';

@@ -47,6 +47,9 @@ export const MATERIALS = {
 export const BOSS_MATERIAL = Object.fromEntries(Object.entries(MATERIALS).filter(([, m]) => m.boss && !m.off).map(([k, m]) => [m.boss, k]));
 export const MATERIAL_KEYS = Object.keys(MATERIALS).filter(k => !MATERIALS[k].off);
 
+/** A drop worth a special look: boss materials and the rarest metals. Returns its rarity (0..4) or -1. */
+export const specialDrop = res => (MATERIALS[res] && !MATERIALS[res].off && (MATERIALS[res].boss || MATERIALS[res].rarity >= 3) ? Math.max(3, MATERIALS[res].rarity) : -1);
+
 /** What each trait does on your weapon. */
 export const TRAITS = {
   holy:   { name: 'Holy', color: '#fff3b0', desc: 'Extra damage to the undead, and Holy Light (F)' },

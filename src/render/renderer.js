@@ -1,4 +1,5 @@
 import { keyLabel, keyOf } from '../core/controls.js';
+import { specialDrop } from '../game/forging.js';
 import { nearestStation } from '../game/crafting.js';
 import { TILE } from '../core/constants.js';
 import { RES_ICON } from '../ui/dom.js';
@@ -12,7 +13,7 @@ import { displayRole, toolFor, carryIcon, heldItem } from '../game/villagers.js'
 import { speedMult, bodyWorkMult } from '../game/body.js';
 import { FIND_KINDS } from '../game/finds.js';
 import { ITEMS } from '../data/people.js';
-import { heroWeapon, rpgOf, WEAPONS, SHIELDS } from '../game/rpg.js';
+import { heroWeapon, rpgOf, WEAPONS, SHIELDS, RARITY } from '../game/rpg.js';
 import { gearIconKey, hasArt } from './gearArt.js';
 import { avatarId, avatarArt } from '../game/avatars.js';
 import { trapUp } from '../game/dungeon.js';
@@ -587,8 +588,16 @@ export class Renderer {
       if (it.gear.rarity >= 2 && Math.random() < 0.05) this.lastGame?.fx.particles.push({ x: it.x, y: it.y - 6, vx: 0, vy: -14, sprite: 'effects/spark', size: 6, life: 0.6, max: 0.6, rot: 0 });
     }
     if (it.res) {   // a popped resource: small, bouncing, with a soft glow
+      const sp = specialDrop(it.res);
+      if (sp >= 0) {   // boss materials and the rarest metals: a beam of light in their rarity colour
+        const col = RARITY[sp].color, t = this.time * 3 + it.x * 0.1;
+        drawSprite(ctx, 'gear/loot_beam_gold', it.x, it.y + 4, TILE * (1.6 + (sp - 3) * 0.4), { alpha: 0.6 + 0.25 * Math.sin(t), tint: col });
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35 + 0.2 * Math.sin(t * 1.3); ctx.fillStyle = col;
+        ctx.beginPath(); ctx.ellipse(it.x, it.y, TILE * (0.5 + 0.08 * Math.sin(t)), TILE * 0.22, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        if (Math.random() < 0.12) this.lastGame?.fx.particles.push({ x: it.x + (Math.random() - 0.5) * 14, y: it.y - 4, vx: 0, vy: -22, sprite: 'effects/spark', size: 6, life: 0.7, max: 0.7, rot: 0 });
+      }
       this.shadow(it.x, it.y, TILE * 0.22);
-      drawSprite(ctx, RES_ICON[it.res] || 'items/relic', it.x, it.y - 2 - (it.z || 0) + bob * 0.5, TILE * 0.42);
+      drawSprite(ctx, RES_ICON[it.res] || 'items/relic', it.x, it.y - 2 - (it.z || 0) + bob * (sp >= 0 ? 1.5 : 0.5), TILE * (sp >= 0 ? 0.6 : 0.42));
       if (it.count > 1 && this.camera.zoom >= 1.5) label(ctx, `×${it.count}`, it.x + 7, it.y + 4);
       return;
     }
