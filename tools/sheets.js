@@ -429,13 +429,13 @@ window.SHEETS = {
     folder: "nature",
     mode: "sprite",
     cols: 6,
-    names: ["copper_ore", "silver_ore", "obsidian_ore", "mythril_ore", "frostite_ore", "magmite_ore"]
+    names: ["copper_ore", "silver_ore", "obsidian_ore", "mythril_ore", "frostite_ore", "magmite_ore", "jade_ore", "cobalt_ore", "moonstone_ore", "titanium_ore", "sunstone_ore", "voidstone_ore"]
   },
   metalIcons: {
     title: "Metal icons (placeholders)",
     folder: "items",
     mode: "sprite",
     cols: 6,
-    names: ["icon_copper", "icon_silver", "icon_obsidian", "icon_mythril", "icon_frostite", "icon_magmite"]
+    names: ["icon_copper", "icon_silver", "icon_obsidian", "icon_mythril", "icon_frostite", "icon_magmite", "icon_jade", "icon_cobalt", "icon_moonstone", "icon_titanium", "icon_sunstone", "icon_voidstone"]
   }
 };

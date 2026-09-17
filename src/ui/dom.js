@@ -66,6 +66,7 @@ export const RES_ICON = {
   iron: 'items/icon_iron', weapons: 'items/sword', bombs: 'effects/explosion', science: 'effects/magic_orb', gold: 'items/icon_gold', gems: 'items/icon_gem', influence: 'items/icon_influence',
   copper: 'items/icon_copper', silver: 'items/icon_silver', obsidian: 'items/icon_obsidian', mythril: 'items/icon_mythril', frostite: 'items/icon_frostite', magmite: 'items/icon_magmite',
   troll_hide: 'characters/cave_troll', slime_core: 'characters/slime', spider_silk: 'characters/giant_spider', spirit_bark: 'characters/forest_spirit', golem_heart: 'characters/stone_golem', lich_soul: 'characters/lich', dragon_scale: 'characters/dragon',
+  jade: 'items/icon_jade', cobalt: 'items/icon_cobalt', moonstone: 'items/icon_moonstone', titanium: 'items/icon_titanium', sunstone: 'items/icon_sunstone', voidstone: 'items/icon_voidstone',
 };
 
 export function costChips(cost = {}, have = null) {

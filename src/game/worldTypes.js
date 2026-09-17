@@ -10,37 +10,37 @@ export const THEMES = {
   meadow: {
     name: 'Green Meadows', desc: 'Rolling hills, forests and rivers', color: '#6fbf5a', icon: 'nature/tree_oak', weight: 3,
     wild: ['deer', 'rabbit', 'rabbit', 'boar'], night: ['wolf'], dungeon: [], bosses: ['cave_troll', 'slime_king'],
-    loot: ['sword', 'longsword', 'bow', 'hand_axe', 'spear'], mats: ['iron', 'steel'], ores: ['copper_ore', 'copper_ore', 'coal_ore', 'iron_ore'],
+    loot: ['sword', 'longsword', 'bow', 'hand_axe', 'spear'], mats: ['iron', 'steel'], ores: ['copper_ore', 'copper_ore', 'coal_ore', 'iron_ore', 'titanium_ore'],
   },
   frozen: {
     name: 'Frozen Wastes', desc: 'Snowfields, pines and ice caves', color: '#9fd4ff', icon: 'nature/tree_snowy_pine', weight: 1,
     wild: ['rabbit', 'deer', 'wolf'], night: ['wolf', 'bear', 'ghost'], dungeon: ['ghost', 'skeleton'], bosses: ['stone_golem', 'lich'],
-    loot: ['frost_sword', 'ice_staff', 'estoc', 'longbow', 'great_axe'], mats: ['ice', 'diamond', 'steel'], ores: ['silver_ore', 'silver_ore', 'frostite_ore', 'iron_ore'],
+    loot: ['frost_sword', 'ice_staff', 'estoc', 'longbow', 'great_axe'], mats: ['ice', 'diamond', 'steel'], ores: ['silver_ore', 'silver_ore', 'frostite_ore', 'iron_ore', 'cobalt_ore', 'cobalt_ore'],
   },
   volcanic: {
     name: 'Volcanic Isles', desc: 'Ash, obsidian and rivers of lava', color: '#ff7a3a', icon: 'effects/flame', weight: 1,
     wild: ['boar', 'snake'], night: ['fire_imp', 'goblin'], dungeon: ['fire_imp', 'fire_imp'], bosses: ['cave_troll', 'stone_golem'],
-    loot: ['flame_sword', 'fire_staff', 'maul', 'war_pick', 'double_axe'], mats: ['lava', 'obsidian'], ores: ['obsidian_ore', 'obsidian_ore', 'magmite_ore', 'coal_ore'],
+    loot: ['flame_sword', 'fire_staff', 'maul', 'war_pick', 'double_axe'], mats: ['lava', 'obsidian'], ores: ['obsidian_ore', 'obsidian_ore', 'magmite_ore', 'coal_ore', 'titanium_ore'],
   },
   desert: {
     name: 'Endless Desert', desc: 'Dunes, cacti and buried treasure', color: '#e8c070', icon: 'nature/cactus', weight: 1,
     wild: ['snake', 'boar', 'rabbit'], night: ['bandit', 'skeleton', 'snake'], dungeon: ['bandit', 'skeleton_archer'], bosses: ['lich', 'spider_queen'],
-    loot: ['scimitar', 'kukri', 'revolver', 'shotgun', 'boomerang'], mats: ['gold', 'bronze', 'copper'], ores: ['gold_ore', 'copper_ore', 'copper_ore'],
+    loot: ['scimitar', 'kukri', 'revolver', 'shotgun', 'boomerang'], mats: ['gold', 'bronze', 'copper'], ores: ['gold_ore', 'copper_ore', 'copper_ore', 'sunstone_ore'],
   },
   haunted: {
     name: 'Haunted Marsh', desc: 'Bogs, dead trees and restless dead', color: '#8a7ab0', icon: 'nature/tree_dead', weight: 1,
     wild: ['snake', 'rabbit'], night: ['ghost', 'skeleton', 'zombie'], dungeon: ['zombie', 'ghost'], bosses: ['lich', 'slime_king'],
-    loot: ['shadow_blade', 'necro_staff', 'bone_wand', 'scythe', 'whip'], mats: ['bone', 'obsidian'], ores: ['silver_ore', 'coal_ore', 'coal_ore'],
+    loot: ['shadow_blade', 'necro_staff', 'bone_wand', 'scythe', 'whip'], mats: ['bone', 'obsidian'], ores: ['silver_ore', 'coal_ore', 'moonstone_ore', 'moonstone_ore'],
   },
   jungle: {
     name: 'Wild Jungle', desc: 'Thick jungle, swamps and giant spiders', color: '#3faf5a', icon: 'nature/tree_palm', weight: 1,
     wild: ['boar', 'deer', 'snake'], night: ['giant_spider', 'goblin'], dungeon: ['cave_spider', 'giant_spider'], bosses: ['spider_queen', 'forest_spirit'],
-    loot: ['machete', 'druid_staff', 'twin_daggers', 'harpoon', 'blunderbuss'], mats: ['bamboo', 'coral', 'bronze'], ores: ['copper_ore', 'gem_ore', 'gold_ore'],
+    loot: ['machete', 'druid_staff', 'twin_daggers', 'harpoon', 'blunderbuss'], mats: ['bamboo', 'coral', 'bronze'], ores: ['copper_ore', 'gem_ore', 'gold_ore', 'jade_ore', 'jade_ore'],
   },
   crystal: {
     name: 'Crystal Highlands', desc: 'Mountains full of ore and glowing crystals', color: '#c08aff', icon: 'nature/crystal_cluster', weight: 1,
     wild: ['deer', 'rabbit'], night: ['ghost', 'dark_mage'], dungeon: ['dark_mage', 'bat'], bosses: ['forest_spirit', 'stone_golem'],
-    loot: ['crystal_orb', 'spellbook', 'lightning_wand', 'thunder_sword', 'rapier'], mats: ['crystal', 'celestial', 'diamond'], ores: ['mythril_ore', 'silver_ore', 'gem_ore', 'crystal_cluster'],
+    loot: ['crystal_orb', 'spellbook', 'lightning_wand', 'thunder_sword', 'rapier'], mats: ['crystal', 'celestial', 'diamond'], ores: ['mythril_ore', 'silver_ore', 'gem_ore', 'crystal_cluster', 'voidstone_ore'],
   },
 };
 

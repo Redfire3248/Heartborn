@@ -129,7 +129,8 @@ export class Game {
     for (const v of [...s.villagers]) updateVillager(this, v, dt);
     for (const c of [...s.creatures]) updateCreature(this, c, dt);
     updateEnemyShots(this, dt);
-    updateWar(this, dt);
+    if (on('warbands') || on('invasions')) updateWar(this, dt);
+    else if (this.state.incoming?.length) this.state.incoming = [];   // armies are switched off: nothing marches
     updateCourt(this, dt);
     updateEmployment(this, dt);
     updateBombDefense(this, dt);
@@ -349,7 +350,8 @@ export class Game {
     const cap = this.caps[res];
     const before = r[res];
     // storage stops growth at the cap, but never takes away what is already above it (admin gifts)
-    r[res] = cap ? Math.max(before, Math.min(cap, r[res] + n)) : r[res] + n;
+    r[res] = r[res] + n;   // no storage limits: hold as much as you like
+    void cap;
     return Math.floor(r[res] - before);
   }
   canAfford(cost = {}) { return Object.entries(cost).every(([k, v]) => this.state.resources[k] >= v); }

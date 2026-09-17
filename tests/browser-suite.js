@@ -124,11 +124,34 @@ export async function run() {
     ok(F.forge(g, { iron: 6 }, 'armour', { hero: me }).item?.slot !== 'weapon', 'the forge makes armour too');
     ok(Object.keys(F.BOSS_MATERIAL).length === 7 && F.BOSS_MATERIAL.lich === 'lich_soul', 'every boss has its own material');
     R.equip(g, r.item.id);
-    ok(F.abilityOf(r.item)?.name === 'Holy Light', 'holy weapons have Holy Light');
+    ok(!!F.abilityOf(r.item) && F.abilityOf({ base: 'rapier', traits: ['holy'] }).name === 'Holy Light', 'holy weapons have Holy Light (special weapons keep their own)');
     const sk = g.spawnCreature('skeleton', me.x + 30, me.y); sk._eliteRolled = true;
     const before = sk.hp ?? 999;
     ok(H.useAbility(g) && (!g.state.creatures.includes(sk) || sk.hp < before), 'using the ability hurts foes around you');
     ok(!H.useAbility(g), 'then it has a cooldown');
+  });
+
+  await step('old worlds get the new terrain; no storage limits; safe at home', async () => {
+    const { upgradeTerrain } = await import('/src/game/terrainUpgrade.js');
+    const K = await import('/src/core/constants.js');
+    const st = newState({ uid: 'up', name: 'T', villageName: 'V', seed: 4242 });
+    // pretend it is an old 96-tile world with a house near the old centre
+    st.mapSize = 96; st.terrainVersion = 1;
+    st.buildings = [{ id: 'hx', type: 'house', tx: 50, ty: 50, size: 2, built: true }];
+    const hero = st.villagers[0]; hero.x = 49 * 32; hero.y = 52 * 32;
+    ok(upgradeTerrain(st) && st.mapSize === K.NEW_MAP_SIZE && st.terrainVersion === K.TERRAIN_VERSION, 'an old world is upgraded to the new land');
+    ok(st.buildings[0].tx === 82 && Math.round(hero.x / 32) === 81, 'buildings and your hero move with the centre');
+    ok(!st.objects.some(o => o.x >= 81 && o.x <= 84 && o.y >= 81 && o.y <= 84), 'nothing grows on top of your house');
+    ok(!upgradeTerrain(st), 'it only happens once');
+    const g = new Game(st);
+    g.state.resources.wood = 0;
+    ok(g.addResource('wood', 100000) === 100000, 'no storage limits');
+    const H = await import('/src/game/hero.js');
+    H.startLead(g, g.state.villagers[0]);
+    g.hero.inHouse = true;
+    ok(H.damageHero(g, g.state.villagers[0], 50, null) === 0, 'nothing hurts you inside your home');
+    g.hero.inHouse = false;
+    ok(H.damageHero(g, g.state.villagers[0], 10, null) > 10, 'outside, monsters hit harder than before');
   });
 
   await step('Mythic and Admin rarities', async () => {
@@ -695,6 +718,7 @@ export async function run() {
       for (let i = 0; i < 60; i++) H.updateHero(g, 1 / 30, {});   // the wood pops out and flies to you
       ok(g.state.resources.wood > before, 'swinging at a tree chops wood with the axe you hold');
       To.selectSlot(g, 0);
+      g.state.groundItems = [];   // nothing left lying around from the axe
       const before2 = g.state.resources.wood;
       for (let i = 0; i < 12; i++) { g.hero.atkCd = 0; g.hero.actCd = 0; H.updateHero(g, 1 / 30, { act: true }); }
       ok(g.state.resources.wood === before2, 'a sword does not chop trees');
@@ -828,8 +852,8 @@ export async function run() {
     const me = g.state.villagers.find(v => v.ruling);
     H.startLead(g, me);
     // cave mouths turn up in the wilds, and a swing at one takes you down
-    for (let i = 0; i < 50; i++) Tr.updateEntrances(g);
-    ok(Tr.entrancesOf(g).length === 2, 'two dungeon entrances appear in the wilds', `${Tr.entrancesOf(g).length}`);
+    for (let i = 0; i < 50; i++) Tr.updateEntrances(g, true);
+    ok(Tr.entrancesOf(g).length === 1, 'a dungeon entrance appears far out in the wilds (they are rare)', `${Tr.entrancesOf(g).length}`);
     const cave = Tr.entrancesOf(g)[0];
     let asked = null;
     g.on('dungeon', e => { asked = e; });
@@ -1412,6 +1436,8 @@ export async function run() {
 
   // ------------------------------------------------------------ war
   await step('war: warbands, scouting, rally, battle, tribute', async () => {
+    const Fe = await import('/src/core/features.js');
+    if (!Fe.on('warbands') && !Fe.on('invasions')) { ok(true, 'armies are switched off for now'); return; }
     const g = freshGame({ era: 2, people: 16 });
     for (const t of ['campfire', 'watchtower', 'barracks']) build(g, t);
     const vs = g.state.villagers.filter(x => !x.ruling);

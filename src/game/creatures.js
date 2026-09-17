@@ -53,7 +53,7 @@ export function updateCreature(g, c, dt) {
     }
   }
   if (c._chill && s0(g).time >= c._chill.until) c._chill = null;
-  if (c._stunned > 0) { c._stunned -= dt; c._windup = 0; c._hop = 0; if (c._ai) c._ai.act = null; return; }
+  if (c._stunned > 0) { c._stunned -= dt; c._windup = 0; c._hop = 0; c._charging = 0; c._raise = 0; c._spin = 0; if (c._ai) c._ai.act = null; return; }
 
   const s = g.state;
 
@@ -147,9 +147,12 @@ export function updateCreature(g, c, dt) {
         if (c._cd <= 0) {
           c._cd = 1.2;
           c._attack = 0.25;
-          let dmg = def.damage * (c.scale || 1) * (c.dmgMult || 1) / (1 + g.defense / 50);
-          if (target.armed && g.hasBuilding('armory')) dmg *= 0.7;   // shield and mail
-          dmg *= toughness(target);   // stamina shrugs off wounds
+          let dmg = def.damage * (c.scale || 1) * (c.dmgMult || 1);
+          if (g.hero?.id !== target.id) {   // villagers: the village's defences and their own toughness soften it
+            dmg /= 1 + g.defense / 50;
+            if (target.armed && g.hasBuilding('armory')) dmg *= 0.7;   // shield and mail
+            dmg *= toughness(target);   // stamina shrugs off wounds
+          }
           if (g.hero?.id === target.id) {
             if (Math.hypot(target.x - c.x, target.y - c.y) > TILE * 1.2) return;   // stepped out of reach during the wind-up
             dmg = damageHero(g, target, dmg, c);
@@ -312,8 +315,8 @@ function fireShots(g, c, def, r, target) {
 
 /** A blow from a beast to a villager (the person you play can dodge, block or parry it). */
 export function strikeVillager(g, c, target, dmg) {
-  dmg = dmg / (1 + g.defense / 50) * toughness(target);
-  if (g.hero?.id === target.id) dmg = damageHero(g, target, dmg, c);
+  if (g.hero?.id === target.id) dmg = damageHero(g, target, dmg, c);   // your hero: armour, blocks and parries decide (not the village's walls)
+  else dmg = dmg / (1 + g.defense / 50) * toughness(target);
   if (!dmg) return;
   target.hp -= dmg;
   target._hurtFlash = 0.25;
@@ -428,7 +431,7 @@ function nearestVillager(g, c, range) {
   let best = null, bd = range;
   for (const v of g.state.villagers) {
     if (v.away) continue;
-    if (g.hero?.id === v.id && (g.hero.buffs?.invis || 0) > g.state.time) continue;   // invisible
+    if (g.hero?.id === v.id && ((g.hero.buffs?.invis || 0) > g.state.time || g.hero.inHouse)) continue;   // invisible, or safe at home
     const d = Math.hypot(v.x - c.x, v.y - c.y);
     if (d < bd) { bd = d; best = v; }
   }

@@ -2,6 +2,7 @@
 export const TILE = 32;            // world units per tile
 export const MAP_W = 96;
 export const MAP_H = 96;
+export const TERRAIN_VERSION = 3;   // raise this when world generation changes: every world, old ones too, gets the new land once
 export const NEW_MAP_SIZE = 160;   // new worlds are bigger and have many biomes (older worlds keep 96)
 
 // Time (seconds of real time at 1x speed)
@@ -25,7 +26,7 @@ export const MAX_SKILL = 10;
 // Economy
 export const BASE_STORAGE = 100;
 export const BASE_HOUSING = 6;       // sleeping under the stars
-export const RESOURCES = ['food', 'wood', 'stone', 'coal', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence', 'copper', 'silver', 'obsidian', 'mythril', 'frostite', 'magmite', 'troll_hide', 'slime_core', 'spider_silk', 'spirit_bark', 'golem_heart', 'lich_soul', 'dragon_scale'];
+export const RESOURCES = ['food', 'wood', 'stone', 'coal', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence', 'copper', 'silver', 'obsidian', 'mythril', 'frostite', 'magmite', 'troll_hide', 'slime_core', 'spider_silk', 'spirit_bark', 'golem_heart', 'lich_soul', 'dragon_scale', 'jade', 'cobalt', 'moonstone', 'titanium', 'sunstone', 'voidstone'];
 
 // Saving / multiplayer
 export const AUTOSAVE_SECONDS = 30;

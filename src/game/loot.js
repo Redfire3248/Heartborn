@@ -20,6 +20,7 @@ export const lucky = (g, p) => Math.random() < p * (1 + luckOf(g) * 2);
 export const ORE_RESOURCE = {
   coal_ore: 'coal', iron_ore: 'iron', gold_ore: 'gold', gem_ore: 'gems', crystal_cluster: 'gems',
   copper_ore: 'copper', silver_ore: 'silver', obsidian_ore: 'obsidian', mythril_ore: 'mythril', frostite_ore: 'frostite', magmite_ore: 'magmite',
+  jade_ore: 'jade', cobalt_ore: 'cobalt', moonstone_ore: 'moonstone', titanium_ore: 'titanium', sunstone_ore: 'sunstone', voidstone_ore: 'voidstone',
 };
 
 /** Pop some of a resource out of (x, y): it arcs up, bounces and waits to be picked up. */

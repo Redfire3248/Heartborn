@@ -1003,7 +1003,7 @@ const COMMANDS = {
       const d = dg?.dungeon;
       const spot = where === 'cursor' ? this.game.cursor
         : where === 'home' ? (dg ? null : g.center)
-          : where === 'cave' ? (g.state.dungeons?.length ? g.state.dungeons[0] : (updateEntrances(g), updateEntrances(g), g.state.dungeons?.[0]))
+          : where === 'cave' ? (g.state.dungeons?.length ? g.state.dungeons[0] : (updateEntrances(g, true), updateEntrances(g, true), updateEntrances(g, true), g.state.dungeons?.[0]))
             : where === 'boss' && d ? { x: (d.boss.x + d.boss.w / 2) * 32, y: (d.boss.y + d.boss.h / 2) * 32 }
               : where === 'key' && d ? d.key
                 : where === 'exit' && d ? { x: d.exit.x, y: d.exit.y + 48 }

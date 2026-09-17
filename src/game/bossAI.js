@@ -17,7 +17,7 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 /** Runs the boss for this frame. Returns true when it handled the boss (false: nobody to fight, use the normal AI). */
 export function fightBoss(g, c, def, dt) {
   const hero = g.hero && g.state.villagers.find(v => v.id === g.hero.id && !v.away);
-  if (!hero || (g.hero.buffs?.invis || 0) > g.state.time) return false;
+  if (!hero || (g.hero.buffs?.invis || 0) > g.state.time || g.hero.inHouse) return false;
   const d = Math.hypot(hero.x - c.x, hero.y - c.y);
   const ai = (c._ai ||= { act: null, cd: 1, dodgeCd: 2, guardCd: 3, leapCd: 5, dashCd: 2, hits: [], strafe: Math.random() < 0.5 ? 1 : -1 });
   if (!ai.engaged && d > TILE * 12) return false;
@@ -87,8 +87,19 @@ export function fightBoss(g, c, def, dt) {
   }
   // in reach: a combo
   if (d < TILE * 1.9 && ai.cd <= 0) {
-    ai.act = { kind: 'combo', left: Math.floor(rnd(2, 4)) + rage, phase: 'wind', t: swingWind(rage) };
-    c._windup = ai.act.t;
+    const roll = Math.random();
+    if (roll < 0.28) {   // a heavy attack: a long glowing wind-up, then a huge smash in front of it
+      const t = 1 - rage * 0.25;
+      ai.act = { kind: 'heavy', t, max: t, ang: Math.atan2(hero.y - c.y, hero.x - c.x) };
+      c._windup = t; c._charging = t;
+      g.float(c.x, c.y - def.size * TILE - 8, 'HEAVY ATTACK!', '#ff7a4a');
+    } else if (roll < 0.45) {   // a spin: two sweeps all the way round
+      ai.act = { kind: 'spin', t: 0.55 - rage * 0.15, hits: 2, phase: 'wind' };
+      c._windup = ai.act.t;
+    } else {
+      ai.act = { kind: 'combo', left: Math.floor(rnd(2, 4)) + rage, phase: 'wind', t: swingWind(rage) };
+      c._windup = ai.act.t;
+    }
     return true;
   }
   // otherwise move like a fighter: come in, then circle at the edge of reach looking for an opening
@@ -160,6 +171,7 @@ function doAct(g, c, def, hero, ai, dt, run, rage) {
         const ang = Math.atan2(hero.y - c.y, hero.x - c.x);
         step(g, c, c.x + Math.cos(ang) * TILE, c.y + Math.sin(ang) * TILE, TILE * 0.5, { ...def, speed: 1 });
         c._attack = 0.22;
+        c._swing = { t: 0, dur: 0.22, ang, dir: a.left % 2 ? 1 : -1 };
         g.anim('combat/slash', c.x + Math.cos(ang) * TILE * 0.8, c.y - 8 + Math.sin(ang) * TILE * 0.6, { size: def.size * TILE * 1.1, dur: 0.2, rot: ang });
         if (Math.hypot(hero.x - c.x, hero.y - c.y) < TILE * (1.35 + def.size * 0.25)) strikeVillager(g, c, hero, def.damage * (a.left === 1 ? 1.25 : 0.8) * power(c));
         a.left--;
@@ -169,6 +181,46 @@ function doAct(g, c, def, hero, ai, dt, run, rage) {
         return;
       }
       if (a.t <= 0) { a.phase = 'wind'; a.t = swingWind(rage) * 0.8; c._windup = a.t; }
+      return;
+    case 'heavy': {
+      c._windup = Math.max(0, a.t);
+      c._charging = Math.max(0, a.t);
+      c._raise = 1 - Math.max(0, a.t) / a.max;   // the weapon goes up and back
+      a.ang = Math.atan2(hero.y - c.y, hero.x - c.x) * 0.15 + a.ang * 0.85;   // it turns toward you, slowly
+      if (Math.random() < dt * 20) g.fx.particles.push({ x: c.x + (Math.random() - 0.5) * def.size * TILE, y: c.y - def.size * TILE * Math.random(), vx: 0, vy: -20, sprite: 'effects/spark', size: 5, life: 0.4, max: 0.4, rot: 0 });
+      if (a.t > 0) return;
+      c._charging = 0; c._raise = 0;
+      const reach = TILE * (2.2 + def.size * 0.4);
+      c._swing = { t: 0, dur: 0.3, ang: a.ang, dir: 1, heavy: true };
+      c._attack = 0.35;
+      g.anim('combat/crit_slash', c.x + Math.cos(a.ang) * reach * 0.5, c.y - 8 + Math.sin(a.ang) * reach * 0.45, { size: reach * 1.5, dur: 0.3, rot: a.ang });
+      g.anim('combat/poof', c.x + Math.cos(a.ang) * reach * 0.7, c.y + Math.sin(a.ang) * reach * 0.6, { size: reach, dur: 0.4 });
+      g.fx.shake = Math.max(g.fx.shake, 2.4);
+      g.hitStop = 0.08;
+      const dx = hero.x - c.x, dy = hero.y - c.y, dist = Math.hypot(dx, dy);
+      const inFront = Math.abs(Math.atan2(Math.sin(Math.atan2(dy, dx) - a.ang), Math.cos(Math.atan2(dy, dx) - a.ang))) < 1.4;
+      if (dist < reach && inFront) {
+        strikeVillager(g, c, hero, def.damage * 2.2 * power(c));
+        if (g.hero && !(g.hero.lastParry === g.state.time)) { const k = TILE * 12; g.hero.kbx = Math.cos(a.ang) * k; g.hero.kby = Math.sin(a.ang) * k; }
+      }
+      ai.act = { kind: 'recover', t: 1.05 - rage * 0.3 };   // a big swing leaves a big opening
+      return;
+    }
+    case 'spin':
+      if (a.phase === 'wind') {
+        c._windup = Math.max(0, a.t);
+        if (a.t > 0) return;
+        a.phase = 'spin'; a.t = 0;
+      }
+      a.spun = (a.spun || 0) + dt;
+      c._spin = (c._spin || 0) + dt * 18;
+      if (a.spun >= 0.18 * (3 - a.hits)) {
+        g.anim('combat/crit_slash', c.x, c.y - 10, { size: TILE * (2.6 + def.size * 0.5), dur: 0.25, rot: c._spin });
+        if (Math.hypot(hero.x - c.x, hero.y - c.y) < TILE * (1.6 + def.size * 0.35)) strikeVillager(g, c, hero, def.damage * 0.9 * power(c));
+        a.hits--;
+        if (c._stunned > 0 || a.hits <= 0) { c._spin = 0; ai.act = { kind: 'recover', t: 0.8 - rage * 0.25 }; return; }
+      }
+      step(g, c, hero.x, hero.y, run * 0.4 * dt, def);   // it drifts toward you while spinning
       return;
     case 'recover':   // the opening: it is catching its breath
       c._windup = 0;

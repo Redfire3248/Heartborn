@@ -34,6 +34,12 @@ export const OBJECTS = {
   frostite_ore:    { sprite: 'nature/frostite_ore',    size: 0.9, work: 'mine', frostite: [1, 2], gems: [0, 1], charges: 2, tier: 6, rarity: 'Epic' },
   magmite_ore:     { sprite: 'nature/magmite_ore',     size: 0.9, work: 'mine', magmite: [1, 2], coal: [1, 3], charges: 2, tier: 9, rarity: 'Legendary' },
   mythril_ore:     { sprite: 'nature/mythril_ore',     size: 0.9, work: 'mine', mythril: [1, 2], gems: [0, 1], charges: 2, tier: 8, rarity: 'Mythical' },
+  jade_ore:        { sprite: 'nature/jade_ore',        size: 0.9, work: 'mine', stone: [1, 2], jade: [1, 3], charges: 3, tier: 3, rarity: 'Uncommon' },
+  cobalt_ore:      { sprite: 'nature/cobalt_ore',      size: 0.9, work: 'mine', stone: [1, 2], cobalt: [1, 3], charges: 3, tier: 5, rarity: 'Rare' },
+  moonstone_ore:   { sprite: 'nature/moonstone_ore',   size: 0.9, work: 'mine', moonstone: [1, 2], charges: 2, tier: 5, rarity: 'Rare' },
+  titanium_ore:    { sprite: 'nature/titanium_ore',    size: 0.9, work: 'mine', stone: [1, 2], titanium: [1, 2], charges: 2, tier: 6, rarity: 'Epic' },
+  sunstone_ore:    { sprite: 'nature/sunstone_ore',    size: 0.9, work: 'mine', sunstone: [1, 2], gold: [0, 2], charges: 2, tier: 6, rarity: 'Epic' },
+  voidstone_ore:   { sprite: 'nature/voidstone_ore',   size: 0.9, work: 'mine', voidstone: [1, 1], gems: [0, 1], charges: 1, tier: 9, rarity: 'Mythical' },
   crystal_cluster: { sprite: 'nature/crystal_cluster', size: 1.0, work: 'mine', gems: [1, 2], influence: [5, 10], charges: 1, tier: 8, rarity: 'Epic' },
 
   grave:           { sprite: 'buildings/grave',        size: 0.8 },

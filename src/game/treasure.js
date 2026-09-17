@@ -120,15 +120,16 @@ export function drinkPotion(g, hero) {
 
 // ------------------------------------------------------------------ dungeon entrances
 
-const MAX_ENTRANCES = 2;
+const MAX_ENTRANCES = 1;   // dungeons are rare: one cave mouth at a time
 export const entrancesOf = g => (g.state.dungeons ||= []);
 export const entranceNear = (g, x, y, reach = TILE * 1.6) => entrancesOf(g).find(e => Math.hypot(e.x - x, e.y - y) < reach) || null;
 
 /** A couple of cave mouths are always somewhere in the wilds. */
-export function updateEntrances(g) {
+export function updateEntrances(g, force = false) {
   const list = entrancesOf(g);
   if (list.length >= MAX_ENTRANCES || g.dungeon || g.visiting) return;
-  const p = g.randomLandTile(12, 26);
+  if (!force && Math.random() > 0.08) return;   // a new one takes a while to turn up
+  const p = g.randomLandTile(30, 70);   // far out in the wilds
   if (!p || list.some(e => Math.hypot(e.x - p.x, e.y - p.y) < TILE * 10)) return;
   if (g.buildingAt?.(Math.floor(p.x / TILE), Math.floor(p.y / TILE))) return;
   list.push({ id: `dg${Math.floor(g.state.time * 1000).toString(36)}`, x: p.x, y: p.y });

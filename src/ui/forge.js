@@ -56,6 +56,18 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
       resolve(score);
     }
 
+    /** A burst of sparks from a spot in the arena (fractions of its size). */
+    const sparks = (fx, fy, n = 14, hue = '#ffcf5a') => {
+      for (let i = 0; i < n; i++) {
+        const sp = h('i.forge-spark');
+        const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.6, d = 30 + Math.random() * 70;
+        sp.style.left = `${fx * 100}%`; sp.style.top = `${fy * 100}%`; sp.style.background = hue;
+        sp.style.setProperty('--dx', `${Math.cos(a) * d}px`); sp.style.setProperty('--dy', `${Math.sin(a) * d}px`);
+        arena.append(sp);
+        setTimeout(() => sp.remove(), 600);
+      }
+    };
+
     const say = (text, cls) => {
       verdict.textContent = text;
       verdict.className = `forge-verdict show ${cls}`;
@@ -92,7 +104,7 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
       const width = 0.26 - tier * 0.035;
       const zone = h('div.heat-zone'), needle = h('div.heat-needle'), fill = h('div.heat-fill', h('i'));
       const gauge = h('div.heat-gauge', zone, needle);
-      arena.append(h('div.heat-flame'), gauge, fill);
+      arena.append(h('div.heat-coals'), h('div.heat-flame'), gauge, fill);
       let temp = 0.1, vel = 0, holding = false, inZone = 0, total = 0, center = 0.55 + (Math.random() - 0.5) * 0.2, last = performance.now();
       const need = 1.6 + tier * 0.25;
       input = down => { holding = down; };
@@ -107,6 +119,7 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
         needle.style.left = `${temp * 100}%`;
         const inside = Math.abs(temp - center) < width / 2;
         gauge.classList.toggle('hot', inside);
+        if (holding && Math.random() < dt * 18) sparks(0.3 + Math.random() * 0.4, 0.95, 1, '#ff9a3a');
         total += dt;
         if (inside) inZone += dt;
         fill.firstChild.style.width = `${clamp(inZone / need) * 100}%`;
@@ -122,7 +135,8 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
       stageName.textContent = 'Hammer it into shape';
       stageHint.textContent = `Press Space (or tap) when the marker is on the glowing spot. ${strikes} strikes.`;
       const spot = h('div.hammer-spot'), marker = h('div.hammer-marker'), count = h('div.hammer-count');
-      arena.append(h('div.hammer-bar', spot, marker), count);
+      const hammerIcon = h('div.forge-hammer');
+      arena.append(h('div.forge-anvil', h('div.forge-ingot')), hammerIcon, h('div.hammer-bar', spot, marker), count);
       let pos = 0, dir = 1, left = strikes, got = 0, speed = 0.9 + tier * 0.28, last = performance.now(), locked = 0;
       const spotW = 0.16 - tier * 0.02;
       let spotAt = 0.2 + Math.random() * 0.6;
@@ -136,6 +150,8 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
         play(s ? 'anvil' : 'hit');
         say(s === 1 ? 'Perfect!' : s >= 0.75 ? 'Good' : s ? 'Close' : 'Miss', s === 1 ? 'perfect' : s >= 0.75 ? 'good' : 'poor');
         arena.classList.remove('strike'); void arena.offsetWidth; arena.classList.add('strike');
+        hammerIcon.classList.remove('swing'); void hammerIcon.offsetWidth; hammerIcon.classList.add('swing');
+        sparks(0.5, 0.78, s === 1 ? 26 : s ? 14 : 5, s === 1 ? '#fff4a0' : s ? '#ffb347' : '#8a8a8a');
         left--;
         locked = 0.18;
         if (left <= 0) { input = null; setTimeout(() => next(got / strikes), 250); return; }
@@ -149,6 +165,8 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
         pos += dir * speed * dt;
         if (pos > 1) { pos = 1; dir = -1; } else if (pos < 0) { pos = 0; dir = 1; }
         marker.style.left = `${pos * 100}%`;
+        const over = Math.abs(pos - spotAt) <= spotW / 2;
+        marker.classList.toggle('on-spot', over); spot.classList.toggle('on-spot', over);
         if (input) raf = requestAnimationFrame(tick);
       };
       raf = requestAnimationFrame(tick);
@@ -170,6 +188,7 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
         play(s ? 'reveal' : 'hit');
         say(s === 1 ? 'Perfect!' : s >= 0.75 ? 'Good' : s ? 'Close' : 'Miss', s === 1 ? 'perfect' : s >= 0.75 ? 'good' : 'poor');
         arena.classList.add('steam');
+        sparks(0.5, 0.5, 18, s ? '#bfe6ff' : '#8a8a8a');
         input = null;
         next(s);
       };
@@ -177,6 +196,8 @@ export function forgeMinigame({ root, title, iconKey, stages, tier = 0 }) {
         const k = 1 - (now - t0) / 1000 / dur;
         ring.style.transform = `translate(-50%, -50%) scale(${Math.max(0, k)})`;
         target.style.transform = `translate(-50%, -50%) scale(${at})`;
+        const near = Math.abs(k - at) < 0.1;
+        target.classList.toggle('on-spot', near); ring.classList.toggle('on-spot', near);
         if (k <= 0 && input) { input = null; say('Too late', 'poor'); next(0); return; }
         if (input) raf = requestAnimationFrame(tick);
       };

@@ -24,6 +24,12 @@ export const MATERIALS = {
   frostite:     { name: 'Frostite', mult: 1.45, rarity: 3, trait: 'chill', icon: 'items/icon_frostite', pool: ['frost_sword', 'ice_staff', 'glaive', 'runic_blade'] },
   magmite:      { name: 'Magmite', mult: 1.55, rarity: 3, trait: 'burn', icon: 'items/icon_magmite', pool: ['flame_sword', 'fire_staff', 'maul', 'bardiche'] },
   mythril:      { name: 'Mythril', mult: 1.6, rarity: 3, trait: 'swift', icon: 'items/icon_mythril', pool: ['runic_blade', 'thunder_sword', 'longbow', 'zweihander'] },
+  jade:         { name: 'Jade', mult: 1.15, rarity: 1, trait: 'heal', icon: 'items/icon_jade', pool: ['machete', 'quarterstaff', 'druid_staff'] },
+  cobalt:       { name: 'Cobalt', mult: 1.3, rarity: 2, trait: 'swift', icon: 'items/icon_cobalt', pool: ['sabre', 'estoc', 'twin_daggers', 'longbow'] },
+  moonstone:    { name: 'Moonstone', mult: 1.35, rarity: 2, trait: 'drain', icon: 'items/icon_moonstone', pool: ['scythe', 'shadow_blade', 'bone_wand'] },
+  titanium:     { name: 'Titanium', mult: 1.45, rarity: 3, trait: 'quake', icon: 'items/icon_titanium', pool: ['zweihander', 'great_axe', 'halberd', 'maul'] },
+  sunstone:     { name: 'Sunstone', mult: 1.5, rarity: 3, trait: 'holy', icon: 'items/icon_sunstone', pool: ['holy_sword', 'holy_scepter', 'falchion'] },
+  voidstone:    { name: 'Voidstone', mult: 1.95, rarity: 4, trait: 'magic', icon: 'items/icon_voidstone', pool: ['crystal_orb', 'thunder_sword', 'spellbook', 'runic_blade'] },
   // boss materials
   troll_hide:   { name: 'Troll Hide', mult: 1.5, rarity: 3, trait: 'quake', boss: 'cave_troll', icon: 'characters/cave_troll', pool: ['maul', 'great_axe', 'club', 'greatsword'] },
   slime_core:   { name: 'Slime Core', mult: 1.45, rarity: 3, trait: 'poison', boss: 'slime_king', icon: 'characters/slime', pool: ['whip', 'bone_wand', 'kukri'] },

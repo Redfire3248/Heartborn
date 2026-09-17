@@ -501,6 +501,9 @@ export function damageHero(g, v, dmg, from = null) {
   const h = g.hero;
   if (!h || h.id !== v.id) return dmg;
   if (g.state.rpg?.god) return 0;   // admin god mode
+  if (h.inHouse) return 0;   // nothing can hurt you inside your home
+  // monsters hit hard, and keep up as your health grows with your level
+  dmg *= ENEMY_DAMAGE * (0.55 + 0.45 * heroStats(g).maxHp / 100);
   if (h.iframes > 0) { g.float(v.x, v.y - TILE * 1.3, 'Dodged!', '#9fd4ff'); return 0; }
   const facingIt = from ? angleDiff(Math.atan2(from.y - v.y, from.x - v.x), h.facing) < 1.8 : true;
   let guarded = false;
@@ -593,6 +596,8 @@ function nothingFor(g, v, key) {
 
 const ORE_COLORS = { Uncommon: '#7aff9a', Rare: '#5aa9ff', Epic: '#c77dff', Legendary: '#ffb347', Mythical: '#ff4d6d' };
 
+const ENEMY_DAMAGE = 1.6;
+
 /** Chop, mine or pick the thing in reach: a few hits and it gives double what a worker would get. */
 function work(g, v, held = null) {
   const wants = held ? WORK_OF_KIND[TOOLS[held]?.kind] : HAND_WORK;   // an axe only chops, a pickaxe only mines, hands pick plants
@@ -632,7 +637,7 @@ function work(g, v, held = null) {
   obj._heroHits = 0;
   // what comes out pops onto the ground; the dice decide how much and whether something special comes too
   const rich = def.work === 'mine' && lucky(g, 0.12);
-  for (const k of ['wood', 'stone', 'food', 'coal', 'iron', 'gold', 'gems', 'influence', 'copper', 'silver', 'obsidian', 'mythril', 'frostite', 'magmite']) {
+  for (const k of ['wood', 'stone', 'food', 'coal', 'iron', 'gold', 'gems', 'influence', 'copper', 'silver', 'obsidian', 'mythril', 'frostite', 'magmite', 'jade', 'cobalt', 'moonstone', 'titanium', 'sunstone', 'voidstone']) {
     if (!def[k]) continue;
     let n = Math.round((def[k][0] + Math.floor(Math.random() * (def[k][1] - def[k][0] + 1))) * 2 * tool.yieldMult);
     if (n <= 0) continue;
@@ -742,7 +747,7 @@ export function updateHero(g, dt, controls = {}) {
   if (h.sinceHit > 6 && v.hp < st.maxHp) v.hp = Math.min(st.maxHp, v.hp + 3 * dt);
   h.x = v.x; h.y = v.y;
   // poison and fire keep hurting for a few seconds
-  if (h.dot) {
+  if (h.dot && !h.inHouse) {
     if (g.state.time >= h.dot.until) h.dot = null;
     else {
       v.hp -= h.dot.dps * dt;

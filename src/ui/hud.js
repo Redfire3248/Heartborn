@@ -142,7 +142,7 @@ export class HUD {
     game.on('announce', t => this.announce(t));
     game.on('event', ev => this.showEvent(ev));
     game.on('change', () => this.requestRefresh());
-    game.on('scoutReport', r => this.showScoutReport(r));
+    game.on('scoutReport', r => { if (on('invasions') || on('warbands')) this.showScoutReport(r); });
     // go in once the current swing or step has finished (never in the middle of updating the hero)
     game.on('dungeon', e => setTimeout(() => this.enterDungeon(e), 0));
     game.on('house', b => setTimeout(() => this.enterHouse(b), 0));
@@ -350,7 +350,7 @@ export class HUD {
       const vt = fmt(val);
       if (v.textContent !== vt) v.textContent = vt;
       const c = g.caps[k];
-      const ct = c ? `/${fmt(c)}` : '';
+      const ct = '';   // no storage limits any more
       if (cap.textContent !== ct) cap.textContent = ct;
       el.classList.toggle('full', !!c && val >= c);
       const prev = this.prevRes[k];
@@ -764,53 +764,56 @@ export class HUD {
       const st = heroStats(g);
       const v = heroOf(g) || avatarOf(g);
       const w = heroWeapon(g, v);
-      const statRow = (id, label, desc) => h('div.char-stat',
-        h('div', h('b', `${label} ${r[id]}`), h('div.faint', desc)),
-        h('button.btn.sm.primary', { disabled: !r.points, onclick: () => { spendPoint(g, id); render(); } }, '+'));
-      const gearCard = (slot, label) => {
+      // one detail bar for whatever you tapped: something you wear, or something in the bag
+      const sel = this._bagSel;
+      const worn = Object.entries(r.gear).find(([, it]) => it && it.id === sel);
+      const picked = worn ? worn[1] : r.bag.find(x => x.id === sel);
+      const slotCell = (slot, label) => {
         const it = r.gear[slot];
-        return h('div.char-gear', { style: it ? { borderColor: RARITY[it.rarity].color } : {} },
-          h('div.faint', label),
-          it ? h('div.row', icon(gearIconKey(it) || 'items/relic', 28), h('div', h('b', { style: { color: RARITY[it.rarity].color } }, it.name), h('div.faint', gearText(it))))
-            : h('div.faint', slot === 'weapon' ? `${w.name} (what you carry)` : 'Nothing'),
-          it ? h('div.row', { style: { gap: '4px' } }, h('button.btn.sm.analyze-btn', { onclick: () => this.analyzeGear(it) }, 'Analyze'), h('button.btn.sm', { onclick: () => { unequip(g, slot); render(); } }, 'Take off')) : null);
+        return h(`button.doll-slot.doll-${slot}${sel && it?.id === sel ? '.sel' : ''}`, {
+          title: it ? `${it.name}: ${gearText(it)}` : `${label}: empty`,
+          style: it ? { borderColor: RARITY[it.rarity].color, boxShadow: `inset 0 0 12px ${RARITY[it.rarity].color}44` } : null,
+          onclick: () => { if (!it) return; this._bagSel = sel === it.id ? null : it.id; render(); },
+        }, it ? icon(gearIconKey(it) || 'items/relic', 32) : h('span.doll-empty', label));
       };
-      body.replaceChildren(
-        h('div.row', spriteAvailable(avatarArt(avatarId(g))) ? icon(avatarArt(avatarId(g)), 48) : icon('items/crown_leader', 40), h('div', h('h2', { style: { margin: 0 } }, v?.name || 'You'), h('div.faint', `Level ${r.level} · ${r.xp}/${xpToNext(r.level)} XP · ${r.questsDone} quests done`))),
-        h('div.char-derived', `Health ${st.maxHp} · Stamina ${st.maxStamina} · Damage x${st.dmgMult.toFixed(2)} · Crit ${Math.round(st.crit * 100)}% · Armour ${Math.round(st.armor * 100)}% · Speed x${st.speed.toFixed(2)}`),
-        spriteAvailable(avatarArt('king')) ? h('div.avatar-pick',
-          h('h3', 'Look'),
-          h('div.avatar-grid', AVATARS.map(a => h(`button.avatar-opt${avatarId(g) === a.id ? '.on' : ''}`, {
-            title: a.name, dataset: { avatar: a.id },
-            onclick: () => { setLook(g, a.id); this.hint(`You now look like the ${a.name}`, 1500); render(); },
-          }, icon(avatarArt(a.id), 44), h('span', a.name))))) : null,
-        h('h3', r.points ? `Points to spend: ${r.points}` : 'Attributes'),
-        statRow('might', 'Might', '+8% damage per point'),
-        statRow('vigor', 'Vigor', '+12 health per point'),
-        statRow('agility', 'Agility', '+8 stamina, faster swings and movement, more crits'),
-        h('h3', 'Equipped'),
-        h('div.char-gears', gearCard('weapon', 'Weapon'), gearCard('shield', 'Shield'), gearCard('helmet', 'Helmet'), gearCard('armor', 'Armour'), gearCard('trinket', 'Trinket')),
-        h('div.bag-head', h('h3', `Bag (${r.bag.length})`), h('div.spacer'),
-          r.bag.length ? h('button.btn.sm.primary', { title: 'Put on the best piece you own for every slot', onclick: () => { const n = equipBest(g); this.hint(n ? `Equipped ${n} better piece${n === 1 ? '' : 's'}` : 'You already wear your best gear', 1800); this._bagSel = null; render(); } }, 'Equip best') : null),
-        r.bag.length
-          ? h('div.bag-grid', r.bag.map(it => {
-            const better = gearScore(it) > gearScore(r.gear[it.slot]);
-            return h('button.bag-cell' + (it.rarity >= 4 ? `.rarity-${RARITY[it.rarity].name.toLowerCase()}` : '') + (this._bagSel === it.id ? '.sel' : ''), { title: `${it.name}: ${gearText(it)}`, style: { borderColor: RARITY[it.rarity].color, boxShadow: it.rarity >= 2 ? `0 0 ${it.rarity >= 4 ? 14 : 8}px ${RARITY[it.rarity].color}${it.rarity >= 4 ? 'aa' : '66'}` : null }, onclick: () => { this._bagSel = this._bagSel === it.id ? null : it.id; render(); } },
-              icon(gearIconKey(it) || 'items/relic', 34), better ? h('span.bag-up', '▲') : null);
-          }))
-          : h('div.faint', 'Monsters drop weapons, armour and trinkets. Bosses and bounties always drop something good.'),
-        (() => {   // the piece you tapped: what it is and what to do with it
-          const it = r.bag.find(x => x.id === this._bagSel);
-          if (!it) return r.bag.length ? h('div.faint.bag-tip', 'Tap an item to see it. ▲ means it is better than what you wear.') : null;
-          return h('div.bag-detail', { style: { borderColor: RARITY[it.rarity].color } },
-            icon(gearIconKey(it) || 'items/relic', 40),
-            h('div', { style: { flex: 1, minWidth: 0 } }, h('b', { style: { color: RARITY[it.rarity].color } }, it.name), h('div.faint', `${it.slot} · ${gearText(it)}`)),
-            h('div.bag-actions',
-              h('button.btn.sm.analyze-btn', { onclick: () => this.analyzeGear(it) }, 'Analyze'),
-              h('button.btn.sm.primary', { onclick: () => { equip(g, it.id); this._bagSel = null; render(); } }, 'Equip'),
-              h('button.btn.sm', { title: 'Break it down for gold', onclick: () => { const gold = scrapGear(g, it.id); this.hint(`+${gold} gold`, 1500); this._bagSel = null; render(); } }, 'Scrap')));
-        })(),
-        h('div.faint', { style: { marginTop: '8px' } }, `Controls: ${['up', 'left', 'down', 'right'].map(id => keyLabel(keyOf(id))).join('')} move · ${keyLabel(keyOf('attack'))} use what you hold · ${keyLabel(keyOf('dash'))} dash · hold ${keyLabel(keyOf('block'))} block (right as a blow lands to parry) · 1-9 pick from your hotbar · change keys in Settings`));
+      const attr = (id, label, desc) => h('div.attr-row', { title: desc },
+        h('span.attr-name', label), h('b', String(r[id])), h('span.faint.attr-desc', desc),
+        h('button.btn.sm.primary.attr-plus', { disabled: !r.points, onclick: () => { spendPoint(g, id); render(); } }, '+'));
+      const chip = (label, value) => h('div.stat-chip', h('span', label), h('b', String(value)));
+      const xpK = Math.min(1, r.xp / xpToNext(r.level));
+      body.replaceChildren(...[
+        h('div.char-top',
+          h('div', h('h2', v?.name || 'You'), h('div.xp-line', h('span', `Level ${r.level}`), h('div.xp-bar', h('i', { style: { width: `${xpK * 100}%` } })), h('span.faint', `${r.xp}/${xpToNext(r.level)} XP`)))),
+        h('div.char-main',
+          h('div.doll',
+            slotCell('helmet', 'Helmet'), slotCell('weapon', 'Weapon'), slotCell('armor', 'Armour'), slotCell('shield', 'Shield'), slotCell('trinket', 'Trinket'),
+            h('div.doll-figure', spriteAvailable(avatarArt(avatarId(g))) ? icon(avatarArt(avatarId(g)), 96) : icon('items/crown_leader', 64)),
+            spriteAvailable(avatarArt('king')) ? h('button.btn.sm.ghost.doll-look', { onclick: () => { this._showLook = !this._showLook; render(); } }, this._showLook ? 'Done' : 'Change look') : ''),
+          h('div.char-stats',
+            h('div.stat-chips', chip('Health', st.maxHp), chip('Stamina', st.maxStamina), chip('Damage', `x${st.dmgMult.toFixed(2)}`), chip('Crit', `${Math.round(st.crit * 100)}%`), chip('Armour', `${Math.round(st.armor * 100)}%`), chip('Speed', `x${st.speed.toFixed(2)}`)),
+            h('div.attr-head', h('span', 'Attributes'), r.points ? h('span.points-badge', `${r.points} point${r.points === 1 ? '' : 's'}`) : ''),
+            attr('might', 'Might', '+8% damage'), attr('vigor', 'Vigor', '+12 health'), attr('agility', 'Agility', 'stamina, speed, crits'))),
+        this._showLook ? h('div.avatar-grid', AVATARS.map(a => h(`button.avatar-opt${avatarId(g) === a.id ? '.on' : ''}`, {
+          title: a.name, dataset: { avatar: a.id },
+          onclick: () => { setLook(g, a.id); this._showLook = false; render(); },
+        }, icon(avatarArt(a.id), 40), h('span', a.name)))) : null,
+        picked ? h('div.bag-detail', { style: { borderColor: RARITY[picked.rarity].color } },
+          icon(gearIconKey(picked) || 'items/relic', 36),
+          h('div', { style: { flex: 1, minWidth: 0 } }, h('b', { style: { color: RARITY[picked.rarity].color } }, picked.name), h('div.faint', `${picked.slot} · ${gearText(picked)}`)),
+          h('div.bag-actions',
+            h('button.btn.sm.analyze-btn', { onclick: () => this.analyzeGear(picked) }, 'Analyze'),
+            worn
+              ? h('button.btn.sm', { onclick: () => { unequip(g, worn[0]); this._bagSel = null; render(); } }, 'Take off')
+              : h('button.btn.sm.primary', { onclick: () => { equip(g, picked.id); this._bagSel = null; render(); } }, 'Equip'),
+            worn ? '' : h('button.btn.sm', { title: 'Break it down for gold', onclick: () => { const gold = scrapGear(g, picked.id); this.hint(`+${gold} gold`, 1500); this._bagSel = null; render(); } }, 'Scrap'))) : null,
+        h('div.bag-head', h('b', `Bag (${r.bag.length})`), h('div.spacer'),
+          r.bag.length ? h('button.btn.sm.primary', { title: 'Put on the best piece you own for every slot', onclick: () => { const n = equipBest(g); this.hint(n ? `Equipped ${n} better piece${n === 1 ? '' : 's'}` : 'You already wear your best gear', 1800); this._bagSel = null; render(); } }, 'Equip best') : ''),
+        h('div.bag-grid', ...r.bag.map(it => {
+          const better = gearScore(it) > gearScore(r.gear[it.slot]);
+          return h('button.bag-cell' + (it.rarity >= 4 ? `.rarity-${RARITY[it.rarity].name.toLowerCase()}` : '') + (sel === it.id ? '.sel' : ''), { title: `${it.name}: ${gearText(it)}`, style: { borderColor: RARITY[it.rarity].color }, onclick: () => { this._bagSel = sel === it.id ? null : it.id; render(); } },
+            icon(gearIconKey(it) || 'items/relic', 32), better ? h('span.bag-up', '▲') : '');
+        }), ...Array.from({ length: Math.max(0, 18 - r.bag.length) }, () => h('div.bag-cell.empty'))),
+      ].filter(Boolean));
     };
     const gearText = it => it.slot === 'shield' ? `blocks ${Math.round((it.block || 0) * 100)}%${it.armor ? ` · +${Math.round(it.armor * 100)}% armour` : ''}` : it.slot === 'weapon' ? `${it.dmg} damage` : it.slot === 'armor' || it.slot === 'helmet' ? `${Math.round(it.armor * 100)}% armour` : Object.entries(it.bonus || {}).map(([k, n]) => k === 'hp' ? `+${n} health` : `+${Math.round(n * 100)}% ${k === 'dmg' ? 'damage' : k}`).join(', ');
     const body = h('div.char-sheet');
@@ -3271,11 +3274,13 @@ export class HUD {
     const hero = heroOf(g);
     this.input.keys?.clear?.();
     Object.assign(this.leadInput, { mx: 0, my: 0, act: false, dash: false, block: false });
+    if (g.hero) g.hero.inHouse = true;   // safe while inside
     this.houseEditor = new HouseEditor({
       game: g, building: b, hero, hint: (t, ms) => this.hint(t, ms),
       onCraft: () => { this.craftCat = this.craftCat || 'tools'; this.openPanel('craft'); },
       onClose: () => {
         this.houseEditor = null;
+        if (g.hero) g.hero.inHouse = false;
         if (this.panel === 'craft') this.closePanel();
         const v = heroOf(g);
         if (v) { const d = doorOf(g, b); v.x = d.x; v.y = d.y + 10; if (g.hero) g.hero.doorCd = 1.5; }

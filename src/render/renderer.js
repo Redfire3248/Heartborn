@@ -1,3 +1,4 @@
+import { keyLabel, keyOf } from '../core/controls.js';
 import { TILE } from '../core/constants.js';
 import { RES_ICON } from '../ui/dom.js';
 import { stackIcon } from '../game/groundItems.js';
@@ -664,9 +665,7 @@ export class Renderer {
     if (b.type === 'crafting_table' && g.hero && !g.visiting) {
       const hero = g.state.villagers.find(v => v.id === g.hero.id), c = g.buildingCenter(b);
       if (hero && Math.hypot(hero.x - c.x, hero.y - c.y) < TILE * 3.5) {
-        ctx.font = 'bold 8px system-ui, sans-serif'; ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillText('E  Crafting Table', c.x + 0.6, y - TILE * 1.25 + 0.6);
-        ctx.fillStyle = '#ffd76a'; ctx.fillText('E  Crafting Table', c.x, y - TILE * 1.25);
+        keyPrompt(ctx, keyLabel(keyOf('potion')), 'Craft', c.x, y - TILE * 1.55 + Math.sin(this.time * 3) * 0.8);
       }
     }
     if (isHome(b) && g.hero && !g.visiting) {
@@ -892,6 +891,25 @@ export class Renderer {
       ctx.restore();
     }
     if (c._enraged && Math.random() < 0.25) g.fx.particles.push({ x: c.x + (Math.random() - 0.5) * size * 0.8, y: c.y + offsetY - size * Math.random() * 0.9, vx: 0, vy: -16, sprite: 'effects/flame', size: 5, life: 0.5, max: 0.5, rot: 0 });
+    const bw = def.boss && BOSS_WEAPONS[c.t];
+    if (bw && spriteAvailable(bw)) {   // bosses carry a weapon and swing it like a fighter
+      if (c._swing) { c._swing.t += 1 / 60; if (c._swing.t > c._swing.dur) c._swing = null; }
+      const face = c._flip ? Math.PI : 0;
+      let ang;
+      if (c._spin) ang = c._spin;
+      else if (c._swing) { const k = Math.min(1, c._swing.t / c._swing.dur); ang = c._swing.ang - c._swing.dir * 1.6 + c._swing.dir * 3.2 * (1 - (1 - k) ** 3); }
+      else if (c._raise) ang = (c._flip ? -Math.PI / 2 - 0.9 : -Math.PI / 2 + 0.9) - (c._flip ? -1 : 1) * c._raise * 1.2;   // raised high behind the head
+      else ang = face + (c._flip ? 1 : -1) * (0.9 + Math.sin(this.time * 2 + c.x) * 0.08);   // held ready
+      const len = size * 0.95, hx = c.x + (c._flip ? -1 : 1) * size * 0.28, hy = c.y - size * 0.42 + offsetY;
+      if (c._charging > 0) { ctx.save(); ctx.globalAlpha = 0.5 + 0.5 * Math.sin(this.time * 30); drawSprite(ctx, bw, hx + Math.cos(ang) * len * 0.35, hy + Math.sin(ang) * len * 0.35, len * 1.15, { rot: ang + Math.PI / 4, center: true, full: true, tint: '#ff5a2a', solid: true }); ctx.restore(); }
+      drawSprite(ctx, bw, hx + Math.cos(ang) * len * 0.35, hy + Math.sin(ang) * len * 0.35, len, { rot: ang + Math.PI / 4, center: true, full: true });
+    }
+    if (c._charging > 0) {   // a heavy attack is coming: it glows red and grows a warning arc
+      ctx.save();
+      ctx.strokeStyle = `rgba(255,80,40,${0.35 + 0.35 * Math.sin(this.time * 24)})`; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(c.x, c.y, size * 0.9, size * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
     if (c._windup > 0) {   // winding up a blow: a red warning, time to dodge or block
       const k = 0.5 + 0.5 * Math.sin(this.time * 30);
       ctx.fillStyle = `rgba(255,60,40,${0.6 + k * 0.4})`;
@@ -1356,6 +1374,26 @@ function bar(ctx, x, y, w, frac, color) {
   ctx.fillRect(x - 0.5, y - 0.5, w + 1, 3);
   ctx.fillStyle = color;
   ctx.fillRect(x, y, w * Math.max(0, Math.min(1, frac)), 2);
+}
+
+const BOSS_WEAPONS = { cave_troll: 'armory/maul', stone_golem: 'gear/war_hammer', lich: 'armory/necro_staff', forest_spirit: 'armory/druid_staff', slime_king: null, spider_queen: null, dragon: null };
+
+/** A small button prompt over something you can use: a key cap and a word, in a dark rounded pill. */
+function keyPrompt(ctx, key, text, x, y) {
+  ctx.save();
+  ctx.font = '600 6px "Pixelify Sans", monospace';
+  const tw = ctx.measureText(text).width, kw = Math.max(8, ctx.measureText(key).width + 5);
+  const w = kw + tw + 9, hgt = 11, x0 = Math.round(x - w / 2), y0 = Math.round(y - hgt / 2);
+  ctx.fillStyle = 'rgba(16,10,24,0.88)';
+  ctx.beginPath(); ctx.roundRect(x0, y0, w, hgt, 3); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,215,106,0.55)'; ctx.lineWidth = 0.6; ctx.stroke();
+  ctx.fillStyle = '#ffd76a';   // the key cap
+  ctx.beginPath(); ctx.roundRect(x0 + 2, y0 + 2, kw, hgt - 4, 2); ctx.fill();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#2a1a08'; ctx.fillText(key, x0 + 2 + kw / 2, y0 + hgt / 2 + 0.3);
+  ctx.textAlign = 'left'; ctx.fillStyle = '#fff3d6';
+  ctx.fillText(text, x0 + kw + 5, y0 + hgt / 2 + 0.3);
+  ctx.restore();
 }
 
 function label(ctx, text, x, y) {

@@ -1,3 +1,4 @@
+import { on } from '../core/features.js';
 import { cleanText } from './chatSafety.js';
 import {
   ref, onValue, onChildAdded, onChildRemoved, push, set, update, remove, serverTimestamp,
@@ -483,6 +484,7 @@ export class Multiplayer {
 
   /** Runs every second: scout warnings, claiming battles, settling results. */
   warTick() {
+    if (!on('invasions')) return;   // no armies marching on anyone for now
     const g = this.g;
     const now = Date.now();
     this.resolveMissions();

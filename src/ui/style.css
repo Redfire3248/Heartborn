@@ -1555,8 +1555,8 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .forge-verdict.perfect { color: #ffd76a; } .forge-verdict.good { color: #7aff9a; } .forge-verdict.poor { color: #ff8a7a; }
 
 /* heat */
-.heat-flame { position: absolute; left: 50%; bottom: -30px; width: 160px; height: 120px; transform: translateX(-50%); background: radial-gradient(ellipse at 50% 100%, rgba(255,200,80,.7), rgba(255,90,20,.3) 45%, transparent 70%); animation: flicker .25s infinite alternate; }
-@keyframes flicker { to { opacity: .75; transform: translateX(-50%) scaleY(1.08); } }
+.heat-flame { position: absolute; left: 50%; bottom: -30px; width: 160px; height: 120px; transform: translateX(-50%); background: radial-gradient(ellipse at 50% 100%, rgba(255,200,80,.7), rgba(255,90,20,.3) 45%, transparent 70%); animation: heat-flicker .25s infinite alternate; }
+@keyframes heat-flicker { to { opacity: .75; transform: translateX(-50%) scaleY(1.08); } }
 .heat-gauge { position: absolute; left: 20px; right: 20px; top: 34px; height: 30px; border-radius: 15px; background: linear-gradient(90deg, #2a3a6a, #7a3a2a 55%, #ffef9a); border: 2px solid rgba(0,0,0,.5); }
 .heat-zone { position: absolute; top: -4px; bottom: -4px; border-radius: 10px; border: 2px solid #ffd76a; background: rgba(255,215,106,.18); box-shadow: 0 0 10px rgba(255,215,106,.5); transition: box-shadow .1s; }
 .heat-gauge.hot .heat-zone { box-shadow: 0 0 22px #ffd76a; background: rgba(255,215,106,.35); }
@@ -1615,3 +1615,71 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .hero-ability .ability-cd { position: absolute; inset: 0; background: conic-gradient(rgba(0,0,0,.6) calc(var(--cd, 0) * 360deg), transparent 0); pointer-events: none; border-radius: inherit; }
 .hero-ability { position: fixed; z-index: 14; right: 132px; bottom: calc(238px + env(safe-area-inset-bottom)); width: 52px; height: 52px; border-radius: 50%; border: 2px solid #c08aff; background: radial-gradient(circle at 35% 30%, #4a2d7a, #1a1030); color: #fff; font: inherit; font-size: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; touch-action: none; box-shadow: 0 3px 0 #0b0712; }
 .hero-ability.cooling { filter: saturate(.4); }
+
+/* ---- forge minigames: more alive ---- */
+.forge-card { background: radial-gradient(ellipse at 50% 100%, rgba(255,110,30,.22), transparent 60%), linear-gradient(180deg, #2a1a14, #120a0e); }
+.forge-arena { box-shadow: inset 0 0 30px rgba(0,0,0,.6); }
+.forge-spark { position: absolute; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; box-shadow: 0 0 6px currentColor; pointer-events: none; animation: forge-spark .6s ease-out forwards; }
+@keyframes forge-spark { to { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+
+/* heat */
+.heat-coals { position: absolute; left: 50%; bottom: 0; width: 220px; height: 26px; transform: translateX(-50%); border-radius: 50% 50% 0 0; background: radial-gradient(ellipse at 50% 100%, #ffb347, #c2331a 45%, #2a0e08 80%); box-shadow: 0 0 30px rgba(255,120,40,.7); animation: coals 1.2s ease-in-out infinite alternate; }
+@keyframes coals { to { filter: brightness(1.3); } }
+.heat-gauge.hot .heat-needle { background: #6fff8a; box-shadow: 0 0 12px #6fff8a, 0 0 2px #fff; }
+.heat-gauge.hot .heat-zone { border-color: #6fff8a; background: rgba(111,255,138,.22); box-shadow: 0 0 22px rgba(111,255,138,.8); }
+
+/* hammer: an anvil with glowing metal, a hammer that swings */
+.forge-anvil { position: absolute; left: 50%; bottom: 8px; width: 150px; height: 34px; transform: translateX(-50%); border-radius: 6px 6px 14px 14px; background: linear-gradient(180deg, #6a6a74, #33333c 60%, #1c1c22); box-shadow: 0 6px 0 #0c0c10, inset 0 2px 0 rgba(255,255,255,.2); }
+.forge-ingot { position: absolute; left: 50%; top: -12px; width: 64px; height: 14px; transform: translateX(-50%); border-radius: 4px; background: linear-gradient(180deg, #fff4a0, #ff9a2a 50%, #c2331a); box-shadow: 0 0 18px #ff9a2a, 0 0 40px rgba(255,120,40,.6); animation: ingot 1.4s ease-in-out infinite alternate; }
+@keyframes ingot { to { filter: brightness(1.25); } }
+.forge-hammer { position: absolute; right: 22%; bottom: 44px; width: 18px; height: 70px; transform-origin: 50% 100%; transform: rotate(35deg); border-radius: 4px; background: linear-gradient(90deg, #7a4a2a, #a0683a); }
+.forge-hammer::before { content: ''; position: absolute; left: -16px; top: -6px; width: 50px; height: 24px; border-radius: 5px; background: linear-gradient(180deg, #a8a8b4, #55555e); box-shadow: inset 0 2px 0 rgba(255,255,255,.35); }
+.forge-hammer.swing { animation: hammer-swing .18s ease-in; }
+@keyframes hammer-swing { 50% { transform: rotate(-25deg); } 100% { transform: rotate(35deg); } }
+.hammer-bar { top: 36px; }
+.hammer-count { top: 72px; }
+.hammer-spot { background: rgba(255,255,255,.18); border: 2px solid rgba(255,255,255,.85); box-shadow: 0 0 10px rgba(255,255,255,.45); transition: background .08s, border-color .08s, box-shadow .08s; }
+.hammer-spot.on-spot { background: rgba(111,255,138,.45); border-color: #6fff8a; box-shadow: 0 0 20px #6fff8a; }
+.hammer-marker { transition: background .06s, box-shadow .06s; }
+.hammer-marker.on-spot { background: #6fff8a; box-shadow: 0 0 14px #6fff8a, 0 0 3px #fff; }
+
+/* quench */
+.quench-target.on-spot { border-color: #6fff8a; box-shadow: 0 0 20px #6fff8a; }
+.quench-ring.on-spot { border-color: #6fff8a; box-shadow: 0 0 14px #6fff8a; }
+
+/* ---- character sheet: a paper doll, compact stats ---- */
+.char-modal { width: min(620px, 96vw); }
+.char-top h2 { margin: 0 0 4px; }
+.xp-line { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.xp-bar { flex: 1; max-width: 220px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); overflow: hidden; }
+.xp-bar i { display: block; height: 100%; background: linear-gradient(90deg, #6fb8ff, #b08aff); }
+.char-main { display: grid; grid-template-columns: 220px 1fr; gap: 14px; margin-top: 12px; }
+.doll { position: relative; display: grid; grid-template-columns: 56px 1fr 56px; grid-template-rows: 56px 56px 56px 28px; gap: 6px; padding: 8px; border-radius: 14px;
+  background: radial-gradient(ellipse at 50% 60%, rgba(255,215,106,.08), rgba(0,0,0,.25)); border: 1px solid rgba(255,255,255,.08); }
+.doll-figure { grid-column: 2; grid-row: 1 / 4; display: grid; place-items: center; filter: drop-shadow(0 6px 8px rgba(0,0,0,.5)); }
+.doll-slot { width: 56px; height: 56px; display: grid; place-items: center; padding: 0; border-radius: 10px; border: 2px solid rgba(255,255,255,.12); background: rgba(0,0,0,.3); color: inherit; font: inherit; cursor: pointer; }
+.doll-slot:hover { background: rgba(255,255,255,.1); }
+.doll-slot.sel { outline: 2px solid #fff; outline-offset: 1px; }
+.doll-empty { font-size: 9px; color: rgba(255,255,255,.35); }
+.doll-helmet { grid-column: 1; grid-row: 1; } .doll-armor { grid-column: 1; grid-row: 2; } .doll-trinket { grid-column: 1; grid-row: 3; }
+.doll-weapon { grid-column: 3; grid-row: 1; } .doll-shield { grid-column: 3; grid-row: 2; }
+.doll-look { grid-column: 1 / 4; grid-row: 4; justify-self: center; }
+.char-stats { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.stat-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.stat-chip { display: flex; flex-direction: column; padding: 4px 8px; border-radius: 8px; background: rgba(255,255,255,.05); font-size: 11px; color: #b8aecb; }
+.stat-chip b { font-size: 14px; color: #fff3d6; }
+.attr-head { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #b8aecb; }
+.points-badge { padding: 1px 8px; border-radius: 999px; background: #ff9a3a; color: #2a1a08; font-weight: 800; text-transform: none; letter-spacing: 0; }
+.attr-row { display: grid; grid-template-columns: 64px 34px 1fr auto; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 8px; background: rgba(255,255,255,.04); font-size: 13px; }
+.attr-desc { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attr-plus { min-width: 28px; padding: 2px 8px; }
+.char-sheet .bag-head { display: flex; align-items: center; margin: 12px 0 6px; }
+.char-sheet .bag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 5px; }
+.bag-cell.empty { aspect-ratio: 1; border: 2px solid rgba(255,255,255,.05); background: rgba(255,255,255,.02); border-radius: 8px; }
+.char-sheet .bag-detail { margin-top: 10px; }
+.char-sheet .avatar-grid { margin-top: 10px; }
+@media (max-width: 560px) { .char-main { grid-template-columns: 1fr; } .doll { max-width: 240px; margin: 0 auto; } .stat-chips { grid-template-columns: repeat(2, 1fr); } }
+
+/* the skill button sits left of the potion, clear of every other button */
+.hero-ability { right: 196px; bottom: calc(176px + env(safe-area-inset-bottom)); }
+.leading .hero-ability { bottom: calc(222px + env(safe-area-inset-bottom)); }

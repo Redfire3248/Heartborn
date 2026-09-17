@@ -19,6 +19,7 @@ export const FEATURES = {
   missiles: false,      // missile silos, orbital cannons, strikes
   housesOnly: true,     // the build menu offers homes only (every kind, from the start)
   notifications: false, // the bell, the message feed and pop-up toasts about events
+  invasions: false,     // other players' armies marching on you (and their warnings)
   warbands: false,      // barbarian armies marching on your land (and their warnings)
 };
 
