@@ -1,5 +1,5 @@
 import { TILE } from '../core/constants.js';
-import { rpgOf } from './rpg.js';
+import { rpgOf, discover } from './rpg.js';
 import { TILES } from './world.js';
 import { gameTheme } from './worldTypes.js';
 
@@ -88,6 +88,7 @@ export function toolsOf(g) {
 
 export function giveTool(g, key, n = 1) {
   if (!TOOLS[key]) return false;
+  discover(g, 'tool', key);
   const t = toolsOf(g);
   const isNew = !t[key];
   t[key] = (t[key] || 0) + n;

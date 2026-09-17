@@ -631,6 +631,10 @@ export class Renderer {
     if (o._shake > 0) { sway += Math.sin(this.time * 38) * 0.07 * Math.min(1, o._shake * 4); o._shake -= 1 / 60; }   // being chopped or mined
     const depleted = def.regrowDays && o.charges <= 0;
     drawSprite(this.ctx, def.sprite, x, y, size, { rot: sway, alpha: depleted ? 0.55 : 1 });
+    if (o.rich && Math.sin(this.time * 3 + o.x * 1.7 + o.y) > 0.6) {   // a rich vein twinkles
+      const k = (Math.sin(this.time * 3 + o.x * 1.7 + o.y) - 0.6) / 0.4;
+      drawSprite(this.ctx, 'effects/spark', x + Math.sin(o.x * 13 + o.y) * size * 0.25, y - size * (0.35 + 0.2 * Math.cos(o.y * 7)), TILE * 0.35 * k, { center: true, alpha: k });
+    }
   }
 
   drawBuilding(g, b, x, y) {

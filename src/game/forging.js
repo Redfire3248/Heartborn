@@ -11,6 +11,11 @@
  */
 import { CATALOG, RARITY, makeGear, takeGear, rpgOf, questProgress } from './rpg.js';
 import { luckOf } from './loot.js';
+import { TOOLS, giveTool } from './tools.js';
+
+/** Tools you can forge (tiered ones), by kind, weakest first. */
+export const FORGE_TOOL_KINDS = ['pickaxe', 'axe', 'shovel', 'hoe', 'sickle', 'hammer', 'fishing_rod'];
+const toolsOfKind = kind => Object.entries(TOOLS).filter(([, t]) => t.kind === kind && t.mat && !t.utility).sort((a, b) => a[1].power - b[1].power);
 
 /** Forge materials. `mult`: power; `rarity`: 0 Common .. 4 Mythic; `trait`: given at 25%+; `pool`: weapons it leans to. */
 export const MATERIALS = {
@@ -84,7 +89,7 @@ const ARMOUR = () => [...Object.entries(CATALOG.armor), ...Object.entries(CATALO
  * What a mix of materials would make. `mix`: { material: count }; `kind`: 'weapon' | 'armour'.
  * Returns { ok, why, total, mult, rarity, traits, odds: [{ base, chance }] }.
  */
-export function forgePreview(mix, kind = 'weapon') {
+export function forgePreview(mix, kind = 'weapon', toolKind = 'pickaxe') {
   const entries = Object.entries(mix).filter(([k, n]) => MATERIALS[k] && n > 0);
   const total = entries.reduce((a, [, n]) => a + n, 0);
   if (total < 3) return { ok: false, why: 'Put in at least 3 materials', total, odds: [], traits: [] };
@@ -92,6 +97,13 @@ export function forgePreview(mix, kind = 'weapon') {
   const mult = entries.reduce((a, [k, n]) => a + MATERIALS[k].mult * n, 0) / total * (1 + Math.min(0.25, (total - 3) * 0.02));   // more material, a little more power
   const rarity = Math.min(4, Math.round(entries.reduce((a, [k, n]) => a + MATERIALS[k].rarity * n, 0) / total));
   const traits = [...new Set(entries.filter(([k]) => MATERIALS[k].trait && share(k) >= 0.25).sort((a, b) => b[1] - a[1]).map(([k]) => MATERIALS[k].trait))].slice(0, 2);
+  if (kind === 'tool') {   // the materials set a power to aim at; the dice land near it (a little worse or better)
+    const aim = mult * 5;   // copper aims at bronze, iron at iron, mythril at diamond, dragon scale near lava
+    const odds0 = toolsOfKind(toolKind).map(([k, t]) => ({ base: k, w: Math.exp(-((t.power - aim) ** 2) / 2.4) })).filter(o => o.w > 0.02);
+    const tsum = odds0.reduce((a, o) => a + o.w, 0);
+    if (!tsum) return { ok: false, why: 'No tool of that kind can be forged from this', total, odds: [], traits: [] };
+    return { ok: true, total, mult, rarity, traits: [], aim, odds: odds0.map(o => ({ base: o.base, chance: o.w / tsum })).sort((a, b) => b.chance - a.chance) };
+  }
   const weights = {};
   if (kind === 'weapon') {
     for (const [k, n] of entries) {
@@ -127,12 +139,27 @@ export function rollForgeBase(p) {
   return p.odds[p.odds.length - 1].base;
 }
 
-export function forge(g, mix, kind = 'weapon', { score = 0.5, hero = null, base = null } = {}) {
-  const p = forgePreview(mix, kind);
+export function forge(g, mix, kind = 'weapon', { score = 0.5, hero = null, base = null, toolKind = 'pickaxe' } = {}) {
+  const p = forgePreview(mix, kind, toolKind);
   if (!p.ok) return { ok: false, why: p.why };
   if (!canPay(g, mix)) return { ok: false, why: 'You do not have those materials' };
   for (const [k, n] of Object.entries(mix)) g.state.resources[k] -= n;
   if (!base || !p.odds.some(o => o.base === base)) base = rollForgeBase(p);
+  if (kind === 'tool') {
+    let key = base, bump = 0;
+    // a great forging (and luck) can lift it a tier; a lucky one makes two
+    if (Math.random() < Math.max(0, score - 0.6) * 0.9 + luckOf(g) * 0.3) {
+      const better = toolsOfKind(TOOLS[key].kind).find(([, t]) => t.power > TOOLS[key].power);
+      if (better) { key = better[0]; bump = 1; }
+    }
+    const extra = Math.random() < 0.04 + score * 0.1 ? 1 : 0;
+    giveTool(g, key, 1 + extra);
+    const r = rpgOf(g);
+    r.forged = (r.forged || 0) + 1;
+    questProgress(g, 'forge', { v: hero });
+    g.emit('change');
+    return { ok: true, tool: key, name: TOOLS[key].name, icon: TOOLS[key].icon, fallbackIcon: TOOLS[key].fallbackIcon, preview: p, bump, extra };
+  }
   const luck = luckOf(g);
   const bump = Math.random() < Math.max(0, score - 0.6) * 0.9 + luck * 0.3 ? 1 : 0;   // a great forging can lift the rarity
   const it = makeGear(g, base, Math.min(4, p.rarity + bump));

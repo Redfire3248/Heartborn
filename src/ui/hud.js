@@ -1,4 +1,5 @@
 import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo } from './dom.js';
+import { openIndex } from './indexBook.js';
 import { openLayoutEditor, watchLayout } from './layoutEdit.js';
 import { quickCraft, setQuickCraft } from '../core/prefs.js';
 import { TRAITS as FORGE_TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
@@ -149,6 +150,7 @@ export class HUD {
     // go in once the current swing or step has finished (never in the middle of updating the hero)
     game.on('dungeon', e => setTimeout(() => this.enterDungeon(e), 0));
     game.on('house', b => setTimeout(() => this.enterHouse(b), 0));
+    game.on('discover', () => { if (!this._indexToastAt || performance.now() - this._indexToastAt > 4000) { this._indexToastAt = performance.now(); this.toast({ text: 'New entry in your Index (N)', kind: 'event' }); } });
     if (mp) {
       // player vs player
       game.pvp = (uid, dmg, x, y, name) => mp.sendHit(uid, dmg, x, y, name);
@@ -419,6 +421,7 @@ export class HUD {
     if (k === 'escape' && this.visiting) { this.onReturnHome(); return; }
     if (is(k, 'character') && !this.game.sail) { this.toggleLead(); return; }
     if (is(k, 'inventory')) { this.inventory(); return; }
+    if (is(k, 'index')) { openIndex(this); return; }
     const slot = ACTIONS.findIndex(a => a.id.startsWith('hot') && is(k, a.id)) - ACTIONS.findIndex(a => a.id === 'hot1');
     // like Minecraft: hover something in the inventory and press a number to put it in that hotbar slot
     if (slot >= 0 && this._invHover && !this.els.invPanel.hidden) { setSlot(this.game, slot, this._invHover); this._hotbarKey = null; this.renderInventory(); return; }
@@ -827,17 +830,20 @@ export class HUD {
     const heldInfo = this.slotInfo(bar[r.hotSel], v);
     panel.replaceChildren(
       h('div.inv-head', h('b', 'Inventory'), h('div.spacer'),
+        h('button.btn.sm', { title: 'Everything you have found (N)', onclick: () => openIndex(this) }, 'Index'),
         h('button.btn.sm.analyze-btn', { title: 'Analyze the item under your cursor (or what you hold). Tip: right-click a hotbar slot', onclick: () => this.analyzeKey(this._invHover || bar[r.hotSel]) }, 'Analyze'),
         h('button.btn.sm', { title: 'Ores, metals and boss materials', onclick: () => openMaterialsBag(this) }, 'Materials'),
         h('button.btn.sm', { title: 'Craft (C). At a Crafting Table: everything', onclick: () => this.openTable() }, 'Craft'),
         h('button.btn.sm', { title: 'Your gear and stats (G)', onclick: () => this.characterSheet() }, 'Gear'),
         h('button.modal-x.inv-x', { title: 'Close (I)', onclick: () => { panel.hidden = true; } }, hasArt('ui/close') ? icon('ui/close', 16) : '✕')),
       (() => {
-        const filled = [cell('weapon'), ...((r.potions || 0) > 0 ? [cell('potion')] : []), ...Object.keys(itemsOf(g)).filter(k => CONSUMABLES[k] && itemsOf(g)[k] > 0).map(k => cell(`item:${k}`)), ...keys.map(k => cell(k))];
+        // like Minecraft: what sits in your hotbar is not shown again in here
+        const off = k => !bar.includes(k);
+        const filled = [...(off('weapon') ? [cell('weapon')] : []), ...((r.potions || 0) > 0 && off('potion') ? [cell('potion')] : []), ...Object.keys(itemsOf(g)).filter(k => CONSUMABLES[k] && itemsOf(g)[k] > 0 && off(`item:${k}`)).map(k => cell(`item:${k}`)), ...keys.filter(off).map(k => cell(k))];
         const size = Math.max(27, Math.ceil(filled.length / 9) * 9);   // a fixed grid of slots, like a chest
         return h('div.inv-cells', ...filled, ...Array.from({ length: size - filled.length }, () => h('div.inv-cell.empty')));
       })(),
-      h('div.faint.inv-hint', 'Click: to hotbar · hover + 1-9: that slot · right-click: drop'));
+      h('div.faint.inv-hint', 'Click: to hotbar · drag a hotbar item here to put it back · right-click: drop'));
     void heldInfo;
   }
 
@@ -1726,7 +1732,7 @@ export class HUD {
       it?.dmg ? h('span.faint', `${it.dmg} damage`) : it?.armor ? h('span.faint', `${Math.round(it.armor * 100)}% armour`) : null,
       it?.traits?.length ? h('div.forge-stats', ...it.traits.map(t => h('span.trait-chip', { style: { color: FORGE_TRAITS[t].color, borderColor: FORGE_TRAITS[t].color } }, FORGE_TRAITS[t].name))) : null,
       it && weaponAbility(it) ? h('span', { style: { color: weaponAbility(it).color, fontWeight: 700 } }, `Ability (F): ${weaponAbility(it).name}`) : null,
-      res.bump ? h('span.craft-lucky', 'Forged to a higher rarity!') : null,
+      res.bump ? h('span.craft-lucky', it ? 'Forged to a higher rarity!' : 'Forged a tier higher!') : null,
       res.extra ? h('span.craft-lucky', `Lucky craft! You made ${res.extra + 1}`) : null);
     this.root.append(el);
     play(q?.id === 'masterwork' || res.extra ? 'reveal' : 'ability');

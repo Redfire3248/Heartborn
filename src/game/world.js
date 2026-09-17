@@ -229,7 +229,13 @@ export function populateWorld(world) {
       const rocky = tile === T.cave_floor || tile === T.dirt || tile === T.snow || (tile === T.sand && theme === 'desert') || (wild && tile !== T.water && tile !== T.deep_water && tile !== T.lava);
       if (rocky && !world.objectAt(x, y) && r() < (tile === T.cave_floor ? 0.07 : 0.025)) {
         const ores = THEMES[theme]?.ores || ['copper_ore'];
-        place(ores[Math.floor(r() * ores.length)], x, y);
+        // rarer ores turn up less often; now and then a stray vein from another land
+        let pick;
+        if (r() < 0.03) { const all = [...new Set(Object.values(THEMES).flatMap(t => t.ores || []))].filter(k => OBJECTS[k]); pick = all[Math.floor(r() * all.length)]; }
+        else pick = weighted(ores.map(t => ({ t, weight: 1 / (1 + (OBJECTS[t]?.tier || 1) * 0.3) })), r).t;
+        place(pick, x, y);
+        const node = world.objectAt(x, y);
+        if (node && node.t === pick && r() < 0.08) { node.rich = true; node.charges = (node.charges || 1) + 2; }   // a rich vein: sparkles, more to take
       }
       if (tile === T.water && roll < 0.02) {
         // fish live in shallow water

@@ -342,6 +342,7 @@ export const gearScore = it => (it ? (it.dmg || 0) + (it.block || 0) * 40 + (it.
 /** Picked up: better than what you wear goes straight on, anything else into your bag. */
 export function takeGear(g, it, v = null) {
   const r = rpgOf(g);
+  discover(g, 'gear', it.base);
   const worn = r.gear[it.slot];
   if (gearScore(it) > gearScore(worn)) {
     if (worn) r.bag.push(worn);
@@ -451,7 +452,19 @@ export function updateQuests(g) {
   }
 }
 
+/** Mark something as found in your Index (ores mined, creatures slain, gear and tools you got). */
+export function discover(g, cat, key, n = 1) {
+  if (!key) return;
+  const r = rpgOf(g);
+  const c = ((r.index ||= {})[cat] ||= {});
+  const first = !c[key];
+  c[key] = (c[key] || 0) + n;
+  if (first) g.emit?.('discover', { cat, key });
+}
+
 export function questProgress(g, kind, detail = {}) {
+  if (kind === 'mineType') discover(g, 'ore', detail.type);
+  if (kind === 'slayType') discover(g, 'mob', detail.type);
   const r = rpgOf(g);
   let finished = false;
   for (const q of r.quests) {

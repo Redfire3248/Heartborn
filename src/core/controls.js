@@ -16,6 +16,7 @@ export const ACTIONS = [
   { id: 'ability', label: 'Weapon ability', group: 'Fighting', def: 'f' },
   { id: 'character', label: 'Character', group: 'Screens', def: 'g' },
   { id: 'inventory', label: 'Inventory', group: 'Screens', def: 'i' },
+  { id: 'index', label: 'Index', group: 'Screens', def: 'n' },
   { id: 'map', label: 'World map', group: 'Screens', def: 'v' },
   { id: 'build', label: 'Build menu', group: 'Screens', def: 'b' },
   { id: 'craft', label: 'Craft menu', group: 'Screens', def: 'c' },

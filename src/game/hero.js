@@ -1,7 +1,8 @@
 import { doorOf } from './houses.js';
+import { gameTheme } from './worldTypes.js';
 import { TILE, WALK_SPEED, DAY_LENGTH, ADULT_AGE } from '../core/constants.js';
 import { traitEffects, abilityOf } from './forging.js';
-import { popResource, updateDrops, lucky } from './loot.js';
+import { popResource, updateDrops, lucky, ORE_RESOURCE } from './loot.js';
 import { CREATURES, OBJECTS } from '../data/objects.js';
 import { damageCreature, maxHp } from './creatures.js';
 import { collectFind } from './finds.js';
@@ -653,16 +654,24 @@ function work(g, v, held = null) {
   if (obj._heroHits < tool.hits) return true;
   obj._heroHits = 0;
   // what comes out pops onto the ground; the dice decide how much and whether something special comes too
-  const rich = def.work === 'mine' && lucky(g, 0.12);
+  const rich = def.work === 'mine' && (obj.rich || lucky(g, 0.12));
+  const jackpot = def.work === 'mine' && lucky(g, 0.015);
   for (const k of ['wood', 'stone', 'food', 'coal', 'iron', 'gold', 'gems', 'influence', 'copper', 'silver', 'obsidian', 'mythril', 'frostite', 'magmite', 'jade', 'cobalt', 'moonstone', 'titanium', 'sunstone', 'voidstone']) {
     if (!def[k]) continue;
     let n = Math.round((def[k][0] + Math.floor(Math.random() * (def[k][1] - def[k][0] + 1))) * 2 * tool.yieldMult);
     if (n <= 0) continue;
     if (rich) n *= 2;
+    if (jackpot) n *= 2;
     for (let i = 0; i < Math.min(n, 4); i++) popResource(g, k, i === Math.min(n, 4) - 1 ? n - Math.min(n, 4) + 1 : 1, c.x, c.y - 4);
   }
   if (def.work === 'mine') {
-    if (rich) { g.float(c.x, c.y - TILE * 1.3, 'Rich vein! x2', '#ffd76a'); g.puff(c, 'effects/spark', 8, 14); }
+    if (jackpot) { g.float(c.x, c.y - TILE * 1.3, rich ? 'JACKPOT! x4' : 'JACKPOT! x2', '#ff9aff'); g.puff(c, 'effects/spark', 16, 20); g.fx.shake = Math.max(g.fx.shake, 0.8); }
+    else if (rich) { g.float(c.x, c.y - TILE * 1.3, 'Rich vein! x2', '#ffd76a'); g.puff(c, 'effects/spark', 8, 14); }
+    if (lucky(g, 0.03)) {   // a stray nugget of another ore from these lands
+      const ores = (gameTheme(g).ores || []).filter(k => ORE_RESOURCE[k] && k !== obj.t);
+      const o = ores[Math.floor(Math.random() * ores.length)];
+      if (o) { popResource(g, ORE_RESOURCE[o], 1 + Math.floor(Math.random() * 2), c.x, c.y); g.float(c.x, c.y - TILE * 1.9, 'A stray nugget!', '#9fe0ff'); }
+    }
     if (lucky(g, 0.04)) { popResource(g, 'gems', 1, c.x, c.y); g.float(c.x, c.y - TILE * 1.7, 'A hidden gem!', '#9fe0ff'); }
     if (def.rarity && def.rarity !== 'Common' && obj._heroHits === 0) g.float(c.x, c.y - TILE * 2.1, `${def.rarity} ore`, ORE_COLORS[def.rarity] || '#fff');
   } else if (def.work === 'chop') {

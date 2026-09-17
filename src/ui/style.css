@@ -1827,3 +1827,21 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
   .announce, .leading .announce { top: 76px !important; }
   .hint, .leading .hint { top: 108px !important; }
 }
+
+/* the Index */
+.index-modal { width: min(760px, 96vw) !important; max-height: 90vh; display: flex; flex-direction: column; gap: 10px; }
+.index-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.index-head h2 { margin: 0; }
+.index-bar { flex: 1 1 120px; height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; }
+.index-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffb347, #ffd76a); }
+.index-tabs { flex-wrap: wrap; }
+.index-tabs button { font-size: 12px; }
+.index-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; overflow-y: auto; padding: 2px; }
+.index-cell { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px 6px; border-radius: 10px; border: 2px solid rgba(255,255,255,.1); background: rgba(0,0,0,.25); text-align: center; }
+.index-cell img { image-rendering: pixelated; }
+.index-cell.found { border-color: rgba(255, 215, 106, .45); }
+.index-cell.unknown img { filter: brightness(0); opacity: .55; }
+.index-name { font-size: 11px; line-height: 1.15; }
+.index-cell.unknown .index-name { color: #8a8098; }
+.index-n { position: absolute; top: 3px; right: 5px; font-size: 10px; color: var(--gold); font-weight: 700; }
+.forge-toolkinds { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; margin-top: 4px; }
