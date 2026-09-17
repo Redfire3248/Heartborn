@@ -1845,3 +1845,5 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .index-cell.unknown .index-name { color: #8a8098; }
 .index-n { position: absolute; top: 3px; right: 5px; font-size: 10px; color: var(--gold); font-weight: 700; }
 .forge-toolkinds { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; margin-top: 4px; }
+/* no browser image dragging or selecting on game pictures */
+#ui img, .sprite { -webkit-user-drag: none; user-drag: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }

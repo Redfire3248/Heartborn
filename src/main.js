@@ -24,6 +24,8 @@ import { AdminConsole } from './ui/adminConsole.js';
 import { loadingScreen, loginScreen, nameVillage, chooseUsername, bannedScreen, offlineSummary, extinctScreen } from './ui/screens.js';
 
 setupPWA();
+// pictures in the game are never dragged out as images (dragging items uses our own drag)
+document.addEventListener('dragstart', e => { if (e.target instanceof HTMLImageElement || e.target?.closest?.('#ui')) e.preventDefault(); });
 watchForUpdates({ beforeReload: () => save(true) });
 setupErrorReporting(BUILD);
 setupSound();
