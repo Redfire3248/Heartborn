@@ -1,7 +1,6 @@
 import { h, icon, avatar, GOOGLE_SVG, modal, fmt } from './dom.js';
-import { logoEmblem, logoEmbers } from './logo.js';
 import { friendlyAuthError } from '../net/firebase.js';
-import { installApp, canInstall, onInstallChange } from '../core/pwa.js';
+import { installApp, canInstall, onInstallChange, isIOS, isInstalled } from '../core/pwa.js';
 import { BUILD } from '../core/version.js';
 
 const ui = () => document.getElementById('ui');
@@ -9,7 +8,15 @@ const ui = () => document.getElementById('ui');
 /** "Install app" button: only visible when the browser allows installing. */
 export function installButton(cls = 'button.btn.sm.install-btn') {
   const btn = h(cls, { onclick: async () => {
-    const r = await installApp();
+    const r = canInstall() ? await installApp() : isIOS() ? 'ios' : 'manual';
+    if (r === 'manual') {   // no install prompt from this browser: say how to do it by hand
+      const m = modal([
+        h('h2', 'Install Heartborn'),
+        h('div.muted', 'Open your browser menu (the three dots or the address bar icon) and choose “Install app” or “Add to Home screen”. On a phone, the same option is in the browser menu.'),
+        h('button.btn.primary', { onclick: () => m.close() }, 'Got it'),
+      ]);
+      return;
+    }
     if (r === 'ios') {
       const m = modal([
         h('h2', 'Install Heartborn'),
@@ -18,7 +25,7 @@ export function installButton(cls = 'button.btn.sm.install-btn') {
       ]);
     }
   } }, h('img', { src: 'icons/icon-32.png', width: 18, height: 18, alt: '', style: { imageRendering: 'pixelated', borderRadius: '4px' } }), 'Install app');
-  const sync = () => { btn.hidden = !canInstall(); };
+  const sync = () => { btn.hidden = isInstalled(); };   // always offered, unless the game already runs as an installed app
   sync();
   onInstallChange(sync);
   return btn;
@@ -28,7 +35,7 @@ export function loadingScreen() {
   const fill = h('i');
   const text = h('div.muted', 'Kindling the fire…');
   const el = h('div.screen.loading',
-    h('div.logo', logoEmbers(10), logoEmblem(96), h('h1', 'HEARTBORN')),
+    h('div.logo', h('img.logo-mark', { src: 'icons/icon-192.png', alt: '' }), h('h1', 'HEARTBORN')),
     h('div.load-bar', fill),
     text);
   ui().append(el);
@@ -48,8 +55,6 @@ export function loginScreen({ user, onSignIn, onEmailSignIn, onCreateAccount, on
   const card = h('div.card.login-card');
   const root = h('div.screen.login',
     h('div.logo',
-      logoEmbers(),
-      logoEmblem(104),
       h('h1', 'HEARTBORN'),
       h('div.tagline', h('span', 'One hero. Endless adventure.'), h('br'), h('span', 'Fight, explore, delve and build your home.'))),
     card,
