@@ -614,7 +614,9 @@ export class Game {
   announce(text) { if (!this.offline) this.emit('announce', text); }
   float(x, y, text, color = '#fff') {
     if (this.offline || !text) return;
-    this.fx.floaters.push({ x, y, text, color, life: 2.2, max: 2.2 });
+    // texts popping up at the same spot stack upward instead of drawing over each other
+    const near = this.fx.floaters.filter(f => f.life > f.max - 0.6 && Math.abs(f.x - x) < 40 && Math.abs(f.y0 ?? f.y) - Math.abs(y) < 40 && Math.abs((f.y0 ?? f.y) - y) < 40).length;
+    this.fx.floaters.push({ x, y: y - near * 11, y0: y, text, color, life: 2.2, max: 2.2 });
   }
   /** A 6-frame animated effect (combat/slash, combat/hit, combat/poof...) played once at a spot. */
   anim(prefix, x, y, { size = 32, dur = 0.3, rot = null, flip = false } = {}) {

@@ -119,7 +119,7 @@ export async function run() {
     ok(!F.forge(g, { silver: 3, lich_soul: 1 }).ok, 'you cannot forge without the materials');
     Object.assign(g.state.resources, { silver: 3, lich_soul: 1 });
     const r = F.forge(g, { silver: 3, lich_soul: 1 }, 'weapon', { score: 1, hero: me });
-    ok(r.ok && g.state.resources.silver === 0 && g.state.resources.lich_soul === 0 && r.item.traits.includes('holy') && r.item.name.startsWith('Silver'), 'forging uses the materials and makes a Silver weapon with its traits', r.item?.name);
+    ok(r.ok && g.state.resources.silver === 0 && g.state.resources.lich_soul === 0 && r.item.traits.includes('holy') && r.item.name.includes('Silver'), 'forging uses the materials and makes a Silver weapon with its traits', r.item?.name);
     Object.assign(g.state.resources, { iron: 6 });
     ok(F.forge(g, { iron: 6 }, 'armour', { hero: me }).item?.slot !== 'weapon', 'the forge makes armour too');
     ok(Object.keys(F.BOSS_MATERIAL).length === 7 && F.BOSS_MATERIAL.lich === 'lich_soul', 'every boss has its own material');
@@ -151,7 +151,11 @@ export async function run() {
     g.hero.inHouse = true;
     ok(H.damageHero(g, g.state.villagers[0], 50, null) === 0, 'nothing hurts you inside your home');
     g.hero.inHouse = false;
-    ok(H.damageHero(g, g.state.villagers[0], 10, null) > 10, 'outside, monsters hit harder than before');
+    const Rr = await import('/src/game/rpg.js');
+    const soft = H.damageHero(g, g.state.villagers[0], 10, null);
+    Rr.rpgOf(g).level = 9; g.state.time = 90 * 3; g.hero.iframes = 0;
+    const hard = H.damageHero(g, g.state.villagers[0], 10, null);
+    ok(soft <= 10 && hard > 14, 'monsters hit gently at first, then much harder as you grow', `${soft.toFixed(1)} then ${hard.toFixed(1)}`);
   });
 
   await step('Mythic and Admin rarities', async () => {
@@ -470,7 +474,7 @@ export async function run() {
     ok(R.rpgOf(g).gear.weapon?.id === epic.id && R.heroWeapon(g, me).dmg === 60, 'better loot is equipped at once');
     R.takeGear(g, { ...R.rollGear(g, { slot: 'weapon' }), rarity: 0, dmg: 5 });
     ok(R.rpgOf(g).bag.length === 1, 'weaker loot goes into the bag');
-    ok(R.rpgOf(g).quests.length === 3, 'there are always three quests');
+    ok(R.rpgOf(g).quests.length === 0, 'quests are switched off');
     H.endLead(g);
   });
 
@@ -1074,6 +1078,8 @@ export async function run() {
   });
 
   await step('sailing: shipyard, boats, steering, bombs, pirates, treasure, sinking', async () => {
+    const Fs = await import('/src/core/features.js');
+    if (!Fs.on('sailing')) { ok(true, 'sailing is switched off for now'); return; }
     const S = await import('/src/game/sailing.js');
     const g = freshGame({ era: 3, people: 6 });
     build(g, 'campfire');

@@ -9,7 +9,7 @@
  *
  * Bosses drop special materials that unlock their own weapons and the strongest traits.
  */
-import { CATALOG, RARITY, makeGear, takeGear, rpgOf } from './rpg.js';
+import { CATALOG, RARITY, makeGear, takeGear, rpgOf, questProgress } from './rpg.js';
 import { luckOf } from './loot.js';
 
 /** Forge materials. `mult`: power; `rarity`: 0 Common .. 4 Mythic; `trait`: given at 25%+; `pool`: weapons it leans to. */
@@ -138,11 +138,13 @@ export function forge(g, mix, kind = 'weapon', { score = 0.5, hero = null } = {}
   it.traits = p.traits;
   const main = Object.entries(mix).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1])[0][0];
   it.material = main;
-  it.name = `${MATERIALS[main].name} ${it.name}`;
+  const rar = RARITY[it.rarity].name;
+  it.name = it.name.startsWith(rar + ' ') ? `${rar} ${MATERIALS[main].name} ${it.name.slice(rar.length + 1)}` : `${MATERIALS[main].name} ${it.name}`;
   it.forgeScore = Math.round(score * 100);
   takeGear(g, it, hero);
   const r = rpgOf(g);
   r.forged = (r.forged || 0) + 1;
+  questProgress(g, 'forge', { v: hero });
   g.emit('change');
   return { ok: true, item: it, preview: p, bump };
 }

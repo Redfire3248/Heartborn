@@ -1,6 +1,6 @@
 import { TILE } from '../core/constants.js';
 import { luckOf, lucky } from './loot.js';
-import { CATALOG, RARITY, BLADE_SPECIALS, makeGear, takeGear, rpgOf, slotOf } from './rpg.js';
+import { CATALOG, RARITY, BLADE_SPECIALS, makeGear, takeGear, rpgOf, slotOf, questProgress } from './rpg.js';
 import { TOOLS, TOOL_KINDS, giveTool } from './tools.js';
 import { CONSUMABLES, giveItem } from './consumables.js';
 
@@ -193,6 +193,7 @@ export function craft(g, id, hero = null, { score = 0.5 } = {}) {
   }
   const r = rpgOf(g);
   r.crafted = (r.crafted || 0) + 1;
+  if (needsTable(recipe)) questProgress(g, 'craft', { v: hero });
   if (hero) g.float(hero.x, hero.y - TILE * 1.5, `Crafted ${made}`, '#9fe0ff');
   g.emit('change');
   return { ok: true, made, quality, extra, item, recipe, score };

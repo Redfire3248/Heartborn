@@ -927,7 +927,8 @@ export class Renderer {
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.ellipse(c.x, c.y, size * 0.6, size * 0.28, 0, 0, Math.PI * 2); ctx.stroke();
       drawSprite(ctx, 'items/icon_gold', c.x, c.y - size + offsetY - 12 - p * 3, 12);
-      label(ctx, `${c.bounty.name} · ${c.bounty.gold} gold`, c.x, c.y + 8);
+      const heroV = g.hero && g.state.villagers.find(x => x.id === g.hero.id);
+      if (!heroV || Math.hypot(heroV.x - c.x, heroV.y - c.y) > TILE * 1.6) label(ctx, `${c.bounty.name} · ${c.bounty.gold} gold`, c.x, c.y + 8);   // hidden when it would sit on your name
     } else if (g.selected?.ref === c) label(ctx, c.t.replace('_', ' '), c.x, c.y + 7);
   }
 

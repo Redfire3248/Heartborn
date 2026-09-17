@@ -238,6 +238,19 @@ export function populateWorld(world) {
     }
   }
 
+  // a little rocky outcrop near home: stone, coal, copper and iron, so the first tools are close by
+  {
+    const a0 = r() * Math.PI * 2;
+    const ox = Math.round(cx + Math.cos(a0) * 9), oy = Math.round(cy + Math.sin(a0) * 9);
+    const pieces = ['rock', 'rock', 'rock', 'rock', 'rock', 'coal_ore', 'coal_ore', 'copper_ore', 'copper_ore', 'iron_ore', 'iron_ore'];
+    let placed = 0;
+    for (let tries = 0; tries < 120 && placed < pieces.length; tries++) {
+      const x = ox + Math.round((r() - 0.5) * 7), y = oy + Math.round((r() - 0.5) * 7);
+      if (!world.walkableTile?.(x, y) || world.objectAt(x, y) || Math.hypot(x - cx, y - cy) < 5) continue;
+      place(pieces[placed++], x, y);
+    }
+  }
+
   // a few ruins far from home to explore
   let ruins = 0;
   for (let tries = 0; tries < 400 && ruins < 5; tries++) {

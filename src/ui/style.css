@@ -1683,3 +1683,6 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 /* the skill button sits left of the potion, clear of every other button */
 .hero-ability { right: 196px; bottom: calc(176px + env(safe-area-inset-bottom)); }
 .leading .hero-ability { bottom: calc(222px + env(safe-area-inset-bottom)); }
+.hero-ability[hidden] { display: none !important; }
+/* banners sit below the tips on phones, so they never cover each other */
+@media (max-width: 760px), (hover: none) { .leading .announce { top: 40%; } }

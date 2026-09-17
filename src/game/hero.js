@@ -163,7 +163,7 @@ function attack(g, v, st) {
     openChest(g, chest, v);
     return;
   }
-  if (!nearFoe && !nearPerson) {
+  if (!nearFoe && !nearPerson && !(w.ranged && !tool)) {   // (bows, guns and staffs always shoot where you face)
     if (h.actCd > 0) return;
     h.actCd = Math.max(ACT_COOLDOWN, swingTime);
     h.atkCd = swingTime;
@@ -503,7 +503,9 @@ export function damageHero(g, v, dmg, from = null) {
   if (g.state.rpg?.god) return 0;   // admin god mode
   if (h.inHouse) return 0;   // nothing can hurt you inside your home
   // monsters hit hard, and keep up as your health grows with your level
-  dmg *= ENEMY_DAMAGE * (0.55 + 0.45 * heroStats(g).maxHp / 100);
+  const lvl = rpgOf(g).level || 1;
+  dmg *= (1 + (ENEMY_DAMAGE - 1) * Math.min(1, (lvl - 1) / 8)) * (0.55 + 0.45 * heroStats(g).maxHp / 100);
+  if (g.state.time < DAY_LENGTH && !g.dungeon) dmg *= 0.5;   // your first day in a new world
   if (h.iframes > 0) { g.float(v.x, v.y - TILE * 1.3, 'Dodged!', '#9fd4ff'); return 0; }
   const facingIt = from ? angleDiff(Math.atan2(from.y - v.y, from.x - v.x), h.facing) < 1.8 : true;
   let guarded = false;
@@ -659,6 +661,7 @@ function work(g, v, held = null) {
     else g.world.removeObject(s.objects, obj);
     g.puff(c, 'effects/leaf', 12, 30);
   } else {
+    if (def.work === 'mine') questProgress(g, 'mineType', { type: obj.t, v });
     obj.charges = (obj.charges || 1) - 1;
     if (obj.charges <= 0 && !def.regrowDays) g.world.removeObject(s.objects, obj);
   }

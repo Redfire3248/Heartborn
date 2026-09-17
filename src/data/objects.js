@@ -22,7 +22,7 @@ export const OBJECTS = {
   reeds:           { sprite: 'nature/reeds',           size: 0.8, work: 'cut', wood: [1, 2], charges: 1 },
   cactus:          { sprite: 'nature/cactus',          size: 0.9, work: 'cut', food: [1, 3], charges: 1 },
 
-  rock:            { sprite: 'nature/rock',            size: 0.9, work: 'mine', stone: [3, 6], charges: 3 },
+  rock:            { sprite: 'nature/rock',            size: 0.9, work: 'mine', stone: [2, 4], charges: 3 },
   coal_ore:        { sprite: 'nature/coal_ore',        size: 0.9, work: 'mine', stone: [1, 2], coal: [2, 4], charges: 3, tier: 1, rarity: 'Common' },
   iron_ore:        { sprite: 'nature/iron_ore',        size: 0.9, work: 'mine', stone: [1, 2], iron: [1, 3], charges: 3, tier: 2, rarity: 'Common' },
   gold_ore:        { sprite: 'nature/gold_ore',        size: 0.9, work: 'mine', stone: [1, 2], gold: [1, 3], charges: 2, tier: 5, rarity: 'Uncommon' },

@@ -1,4 +1,5 @@
 import { TILE } from '../core/constants.js';
+import { on } from '../core/features.js';
 import { BOSS_MATERIAL, MATERIALS } from './forging.js';
 import { popResource, lucky, ORE_RESOURCE } from './loot.js';
 import { gameTheme } from './worldTypes.js';
@@ -400,6 +401,8 @@ export function scrapGear(g, id) {
 
 const QUEST_KILLS = [['wolf', 'wolves'], ['boar', 'boars'], ['bandit', 'bandits'], ['goblin', 'goblins'], ['skeleton', 'skeletons'], ['giant_spider', 'giant spiders'], ['slime', 'slimes']];
 
+const THEME_NAMES = { frozen: 'Frozen Wastes', desert: 'Endless Desert', jungle: 'Wild Jungle', haunted: 'Haunted Marsh', volcanic: 'Volcanic Isles', crystal: 'Crystal Highlands' };
+
 function newQuest(g) {
   const r = rpgOf(g);
   const lvl = r.level;
@@ -414,7 +417,19 @@ function newQuest(g) {
     const n = 2 + Math.floor(Math.random() * 2);
     return { id, kind: 'slayType', type, need: n, have: 0, text: `Hunt down ${n} ${plural}`, xp: 60 + lvl * 18, gold: 30 + lvl * 10, spawn: true };
   }
-  if (roll < 0.85) return { id, kind: 'bounty', need: 1, have: 0, text: 'Claim a bounty', xp: 120 + lvl * 25, gold: 40 + lvl * 12 };
+  if (roll < 0.62) return { id, kind: 'bounty', need: 1, have: 0, text: 'Claim a bounty', xp: 120 + lvl * 25, gold: 40 + lvl * 12 };
+  if (roll < 0.72) {   // mine a certain ore (an easier one early on)
+    const ores = lvl < 4 ? [['copper_ore', 'copper ore'], ['coal_ore', 'coal ore'], ['iron_ore', 'iron ore']] : [['iron_ore', 'iron ore'], ['silver_ore', 'silver ore'], ['gold_ore', 'gold ore'], ['cobalt_ore', 'cobalt ore'], ['obsidian_ore', 'obsidian']];
+    const [type, name] = ores[Math.floor(Math.random() * ores.length)];
+    const n = 2 + Math.floor(Math.random() * 3);
+    return { id, kind: 'mineType', type, need: n, have: 0, text: `Mine ${n} ${name}`, xp: 50 + lvl * 15, gold: 25 + lvl * 8 };
+  }
+  if (roll < 0.8) return { id, kind: 'forge', need: 1, have: 0, text: 'Forge a weapon or armour at a Crafting Table', xp: 90 + lvl * 20, gold: 30 + lvl * 10 };
+  if (roll < 0.86) return { id, kind: 'craft', need: 2, have: 0, text: 'Craft 2 things at a Crafting Table', xp: 45 + lvl * 12, gold: 20 + lvl * 6 };
+  if (roll < 0.92) {   // explore another biome
+    const b = ['frozen', 'desert', 'jungle', 'haunted', 'volcanic', 'crystal'][Math.floor(Math.random() * 6)];
+    return { id, kind: 'explore', type: b, need: 1, have: 0, text: `Travel to the ${THEME_NAMES[b]}`, xp: 80 + lvl * 20, gold: 30 + lvl * 8 };
+  }
   const n = 4 + Math.floor(Math.random() * 4);
   return { id, kind: 'gather', need: n, have: 0, text: `Chop or mine ${n} times`, xp: 30 + lvl * 10, gold: 15 + lvl * 5 };
 }
@@ -422,6 +437,7 @@ function newQuest(g) {
 /** Keep three quests on the board; quests that ask for a certain beast make sure some are out there. */
 export function updateQuests(g) {
   const r = rpgOf(g);
+  if (!on('quests')) { if (r.quests.length) r.quests = []; return; }   // quests are switched off
   for (let tries = 0; r.quests.length < 3 && tries < 12; tries++) {
     const q = newQuest(g);
     if (r.quests.some(x => x.kind === q.kind && x.type === q.type)) continue;   // no two of the same
@@ -441,7 +457,8 @@ export function questProgress(g, kind, detail = {}) {
   for (const q of r.quests) {
     if (q.have >= q.need) continue;
     // any kill counts for "slay beasts"; a hunt needs that very beast
-    const hit = (q.kind === kind && (q.kind !== 'slayType' || detail.type === q.type)) || (q.kind === 'slay' && kind === 'slayType');
+    const typed = q.kind === 'slayType' || q.kind === 'mineType' || q.kind === 'explore';
+    const hit = (q.kind === kind && (!typed || detail.type === q.type)) || (q.kind === 'slay' && kind === 'slayType');
     if (!hit) continue;
     q.have++;
     if (q.have >= q.need) finished = true;

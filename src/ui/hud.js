@@ -20,7 +20,7 @@ import { openAimMap } from './aimMap.js';
 import { BODY, bodyStat } from '../game/body.js';
 import { autoPickOn, runAutoPick } from '../game/autopick.js';
 import { arriveAbroad, leaveAbroad, spyActions } from '../game/abroad.js';
-import { rpgOf, heroStats, heroWeapon, xpToNext, spendPoint, equip, equipBest, gearScore, unequip, scrapGear, RARITY, CATALOG, BLADE_SPECIALS } from '../game/rpg.js';
+import { rpgOf, heroStats, heroWeapon, xpToNext, spendPoint, equip, equipBest, gearScore, unequip, scrapGear, RARITY, CATALOG, BLADE_SPECIALS, questProgress } from '../game/rpg.js';
 import { gearIconKey } from '../render/gearArt.js';
 import { homeOf, residents } from '../game/homes.js';
 import { itemAt, pickUp, moveItem, dropFromPack, dropStack } from '../game/groundItems.js';
@@ -322,11 +322,12 @@ export class HUD {
       if (this.mobilePlace && (Math.abs(mx) > 0.2 || Math.abs(my) > 0.2)) this.mobilePlace.manual = false;   // walking brings it back in front of you
       this.updateBossBar(hg, dt);
       if (hg._pickSound) { hg._pickSound = false; play('pickup'); }
-      if (this.els.abilityBtn && hg.hero) { const left = Math.max(0, (hg.hero.abilityReady || 0) - hg.state.time), max = hg.hero.abilityMax || 1; this.els.abilityBtn.style.setProperty('--cd', String(left / max)); this.els.abilityBtn.classList.toggle('cooling', left > 0); }
+      if (this.els.abilityBtn && hg.hero) { const left = Math.max(0, (hg.hero.abilityReady || 0) - hg.state.time), max = hg.hero.abilityMax || 1; this.els.abilityBtn.style.setProperty('--cd', String(left / max)); this.els.abilityBtn.classList.toggle('cooling', left > 0); const wpn = rpgOf(hg).gear.weapon; this.els.abilityBtn.hidden = !weaponAbility(wpn); }
       if (hg === g && !this.houseEditor) {
         const biome = heroBiome(g);
         if (biome && biome !== this._biome) {
           if (this._biome) this.biomeBanner(biome);
+          questProgress(g, 'explore', { type: biome, v: heroOf(g) });
           this._biome = biome;
         }
       }
@@ -460,9 +461,9 @@ export class HUD {
     if (r.error || !first) return;
     this._introShown = true;
     const touch = matchMedia('(pointer: coarse)').matches;
-    this.hint(touch
+    setTimeout(() => this.hint(touch
       ? `You are ${r.hero.name}. Stick to move, tap the hotbar to pick a sword or tool, ATTACK to use it, DASH to dodge, hold BLOCK to guard.`
-      : `You are ${r.hero.name}. ${['up', 'left', 'down', 'right'].map(id => keyLabel(keyOf(id))).join('')} to move, ${keyLabel(keyOf('attack'))} to use what you hold, 1-9 to pick from your hotbar (sword, pickaxe, axe...), ${keyLabel(keyOf('dash'))} to dash, hold ${keyLabel(keyOf('block'))} to block. Change keys in Settings.`, 9000);
+      : `You are ${r.hero.name}. ${['up', 'left', 'down', 'right'].map(id => keyLabel(keyOf(id))).join('')} to move, ${keyLabel(keyOf('attack'))} to use what you hold, 1-9 to pick from your hotbar (sword, pickaxe, axe...), ${keyLabel(keyOf('dash'))} to dash, hold ${keyLabel(keyOf('block'))} to block. Change keys in Settings.`, 9000), 3200);
   }
 
   updateHeroBar() {
@@ -510,13 +511,8 @@ export class HUD {
           els.heroHp,
           h('div.hero-meter.st', { title: 'Stamina: attacks, dashes and blocking use it' }, els.heroSt),
           h('div.hero-meter.xp', { title: 'Experience' }, els.heroXp)),
-        h('div.card.hero-questcard',
-          h('button.hero-quest-head', { onclick: () => { this._questsOpen = !questsOpen; this._heroKey = null; } },
-            h('b', 'Quests'), h('span.faint', `${r.quests.filter(q => q.have >= q.need).length ? 'done! · ' : ''}${r.quests.length}`), h('span.faint', questsOpen ? '▾' : '▸')),
-          questsOpen ? h('div.hero-quests', r.quests.map(q => h('div.hero-quest', h('span', q.text), h('span.faint', `${q.have}/${q.need}`)))) : '',
-          bounty
-            ? h('div.hero-bounty', icon('items/icon_gold', 14), questsOpen ? `${bounty.bounty.name}, ${bounty.bounty.gold} gold · ${dist < 3 ? 'right here!' : `${dist} tiles ${compass(bounty.x - v.x, bounty.y - v.y)}`}` : `${dist} tiles`)
-            : ''));
+        // no quest board any more: only a bounty, when one is out there
+        bounty ? h('div.card.hero-questcard', h('div.hero-bounty', icon('items/icon_gold', 14), `${bounty.bounty.name} · ${bounty.bounty.gold} gold · ${dist < 3 ? 'right here!' : `${dist} tiles ${compass(bounty.x - v.x, bounty.y - v.y)}`}`)) : '');
     }
     // health as hearts, Zelda style: one heart per 20 health, halves in between
     const hearts = Math.ceil(st.maxHp / 20);
@@ -1601,7 +1597,7 @@ export class HUD {
       }
       if (on('housesOnly')) {   // homes only: every kind, cheapest first
         const homes = Object.entries(BUILDINGS).filter(([type]) => buildingOn(type)).sort(([, a], [, b]) => Object.values(a.cost).reduce((x, y) => x + y, 0) - Object.values(b.cost).reduce((x, y) => x + y, 0));
-        body.append(h('div.faint', 'Build a home anywhere, then swing at the building site to put it up. Walk in through the door to decorate it.'));
+        body.append(h('div.faint', 'Place it, then swing at the site to build it.'));
         body.append(h('div.bgrid', homes.map(([type, def]) => this.buildCard(type, def))));
         return;
       }
@@ -1625,7 +1621,7 @@ export class HUD {
       this.undoStack?.length ? h('button.btn.sm', { title: 'Undo the last build or demolish (Ctrl+Z)', onclick: () => { this.undo(); this.refreshPanel(); } }, pxIcon('undo'), 'Undo') : null,
       this.lastBuild && BUILDINGS[this.lastBuild] ? h('button.btn.sm', { title: 'Build it again (R)', onclick: () => this.startBuild(this.lastBuild) }, icon(buildingSprite(this.lastBuild), 18), `Again (R)`) : null);
     if (on('housesOnly')) search.placeholder = 'Search homes…';
-    return [this.head(on('housesOnly') ? 'ui/home' : 'items/hammer', on('housesOnly') ? 'Build a home' : 'Build', on('housesOnly') ? `${Object.keys(BUILDINGS).filter(buildingOn).length} kinds of home` : `${ERAS[g.state.era].name} era`), on('housesOnly') ? null : tabs, h('div.build-search-row', search, tools), body];
+    return [this.head(on('housesOnly') ? 'ui/home' : 'items/hammer', 'Build', on('housesOnly') ? 'Homes and a Crafting Table' : `${ERAS[g.state.era].name} era`), on('housesOnly') ? null : tabs, h('div.build-search-row', search, tools), body];
   }
 
   /** What is still missing to reach an era: a checklist with progress. */
@@ -2996,9 +2992,21 @@ export class HUD {
   }
 
   announce(text) {
-    const el = h('div.announce', h('div', text));
-    this.root.append(el);
-    setTimeout(() => el.remove(), 4100);
+    // one banner at a time: the rest wait their turn (and repeats are dropped)
+    this._announceQ ||= [];
+    if (this._announceQ.includes(text)) return;
+    this._announceQ.push(text);
+    if (this._announcing) return;
+    const next = () => {
+      const t = this._announceQ.shift();
+      if (t == null) { this._announcing = false; return; }
+      this._announcing = true;
+      const el = h('div.announce', h('div', t));
+      this.root.append(el);
+      setTimeout(() => el.remove(), 3000);
+      setTimeout(next, this._announceQ.length ? 2400 : 3000);
+    };
+    next();
   }
 
   showEvent(ev) {
