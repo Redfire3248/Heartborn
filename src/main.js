@@ -1,6 +1,7 @@
 import { loadAssets, spriteAvailable, allAssetsReady } from './core/assets.js';
 import { setPeopleSprites } from './data/objects.js';
 import { setupPWA } from './core/pwa.js';
+import { watchForUpdates } from './core/updateWatch.js';
 import { setupErrorReporting, reportError } from './net/errors.js';
 import { BUILD } from './core/version.js';
 import { setupSound } from './core/sound.js';
@@ -23,6 +24,7 @@ import { AdminConsole } from './ui/adminConsole.js';
 import { loadingScreen, loginScreen, nameVillage, chooseUsername, bannedScreen, offlineSummary, extinctScreen } from './ui/screens.js';
 
 setupPWA();
+watchForUpdates({ beforeReload: () => save(true) });
 setupErrorReporting(BUILD);
 setupSound();
 const canvas = document.getElementById('game');

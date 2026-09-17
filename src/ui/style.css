@@ -1447,3 +1447,8 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .house-edit-btn:hover, .house-edit-btn:focus-visible { opacity: 1; }
 .house-view.editing .house-edit-btn { display: none; }
 @media (max-width: 700px) { .house-edit-btn { right: 8px; bottom: 8px; } }
+
+/* new version ready */
+.update-bar { position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 10000;
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 14px; border-radius: 12px; font-size: 13px;
+  background: rgba(24,17,34,.95); border: 1px solid rgba(255,215,106,.45); color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.5); max-width: calc(100vw - 32px); }

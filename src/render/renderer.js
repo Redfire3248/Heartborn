@@ -757,12 +757,13 @@ export class Renderer {
 
     // layering: facing away, your gear is in front of the body; otherwise the shield arm is behind and the sword in front
     // facing away the shield is on your back, but the sword stays in your hand, in view
-    if (facing !== 'up') { if (!hero.blocking) drawShield(); }
-    else if (!hero.blocking) drawShield();
+    // your chosen avatar always faces the viewer, so the shield is carried in front of it
+    const front = body.startsWith('avatars/');
+    if (!front && !hero.blocking) drawShield();
     if ((hero.buffs?.invis || 0) > g.state.time) ctx.globalAlpha = 0.35;
     drawSprite(ctx, body, bx, by, size * (body.startsWith('hero/') ? 1.1 : body.startsWith('avatars/') ? 1.15 : 1), { flip: side < 0 && !body.startsWith('avatars/'), tint, solid: tint === '#ffffff', offsetY: bob, squash: sq, rot: lean });
     drawWeapon();
-    if (hero.blocking) drawShield();
+    if (front || hero.blocking) drawShield();
     ctx.globalAlpha = 1;
     if (hero.stagger > 0.15) {   // dazed: stars circling your head, like the enemies you stun
       for (let i = 0; i < 3; i++) {
