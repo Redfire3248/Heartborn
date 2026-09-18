@@ -9,6 +9,7 @@
  *
  * Bosses drop special materials that unlock their own weapons and the strongest traits.
  */
+import { giveItem, CONSUMABLES } from './consumables.js';
 import { CATALOG, RARITY, makeGear, takeGear, rpgOf, questProgress } from './rpg.js';
 import { luckOf } from './loot.js';
 import { TOOLS, giveTool } from './tools.js';
@@ -19,6 +20,10 @@ const toolsOfKind = kind => Object.entries(TOOLS).filter(([, t]) => t.kind === k
 
 /** Forge materials. `mult`: power; `rarity`: 0 Common .. 4 Mythic; `trait`: given at 25%+; `pool`: weapons it leans to. */
 export const MATERIALS = {
+  // basics: wood and stone make wooden and stone things; food only goes into potions
+  wood:         { name: 'Wood', mult: 0.2, rarity: 0, trait: null, icon: 'items/icon_wood', pool: ['club', 'quarterstaff', 'bow', 'slingshot'], basic: true },
+  stone:        { name: 'Stone', mult: 0.4, rarity: 0, trait: null, icon: 'items/icon_stone', pool: ['club', 'hammer', 'slingshot'], basic: true },
+  food:         { name: 'Food', mult: 0.3, rarity: 0, trait: null, icon: 'items/icon_food', pool: [], basic: true, potionOnly: true },
   copper:       { name: 'Copper', mult: 0.85, rarity: 0, trait: null, icon: 'items/icon_copper', pool: ['short_sword', 'dagger', 'hand_axe', 'spear', 'club'] },
   iron:         { name: 'Iron', mult: 1, rarity: 0, trait: null, icon: 'items/icon_iron', pool: ['sword', 'longsword', 'mace', 'axe', 'spear', 'halberd'] },
   coal:         { name: 'Coal', mult: 0.9, rarity: 0, trait: null, icon: 'items/icon_coal', pool: ['club', 'hammer', 'flail'], filler: true },
@@ -45,7 +50,9 @@ export const MATERIALS = {
   dragon_scale: { name: 'Dragon Scale', mult: 2.1, rarity: 4, trait: 'burn', boss: 'dragon', icon: 'items/mat_dragon_scale', pool: ['flame_sword', 'holy_sword', 'thunder_sword', 'greatsword'] },
 };
 export const BOSS_MATERIAL = Object.fromEntries(Object.entries(MATERIALS).filter(([, m]) => m.boss && !m.off).map(([k, m]) => [m.boss, k]));
-export const MATERIAL_KEYS = Object.keys(MATERIALS).filter(k => !MATERIALS[k].off);
+export const MATERIAL_KEYS = Object.keys(MATERIALS).filter(k => !MATERIALS[k].off && !MATERIALS[k].basic);
+/** Everything the Forge accepts (materials plus wood, stone and food). */
+export const FORGE_KEYS = Object.keys(MATERIALS).filter(k => !MATERIALS[k].off);
 
 /** A drop worth a special look: boss materials and the rarest metals. Returns its rarity (0..4) or -1. */
 export const specialDrop = res => (MATERIALS[res] && !MATERIALS[res].off && (MATERIALS[res].boss || MATERIALS[res].rarity >= 3) ? Math.max(3, MATERIALS[res].rarity) : -1);
@@ -64,6 +71,15 @@ export const TRAITS = {
   heal:   { name: 'Life', color: '#7aff9a', desc: 'Every hit heals you a little' },
   drain:  { name: 'Drain', color: '#b06aff', desc: 'Heals you for part of the damage you deal' },
 };
+
+/** What a potion mix makes: the main ingredient decides the kind (food makes health potions). */
+export const POTION_BY_MATERIAL = {
+  food: 'potion', wood: 'potion', stone: 'potion', coal: 'strength_potion', magmite: 'strength_potion', gems: 'mana_potion', mythril: 'mana_potion',
+  jade: 'antidote', spirit_bark: 'antidote', gold: 'golden_apple', sunstone: 'golden_apple', frostite: 'speed_potion', cobalt: 'speed_potion',
+  moonstone: 'invisibility_potion', voidstone: 'invisibility_potion', lich_soul: 'invisibility_potion', iron: 'med_kit', copper: 'med_kit', silver: 'med_kit',
+};
+export const POTION_NAMES = { potion: 'Health Potion', mana_potion: 'Mana Potion', strength_potion: 'Strength Potion', speed_potion: 'Speed Potion', antidote: 'Antidote', golden_apple: 'Golden Apple', invisibility_potion: 'Invisibility Potion', med_kit: 'Med Kit' };
+export const POTION_ICONS = { potion: 'gear/health_potion' };
 
 /** Traits turned into the same effects blade specials use. */
 export function traitEffects(traits = []) {
@@ -100,9 +116,16 @@ export function forgePreview(mix, kind = 'weapon', toolKind = 'pickaxe') {
   const mult = entries.reduce((a, [k, n]) => a + MATERIALS[k].mult * n, 0) / total * (1 + Math.min(0.25, (total - 3) * 0.02));   // more material, a little more power
   const rarity = Math.min(4, Math.round(entries.reduce((a, [k, n]) => a + MATERIALS[k].rarity * n, 0) / total));
   const traits = [...new Set(entries.filter(([k]) => MATERIALS[k].trait && share(k) >= 0.25).sort((a, b) => b[1] - a[1]).map(([k]) => MATERIALS[k].trait))].slice(0, 2);
-  if (kind === 'tool') {   // the materials set a power to aim at; the dice land near it (a little worse or better)
-    const aim = mult * 5;   // copper aims at bronze, iron at iron, mythril at diamond, dragon scale near lava
-    const odds0 = toolsOfKind(toolKind).map(([k, t]) => ({ base: k, w: Math.exp(-((t.power - aim) ** 2) / 2.4) })).filter(o => o.w > 0.02);
+  if (kind === 'potion') {   // each ingredient pulls toward its potion; more ingredients, more potions
+    const w = {};
+    for (const [k, n] of entries) { const p = POTION_BY_MATERIAL[k] || 'potion'; w[p] = (w[p] || 0) + n; }
+    const sum = Object.values(w).reduce((a, b) => a + b, 0);
+    return { ok: true, total, mult, rarity: 0, traits: [], count: Math.max(1, Math.floor(total / 3)), odds: Object.entries(w).map(([base, n]) => ({ base, chance: n / sum })).sort((a, b) => b.chance - a.chance) };
+  }
+  if (entries.every(([k]) => MATERIALS[k].potionOnly)) return { ok: false, why: 'Food only makes potions', total, odds: [], traits };
+  if (kind === 'tool') {   // the materials set a power to aim at (more material aims a little higher); the dice land near it
+    const aim = mult * 5 + Math.min(1, (total - 3) * 0.05);   // copper aims at bronze, iron at iron, mythril at diamond, dragon scale near lava
+    const odds0 = toolsOfKind(toolKind).map(([k, t]) => ({ base: k, w: Math.exp(-((t.power - aim) ** 2) / 1.3) })).filter(o => o.w > 0.02);
     const tsum = odds0.reduce((a, o) => a + o.w, 0);
     if (!tsum) return { ok: false, why: 'No tool of that kind can be forged from this', total, odds: [], traits: [] };
     return { ok: true, total, mult, rarity, traits: [], aim, odds: odds0.map(o => ({ base: o.base, chance: o.w / tsum })).sort((a, b) => b.chance - a.chance) };
@@ -112,6 +135,12 @@ export function forgePreview(mix, kind = 'weapon', toolKind = 'pickaxe') {
     for (const [k, n] of entries) {
       const pool = MATERIALS[k].pool.filter(exists);
       for (const b of pool) weights[b] = (weights[b] || 0) + n / pool.length;
+    }
+    // a small handful makes light weapons, a big pile makes heavy ones
+    for (const b of Object.keys(weights)) {
+      const dmg = CATALOG.weapon[b]?.dmg || 12;
+      if (total < 6) weights[b] *= dmg <= 12 ? 1.8 : 0.5;
+      else if (total >= 12) weights[b] *= dmg >= 18 ? 1.8 : 0.6;
     }
   } else {
     const all = ARMOUR();
@@ -148,6 +177,14 @@ export function forge(g, mix, kind = 'weapon', { score = 0.5, hero = null, base 
   if (!canPay(g, mix)) return { ok: false, why: 'You do not have those materials' };
   for (const [k, n] of Object.entries(mix)) g.state.resources[k] -= n;
   if (!base || !p.odds.some(o => o.base === base)) base = rollForgeBase(p);
+  if (kind === 'potion') {
+    const n = p.count + (Math.random() < 0.05 + score * 0.15 ? 1 : 0);   // a good brew makes one more
+    if (base === 'potion') rpgOf(g).potions = (rpgOf(g).potions || 0) + n;
+    else giveItem(g, base, n);
+    questProgress(g, 'forge', { v: hero });
+    g.emit('change');
+    return { ok: true, potion: base, name: `${POTION_NAMES[base] || base}${n > 1 ? ` x${n}` : ''}`, icon: POTION_ICONS[base] || CONSUMABLES[base]?.icon || 'gear/health_potion', count: n, bump: 0, extra: 0 };
+  }
   if (kind === 'tool') {
     let key = base, bump = 0;
     // a great forging (and luck) can lift it a tier; a lucky one makes two

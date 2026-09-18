@@ -1973,3 +1973,5 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .trait-chip img, .ench-chip img, .rare-sub img, .an-rarity img, .index-tabs img { vertical-align: -3px; margin-right: 4px; image-rendering: pixelated; }
 
 .ench-warn { font-size: 12px; color: #ffb3aa; }
+
+.forge-away { padding: 14px 4px; line-height: 1.5; }

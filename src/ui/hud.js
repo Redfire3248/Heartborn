@@ -3584,7 +3584,7 @@ export class HUD {
     if (g.hero) g.hero.inHouse = true;   // safe while inside
     this.houseEditor = new HouseEditor({
       game: g, building: b, hero, hint: (t, ms) => this.hint(t, ms),
-      onCraft: () => { this.craftCat = this.craftCat || 'tools'; this.openPanel('craft'); },
+      onCraft: () => this.openTable(),   // the house's table opens the Forge like any other
       onEnchant: () => openEnchantMenu(this),
       onClose: () => {
         this.houseEditor = null;
