@@ -21,8 +21,8 @@ const toolsOfKind = kind => Object.entries(TOOLS).filter(([, t]) => t.kind === k
 /** Forge materials. `mult`: power; `rarity`: 0 Common .. 4 Mythic; `trait`: given at 25%+; `pool`: weapons it leans to. */
 export const MATERIALS = {
   // basics: wood and stone make wooden and stone things; food only goes into potions
-  wood:         { name: 'Wood', mult: 0.2, rarity: 0, trait: null, icon: 'items/icon_wood', pool: ['club', 'quarterstaff', 'bow', 'slingshot'], basic: true },
-  stone:        { name: 'Stone', mult: 0.4, rarity: 0, trait: null, icon: 'items/icon_stone', pool: ['club', 'hammer', 'slingshot'], basic: true },
+  wood:         { name: 'Wood', mult: 0.6, rarity: 0, trait: null, icon: 'items/icon_wood', pool: ['club', 'quarterstaff', 'bow', 'slingshot'], basic: true },
+  stone:        { name: 'Stone', mult: 0.75, rarity: 0, trait: null, icon: 'items/icon_stone', pool: ['club', 'hammer', 'slingshot'], basic: true },
   food:         { name: 'Food', mult: 0.3, rarity: 0, trait: null, icon: 'items/icon_food', pool: [], basic: true, potionOnly: true },
   copper:       { name: 'Copper', mult: 0.85, rarity: 0, trait: null, icon: 'items/icon_copper', pool: ['short_sword', 'dagger', 'hand_axe', 'spear', 'club'] },
   iron:         { name: 'Iron', mult: 1, rarity: 0, trait: null, icon: 'items/icon_iron', pool: ['sword', 'longsword', 'mace', 'axe', 'spear', 'halberd'] },
@@ -49,6 +49,16 @@ export const MATERIALS = {
   lich_soul:    { name: 'Lich Soul', mult: 1.85, rarity: 4, trait: 'drain', boss: 'lich', icon: 'items/mat_lich_soul', pool: ['necro_staff', 'shadow_blade', 'scythe'] },
   dragon_scale: { name: 'Dragon Scale', mult: 2.1, rarity: 4, trait: 'burn', boss: 'dragon', icon: 'items/mat_dragon_scale', pool: ['flame_sword', 'holy_sword', 'thunder_sword', 'greatsword'] },
 };
+/**
+ * How strong a tool each material forges (pickaxe power it aims at). Every ore forges a pickaxe a step above its own
+ * tier, so you climb the ores one by one: wood and stone, then copper, iron, silver and gold, gems, obsidian, mythril.
+ */
+export const TOOL_POWER = {
+  wood: 1, stone: 2, coal: 2, food: 1, copper: 3.5, iron: 5, jade: 5.5, silver: 6, gold: 6.5, cobalt: 6.5, moonstone: 7, gems: 7,
+  frostite: 8, titanium: 8, sunstone: 8, obsidian: 8.5, mythril: 10, magmite: 10.5, voidstone: 12,
+  slime_core: 8, spider_silk: 8.5, spirit_bark: 9, golem_heart: 10, lich_soul: 11, dragon_scale: 12, troll_hide: 9,
+};
+
 export const BOSS_MATERIAL = Object.fromEntries(Object.entries(MATERIALS).filter(([, m]) => m.boss && !m.off).map(([k, m]) => [m.boss, k]));
 export const MATERIAL_KEYS = Object.keys(MATERIALS).filter(k => !MATERIALS[k].off && !MATERIALS[k].basic);
 /** Everything the Forge accepts (materials plus wood, stone and food). */
@@ -124,7 +134,7 @@ export function forgePreview(mix, kind = 'weapon', toolKind = 'pickaxe') {
   }
   if (entries.every(([k]) => MATERIALS[k].potionOnly)) return { ok: false, why: 'Food only makes potions', total, odds: [], traits };
   if (kind === 'tool') {   // the materials set a power to aim at (more material aims a little higher); the dice land near it
-    const aim = mult * 5 + Math.min(1, (total - 3) * 0.05);   // copper aims at bronze, iron at iron, mythril at diamond, dragon scale near lava
+    const aim = entries.reduce((a, [k, n]) => a + (TOOL_POWER[k] ?? MATERIALS[k].mult * 5) * n, 0) / total + Math.min(1, (total - 3) * 0.05);   // copper aims at bronze, iron at iron, mythril at diamond, dragon scale near lava
     const odds0 = toolsOfKind(toolKind).map(([k, t]) => ({ base: k, w: Math.exp(-((t.power - aim) ** 2) / 1.3) })).filter(o => o.w > 0.02);
     const tsum = odds0.reduce((a, o) => a + o.w, 0);
     if (!tsum) return { ok: false, why: 'No tool of that kind can be forged from this', total, odds: [], traits: [] };
