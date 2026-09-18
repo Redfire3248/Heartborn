@@ -109,7 +109,7 @@ const HISTORY_KEY = 'hb_admin_history';
 // What each argument position expects, for autocomplete + hints.
 // Arrays are fixed choices; '...' repeats the pair before it (give res n res n …).
 // the strongest, most useful things are listed first everywhere in the console
-const TOP_COMMANDS = ['god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
+const TOP_COMMANDS = ['god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'shop', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
 const commandRank = k => { const i = TOP_COMMANDS.indexOf(k); return i < 0 ? 999 : i; };
 const gearRank = d => (d.admin ? 1e6 : 0) + (d.minRarity || 0) * 1e4 + (d.damage || d.armor * 100 || d.block * 100 || 0);
 const creatureRank = d => (d.boss ? 1e6 : d.hostile ? 1e4 : 0) + (d.hp || 0);
@@ -124,7 +124,7 @@ const ARG_SPECS = {
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
   item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['mythic', 'legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], items: [['*', 'bomb', 'dynamite', 'med_kit', 'speed_potion', 'strength_potion', 'invisibility_potion', 'mana_potion', 'antidote', 'golden_apple', 'ammo_box'], 'number'], tool: ['tool', 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
-  build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
+  build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting', 'market']], shop: [['open', 'reroll', 'sellall']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
 export class AdminConsole {
@@ -929,10 +929,10 @@ const COMMANDS = {
     },
   },
   station: {
-    usage: 'station <enchanting|crafting>', desc: 'Place an Enchanting Table or Crafting Table right next to you',
+    usage: 'station <enchanting|crafting|market>', desc: 'Place an Enchanting Table, Crafting Table or Market Stall right next to you',
     run([kind = 'enchanting']) {
       const g = this.game;
-      const type = kind.startsWith('craft') ? 'crafting_table' : 'enchanting_table';
+      const type = kind.startsWith('craft') ? 'crafting_table' : kind.startsWith('market') || kind === 'shop' ? 'market_stall' : 'enchanting_table';
       const v = heroOf(g);
       if (!v) throw new Error('you need to be playing your hero');
       const tx = Math.floor(v.x / 32), ty = Math.floor(v.y / 32);
@@ -949,6 +949,18 @@ const COMMANDS = {
       g.finishBuilding(placed);
       g.emit('change');
       this.print(`✓ ${BUILDING_DEFS[type].name} placed next to you (press E beside it)`, 'ok');
+    },
+  },
+  shop: {
+    usage: 'shop [open|reroll|sellall]', desc: 'Open the Market Stall anywhere, give it new offers now, or sell every material you carry',
+    async run([act = 'open']) {
+      const S = await import('../game/shop.js');
+      const g = this.game;
+      if (act === 'reroll') { const s = S.shopOf(g, { reroll: true }); this.print(`✓ new offers: ${s.offers.map(o => S.offerName(o)).join(', ')}`, 'ok'); return; }
+      if (act === 'sellall') { let gold = 0; for (const k of S.sellable(g)) gold += S.sell(g, k, 1e9).gold || 0; this.print(`✓ sold everything for ${gold} gold`, 'ok'); return; }
+      if (!this.hud) throw new Error('no game screen');
+      this.toggle();
+      const M = await import('./shopMenu.js'); M.openShop(this.hud);
     },
   },
   trade: {

@@ -124,7 +124,7 @@ export function nearestStation(g, hero = null) {
   if (!v) return null;
   let best = null, bd = TILE * 3.5;
   for (const b of g.state.buildings || []) {
-    if ((b.type !== 'crafting_table' && b.type !== 'enchanting_table') || b.built === false) continue;
+    if ((b.type !== 'crafting_table' && b.type !== 'enchanting_table' && b.type !== 'market_stall') || b.built === false) continue;
     const d = Math.hypot((b.tx + 0.5) * TILE - v.x, (b.ty + 0.5) * TILE - v.y);
     if (d < bd) { bd = d; best = b; }
   }

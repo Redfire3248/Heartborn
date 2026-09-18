@@ -682,6 +682,10 @@ export class Renderer {
     const design = def.housing ? (b.design || 0) : 0;
     const styled = design && spriteAvailable(`${buildingSprite(b.type)}_style${design}`) ? `${buildingSprite(b.type)}_style${design}` : buildingSprite(b.type);
     drawSprite(ctx, styled, x, y, size, { tint: blighted ? '#553311' : styled === buildingSprite(b.type) ? DESIGNS[design]?.tint : null });
+    if (b.type === 'market_stall' && g.hero && !g.visiting) {
+      const hero = g.state.villagers.find(v => v.id === g.hero.id), c = g.buildingCenter(b);
+      if (hero && nearestStation(g, hero) === b) keyPrompt(ctx, keyLabel(keyOf('potion')), 'Shop', c.x, y - TILE * 1.55 + Math.sin(this.time * 3) * 0.8);
+    }
     if (b.type === 'enchanting_table' && g.hero && !g.visiting) {
       const hero = g.state.villagers.find(v => v.id === g.hero.id), c = g.buildingCenter(b);
       if (hero && nearestStation(g, hero) === b) keyPrompt(ctx, keyLabel(keyOf('potion')), 'Enchant', c.x, y - TILE * 1.55 + Math.sin(this.time * 3) * 0.8);

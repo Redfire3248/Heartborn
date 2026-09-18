@@ -1,3 +1,5 @@
+import { openShop } from './shopMenu.js';
+import { atStall } from '../game/shop.js';
 import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo, rarityFrame, TRAIT_ICON, smallIcon } from './dom.js';
 import { openEnchantMenu } from './enchantMenu.js';
 import { atEnchantTable, ENCHANTS, enchName } from '../game/enchanting.js';
@@ -324,10 +326,11 @@ export class HUD {
       const dash = dashDown && !this._dashHeld;
       const potionDown = held(k, 'potion') || t.potion;
       let potion = potionDown && !this._potionHeld;
-      if (potion && hg === g && (atTable(g, heroOf(g)) || atEnchantTable(g, heroOf(g)))) {   // the closer table opens
+      if (potion && hg === g && (atTable(g, heroOf(g)) || atEnchantTable(g, heroOf(g)) || atStall(g, heroOf(g)))) {   // the closest station opens
         potion = false;
         const st = nearestStation(g, heroOf(g));
-        if (st?.type === 'enchanting_table' || (!st && atEnchantTable(g, heroOf(g)) && !atTable(g, heroOf(g)))) openEnchantMenu(this);
+        if (st?.type === 'market_stall') openShop(this);
+        else if (st?.type === 'enchanting_table' || (!st && atEnchantTable(g, heroOf(g)) && !atTable(g, heroOf(g)))) openEnchantMenu(this);
         else this.openTable();
       }
       this._potionHeld = potionDown;
