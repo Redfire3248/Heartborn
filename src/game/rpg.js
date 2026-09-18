@@ -1,3 +1,4 @@
+import { dailyProgress } from './journal.js';
 import { TILE } from '../core/constants.js';
 import { on } from '../core/features.js';
 import { BOSS_MATERIAL, MATERIALS } from './forging.js';
@@ -464,6 +465,7 @@ export function discover(g, cat, key, n = 1) {
 }
 
 export function questProgress(g, kind, detail = {}) {
+  dailyProgress(g, kind, detail);   // today's challenges
   if (kind === 'mineType') discover(g, 'ore', detail.type);
   if (kind === 'slayType') discover(g, 'mob', detail.type);
   const r = rpgOf(g);

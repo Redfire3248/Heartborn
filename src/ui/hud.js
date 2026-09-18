@@ -1,3 +1,5 @@
+import { checkAchievements, titleOf } from '../game/journal.js';
+import { openJournal } from './journalMenu.js';
 import { openShop } from './shopMenu.js';
 import { atStall } from '../game/shop.js';
 import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo, rarityFrame, TRAIT_ICON, smallIcon } from './dom.js';
@@ -154,6 +156,7 @@ export class HUD {
     game.on('dungeon', e => setTimeout(() => this.enterDungeon(e), 0));
     game.on('house', b => setTimeout(() => this.enterHouse(b), 0));
     game.on('rareLoot', d => this.rareLootReveal(d));
+    game.on('challengeDone', c => this.toast({ text: `Challenge done: ${c.text}. Claim it in your Journal (O)`, kind: 'good' }));
     game.on('discover', () => { if (!this._indexToastAt || performance.now() - this._indexToastAt > 4000) { this._indexToastAt = performance.now(); this.toast({ text: 'New entry in your Index (N)', kind: 'event' }); } });
     if (mp) {
       // player vs player
@@ -364,6 +367,7 @@ export class HUD {
     } else {
       this.ensureAvatar();
       const me = heroOf(abroad ? abroad.land : g);
+      if (this.mp) this.mp.titleText = titleOf(g);
       if (abroad && me && this.mp && abroad.hostUid) this.mp.publishStranger(abroad.hostUid, abroad.strangerId, me, { disguised: abroad.role === 'spy' });
       // at home with visitors about: they see you walking too (so you can fight)
       else if (!abroad && !this.dungeon && me && this.mp && this.user && g.strangers?.length) this.mp.publishStranger(this.user.uid, `host_${this.user.uid}`, me);
@@ -392,6 +396,11 @@ export class HUD {
       this.prevRes[k] = val;
     }
     this.updateResOverflow();
+    // achievements: checked a few times a second is plenty
+    if (!this._achAt || performance.now() - this._achAt > 1500) {
+      this._achAt = performance.now();
+      for (const a of checkAchievements(g)) this.rareLootReveal({ achievement: a });
+    }
     if (this.els.pop.textContent !== String(s.villagers.length)) this.els.pop.textContent = s.villagers.length;
     if (this.els.housing.textContent !== `/${g.housing}`) this.els.housing.textContent = `/${g.housing}`;
     this.els.karmaDot.style.left = `${(s.karma + 100) / 2}%`;
@@ -432,6 +441,7 @@ export class HUD {
     if (is(k, 'character') && !this.game.sail) { this.toggleLead(); return; }
     if (is(k, 'inventory')) { this.inventory(); return; }
     if (is(k, 'index')) { openIndex(this); return; }
+    if (is(k, 'journal')) { openJournal(this); return; }
     const slot = ACTIONS.findIndex(a => a.id.startsWith('hot') && is(k, a.id)) - ACTIONS.findIndex(a => a.id === 'hot1');
     // like Minecraft: hover something in the inventory and press a number to put it in that hotbar slot
     if (slot >= 0 && this._invHover && !this.els.invPanel.hidden) { setSlot(this.game, slot, this._invHover); this._hotbarKey = null; this.renderInventory(); return; }
@@ -851,6 +861,7 @@ export class HUD {
     const heldInfo = this.slotInfo(bar[r.hotSel], v);
     panel.replaceChildren(
       h('div.inv-head', h('b', 'Inventory'), h('div.spacer'),
+        h('button.btn.sm', { title: 'Daily chest, challenges and achievements (O)', onclick: () => openJournal(this) }, hasArt('items/token_crown') ? icon('items/token_crown', 16) : null, 'Journal'),
         h('button.btn.sm', { title: 'Everything you have found (N)', onclick: () => openIndex(this) }, hasArt('ui/index') ? icon('ui/index', 16) : null, 'Index'),
         h('button.btn.sm.analyze-btn', { title: 'Analyze the item under your cursor (or what you hold). Tip: right-click a hotbar slot', onclick: () => this.analyzeKey(this._invHover || bar[r.hotSel]) }, 'Analyze'),
         h('button.btn.sm', { title: 'Ores, metals and boss materials', onclick: () => openMaterialsBag(this) }, 'Materials'),
@@ -1741,7 +1752,7 @@ export class HUD {
   /** What you just crafted, shown big: its quality, rarity and any lucky bonus. */
   /** A boss material, rare metal or Legendary+ gear was picked up: show it off (several at once merge into one card). */
   rareLootReveal(d) {
-    const key = d.gear ? `gear:${d.gear.id}` : `res:${d.res}`;
+    const key = d.achievement ? `ach:${d.achievement.id}` : d.chest ? 'chest' : d.gear ? `gear:${d.gear.id}` : `res:${d.res}`;
     const now = performance.now();
     const open = this.root.querySelector('.rare-loot');
     if (open && open.dataset.key === key && now - (this._rareAt || 0) < 2500) {   // more of the same: add to the count
@@ -1753,15 +1764,17 @@ export class HUD {
     open?.remove();
     this._rareAt = now; this._rareCount = d.count || 1;
     let name, iconKey, rarity, sub;
-    if (d.gear) { name = d.gear.name; iconKey = gearIconKey(d.gear) || 'items/relic'; rarity = d.gear.rarity; sub = 'Rare loot'; }
+    if (d.achievement) { name = d.achievement.name; iconKey = hasArt('items/mat_star_shard') ? 'items/mat_star_shard' : 'items/star_rank'; rarity = 3; sub = `Achievement · title: ${d.achievement.title}`; }
+    else if (d.chest) { name = d.text; iconKey = 'gear/chest_open'; rarity = 1; sub = 'Daily chest'; }
+    else if (d.gear) { name = d.gear.name; iconKey = gearIconKey(d.gear) || 'items/relic'; rarity = d.gear.rarity; sub = 'Rare loot'; }
     else { const mt = MATERIALS[d.res]; name = mt?.name || d.res; iconKey = mt ? matIcon(d.res) : RES_ICON[d.res]; rarity = Math.max(3, mt?.rarity || 3); sub = mt?.boss ? 'Boss material' : 'Rare material'; }
     const R = RARITY[Math.min(4, rarity)];
     const el = h('div.rare-loot', { dataset: { key }, style: { '--glow': R.color }, onclick: () => el.remove() },
       h('div.rare-rays'), h('div.rare-burst'),
-      h('div.rare-sub', smallIcon(`ui/rarity_${Math.min(4, rarity)}`, 16), `${R.name.toUpperCase()} · ${sub.toUpperCase()}`),
+      h('div.rare-sub', d.achievement || d.chest ? null : smallIcon(`ui/rarity_${Math.min(4, rarity)}`, 16), d.achievement ? `ACHIEVEMENT UNLOCKED · ${d.achievement.title.toUpperCase()}` : d.chest ? 'DAILY CHEST' : `${R.name.toUpperCase()} · ${sub.toUpperCase()}`),
       h('div.rare-icon', icon(iconKey, 84)),
       h('b.rare-name', name),
-      d.gear ? null : h('span.rare-count', `x${this._rareCount}`));
+      d.gear || d.achievement || d.chest ? null : h('span.rare-count', `x${this._rareCount}`));
     this.root.append(el);
     play('reveal');
     clearTimeout(this._rareTimer);

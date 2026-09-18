@@ -17,6 +17,7 @@ export const ACTIONS = [
   { id: 'character', label: 'Character', group: 'Screens', def: 'g' },
   { id: 'inventory', label: 'Inventory', group: 'Screens', def: 'i' },
   { id: 'index', label: 'Index', group: 'Screens', def: 'n' },
+  { id: 'journal', label: 'Journal (daily and achievements)', group: 'Screens', def: 'o' },
   { id: 'map', label: 'World map', group: 'Screens', def: 'v' },
   { id: 'build', label: 'Build menu', group: 'Screens', def: 'b' },
   { id: 'craft', label: 'Craft menu', group: 'Screens', def: 'c' },

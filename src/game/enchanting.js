@@ -7,6 +7,7 @@
  * Gear keeps its enchantments on the item (it.ench = { sharpness: 2 }); tools stack by kind, so a tool's
  * enchantments are kept per tool key (rpg.toolEnch[key]).
  */
+import { dailyProgress } from './journal.js';
 import { TILE } from '../core/constants.js';
 import { rpgOf, CATALOG, RARITY } from './rpg.js';
 import { TOOLS } from './tools.js';
@@ -138,6 +139,8 @@ export function enchant(g, t, { score = 0.5, force = null } = {}) {
   const lost = { ...have };
   for (const k of Object.keys(have)) delete have[k];   // the old enchantments are gone
   for (const e of set) have[e.key] = e.level;
+  const rr = rpgOf(g); rr.enchanted = (rr.enchanted || 0) + 1;
+  dailyProgress(g, 'enchant');
   g.emit('change');
   return { ok: true, set, lost, key: set[0].key, level: set[0].level };
 }

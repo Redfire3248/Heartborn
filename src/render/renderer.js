@@ -1,3 +1,4 @@
+import { titleOf } from '../game/journal.js';
 import { keyLabel, keyOf } from '../core/controls.js';
 import { specialDrop } from '../game/forging.js';
 import { nearestStation } from '../game/crafting.js';
@@ -532,6 +533,7 @@ export class Renderer {
     if (st._hitFlash > 0) { st._hitFlash -= 1 / 60; v._whiteFlash = st._hitFlash; } else v._whiteFlash = 0;
     this.drawVillager(g, v);
     label(this.ctx, st.name, st.x, st.y + 7);
+    if (st.title) titleLabel(this.ctx, st.title, st.x, st.y + 13);
   }
 
   /** A treasure chest: bobbing sparkle when closed, lid open for a moment after you break it open. */
@@ -769,6 +771,7 @@ export class Renderer {
     if (v.hp < 99) bar(ctx, v.x - 8, v.y - size - 4, 16, v.hp / 100, v.hp > 40 ? '#6fdc5a' : '#ff5a4a');
     if (v._emote) drawSprite(ctx, v._emote.key, v.x + 6, v.y - size - 2 + Math.sin(this.time * 4) * 1.5, 12);
     if (hero || g.selected?.ref === v || this.camera.zoom >= 3.2) label(ctx, v.name, v.x, v.y + 7);
+    if (hero && !g.visiting) { const t = titleOf(g); if (t) titleLabel(ctx, t, v.x, v.y + 13); }
   }
 
   /**
@@ -1440,6 +1443,19 @@ function keyPrompt(ctx, key, text, x, y) {
   ctx.fillStyle = '#2a1a08'; ctx.fillText(key, x0 + 2 + kw / 2, y0 + hgt / 2 + 0.3);
   ctx.textAlign = 'left'; ctx.fillStyle = '#fff3d6';
   ctx.fillText(text, x0 + kw + 5, y0 + hgt / 2 + 0.3);
+  ctx.restore();
+}
+
+/** A player's title, small and gold, under their name. */
+function titleLabel(ctx, text, x, y) {
+  ctx.save();
+  ctx.font = '600 4.5px "Pixelify Sans", monospace';
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 1.6;
+  ctx.strokeStyle = 'rgba(20,12,30,0.9)';
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = '#ffd76a';
+  ctx.fillText(text, x, y);
   ctx.restore();
 }
 

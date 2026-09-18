@@ -109,7 +109,7 @@ const HISTORY_KEY = 'hb_admin_history';
 // What each argument position expects, for autocomplete + hints.
 // Arrays are fixed choices; '...' repeats the pair before it (give res n res n …).
 // the strongest, most useful things are listed first everywhere in the console
-const TOP_COMMANDS = ['god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'shop', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
+const TOP_COMMANDS = ['god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'shop', 'journal', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
 const commandRank = k => { const i = TOP_COMMANDS.indexOf(k); return i < 0 ? 999 : i; };
 const gearRank = d => (d.admin ? 1e6 : 0) + (d.minRarity || 0) * 1e4 + (d.damage || d.armor * 100 || d.block * 100 || 0);
 const creatureRank = d => (d.boss ? 1e6 : d.hostile ? 1e4 : 0) + (d.hp || 0);
@@ -124,7 +124,7 @@ const ARG_SPECS = {
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
   item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['mythic', 'legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], items: [['*', 'bomb', 'dynamite', 'med_kit', 'speed_potion', 'strength_potion', 'invisibility_potion', 'mana_potion', 'antidote', 'golden_apple', 'ammo_box'], 'number'], tool: ['tool', 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
-  build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting', 'market']], shop: [['open', 'reroll', 'sellall']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
+  build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting', 'market']], shop: [['open', 'reroll', 'sellall']], journal: [['open', 'newday', 'finish', 'unlock', 'reset']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
 export class AdminConsole {
@@ -949,6 +949,20 @@ const COMMANDS = {
       g.finishBuilding(placed);
       g.emit('change');
       this.print(`✓ ${BUILDING_DEFS[type].name} placed next to you (press E beside it)`, 'ok');
+    },
+  },
+  journal: {
+    usage: 'journal [open|newday|finish|unlock|reset]', desc: 'Open the Journal, start a new day (new chest and challenges), finish today\'s challenges, unlock every achievement, or reset achievements',
+    async run([act = 'open']) {
+      const J = await import('../game/journal.js');
+      const g = this.game, r = rpgOf(g);
+      if (act === 'newday') { if (r.daily) r.daily.day = null; J.dailyOf(g); g.emit('change'); this.print(`✓ new day: ${r.daily.challenges.map(c => c.text).join(' · ')}`, 'ok'); return; }
+      if (act === 'finish') { for (const c of J.dailyOf(g).challenges) c.have = c.need; g.emit('change'); this.print('✓ today\'s challenges are done (claim them in the Journal)', 'ok'); return; }
+      if (act === 'unlock') { r.achievements ||= {}; for (const a of J.ACHIEVEMENTS) r.achievements[a.id] ||= Date.now(); g.emit('change'); this.print(`✓ all ${J.ACHIEVEMENTS.length} achievements unlocked`, 'ok'); return; }
+      if (act === 'reset') { r.achievements = {}; r.title = null; g.emit('change'); this.print('✓ achievements reset', 'ok'); return; }
+      if (!this.hud) throw new Error('no game screen');
+      this.toggle();
+      const M = await import('./journalMenu.js'); M.openJournal(this.hud);
     },
   },
   shop: {

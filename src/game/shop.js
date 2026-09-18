@@ -2,6 +2,7 @@
  * The Market Stall: a small shop you build. Each day it has three new offers (a tool a little better than yours,
  * a stack of potions and a piece of gear whose rarity is rolled), and it buys your ores and materials for gold.
  */
+import { dailyProgress } from './journal.js';
 import { TILE, DAY_LENGTH } from '../core/constants.js';
 import { rpgOf, makeGear, takeGear, CATALOG, RARITY } from './rpg.js';
 import { TOOLS, toolsOf, giveTool } from './tools.js';
@@ -85,6 +86,8 @@ export function sell(g, k, n = 1) {
   const gold = sellPrice(k) * n;
   g.state.resources[k] -= n;
   g.state.resources.gold = (g.state.resources.gold || 0) + gold;
+  const r = rpgOf(g); r.soldGold = (r.soldGold || 0) + gold;
+  dailyProgress(g, 'sell', { n });
   g.emit('change');
   return { ok: true, gold, n };
 }

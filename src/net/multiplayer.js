@@ -909,7 +909,7 @@ export class Multiplayer {
     set(path, {
       from: this.uid, x: Math.round(v.x), y: Math.round(v.y), sex: v.sex === 'f' ? 'f' : 'm',
       name: disguised ? 'Traveller' : String(v.name || 'Visitor').slice(0, 40), job: disguised ? 'gather' : String(v.job || 'idle').slice(0, 20),
-      walking: !!v._walking, flip: !!v._flip, ts: now,
+      walking: !!v._walking, flip: !!v._flip, ts: now, title: disguised ? '' : String(this.titleText || '').slice(0, 30),
     }).catch(() => {});
   }
 
@@ -918,7 +918,7 @@ export class Multiplayer {
     const now = Date.now();
     return Object.entries(all).filter(([, s]) => now - (s.ts || 0) < 20_000 && s.from !== this.uid).map(([id, s]) => {
       const old = prev.get(id);
-      return { id, from: s.from, name: s.name, sex: s.sex, job: s.job, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
+      return { id, from: s.from, title: s.title || '', name: s.name, sex: s.sex, job: s.job, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
     });
   }
 
