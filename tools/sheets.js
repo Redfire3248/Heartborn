@@ -500,5 +500,17 @@ window.SHEETS = {
       "trade", "index", "enchant", "new_badge",
       "frame_common", "frame_rare", "frame_epic", "frame_legendary"
     ]
+  },
+  iconPack2: {
+    title: "Icon pack, enchantments, traits, status effects, rarity gems and index tabs",
+    folder: "ui",
+    mode: "sprite",
+    cols: 8,
+    names: [
+      "ench_sharpness", "ench_protection", "ench_vitality", "ench_efficiency", "ench_fortune", "ench_fire_aspect", "ench_frostbite", "ench_vampirism",
+      "ench_looting", "ench_swiftness", "trait_holy", "trait_magic", "trait_crit", "trait_quake", "trait_poison", "trait_heal",
+      "status_burn", "status_frozen", "status_poison", "status_stun", "status_bleed", "status_slow", "status_enraged", "status_shielded",
+      "rarity_0", "rarity_1", "rarity_2", "rarity_3", "rarity_4", "tab_ore", "tab_mob", "tab_gear"
+    ]
   }
 };

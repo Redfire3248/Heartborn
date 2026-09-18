@@ -3,7 +3,7 @@
  * comes out, and the Workbench for tools, potions and items. Away from a table only the hand-made basics can be made.
  * Also the Materials bag: every ore, metal and boss material you carry, in its own grid.
  */
-import { h, icon, modal } from './dom.js';
+import { h, icon, modal, smallIcon, TRAIT_ICON } from './dom.js';
 import { RARITY, CATALOG } from '../game/rpg.js';
 import { gearIconKey, hasArt } from '../render/gearArt.js';
 import { MATERIALS, MATERIAL_KEYS, TRAITS, forgePreview, canPay, forge, abilityOf, rollForgeBase, FORGE_TOOL_KINDS } from '../game/forging.js';
@@ -97,7 +97,7 @@ export function openTableMenu(hud, { atTable = false, tab = null } = {}) {
       p.ok ? h('div.forge-stats',
         h('span', `Power x${p.mult.toFixed(2)}`),
         h('span', { style: { color: RARITY[p.rarity].color } }, RARITY[p.rarity].name),
-        ...p.traits.map(t => h('span.trait-chip', { style: { color: TRAITS[t].color, borderColor: TRAITS[t].color }, title: TRAITS[t].desc }, TRAITS[t].name))) : h('div.faint', p.why),
+        ...p.traits.map(t => h('span.trait-chip', { style: { color: TRAITS[t].color, borderColor: TRAITS[t].color }, title: TRAITS[t].desc }, smallIcon(TRAIT_ICON[t], 14), TRAITS[t].name))) : h('div.faint', p.why),
       p.ok ? h('div.forge-odds', ...p.odds.slice(0, 6).map(o => {
         if (hud._forgeKind === 'tool') {
           const t = TOOLS[o.base];

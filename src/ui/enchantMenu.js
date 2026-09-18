@@ -2,7 +2,8 @@
  * The Enchanting Table menu: pick a weapon, piece of armour or tool, see what it has and what it could get,
  * then enchant it (a short ritual minigame, then the dice).
  */
-import { h, icon, modal, costChips } from './dom.js';
+import { toolRarity } from '../game/tools.js';
+import { h, icon, modal, costChips, rarityFrame, smallIcon } from './dom.js';
 import { hasArt, gearIconKey } from '../render/gearArt.js';
 import { heroOf } from '../game/hero.js';
 import { play } from '../core/sound.js';
@@ -29,7 +30,8 @@ export function openEnchantMenu(hud) {
     const res = g.state.resources;
     const cells = list.map(t => {
       const info = targetInfo(t), ench = enchantsOf(g, t), n = Object.keys(ench).length;
-      return h(`button.ench-item${t === sel ? '.on' : ''}${n ? '.glint' : ''}`, { title: `${info.name} · ${t.where}`, onclick: () => { hud._enchSel = idOf(t); play('click'); render(); } },
+      const fr = rarityFrame(t.item ? t.item.rarity : toolRarity(t.tool));
+      return h(`button.ench-item${t === sel ? '.on' : ''}${n ? '.glint' : ''}${fr.cls}`, { style: fr.style, title: `${info.name} · ${t.where}`, onclick: () => { hud._enchSel = idOf(t); play('click'); render(); } },
         icon(iconOf(t), 34), n ? h('span.ench-count', `${n}`) : null);
     });
     let detail = h('div.faint', 'Nothing to enchant yet. Get a weapon, armour or a tool.');
@@ -41,7 +43,7 @@ export function openEnchantMenu(hud) {
       detail = h('div.ench-detail',
         h('div.ench-title', icon(iconOf(sel), 48), h('div', h('b', { style: { color: info.color } }, info.name), h('div.faint', `${sel.where} · ${Object.keys(ench).length}/${MAX_ENCHANTS} enchantments`))),
         Object.keys(ench).length
-          ? h('div.ench-have', ...Object.entries(ench).map(([k, l]) => h('div.ench-chip', { style: { color: ENCHANTS[k].color, borderColor: ENCHANTS[k].color } }, h('b', enchName(k, l)), h('span', ENCHANTS[k].desc(l)))))
+          ? h('div.ench-have', ...Object.entries(ench).map(([k, l]) => h('div.ench-chip', { style: { color: ENCHANTS[k].color, borderColor: ENCHANTS[k].color } }, h('b', smallIcon(`ui/ench_${k}`, 16), enchName(k, l)), h('span', ENCHANTS[k].desc(l)))))
           : h('div.faint', 'No enchantments yet'),
         h('div.faint.ench-could', `Could get: ${possible.map(([k, e]) => `${e.name}${e.max > 1 ? ` (up to ${enchName(k, e.max).split(' ').pop()})` : ''}`).join(', ')}`),
         h('div.ench-cost', h('span.faint', 'Cost:'), costChips(cost, res)),

@@ -38,6 +38,24 @@ function append(el, children, plain = false) {
   }
 }
 
+/** Rarity 0..4 as a frame behind an item cell: { cls, style } to spread into h(). Mythic uses the Legendary frame with a red glow. */
+const RARITY_COLORS = ['#b8b2a6', '#5aa9ff', '#c77dff', '#ffb347', '#ff4d6d'];
+const FRAMES = ['frame_common', 'frame_rare', 'frame_epic', 'frame_legendary', 'frame_legendary'];
+export function rarityFrame(r) {
+  const k = FRAMES[Math.max(0, Math.min(4, r | 0))];
+  if (!spriteAvailable(`ui/${k}`)) return { cls: '', style: {} };
+  const i = Math.max(0, Math.min(4, r | 0));
+  return { cls: `.framed.rf${i}`, style: { '--rf': `url("${import.meta.env.BASE_URL}assets/ui/${k}.png")`, '--rc': RARITY_COLORS[i] } };
+}
+
+/** Which icon each forge trait uses. */
+export const TRAIT_ICON = {
+  holy: 'ui/trait_holy', magic: 'ui/trait_magic', crit: 'ui/trait_crit', quake: 'ui/trait_quake', poison: 'ui/trait_poison', heal: 'ui/trait_heal',
+  burn: 'ui/ench_fire_aspect', chill: 'ui/ench_frostbite', drain: 'ui/ench_vampirism', luck: 'ui/ench_looting', swift: 'ui/ench_swiftness',
+};
+/** A small icon if the art exists, else nothing. */
+export const smallIcon = (key, size = 16) => (key && spriteAvailable(key) ? icon(key, size) : null);
+
 export function icon(key, size = 24, cls = 'sprite') {
   const loaded = iconUrl(key);
   const img = h('img', { src: loaded || '', width: size, height: size, className: cls, alt: '', draggable: false });

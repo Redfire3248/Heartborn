@@ -1,4 +1,4 @@
-import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo } from './dom.js';
+import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo, rarityFrame, TRAIT_ICON, smallIcon } from './dom.js';
 import { openEnchantMenu } from './enchantMenu.js';
 import { atEnchantTable, ENCHANTS, enchName } from '../game/enchanting.js';
 import { openIndex } from './indexBook.js';
@@ -41,7 +41,7 @@ import { RECIPES, CRAFT_CATS, canCraft, craft, needsTable, atTable, ownsTool, mi
 import { CONSUMABLES, itemsOf, buffActive } from '../game/consumables.js';
 import { on, buildingOn, eraFree } from '../core/features.js';
 import { ACTIONS, CONTROL_GROUPS, is, held, keyOf, keyLabel, setBind, resetBinds, RESERVED } from '../core/controls.js';
-import { TOOLS, toolsOf, hotbarOf, selectSlot, setSlot, swapSlots, TOOL_KINDS } from '../game/tools.js';
+import { TOOLS, toolsOf, hotbarOf, selectSlot, setSlot, swapSlots, TOOL_KINDS, toolRarity } from '../game/tools.js';
 import { doorOf } from '../game/houses.js';
 import { LAW_CATEGORIES, DEFAULT_LAWS, LAW_COST, describeEffects } from '../data/laws.js';
 import { rally, standDown, tributeCost, payWarbandTribute, scoutSummary } from '../game/war.js';
@@ -617,7 +617,7 @@ export class HUD {
           h('div.an-item', icon(iconKey, 128)),
           h('div.an-scan')),
         h('div.an-body',
-          h('div.an-rarity', R.name.toUpperCase()),
+          h('div.an-rarity', smallIcon(`ui/rarity_${Math.min(4, RARITY.indexOf(R))}`, 18), R.name.toUpperCase()),
           h('h2.an-name', it.name),
           h('div.an-kind.faint', `${def.name || it.base} · ${it.slot}`),
           h('div.an-stats', bars),
@@ -670,7 +670,7 @@ export class HUD {
       h('div.analyze', { style: { '--rarity': R.color } },
         h('div.an-stage', h('div.an-rays'), h('div.an-ring'), h('div.an-ring.two'), h('div.an-item', icon(iconKey, 128)), h('div.an-scan')),
         h('div.an-body',
-          h('div.an-rarity', R.name.toUpperCase()),
+          h('div.an-rarity', smallIcon(`ui/rarity_${Math.min(4, RARITY.indexOf(R))}`, 18), R.name.toUpperCase()),
           h('h2.an-name', t.name),
           h('div.an-kind.faint', `${TOOL_KINDS[t.kind]?.name || 'Tool'}${t.mat ? ` · ${t.mat}` : ''} · you have ${owned}`),
           stats.length ? h('div.an-stats', bars) : '',
@@ -709,13 +709,15 @@ export class HUD {
     this._hotbarKey = key;
     bar.replaceChildren(...slots.map((k, i) => {
       const info = this.slotInfo(k, v);
-      return h('button.hot-slot' + (i === r.hotSel ? '.on' : '') + (k ? '' : '.empty'), {
+      const fr = rarityFrame(this.slotRarity(k));
+      return h('button.hot-slot' + (i === r.hotSel ? '.on' : '') + (k ? fr.cls : '.empty'), {
+        style: k ? fr.style : {},
         title: info ? `${i + 1}: ${info.name} (drag to move)` : `${i + 1}: empty`,
         dataset: { slot: i },
         onclick: () => { if (this._dragged) return; selectSlot(g, i); this._hotbarKey = null; if (!this.els.invPanel.hidden) this.renderInventory(); },
         oncontextmenu: e => { e.preventDefault(); this.analyzeKey(slots[i]); },
         onpointerdown: e => k && this.startSlotDrag(e, { from: i, value: k, icon: info.icon }),
-      }, h('span.hot-num', String(i + 1)), info ? icon(info.icon, 28) : null, info?.count != null ? h('span.hot-count', String(info.count)) : null);
+      }, h('span.hot-num', String(i + 1)), info ? icon(info.icon, 34) : null, info?.count != null ? h('span.hot-count', String(info.count)) : null);
     }), h('button.hot-bag', { title: 'Inventory (I)', onclick: () => this.inventory() }, icon(hasArt('ui/inventory') ? 'ui/inventory' : 'tools/backpack', 24)));
     const held = slots[r.hotSel];
     const info = this.slotInfo(held, v);
@@ -770,6 +772,14 @@ export class HUD {
     window.addEventListener('pointercancel', up);
   }
 
+  /** Rarity of a hotbar or inventory value (for its frame). */
+  slotRarity(k) {
+    if (!k) return 0;
+    if (k === 'weapon') return rpgOf(this.game).gear.weapon?.rarity || 0;
+    if (TOOLS[k]) return toolRarity(k);
+    return 0;
+  }
+
   /** Icon, name and count for a hotbar value. */
   slotInfo(k, v) {
     if (!k) return null;
@@ -817,7 +827,9 @@ export class HUD {
     const cell = (k, extra = '') => {
       const info = this.slotInfo(k, v);
       const inBar = bar.indexOf(k);
-      return h('button.inv-cell' + (inBar === r.hotSel ? '.held' : inBar >= 0 ? '.inbar' : '') + extra, {
+      const fr = rarityFrame(this.slotRarity(k));
+      return h('button.inv-cell' + (inBar === r.hotSel ? '.held' : inBar >= 0 ? '.inbar' : '') + extra + fr.cls, {
+        style: fr.style,
         title: `${info.name}${info.count > 1 ? ` ×${info.count}` : ''}`,
         // click: into your hotbar (the first empty slot) or, if it is already there, hold it
         onclick: () => {
@@ -830,7 +842,7 @@ export class HUD {
         onmouseenter: () => { this._invHover = k; },
         onmouseleave: () => { if (this._invHover === k) this._invHover = null; },
         onpointerdown: e => this.startSlotDrag(e, { from: null, value: k, icon: info.icon }),
-      }, icon(info.icon, 30), info.count != null ? h('span.hot-count', String(info.count)) : null, inBar >= 0 ? h('span.hot-num', String(inBar + 1)) : null);
+      }, icon(info.icon, 36), info.count != null ? h('span.hot-count', String(info.count)) : null, inBar >= 0 ? h('span.hot-num', String(inBar + 1)) : null);
     };
     const keys = Object.keys(owned).filter(k => TOOLS[k]).sort((a, b) => (TOOLS[a].kind > TOOLS[b].kind ? 1 : TOOLS[a].kind < TOOLS[b].kind ? -1 : TOOLS[b].power - TOOLS[a].power));
     const heldInfo = this.slotInfo(bar[r.hotSel], v);
@@ -911,7 +923,8 @@ export class HUD {
           r.bag.length ? h('button.btn.sm.primary', { title: 'Put on the best piece you own for every slot', onclick: () => { const n = equipBest(g); this.hint(n ? `Equipped ${n} better piece${n === 1 ? '' : 's'}` : 'You already wear your best gear', 1800); this._bagSel = null; render(); } }, 'Equip best') : ''),
         h('div.bag-grid', ...r.bag.map(it => {
           const better = gearScore(it) > gearScore(r.gear[it.slot]);
-          return h('button.bag-cell' + (it.rarity >= 4 ? `.rarity-${RARITY[it.rarity].name.toLowerCase()}` : '') + (sel === it.id ? '.sel' : ''), { title: `${it.name}: ${gearText(it)}`, style: { borderColor: RARITY[it.rarity].color }, onclick: () => { this._bagSel = sel === it.id ? null : it.id; render(); } },
+          const fr = rarityFrame(it.rarity);
+          return h('button.bag-cell' + (it.rarity >= 4 ? `.rarity-${RARITY[it.rarity].name.toLowerCase()}` : '') + (sel === it.id ? '.sel' : '') + fr.cls, { title: `${it.name}: ${gearText(it)}`, style: fr.cls ? fr.style : { borderColor: RARITY[it.rarity].color }, onclick: () => { this._bagSel = sel === it.id ? null : it.id; render(); } },
             icon(gearIconKey(it) || 'items/relic', 32), better ? h('span.bag-up', '▲') : '');
         }), ...Array.from({ length: Math.max(0, 18 - r.bag.length) }, () => h('div.bag-cell.empty'))),
       ].filter(Boolean));
@@ -1743,7 +1756,7 @@ export class HUD {
     const R = RARITY[Math.min(4, rarity)];
     const el = h('div.rare-loot', { dataset: { key }, style: { '--glow': R.color }, onclick: () => el.remove() },
       h('div.rare-rays'), h('div.rare-burst'),
-      h('div.rare-sub', `${R.name.toUpperCase()} · ${sub.toUpperCase()}`),
+      h('div.rare-sub', smallIcon(`ui/rarity_${Math.min(4, rarity)}`, 16), `${R.name.toUpperCase()} · ${sub.toUpperCase()}`),
       h('div.rare-icon', icon(iconKey, 84)),
       h('b.rare-name', name),
       d.gear ? null : h('span.rare-count', `x${this._rareCount}`));
@@ -1765,7 +1778,7 @@ export class HUD {
       q ? h('span.craft-quality', { style: { color: q.color, borderColor: q.color } }, q.id === 'masterwork' ? 'MASTERWORK!' : q.name) : null,
       res.score != null ? h('span.faint', `Forging ${Math.round(res.score * 100)}%`) : null,
       it?.dmg ? h('span.faint', `${it.dmg} damage`) : it?.armor ? h('span.faint', `${Math.round(it.armor * 100)}% armour`) : null,
-      it?.traits?.length ? h('div.forge-stats', ...it.traits.map(t => h('span.trait-chip', { style: { color: FORGE_TRAITS[t].color, borderColor: FORGE_TRAITS[t].color } }, FORGE_TRAITS[t].name))) : null,
+      it?.traits?.length ? h('div.forge-stats', ...it.traits.map(t => h('span.trait-chip', { style: { color: FORGE_TRAITS[t].color, borderColor: FORGE_TRAITS[t].color } }, smallIcon(TRAIT_ICON[t], 14), FORGE_TRAITS[t].name))) : null,
       it && weaponAbility(it) ? h('span', { style: { color: weaponAbility(it).color, fontWeight: 700 } }, `Ability (F): ${weaponAbility(it).name}`) : null,
       res.bump ? h('span.craft-lucky', it ? 'Forged to a higher rarity!' : 'Forged a tier higher!') : null,
       res.extra ? h('span.craft-lucky', `Lucky craft! You made ${res.extra + 1}`) : null);

@@ -77,6 +77,9 @@ for (const [key, u] of Object.entries(UTILITY)) TOOLS[key] = { kind: key, name: 
 TOOLS.drill = { kind: 'pickaxe', name: 'Drill', power: 12, does: 'Mines anything in a blink', icon: 'armory/drill', fallbackIcon: 'items/pickaxe', mythic: true };
 TOOLS.chainsaw = { kind: 'axe', name: 'Chainsaw', power: 12, does: 'Fells any tree in a blink', icon: 'armory/chainsaw', fallbackIcon: 'items/axe', mythic: true };
 
+/** A tool's rarity (0..4) from its power, for frames: wood/stone common ... mythic tools. */
+export const toolRarity = key => { const p = TOOLS[key]?.power || 0; return TOOLS[key]?.mythic || p >= 11 ? 4 : p >= 9 ? 3 : p >= 6 ? 2 : p >= 3 ? 1 : 0; };
+
 export const STARTER_TOOLS = ['pickaxe_wood', 'axe_wood', 'shovel_wood', 'fishing_rod_wood'];
 
 /** Your tools as { key: count }. Everyone starts with a wooden pickaxe, axe and shovel. */

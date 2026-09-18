@@ -1923,3 +1923,29 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 @media (orientation: landscape) and (max-height: 520px) { .hint, .leading .hint { top: 110px !important; } }
 /* reveal cards: no dark box behind, just the glow and rays */
 .rare-loot, .craft-reveal { background: none !important; box-shadow: none !important; border: 0 !important; }
+
+/* rarity frames behind item cells */
+.framed { background: var(--rf) center / 100% 100% no-repeat, rgba(0, 0, 0, .2) !important; border-color: transparent !important; image-rendering: pixelated; }
+.framed.rf4 { box-shadow: 0 0 10px rgba(255, 77, 109, .75), inset 0 0 8px rgba(255, 77, 109, .4) !important; }
+.hot-slot.framed.on { box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(255, 207, 90, .6) !important; }
+.inv-cell.framed.held { box-shadow: 0 0 0 2px var(--gold) !important; }
+.index-cell.framed { border: 0 !important; padding: 12px 6px 10px; }
+.trait-chip img, .ench-chip img, .rare-sub img, .an-rarity img, .index-tabs img { vertical-align: -3px; margin-right: 4px; image-rendering: pixelated; }
+.index-icon { width: 62px; height: 62px; display: grid; place-items: center; border-radius: 8px; flex: none; }
+.index-cell.found { border-color: rgba(255, 255, 255, .1); }
+
+/* small item slots: a clean rarity border with a soft glow instead of the picture frame (that stays in the Index) */
+.hot-slot.framed, .inv-cell.framed, .bag-cell.framed, .ench-item.framed {
+  background: radial-gradient(circle at 50% 62%, color-mix(in srgb, var(--rc) 34%, transparent), transparent 72%), linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.28)) !important;
+  border: 2px solid color-mix(in srgb, var(--rc) 75%, #000) !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), inset 0 -3px 0 rgba(0,0,0,.25) !important;
+}
+.hot-slot.framed.rf0, .inv-cell.framed.rf0, .bag-cell.framed.rf0, .ench-item.framed.rf0 { background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.28)) !important; border-color: rgba(255,255,255,.16) !important; }
+.hot-slot.framed.rf3, .inv-cell.framed.rf3, .bag-cell.framed.rf3, .ench-item.framed.rf3 { box-shadow: inset 0 0 8px color-mix(in srgb, var(--rc) 45%, transparent), 0 0 6px color-mix(in srgb, var(--rc) 40%, transparent) !important; }
+.hot-slot.framed.rf4, .inv-cell.framed.rf4, .bag-cell.framed.rf4, .ench-item.framed.rf4 { box-shadow: inset 0 0 10px rgba(255,77,109,.55), 0 0 10px rgba(255,77,109,.6) !important; animation: mythic-pulse 2s ease-in-out infinite; }
+@keyframes mythic-pulse { 50% { box-shadow: inset 0 0 14px rgba(255,77,109,.8), 0 0 16px rgba(255,77,109,.85); } }
+.hot-slot.framed.on { border-color: var(--gold) !important; box-shadow: 0 0 0 1px var(--gold), 0 0 12px rgba(255,207,90,.55) !important; }
+.inv-cell.framed.held { border-color: var(--gold) !important; }
+.hot-slot img, .inv-cell img { image-rendering: pixelated; }
+@media (max-width: 760px) and (min-height: 521px) { .hot-slot img, .hot-bag img { width: 28px !important; height: 28px !important; } }
+@media (orientation: landscape) and (max-height: 520px) { .hot-slot img, .hot-bag img { width: 28px !important; height: 28px !important; } }

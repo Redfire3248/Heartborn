@@ -128,7 +128,7 @@ export class Renderer {
       if (inView(x, y)) items.push({ y, draw: () => this.drawBuilding(g, b, x, y) });
     }
     for (const c of g.state.creatures) {
-      if (inView(c.x, c.y)) items.push({ y: c.y + (CREATURES[c.t]?.flying ? 40 : 0), draw: () => this.drawCreature(g, c) });
+      if (inView(c.x, c.y)) items.push({ y: c.y + (CREATURES[c.t]?.flying ? 40 : 0), draw: () => { this.drawCreature(g, c); this.drawStatus(g, c); } });
     }
     for (const v of g.state.villagers) {
       if (!v.away && inView(v.x, v.y)) items.push({ y: v.y, draw: () => this.drawVillager(g, v) });
@@ -869,6 +869,23 @@ export class Renderer {
     const key = `hero/${who}_${anim}_${dir}_${n}`;
     if (!sprite(key)) return null;   // art not loaded yet: fall back to the villager look
     return { key, flip: dir === 'side' && dx < 0 };
+  }
+
+  /** Small icons over a monster for what is on it: burning, frozen, slowed, bleeding, stunned, enraged. */
+  drawStatus(g, c) {
+    const now = g.state.time;
+    const list = [];
+    if (c._burn && c._burn.until > now) list.push('ui/status_burn');
+    if (c._frozen && c._frozen > now) list.push('ui/status_frozen');
+    else if (c._chill && c._chill.until > now) list.push('ui/status_slow');
+    if (c._bleed && c._bleed.until > now) list.push('ui/status_bleed');
+    if (c._stunned > 0 && !(c._frozen > now)) list.push('ui/status_stun');
+    if (c._enraged) list.push('ui/status_enraged');
+    if (!list.length) return;
+    const def = CREATURES[c.t];
+    const top = c.y - (def?.size || 1) * TILE * (c.scale || 1) - 8 + Math.sin(this.time * 4 + c.x) * 1.5;
+    const s = TILE * 0.42, gap = s * 0.9;
+    list.forEach((k, i) => { if (hasArt(k)) drawSprite(this.ctx, k, c.x + (i - (list.length - 1) / 2) * gap, top, s, { center: true }); });
   }
 
   drawCreature(g, c) {
