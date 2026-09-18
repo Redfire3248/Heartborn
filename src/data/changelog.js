@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Enchanting is pure luck',
+    changes: [
+      'Enchanting is now a roll: a reel spins through enchantments and lands with its rarity and 1 in N odds',
+      'Every enchantment and level has a rarity: Sharpness I is common, Vampirism and level V are very rare',
+      'Enchantment books: make them at the Enchanting Table or get them from bosses, and add one to anything without losing the rest',
+    ],
+  },
+  {
     title: 'The Armory, parries and a cleaner screen',
     changes: [
       'The Armory: 30 new weapons with their own art. Guns (flintlock, musket, blunderbuss, revolver, hunting rifle, shotgun), thrown weapons (throwing axe, a boomerang that comes back, shurikens, harpoon), new swords, axes, polearms and a whip, and magic (fire and ice staffs, lightning wand, necromancer staff, holy sceptre, spellbook, crystal orb, bone wand, druid staff)',

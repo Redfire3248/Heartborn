@@ -17,16 +17,16 @@ export const MAX_ENCHANTS = 3;
 
 /** Every enchantment. `for`: which things take it; `max`: highest level; `trait`: the forge trait it gives. */
 export const ENCHANTS = {
-  sharpness:   { name: 'Sharpness',   for: ['weapon'], max: 5, color: '#e8e8ff', desc: l => `+${l * 8}% damage` },
-  fire_aspect: { name: 'Fire Aspect', for: ['weapon'], max: 1, color: '#ff9a3a', trait: 'burn', desc: () => 'Sets foes on fire' },
-  frostbite:   { name: 'Frostbite',   for: ['weapon'], max: 1, color: '#9fd4ff', trait: 'chill', desc: () => 'Chills foes, sometimes freezing them' },
-  vampirism:   { name: 'Vampirism',   for: ['weapon'], max: 1, color: '#b06aff', trait: 'drain', desc: () => 'Heals you for part of the damage you deal' },
-  looting:     { name: 'Looting',     for: ['weapon'], max: 1, color: '#ffd76a', trait: 'luck', desc: () => 'Foes drop extra gold' },
-  swiftness:   { name: 'Swiftness',   for: ['weapon'], max: 1, color: '#9fffe0', trait: 'swift', desc: () => 'Sometimes strikes twice' },
-  protection:  { name: 'Protection',  for: ['armor', 'helmet', 'shield'], max: 4, color: '#d9d4c7', desc: l => `+${l * 3}% armour` },
-  vitality:    { name: 'Vitality',    for: ['armor', 'helmet'], max: 3, color: '#ff8a8a', desc: l => `+${l * 10} max health` },
-  efficiency:  { name: 'Efficiency',  for: ['tool'], max: 5, color: '#7ee06a', desc: l => `${Math.ceil(l / 2)} fewer swings (at least 1)` },
-  fortune:     { name: 'Fortune',     for: ['tool'], max: 3, color: '#ffd76a', desc: l => `+${l * 20}% from what you mine, chop or catch` },
+  sharpness:   { w: 30, name: 'Sharpness',   for: ['weapon'], max: 5, color: '#e8e8ff', desc: l => `+${l * 8}% damage` },
+  fire_aspect: { w: 8, name: 'Fire Aspect', for: ['weapon'], max: 1, color: '#ff9a3a', trait: 'burn', desc: () => 'Sets foes on fire' },
+  frostbite:   { w: 8, name: 'Frostbite',   for: ['weapon'], max: 1, color: '#9fd4ff', trait: 'chill', desc: () => 'Chills foes, sometimes freezing them' },
+  vampirism:   { w: 3, name: 'Vampirism',   for: ['weapon'], max: 1, color: '#b06aff', trait: 'drain', desc: () => 'Heals you for part of the damage you deal' },
+  looting:     { w: 12, name: 'Looting',     for: ['weapon'], max: 1, color: '#ffd76a', trait: 'luck', desc: () => 'Foes drop extra gold' },
+  swiftness:   { w: 6, name: 'Swiftness',   for: ['weapon'], max: 1, color: '#9fffe0', trait: 'swift', desc: () => 'Sometimes strikes twice' },
+  protection:  { w: 30, name: 'Protection',  for: ['armor', 'helmet', 'shield'], max: 4, color: '#d9d4c7', desc: l => `+${l * 3}% armour` },
+  vitality:    { w: 12, name: 'Vitality',    for: ['armor', 'helmet'], max: 3, color: '#ff8a8a', desc: l => `+${l * 10} max health` },
+  efficiency:  { w: 30, name: 'Efficiency',  for: ['tool'], max: 5, color: '#7ee06a', desc: l => `${Math.ceil(l / 2)} fewer swings (at least 1)` },
+  fortune:     { w: 10, name: 'Fortune',     for: ['tool'], max: 3, color: '#ffd76a', desc: l => `+${l * 20}% from what you mine, chop or catch` },
 };
 export const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
 export const enchName = (key, lvl) => `${ENCHANTS[key]?.name || key}${ENCHANTS[key]?.max > 1 ? ` ${ROMAN[lvl] || lvl}` : ''}`;
@@ -90,21 +90,85 @@ export function rollEnchant(g, t, score = 0.5) {
   return { key, level: Math.min(e.max, lvl) };
 }
 
-/** A fresh set of enchantments for this target (1 to 3 different ones), ignoring what it has now. */
-export function rollEnchantSet(g, t, score = 0.5) {
+/** How likely each level is (I is the most common, V almost never). */
+export const LEVEL_W = [0, 60, 25, 10, 4, 1];
+
+/** Rarity (0 Common .. 4 Mythic) of a roll from its 1-in-N odds. */
+export const oddsRarity = n => (n < 6 ? 0 : n < 25 ? 1 : n < 120 ? 2 : n < 600 ? 3 : 4);
+
+/**
+ * One random enchantment from a pool (weighted by how common each one is), with a random level.
+ * Returns { key, level, odds } where odds is "1 in N" for exactly this result.
+ */
+export function rollOne(g, pool) {
+  const luck = luckOf(g);
+  const total = pool.reduce((a, k) => a + ENCHANTS[k].w, 0);
+  let x = Math.random() * total, key = pool[pool.length - 1];
+  for (const k of pool) { x -= ENCHANTS[k].w; if (x < 0) { key = k; break; } }
+  const e = ENCHANTS[key];
+  const lw = LEVEL_W.slice(1, e.max + 1).map((w, i) => (i ? w * (1 + luck * 2) : w));   // luck nudges the higher levels up
+  const lsum = lw.reduce((a, b) => a + b, 0);
+  let y = Math.random() * lsum, level = 1;
+  for (let i = 0; i < lw.length; i++) { y -= lw[i]; if (y < 0) { level = i + 1; break; } }
+  const odds = Math.max(1, Math.round((total / e.w) * (lsum / lw[level - 1])));
+  return { key, level, odds, rarity: oddsRarity(odds) };
+}
+
+/** A fresh set of enchantments for this target (1 to 3 different ones), all by chance. */
+export function rollEnchantSet(g, t) {
   const kind = targetKind(t);
   const pool = Object.entries(ENCHANTS).filter(([, e]) => e.for.includes(kind)).map(([k]) => k);
   if (!pool.length) return [];
-  const push = score * 0.12 + luckOf(g) * 0.3;   // about 60% one, 28% two, 12-18% three
-  const x = Math.random() - push;
-  const count = Math.min(pool.length, MAX_ENCHANTS, x < 0.12 ? 3 : x < 0.45 ? 2 : 1);   // mostly one, sometimes two, rarely three
+  const x = Math.random() - luckOf(g) * 0.3;
+  const count = Math.min(pool.length, MAX_ENCHANTS, x < 0.1 ? 3 : x < 0.4 ? 2 : 1);   // mostly one, sometimes two, rarely three
   const set = [];
-  const left = [...pool];
+  let left = [...pool];
   for (let i = 0; i < count; i++) {
-    const key = left.splice(Math.floor(Math.random() * left.length), 1)[0];
-    set.push(rollLevel(g, key, score));
+    const r = rollOne(g, left);
+    set.push(r);
+    left = left.filter(k => k !== r.key);
   }
   return set;
+}
+
+// ------------------------------------------------------------------ enchantment books
+
+/** Your books: [{ id, key, level, odds }]. A book holds one enchantment to put on an item later. */
+export const booksOf = g => (rpgOf(g).books ||= []);
+export const BOOK_COST = { gems: 8, gold: 80 };
+
+/** A book with a random enchantment (any kind of item can use it). From the table, a boss or a chest. */
+export function newBook(g, key = null, level = null) {
+  const r = key ? { key, level: Math.max(1, Math.min(level || 1, ENCHANTS[key].max)), odds: 1 } : rollOne(g, Object.keys(ENCHANTS));
+  const book = { id: `bk${Date.now().toString(36)}${Math.floor(Math.random() * 1e5)}`, key: r.key, level: r.level, odds: r.odds };
+  booksOf(g).push(book);
+  g.emit?.('change');
+  return book;
+}
+
+/** Roll a book at the Enchanting Table. */
+export function makeBook(g) {
+  if (!canPay(g, BOOK_COST)) return { ok: false, why: `Needs ${BOOK_COST.gems} gems and ${BOOK_COST.gold} gold` };
+  for (const [k, n] of Object.entries(BOOK_COST)) g.state.resources[k] -= n;
+  const book = newBook(g);
+  dailyProgress(g, 'enchant');
+  return { ok: true, book };
+}
+
+/** Put a book's enchantment on an item: it is added (the others stay); a higher level replaces a lower one. */
+export function applyBook(g, bookId, t) {
+  const books = booksOf(g);
+  const book = books.find(b => b.id === bookId);
+  if (!book) return { ok: false, why: 'No such book' };
+  const e = ENCHANTS[book.key];
+  if (!e.for.includes(targetKind(t))) return { ok: false, why: `${e.name} only goes on ${e.for.join(' or ')}` };
+  const have = enchantsOf(g, t);
+  if (!have[book.key] && Object.keys(have).length >= MAX_ENCHANTS) return { ok: false, why: 'It already has 3 enchantments' };
+  if ((have[book.key] || 0) >= book.level) return { ok: false, why: 'It already has that, or better' };
+  have[book.key] = book.level;
+  rpgOf(g).books = books.filter(b => b !== book);
+  g.emit('change');
+  return { ok: true, key: book.key, level: book.level };
 }
 
 /** A level for one enchantment: about 3% IV, 9% III, 28% II, the rest I (a great ritual nudges it up). */
@@ -135,7 +199,7 @@ export function enchant(g, t, { score = 0.5, force = null } = {}) {
   }
   const cost = enchantCost(g, t);
   if (!canPay(g, cost)) return { ok: false, why: `Needs ${cost.gems} gems and ${cost.gold} gold` };
-  const set = rollEnchantSet(g, t, score);
+  const set = rollEnchantSet(g, t);
   if (!set.length) return { ok: false, why: 'That cannot be enchanted' };
   for (const [k, n] of Object.entries(cost)) g.state.resources[k] -= n;
   if (t.tool) { const tries = (rpgOf(g).toolEnchTries ||= {}); tries[t.tool] = (tries[t.tool] || 0) + 1; } else t.item.enchTries = (t.item.enchTries || 0) + 1;

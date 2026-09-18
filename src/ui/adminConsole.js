@@ -273,7 +273,7 @@ export class AdminConsole {
         ...Object.keys(CALLINGS).map(c => ({ value: `calling=${c}`, label: `calling=${c}`, detail: 'calling' })),
         ...Object.keys(TRAITS).map(t => ({ value: `traits=${t}`, label: `traits=${t}`, detail: TRAITS[t].label })),
       ];
-      case 'enchant': return [{ value: '*', label: '*', detail: 'every enchantment at max on all your gear and held tool' }, { value: 'list', label: 'list', detail: 'show every enchantment' }, { value: 'random', label: 'random', detail: 'a free random enchant' }, { value: 'clear', label: 'clear', detail: 'remove enchantments' }, { value: 'menu', label: 'menu', detail: 'open the Enchanting Table menu anywhere' },
+      case 'enchant': return [{ value: '*', label: '*', detail: 'every enchantment at max on all your gear and held tool' }, { value: 'list', label: 'list', detail: 'show every enchantment' }, { value: 'random', label: 'random', detail: 'a free random enchant' }, { value: 'roll', label: 'roll', detail: 'a free roll with the rolling animation' }, { value: 'book', label: 'book', detail: 'give enchantment books: book <enchantment|random> [level] [count]' }, { value: 'clear', label: 'clear', detail: 'remove enchantments' }, { value: 'menu', label: 'menu', detail: 'open the Enchanting Table menu anywhere' },
         ...Object.entries(ENCHANTS).map(([k, e]) => ({ value: k, label: k, detail: `${e.name} · max ${e.max} · ${e.for.join('/')}` }))];
       case 'thing': return [
         { value: 'all-gear', label: 'all-gear', detail: 'one of every weapon, armour, helmet, shield and trinket' },
@@ -921,6 +921,7 @@ const COMMANDS = {
       else if (what === 'all-items') { for (const k of Object.keys(C.CONSUMABLES)) { C.giveItem(g, k, n); got.push({ name: `${n} x ${C.CONSUMABLES[k].name}`, icon: C.CONSUMABLES[k].icon }); } }
       else if (what === 'all-pets') { for (const k of Object.keys(P.PETS)) givePet(k); }
       else if (what === 'all-materials') { for (const k of F.FORGE_KEYS) { g.state.resources[k] = (g.state.resources[k] || 0) + (num ? n : 50); } got.push({ name: `${num ? n : 50} of every material` }); }
+      else if (what === 'book' || what === 'books' || what.startsWith('book:')) { const E = await import('../game/enchanting.js'); const k = what.split(':')[1]; if (k && !E.ENCHANTS[k]) throw new Error(`no enchantment "${k}"`); for (let i = 0; i < Math.min(n, 50); i++) { const bk = E.newBook(g, k || null, k ? E.ENCHANTS[k].max : null); got.push({ name: `Book: ${E.enchName(bk.key, bk.level)}`, icon: 'items/scroll' }); } }
       else if (what === 'egg' || what === 'eggs') { P.giveEgg(g, n); got.push({ name: `${n} pet egg${n > 1 ? 's' : ''}`, icon: 'pets/egg_common' }); }
       else if (what === 'potion' || what === 'potions') { rpgOf(g).potions = (rpgOf(g).potions || 0) + n; got.push({ name: `${n} Health Potion${n > 1 ? 's' : ''}`, icon: 'gear/health_potion' }); }
       else if (what.startsWith('pet:') || (P.PETS[what] && !T.TOOLS[what])) { const k = what.replace(/^pet:/, ''); if (!P.PETS[k]) throw new Error(`no pet "${k}" (pets: ${Object.keys(P.PETS).join(', ')})`); for (let i = 0; i < Math.min(n, 20); i++) givePet(k); }
@@ -942,13 +943,31 @@ const COMMANDS = {
     },
   },
   enchant: {
-    usage: 'enchant <enchantment|*|random|clear|list|menu> [level] [weapon|armor|helmet|shield|tool]', desc: 'Enchant your worn gear or held tool for free: enchant sharpness 5, enchant fortune 3 tool, enchant * (everything maxed), enchant clear weapon, enchant menu',
+    usage: 'enchant <enchantment|*|random|roll|book|clear|list|menu> [level] [weapon|armor|helmet|shield|tool]', desc: 'Enchant your worn gear or held tool for free: enchant sharpness 5, enchant fortune 3 tool, enchant * (everything maxed), enchant roll (with the animation), enchant book vampirism 3 (or enchant book random 1 10), enchant clear weapon, enchant menu',
     async run([key = 'list', a, b]) {
       const E = await import('../game/enchanting.js');
       const T = await import('../game/tools.js');
       const g = this.game, r = rpgOf(g);
       if (key === 'list') { for (const [k, e] of Object.entries(E.ENCHANTS)) this.print(`${k} · ${e.name} · max ${e.max} · ${e.for.join('/')} · ${e.desc(e.max)}`); return; }
       if (key === 'menu') { if (!this.hud) throw new Error('no game screen'); this.toggle(); const M = await import('./enchantMenu.js'); M.openEnchantMenu(this.hud); return; }
+      if (key === 'book' || key === 'books') {   // enchant book [enchantment] [level] [count]
+        if (a && a !== 'random' && !E.ENCHANTS[a]) throw new Error(`unknown enchantment. Try: ${Object.keys(E.ENCHANTS).join(', ')}`);
+        const lv = /^\d+$/.test(b || '') ? Number(b) : null;
+        const n = Math.min(50, Number(arguments[0][3]) || 1);
+        const made = [];
+        for (let i = 0; i < n; i++) made.push(E.newBook(g, a && a !== 'random' ? a : null, lv ?? (a && a !== 'random' ? E.ENCHANTS[a].max : null)));
+        this.print(`✓ ${made.length} book${made.length > 1 ? 's' : ''}: ${made.map(x => E.enchName(x.key, x.level)).join(', ')}`, 'ok'); return;
+      }
+      if (key === 'roll') {   // enchant roll: the real roll with its animation, free
+        const t = (where ? [targetFor(where)] : [targetFor('weapon') || heldTool()]).filter(Boolean)[0];
+        if (!t) throw new Error('equip something or hold a tool');
+        const set = E.rollEnchantSet(g, t);
+        const have = E.enchantsOf(g, t);
+        for (const k of Object.keys(have)) delete have[k];
+        for (const x of set) have[x.key] = x.level;
+        g.emit('change'); this.toggle();
+        const M = await import('./enchantMenu.js'); await M.rollReel(set, { title: `Enchanting ${nameOf(t)}` }); return;
+      }
       const level = /^\d+$/.test(a || '') ? Number(a) : null;
       const where = level == null ? a : b;
       const heldTool = () => { const k = T.hotbarOf(g)[r.hotSel]; const key2 = T.TOOLS[k] && !T.TOOLS[k].utility ? k : Object.keys(T.toolsOf(g)).find(x => T.TOOLS[x] && !T.TOOLS[x].utility); return key2 ? { tool: key2 } : null; };

@@ -1,3 +1,4 @@
+import { newBook, enchName } from './enchanting.js';
 import { giveEgg } from './pets.js';
 import { dailyProgress } from './journal.js';
 import { TILE } from '../core/constants.js';
@@ -503,6 +504,8 @@ function completeQuests(g, v) {
  * What each monster can drop: [resource, min, max, chance]. `ore` = chance of a bit of the local ore (only for
  * things that would carry it: miners, bandits, golems). Bosses always drop local ores, gold and their material.
  */
+const ENCHANT_NAME = bk => enchName(bk.key, bk.level);
+
 const MONSTER_DROPS = {
   snake:           { drops: [['food', 1, 2, 0.4]] },
   rat:             { drops: [['food', 1, 1, 0.3]] },
@@ -536,6 +539,7 @@ export function onHeroKill(g, c, v) {
     if (Math.random() < (c.elite || boss ? 0.45 : 0.07)) dropPickup(g, 'potion', c.x + 8, c.y);
     if (boss) chestsOf(g).push({ id: `boss${Date.now().toString(36)}`, x: c.x, y: c.y + 10, boss: true });
     if (boss && Math.random() < 0.3) { giveEgg(g, 1); g.float(c.x, c.y - TILE * 2.4, 'A pet egg!', '#ffd76a'); }
+    if (boss && Math.random() < 0.25) { const bk = newBook(g); g.float(c.x, c.y - TILE * 2.8, `Book: ${ENCHANT_NAME(bk)}`, '#c08aff'); }
   }
   if (def.hostile) {
     // what it carries: its own drops (a snake has no iron bars), bosses and ore-carriers also the local ores
