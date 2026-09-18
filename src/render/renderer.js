@@ -163,6 +163,7 @@ export class Renderer {
     }
     items.sort((a, b) => a.y - b.y);
     for (const it of items) it.draw();
+    if (g.state.track && !g.visiting && !g.dungeon) this.drawTrackArrow(g);
 
     this.drawSea(g);
     this.drawGhost(g);
@@ -501,6 +502,31 @@ export class Renderer {
       ctx.lineTo(b.x1, b.y1); ctx.stroke();
     }
     if (g.fx.bolts?.length) g.fx.bolts = g.fx.bolts.filter(b => b.life > 0);
+  }
+
+  /** An arrow around your hero pointing to the marker you track, with how far it is. Reaching it stops tracking. */
+  drawTrackArrow(g) {
+    const mk = (g.state.markers || []).find(m => m.id === g.state.track);
+    const v = g.hero && g.state.villagers?.find(x => x.id === g.hero.id);
+    if (!mk || !v) return;
+    const dx = mk.x * TILE - v.x, dy = mk.y * TILE - v.y, d = Math.hypot(dx, dy) / TILE;
+    if (d < 2) { g.state.track = null; g.announce?.(`You reached ${mk.label}`); return; }
+    const { ctx } = this, a = Math.atan2(dy, dx), r = TILE * 1.1;
+    const x = v.x + Math.cos(a) * r, y = v.y - TILE * 0.3 + Math.sin(a) * r;
+    const bob = 1 + Math.sin(this.time * 5) * 0.08;
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(a); ctx.scale(bob, bob);
+    ctx.fillStyle = mk.color; ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-5, -6); ctx.lineTo(-2, 0); ctx.lineTo(-5, 6); ctx.closePath(); ctx.stroke(); ctx.fill();
+    ctx.restore();
+    if (d > 4) {
+      ctx.save();
+      ctx.font = 'bold 8px "Pixelify Sans", sans-serif'; ctx.textAlign = 'center';
+      const tx = v.x + Math.cos(a) * (r + 12), ty = v.y - TILE * 0.3 + Math.sin(a) * (r + 12) + 3;
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.strokeText(`${Math.round(d)}`, tx, ty);
+      ctx.fillStyle = '#fff'; ctx.fillText(`${Math.round(d)}`, tx, ty);
+      ctx.restore();
+    }
   }
 
   /** A warm glow that flickers, drawn over a flame. */

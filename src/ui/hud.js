@@ -1,4 +1,4 @@
-import { openIslandMap } from './islandMap.js';
+import { openIslandMap, exploreAround, saveExplored, fogCanvas } from './islandMap.js';
 import { PETS } from '../game/pets.js';
 import { openPets } from './petsMenu.js';
 import { checkAchievements, titleOf } from '../game/journal.js';
@@ -3573,6 +3573,7 @@ export class HUD {
     const W = this.mini.width, R = 20;   // radius in tiles
     const v = heroOf(g), cam = this.renderer.camera;
     const cx = (v ? v.x : cam.x) / TILE, cy = (v ? v.y : cam.y) / TILE;
+    if (v) { exploreAround(g, cx, cy); if ((this._exploreSave = (this._exploreSave || 0) + 1) % 20 === 0) saveExplored(g); }   // the map fills in as you go
     const s = W / (2 * R), px = 1 / s;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, W, W);
@@ -3588,6 +3589,7 @@ export class HUD {
     ctx.fillStyle = 'rgba(28,70,26,0.55)';
     for (const o of g.state.objects) if (o.t.startsWith('tree_') && o.t !== 'tree_stump' && near(o.x, o.y)) ctx.fillRect(o.x + 0.15, o.y + 0.15, 0.7, 0.7);
     for (const b of g.state.buildings) { if (!near(b.tx, b.ty)) continue; const z = sizeOf(b); ctx.fillStyle = '#ffae3d'; ctx.fillRect(b.tx, b.ty, z, z); }
+    if (!g.visiting) ctx.drawImage(fogCanvas(g), 0, 0, g.world.w, g.world.h);   // land you have not seen
     const mark = (x, y, color, r) => { ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x, y, (r + 1.2) * px, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r * px, 0, Math.PI * 2); ctx.fill(); };
     if (g.state.center) mark(g.state.center.x / TILE, g.state.center.y / TILE, '#ffd76a', 5);
     for (const e of g.state.dungeons || []) mark(e.x / TILE, e.y / TILE, '#b06aff', 5);
@@ -3603,9 +3605,10 @@ export class HUD {
     ctx.restore();
     // markers: pins inside the radar, arrows on its rim for the ones further away
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const tracked = g.state.track ? (g.state.markers || []).find(m => m.id === g.state.track) : null;
     for (const mk of g.state.markers || []) {
       const dx = (mk.x - cx) * s, dy = (mk.y - cy) * s, d = Math.hypot(dx, dy), rim = W / 2 - 12;
-      ctx.fillStyle = mk.color; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+      ctx.fillStyle = mk.color; ctx.strokeStyle = mk === tracked ? '#fff' : '#000'; ctx.lineWidth = mk === tracked ? 4 : 2;
       if (d < rim) { ctx.beginPath(); ctx.arc(W / 2 + dx, W / 2 + dy, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); continue; }
       const ang = Math.atan2(dy, dx), x = W / 2 + Math.cos(ang) * rim, y = W / 2 + Math.sin(ang) * rim;
       ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
@@ -3622,6 +3625,12 @@ export class HUD {
     ctx.strokeStyle = 'rgba(255, 215, 106, 0.85)'; ctx.lineWidth = 5;
     ctx.beginPath(); ctx.arc(W / 2, W / 2, W / 2 - 3, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = '#ffd76a'; ctx.font = 'bold 22px "Pixelify Sans", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('N', W / 2, 24);
+    if (tracked) {   // how far to the marker you follow
+      const dist = Math.round(Math.hypot(tracked.x - cx, tracked.y - cy));
+      ctx.font = 'bold 20px "Pixelify Sans", sans-serif';
+      ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(`${dist}`, W / 2, W - 16);
+      ctx.fillStyle = tracked.color; ctx.fillText(`${dist}`, W / 2, W - 16);
+    }
   }
 
   // ------------------------------------------------------------ homes

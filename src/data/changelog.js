@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'A much better map',
+    changes: [
+      'The map fills in as you explore, like a Minecraft map: land you have not been near stays dark (on the minimap too)',
+      'Region names, icons for homes, stations, dungeons and bosses, monsters near you and other players',
+      'Switch layers on and off, turn on a grid, and read the compass and scale; hover or tap for coordinates, the region and distance',
+      'Track a marker: an arrow by your hero points the way with the distance, and the minimap shows how far it is',
+    ],
+  },
+  {
     title: 'Books and new torches',
     changes: [
       'Enchantment books have their own art: each shows its enchantment on the cover, and new books land on a cover of their rarity',

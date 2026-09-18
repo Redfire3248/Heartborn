@@ -111,7 +111,7 @@ const HISTORY_KEY = 'hb_admin_history';
 // What each argument position expects, for autocomplete + hints.
 // Arrays are fixed choices; '...' repeats the pair before it (give res n res n …).
 // the strongest, most useful things are listed first everywhere in the console
-const TOP_COMMANDS = ['get', 'god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'shop', 'journal', 'pet', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
+const TOP_COMMANDS = ['get', 'god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'map', 'shop', 'journal', 'pet', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
 const commandRank = k => { const i = TOP_COMMANDS.indexOf(k); return i < 0 ? 999 : i; };
 const gearRank = d => (d.admin ? 1e6 : 0) + (d.minRarity || 0) * 1e4 + (d.damage || d.armor * 100 || d.block * 100 || 0);
 const creatureRank = d => (d.boss ? 1e6 : d.hostile ? 1e4 : 0) + (d.hp || 0);
@@ -126,7 +126,7 @@ const ARG_SPECS = {
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
   item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['mythic', 'legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], items: [['*', 'bomb', 'dynamite', 'med_kit', 'speed_potion', 'strength_potion', 'invisibility_potion', 'mana_potion', 'antidote', 'golden_apple', 'ammo_box'], 'number'], tool: ['tool', 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
-  get: ['thing', 'number', ['mythic', 'legendary', 'epic', 'rare', 'common', 'equip']], build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting', 'market']], shop: [['open', 'reroll', 'sellall']], journal: [['open', 'newday', 'finish', 'unlock', 'reset']], pet: [['open', 'egg', 'give', 'hatch', 'list', 'clear'], ['chicken', 'rabbit', 'pig', 'slime', 'bat', 'wolf', 'forest_spirit', 'dragon', '5']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
+  get: ['thing', 'number', ['mythic', 'legendary', 'epic', 'rare', 'common', 'equip']], build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting', 'market']], map: [['open', 'reveal', 'hide', 'markers', 'clear']], shop: [['open', 'reroll', 'sellall']], journal: [['open', 'newday', 'finish', 'unlock', 'reset']], pet: [['open', 'egg', 'give', 'hatch', 'list', 'clear'], ['chicken', 'rabbit', 'pig', 'slime', 'bat', 'wolf', 'forest_spirit', 'dragon', '5']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
 export class AdminConsole {
@@ -1003,6 +1003,19 @@ const COMMANDS = {
       if (!e.for.includes(E.targetKind(t))) throw new Error(`${e.name} only goes on ${e.for.join('/')}`);
       const res = E.enchant(g, t, { force: { key, level: level ?? e.max } });
       this.print(res.ok ? `✓ ${E.enchName(res.key, res.level)} on ${nameOf(t)}` : `✗ ${res.why}`, res.ok ? 'ok' : 'err');
+    },
+  },
+  map: {
+    usage: 'map <open|reveal|hide|markers|clear>', desc: 'The island map: open it, reveal the whole island or forget it (map hide), list markers, or remove them all (map clear)',
+    async run([what = 'open']) {
+      const M = await import('./islandMap.js');
+      const g = this.game;
+      if (what === 'open') { if (!this.hud) throw new Error('no game screen'); this.toggle(); M.openIslandMap(this.hud); return; }
+      if (what === 'reveal') { M.revealAll(g, true); this.print('✓ the whole island is on your map', 'ok'); return; }
+      if (what === 'hide') { M.revealAll(g, false); this.print('✓ map forgotten (only the land around you is left)', 'ok'); return; }
+      if (what === 'markers') { const l = M.markersOf(g); if (!l.length) this.print('no markers'); for (const m of l) this.print(`${m.label} · ${Math.round(m.x)}, ${Math.round(m.y)}${g.state.track === m.id ? ' · tracking' : ''}`); return; }
+      if (what === 'clear') { g.state.markers = []; g.state.track = null; g.emit('change'); this.print('✓ markers removed', 'ok'); return; }
+      throw new Error('map <open|reveal|hide|markers|clear>');
     },
   },
   station: {
