@@ -45,6 +45,9 @@ export function enchantsOf(g, t) {
   return (t.item.ench ||= {});
 }
 
+/** The same, but only to look: nothing is written into the save for items without enchantments. */
+export const peekEnchants = (g, t) => (t.tool ? rpgOf(g).toolEnch?.[t.tool] : t.item.ench) || {};
+
 /** Enchantments of a tool by key (for the mining code). */
 export const toolEnchants = (g, key) => (key && rpgOf(g).toolEnch?.[key]) || {};
 

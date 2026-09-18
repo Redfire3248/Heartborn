@@ -8,7 +8,7 @@ import { hasArt, gearIconKey } from '../render/gearArt.js';
 import { heroOf } from '../game/hero.js';
 import { play } from '../core/sound.js';
 import { forgeMinigame } from './forge.js';
-import { ENCHANTS, MAX_ENCHANTS, enchName, enchantables, enchantsOf, enchantCost, canPay, enchant, targetKind, targetInfo } from '../game/enchanting.js';
+import { ENCHANTS, MAX_ENCHANTS, enchName, enchantables, peekEnchants, enchantCost, canPay, enchant, targetKind, targetInfo } from '../game/enchanting.js';
 
 const iconOf = t => {
   const info = targetInfo(t);
@@ -29,14 +29,14 @@ export function openEnchantMenu(hud) {
     if (sel) hud._enchSel = idOf(sel);
     const res = g.state.resources;
     const cells = list.map(t => {
-      const info = targetInfo(t), ench = enchantsOf(g, t), n = Object.keys(ench).length;
+      const info = targetInfo(t), ench = peekEnchants(g, t), n = Object.keys(ench).length;
       const fr = rarityFrame(t.item ? t.item.rarity : toolRarity(t.tool));
       return h(`button.ench-item${t === sel ? '.on' : ''}${n ? '.glint' : ''}${fr.cls}`, { style: fr.style, title: `${info.name} · ${t.where}`, onclick: () => { hud._enchSel = idOf(t); play('click'); render(); } },
         icon(iconOf(t), 34), n ? h('span.ench-count', `${n}`) : null);
     });
     let detail = h('div.faint', 'Nothing to enchant yet. Get a weapon, armour or a tool.');
     if (sel) {
-      const info = targetInfo(sel), kind = targetKind(sel), ench = enchantsOf(g, sel);
+      const info = targetInfo(sel), kind = targetKind(sel), ench = peekEnchants(g, sel);
       const cost = enchantCost(g, sel);
       const possible = Object.entries(ENCHANTS).filter(([, e]) => e.for.includes(kind));
       const full = false;   // you can always enchant again: it rolls a new set

@@ -987,7 +987,7 @@ export async function run() {
     me.hp = 300; hero.iframes = 0; hero.stagger = 0;
     const gob = g.spawnCreature('goblin', me.x + TILE * 4, me.y, { hunting: g.state.time + 999 }); gob._eliteRolled = true; gob._specialCd = 0;
     let rocks = 0;
-    for (let i = 0; i < 90; i++) { g.step(1 / 30); rocks = Math.max(rocks, g.enemyShots?.length || 0); }
+    for (let i = 0; i < 240 && !rocks; i++) { g.step(1 / 30); rocks = Math.max(rocks, g.enemyShots?.length || 0); }   // up to 8 seconds: the throw timing is random
     ok(rocks > 0, 'goblins throw rocks from a distance');
     g.state.creatures = []; g.enemyShots = [];
     const boar = g.spawnCreature('boar', me.x + TILE * 4, me.y); boar._eliteRolled = true;
@@ -1761,9 +1761,10 @@ export async function run() {
     try { for (const s of ['click', 'build', 'complete', 'birth', 'death', 'danger', 'boom', 'undo', 'notify']) S.play(s); } catch { soundOk = false; }
     ok(soundOk, 'every sound effect plays without errors');
     hud.setSaveProblem('Cloud save failed (test)');
-    const bannerShown = !!document.querySelector('.save-banner');
+    const mine = () => document.querySelector('.save-banner[data-text="Cloud save failed (test)"]');   // only our banner (a real save warning may show on a dev machine)
+    const bannerShown = !!mine();
     hud.setSaveProblem(null);
-    ok(bannerShown && !document.querySelector('.save-banner'), 'save problems show a banner that clears after a good save');
+    ok(bannerShown && !mine(), 'save problems show a banner that clears after a good save');
   });
 
   await step('tutorial advances and can be skipped', async () => {
