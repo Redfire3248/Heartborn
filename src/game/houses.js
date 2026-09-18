@@ -46,7 +46,7 @@ export const FURNITURE = {
   stool:        { name: 'Stool',          cat: 'living',  w: 1, d: 1, h: 26,  color: '#9c6a3c', cost: { wood: 3 } },
   desk:         { name: 'Desk',           cat: 'living',  w: 2, d: 1, h: 56, color: '#704a2a', cost: { wood: 20 } },
   crafting_table: { name: 'Crafting Table', cat: 'living', w: 1, d: 1, h: 46, color: '#9a6a3a', cost: { wood: 10 }, station: true },
-  enchanting_table: { name: 'Enchanting Table', cat: 'living', w: 1, d: 1, h: 46, color: '#5a2d8a', cost: { stone: 20, gems: 5 }, enchant: true },
+  enchanting_table: { name: 'Enchanting Table', cat: 'living', w: 1, d: 1, h: 46, color: '#5a2d8a', cost: { stone: 80, obsidian: 12, gems: 40, gold: 300 }, enchant: true },
   trophy_stand: { name: 'Trophy Stand',   cat: 'living', w: 1, d: 1, h: 60, color: '#8a7a5a', cost: { wood: 20, gold: 30 } },
   display_case: { name: 'Display Case',   cat: 'living', w: 1, d: 1, h: 70, color: '#7ac0e0', cost: { wood: 15, gems: 3 } },
   treasure_chest: { name: 'Treasure Chest', cat: 'living', w: 1, d: 1, h: 44, color: '#b08030', cost: { wood: 20, gold: 50 } },

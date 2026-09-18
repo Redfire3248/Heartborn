@@ -1,8 +1,8 @@
 /*
  * Enchanting (at an Enchanting Table): spend gems and gold to put a random enchantment on a weapon, a piece of
- * armour or a tool (like Minecraft). The dice pick which enchantment and how strong; a good ritual (the minigame)
- * makes a higher level more likely. Each item holds up to three enchantments; enchanting again upgrades one or
- * adds another, and every try costs a little more.
+ * armour or a tool (like Minecraft). Every enchant wipes what the item had and rolls a fresh set of one to three
+ * enchantments: the dice pick which and how strong, and a good ritual (the minigame) makes more and higher ones
+ * more likely. Every try on the same item costs a little more.
  *
  * Gear keeps its enchantments on the item (it.ench = { sharpness: 2 }); tools stack by kind, so a tool's
  * enchantments are kept per tool key (rpg.toolEnch[key]).
@@ -86,6 +86,32 @@ export function rollEnchant(g, t, score = 0.5) {
   return { key, level: Math.min(e.max, lvl) };
 }
 
+/** A fresh set of enchantments for this target (1 to 3 different ones), ignoring what it has now. */
+export function rollEnchantSet(g, t, score = 0.5) {
+  const kind = targetKind(t);
+  const pool = Object.entries(ENCHANTS).filter(([, e]) => e.for.includes(kind)).map(([k]) => k);
+  if (!pool.length) return [];
+  const push = score * 0.12 + luckOf(g) * 0.3;   // about 60% one, 28% two, 12-18% three
+  const x = Math.random() - push;
+  const count = Math.min(pool.length, MAX_ENCHANTS, x < 0.12 ? 3 : x < 0.45 ? 2 : 1);   // mostly one, sometimes two, rarely three
+  const set = [];
+  const left = [...pool];
+  for (let i = 0; i < count; i++) {
+    const key = left.splice(Math.floor(Math.random() * left.length), 1)[0];
+    set.push(rollLevel(g, key, score));
+  }
+  return set;
+}
+
+/** A level for one enchantment: about 3% IV, 9% III, 28% II, the rest I (a great ritual nudges it up). */
+function rollLevel(g, key, score) {
+  const e = ENCHANTS[key];
+  const push = (score * 0.35 + luckOf(g) * 0.5) * 0.2;
+  const x = Math.random() - push;
+  const lvl = x < 0.03 ? 4 : x < 0.12 ? 3 : x < 0.4 ? 2 : 1;
+  return { key, level: Math.max(1, Math.min(e.max, lvl)) };
+}
+
 /**
  * Enchant it: pay, roll and apply. Returns { ok, key, level, upgraded } or { ok: false, why }.
  * `force` = { key, level } sets an exact enchantment (admin, free).
@@ -105,14 +131,15 @@ export function enchant(g, t, { score = 0.5, force = null } = {}) {
   }
   const cost = enchantCost(g, t);
   if (!canPay(g, cost)) return { ok: false, why: `Needs ${cost.gems} gems and ${cost.gold} gold` };
-  const roll = rollEnchant(g, t, score);
-  if (!roll) return { ok: false, why: 'Fully enchanted already' };
+  const set = rollEnchantSet(g, t, score);
+  if (!set.length) return { ok: false, why: 'That cannot be enchanted' };
   for (const [k, n] of Object.entries(cost)) g.state.resources[k] -= n;
   if (t.tool) { const tries = (rpgOf(g).toolEnchTries ||= {}); tries[t.tool] = (tries[t.tool] || 0) + 1; } else t.item.enchTries = (t.item.enchTries || 0) + 1;
-  const upgraded = !!have[roll.key];
-  have[roll.key] = roll.level;
+  const lost = { ...have };
+  for (const k of Object.keys(have)) delete have[k];   // the old enchantments are gone
+  for (const e of set) have[e.key] = e.level;
   g.emit('change');
-  return { ok: true, ...roll, upgraded };
+  return { ok: true, set, lost, key: set[0].key, level: set[0].level };
 }
 
 /** Name and icon for a target (for menus). */

@@ -912,10 +912,12 @@ const COMMANDS = {
       if (key === 'random') {
         const t = (targets || [targetFor('weapon') || heldTool()])[0];
         if (!t) throw new Error('equip something or hold a tool');
-        const roll = E.rollEnchant(g, t, 1);
-        if (!roll) throw new Error('fully enchanted already');
-        E.enchant(g, t, { force: roll });
-        this.print(`✓ ${E.enchName(roll.key, roll.level)} on ${nameOf(t)}`, 'ok'); return;
+        const set = E.rollEnchantSet(g, t, 1);
+        const have = E.enchantsOf(g, t);
+        for (const k of Object.keys(have)) delete have[k];
+        for (const e of set) have[e.key] = e.level;
+        g.emit('change');
+        this.print(`✓ new set on ${nameOf(t)}: ${set.map(e => E.enchName(e.key, e.level)).join(', ')}`, 'ok'); return;
       }
       const e = E.ENCHANTS[key];
       if (!e) throw new Error(`unknown enchantment (enchant list). Try: ${Object.keys(E.ENCHANTS).join(', ')}`);

@@ -39,13 +39,14 @@ export function openEnchantMenu(hud) {
       const info = targetInfo(sel), kind = targetKind(sel), ench = enchantsOf(g, sel);
       const cost = enchantCost(g, sel);
       const possible = Object.entries(ENCHANTS).filter(([, e]) => e.for.includes(kind));
-      const full = possible.every(([k, e]) => (ench[k] || 0) >= e.max) || (Object.keys(ench).length >= MAX_ENCHANTS && Object.entries(ench).every(([k, l]) => l >= ENCHANTS[k].max));
+      const full = false;   // you can always enchant again: it rolls a new set
       detail = h('div.ench-detail',
         h('div.ench-title', icon(iconOf(sel), 48), h('div', h('b', { style: { color: info.color } }, info.name), h('div.faint', `${sel.where} · ${Object.keys(ench).length}/${MAX_ENCHANTS} enchantments`))),
         Object.keys(ench).length
           ? h('div.ench-have', ...Object.entries(ench).map(([k, l]) => h('div.ench-chip', { style: { color: ENCHANTS[k].color, borderColor: ENCHANTS[k].color } }, h('b', smallIcon(`ui/ench_${k}`, 16), enchName(k, l)), h('span', ENCHANTS[k].desc(l)))))
           : h('div.faint', 'No enchantments yet'),
         h('div.faint.ench-could', `Could get: ${possible.map(([k, e]) => `${e.name}${e.max > 1 ? ` (up to ${enchName(k, e.max).split(' ').pop()})` : ''}`).join(', ')}`),
+        Object.keys(ench).length ? h('div.ench-warn', 'Enchanting again removes these and rolls a new set') : null,
         h('div.ench-cost', h('span.faint', 'Cost:'), costChips(cost, res)),
         h('button.btn.primary.ench-go', {
           disabled: busy || full || !canPay(g, cost),
@@ -53,21 +54,21 @@ export function openEnchantMenu(hud) {
             if (busy) return;
             busy = true;
             m.el.classList.add('forging');
-            forgeMinigame({ root: document.getElementById('ui'), title: `Enchanting ${info.name}`, iconKey: hasArt('ui/enchant') ? 'ui/enchant' : 'effects/magic_orb', revealIcon: iconOf(sel), stages: ['quench'], tier: 1, labels: { quench: 'Channel the magic' } }).then(score => {
+            forgeMinigame({ root: document.getElementById('ui'), title: `Enchanting ${info.name}`, iconKey: hasArt('ui/enchant') ? 'ui/enchant' : 'effects/magic_orb', revealIcon: iconOf(sel), stages: ['hammer'], tier: 1, rings: 2 + (sel.item ? Math.min(4, sel.item.rarity || 0) : toolRarity(sel.tool)), labels: { hammer: 'Channel the magic' } }).then(score => {
               busy = false;
               m.el.classList.remove('forging');
               if (score == null) { render(); return; }
               const r = enchant(g, sel, { score });
               if (!r.ok) { hud.hint(r.why, 1800); render(); return; }
               if (hero) g.puff({ x: hero.x, y: hero.y - 14 }, 'effects/magic_orb', 10, 18);
-              hud.craftReveal({ made: `${enchName(r.key, r.level)}${r.upgraded ? ' (upgraded)' : ''}`, item: null, quality: null, extra: 0, recipe: { icon: iconOf(sel) }, score });
+              hud.craftReveal({ made: r.set.map(e => enchName(e.key, e.level)).join(' · '), item: null, quality: null, extra: 0, recipe: { icon: iconOf(sel) }, score });
               render();
             });
           },
-        }, full ? 'Fully enchanted' : canPay(g, cost) ? 'Enchant' : 'Not enough gems or gold'));
+        }, full ? 'Fully enchanted' : canPay(g, cost) ? (Object.keys(ench).length ? 'Re-enchant' : 'Enchant') : 'Not enough gems or gold'));
     }
     m.el.replaceChildren(m.closeBtn,
-      h('div.table-head', icon(hasArt('ui/enchant') ? 'ui/enchant' : 'effects/magic_orb', 32), h('div', h('h2', 'Enchanting Table'), h('div.faint', 'Pick something, then enchant it. The dice pick the enchantment; a good ritual makes it stronger.'))),
+      h('div.table-head', icon(hasArt('ui/enchant') ? 'ui/enchant' : 'effects/magic_orb', 32), h('div', h('h2', 'Enchanting Table'), h('div.faint', 'Pick something and enchant it. Each enchant replaces the old ones with a new random set; a good ritual makes it stronger.'))),
       h('div.ench-grid', ...cells),
       detail);
   };

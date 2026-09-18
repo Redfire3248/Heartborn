@@ -17,7 +17,7 @@ const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
  * Runs the minigames for a recipe. `stages` is a list of 'heat' | 'hammer' | 'quench'; `tier` (0..4) makes them harder.
  * Resolves with a score from 0 (botched) to 1 (perfect), or null if the player backs out.
  */
-export function forgeMinigame({ root, title, iconKey, revealIcon = iconKey, stages, tier = 0, labels = {} }) {
+export function forgeMinigame({ root, title, iconKey, revealIcon = iconKey, stages, tier = 0, labels = {}, rings = null }) {
   return new Promise(resolve => {
     const scores = [];
     let stageIndex = 0, raf = 0, input = null, done = false;
@@ -165,8 +165,8 @@ export function forgeMinigame({ root, title, iconKey, revealIcon = iconKey, stag
 
     // ------------------------------------------------------------ hammer: a ring shrinks onto the anvil, strike as it meets the target (once per strike)
     function hammer() {
-      const strikes = 3 + Math.min(2, tier);
-      stageName.textContent = 'Hammer it into shape';
+      const strikes = rings || 3 + Math.min(2, tier);
+      stageName.textContent = labels.hammer || 'Hammer it into shape';
       stageHint.textContent = `Press Space (or tap) when the ring lines up with the target circle. ${strikes} strikes.`;
       const ring = h('div.quench-ring.hammer-ring'), target = h('div.quench-target.hammer-target'), count = h('div.hammer-count');
       const hammerIcon = h('div.forge-hammer');
