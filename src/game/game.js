@@ -13,7 +13,7 @@ import { updateCourt } from './court.js';
 import { dailyTraitors, dailyMachines, updateBombDefense, updateStrikes } from './intrigue.js';
 import { ensureBody } from './body.js';
 import { updateHomes } from './homes.js';
-import { interiorStorage } from './houses.js';
+import { interiorStorage, relocateInterior } from './houses.js';
 import { updateAutoPick } from './autopick.js';
 import { on, eraFree } from '../core/features.js';
 import { gameTheme } from './worldTypes.js';
@@ -426,6 +426,10 @@ export class Game {
 
   demolish(b) {
     const def = BUILDINGS[b.type];
+    if (b.interior) {   // a home: its furniture moves to your other home; what cannot fit comes back to you
+      const moved = relocateInterior(this, b);
+      if (moved) this.announce?.(`${moved} piece${moved === 1 ? '' : 's'} of furniture moved to your other house`);
+    }
     const refund = b.built ? 0.4 : 0.8;
     for (const [k, v] of Object.entries(def.cost)) this.addResource(k, Math.floor(v * refund));
     this.state.buildings = this.state.buildings.filter(x => x !== b);

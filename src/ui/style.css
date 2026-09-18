@@ -1058,7 +1058,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .hero-knob { width: 50px; height: 50px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffe7a0, #c9902e); border: 2px solid #5b3d17; box-shadow: 0 3px 0 #0b0712; pointer-events: none; transition: transform .05s; }
 .hero-act { position: fixed; right: 22px; bottom: calc(104px + env(safe-area-inset-bottom)); z-index: 14; width: 92px; height: 92px; border-radius: 50%; border: 3px solid #ffb3aa; background: radial-gradient(circle at 35% 30%, #ec6a5e, #8f2a23); color: #fff; font: inherit; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; touch-action: none; box-shadow: 0 4px 0 #0b0712; }
 .hero-act.down { transform: translateY(3px); box-shadow: 0 1px 0 #0b0712; }
-@media (pointer: coarse), (max-width: 760px) and (min-height: 521px) { .leading .hero-pad { display: block; } .leading .minimap, .leading .goals, .leading .touch-bar, .leading .home-btn, .leading .center-btn { display: none !important; } }
+@media (pointer: coarse), (max-width: 760px) and (min-height: 521px) { .leading .hero-pad { display: block; } .leading .goals, .leading .touch-bar, .leading .home-btn, .leading .center-btn { display: none !important; } }
 @media (max-width: 760px) and (min-height: 521px) { .lead-btn { bottom: calc(64px + env(safe-area-inset-bottom) + 198px); right: 6px; padding: 6px 10px; } .hero-bar { top: 150px; left: 6px; width: 172px; } .hero-hearts img { width: 14px; height: 14px; } }
 .at-sea .lead-btn { display: none !important; }
 .home-card { display: flex; flex-direction: column; gap: 6px; padding: 8px; margin: 6px 0; border-radius: 10px; background: rgba(255, 215, 106, .07); border: 1px solid rgba(255, 215, 106, .25); }
@@ -2037,3 +2037,31 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 /* weapons with a special ability */
 .ability-badge { --ab: #c08aff; position: absolute; left: 50%; bottom: -1px; transform: translateX(-50%); z-index: 4; padding: 0 3px; border-radius: 3px; font-size: 7px; font-weight: 700; letter-spacing: .5px; line-height: 10px; color: #fff; background: color-mix(in srgb, var(--ab) 75%, #000); box-shadow: 0 0 6px var(--ab); pointer-events: none; }
 .bag-cell .ability-badge { bottom: 1px; }
+
+.forge-guide { font-size: 11.5px; line-height: 1.4; padding: 6px 8px; border-radius: 8px; background: rgba(0,0,0,.2); }
+
+/* round radar minimap */
+.minimap { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+.minimap canvas { border-radius: 50% !important; box-shadow: 0 4px 16px rgba(0,0,0,.5); }
+/* the land map */
+.island-map-modal { width: min(1100px, 96vw) !important; max-height: 94vh; display: flex; flex-direction: column; gap: 8px; }
+.island-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.island-head h2 { margin: 0; }
+.island-body { display: grid; grid-template-columns: 1fr 220px; gap: 10px; min-height: 0; }
+@media (max-width: 700px) { .island-body { grid-template-columns: 1fr; } .island-list { max-height: 22vh; } }
+.island-canvas { width: 100%; height: min(70vh, 700px); border-radius: 12px; background: #0c1a2a; touch-action: none; cursor: crosshair; }
+.island-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; max-height: min(70vh, 700px); }
+.island-mk { display: flex; align-items: center; gap: 6px; }
+.island-mk i { width: 12px; height: 12px; border-radius: 50%; flex: none; border: 1px solid #000; }
+.island-mk .link { flex: 1; text-align: left; background: none; border: 0; color: var(--text); font: inherit; cursor: pointer; padding: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.island-info { font-size: 11.5px; color: var(--muted, #a898bd); }
+/* phones: the radar sits small in the top-right corner, clear of the buttons */
+@media (pointer: coarse), (max-width: 760px) and (min-height: 521px) {
+  .leading .minimap { display: block !important; top: calc(env(safe-area-inset-top) + 48px); bottom: auto !important; right: 8px !important; }
+  .leading .minimap canvas { width: 96px !important; height: 96px !important; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .leading .minimap { top: 40px; bottom: auto !important; right: calc(8px + env(safe-area-inset-right)) !important; }
+  .leading .minimap canvas { width: 84px !important; height: 84px !important; }
+}
+.island-head { padding-right: 40px; }

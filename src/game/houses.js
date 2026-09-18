@@ -1,3 +1,4 @@
+import { toolsOf, giveTool, dropTool } from './tools.js';
 import { TILE } from '../core/constants.js';
 import { BUILDINGS, sizeOf } from '../data/buildings.js';
 import { ITEMS } from '../data/people.js';
@@ -273,7 +274,7 @@ export function interiorStorage(state) {
 
 // ------------------------------------------------------------------ what storage holds
 
-const slotsUsed = it => Object.keys(it.store.items).length + it.store.gear.length;
+const slotsUsed = it => Object.keys(it.store.items).length + it.store.gear.length + Object.values(it.store.tools || {}).reduce((a, n) => a + n, 0);   // every tool takes its own slot
 export const slotsLeft = it => (FURNITURE[it.type]?.slots || 0) - slotsUsed(it);
 
 /** Put an item from your pack into storage (count of them). */
@@ -303,6 +304,28 @@ export function takeItem(g, it, hero, key, count = 1) {
   return { ok: true };
 }
 
+/** A tool from your tools into storage (one at a time: tools do not stack), and back. */
+export function storeTool(g, it, key) {
+  if (!it.store) return { ok: false, why: 'Nothing to store in' };
+  if (!(toolsOf(g)[key] > 0)) return { ok: false, why: 'You do not have that tool' };
+  if (slotsLeft(it) <= 0) return { ok: false, why: 'It is full' };
+  dropTool(g, key, 1);
+  const t = (it.store.tools ||= {});
+  t[key] = (t[key] || 0) + 1;
+  g.emit('change');
+  return { ok: true };
+}
+
+export function takeTool(g, it, key) {
+  const t = it.store?.tools;
+  if (!t?.[key]) return { ok: false, why: 'Not in here' };
+  t[key]--;
+  if (!t[key]) delete t[key];
+  giveTool(g, key, 1);
+  g.emit('change');
+  return { ok: true };
+}
+
 /** Gear from your bag into storage, and back. */
 export function storeGear(g, it, gearId) {
   const r = rpgOf(g);
@@ -325,10 +348,39 @@ export function takeGear(g, it, gearId) {
 }
 
 function emptyInto(g, it, hero) {
+  hero ||= g.state.villagers?.find(v => v.id === g.hero?.id) || g.state.villagers?.[0];   // never lost: it goes to you
   for (const [k, n] of Object.entries(it.store.items)) {
     if (hero) takeItem(g, it, hero, k, n);
   }
   for (const gear of [...it.store.gear]) takeGear(g, it, gear.id);
+  for (const [k, n] of Object.entries(it.store.tools || {})) for (let i = 0; i < n; i++) takeTool(g, it, k);
+}
+
+/**
+ * A house is being knocked down: its furniture moves into your other house, at the same spots where it fits.
+ * What does not fit is refunded, and anything stored in it comes back to you. Returns how many pieces moved.
+ */
+export function relocateInterior(g, b) {
+  if (!b.interior) return 0;
+  const target = (g.state.buildings || []).filter(x => x !== b && isHome(x) && x.built !== false).sort((a, c) => (c.builtAt || 0) - (a.builtAt || 0))[0];
+  const hero = g.state.villagers?.find(v => v.id === g.hero?.id) || null;
+  let moved = 0;
+  b.interior.floors.forEach((f, fi) => {
+    for (const it of [...f.items]) {
+      if (it.type === 'landing') continue;
+      if (target && it.type !== 'stairs') {
+        const floors = interiorOf(target).floors;
+        const tf = Math.min(fi, floors.length - 1);
+        if (canPlace(g, target, tf, it.type, it.x, it.y, it.rot, null).ok) { floors[tf].items.push({ ...it, id: newId() }); moved++; continue; }
+      }
+      const def = FURNITURE[it.type];
+      for (const [k, n] of Object.entries(def?.cost || {})) g.state.resources[k] = (g.state.resources[k] || 0) + n;
+      if (it.store) emptyInto(g, it, hero);
+    }
+  });
+  b.interior = null;
+  g.recalc?.();
+  return moved;
 }
 
 export const itemLabel = key => ITEMS[key]?.label || key;

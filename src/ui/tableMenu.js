@@ -7,7 +7,7 @@ import { CONSUMABLES } from '../game/consumables.js';
 import { h, icon, modal, smallIcon, TRAIT_ICON } from './dom.js';
 import { RARITY, CATALOG } from '../game/rpg.js';
 import { gearIconKey, hasArt } from '../render/gearArt.js';
-import { MATERIALS, MATERIAL_KEYS, TRAITS, forgePreview, canPay, forge, abilityOf, rollForgeBase, FORGE_TOOL_KINDS, FORGE_KEYS, POTION_NAMES, POTION_ICONS } from '../game/forging.js';
+import { MATERIALS, MATERIAL_KEYS, TRAITS, forgePreview, canPay, forge, abilityOf, rollForgeBase, FORGE_TOOL_KINDS, FORGE_KEYS, POTION_NAMES, POTION_ICONS, forgeOptions, rollOption, RECIPE_GUIDE } from '../game/forging.js';
 import { RECIPES, needsTable, canCraft, missingToDiscover } from '../game/crafting.js';
 import { heroOf } from '../game/hero.js';
 import { forgeMinigame } from './forge.js';
@@ -70,9 +70,8 @@ export function openTableMenu(hud, { atTable = false, tab = null } = {}) {
     };
     const sub = (k, n) => { mix[k] = Math.max(0, (mix[k] || 0) - n); render(); };
 
-    const kinds = h('div.forge-kinds',
-      ...[['weapon', 'Weapon'], ['armour', 'Armour'], ['tool', 'Tool'], ['potion', 'Potion']].map(([id, name]) => h(`button.btn.sm${hud._forgeKind === id ? '.primary' : ''}`, { onclick: () => { hud._forgeKind = id; render(); } }, name)),
-      hud._forgeKind === 'tool' ? h('div.forge-toolkinds', ...FORGE_TOOL_KINDS.map(k => h(`button.btn.sm${hud._forgeToolKind === k ? '.primary' : '.ghost'}`, { onclick: () => { hud._forgeToolKind = k; render(); } }, TOOL_KINDS[k].name))) : null);
+    // no buttons to pick a type: how many materials you put in decides it (the guide says what makes what)
+    const kinds = h('div.faint.forge-guide', RECIPE_GUIDE);
 
     const slots = h('div.forge-slots', ...Array.from({ length: MAX_SLOTS }, (_, i) => {
       const k = Object.keys(mix)[i];
@@ -89,25 +88,28 @@ export function openTableMenu(hud, { atTable = false, tab = null } = {}) {
         icon(matIcon(k), 30), h('span.mat-count', fmtN(left)));
     }), ...(owned.length ? [] : [h('div.faint', 'No materials yet. Mine ores and defeat bosses.')]));
 
-    const p = forgePreview(mix, hud._forgeKind, hud._forgeToolKind);
+    const p = forgeOptions(mix);
+    const total = Object.values(mix).reduce((a, n) => a + n, 0);
+    const makes = p.ok ? [...new Set((p.shapes || []).map(s => s.label))].join(' or ') : '';
     const preview = h('div.forge-preview',
       p.ok ? h('div.forge-stats',
-        hud._forgeKind === 'potion' ? h('span', `Makes ${p.count} (1 for every 3 you put in)`) : h('span', `Power x${p.mult.toFixed(2)}`),
-        hud._forgeKind === 'potion' ? null : h('span', { style: { color: RARITY[p.rarity].color } }, RARITY[p.rarity].name),
+        h('span', `${total} in: ${makes}`),
+        p.shapes?.[0]?.kind === 'potion' ? h('span', `Makes ${p.count}`) : h('span', `Power x${p.mult.toFixed(2)}`),
+        p.shapes?.[0]?.kind === 'potion' ? null : h('span', { style: { color: RARITY[p.rarity].color } }, RARITY[p.rarity].name),
         ...p.traits.map(t => h('span.trait-chip', { style: { color: TRAITS[t].color, borderColor: TRAITS[t].color }, title: TRAITS[t].desc }, smallIcon(TRAIT_ICON[t], 14), TRAITS[t].name))) : h('div.faint', p.why),
       p.ok ? h('div.forge-odds', ...p.odds.slice(0, 6).map(o => {
-        if (hud._forgeKind === 'potion') {
+        if (o.kind === 'potion') {
           const ic = POTION_ICONS[o.base] || CONSUMABLES[o.base]?.icon || 'gear/health_potion';
           return h('div.odd', icon(ic, 22), h('span', POTION_NAMES[o.base] || o.base), h('span.odd-ab', `x${p.count}`), h('div.spacer'),
             h('div.odd-bar', h('i', { style: { width: `${Math.round(o.chance * 100)}%` } })), h('span.odd-pct', `${Math.round(o.chance * 100)}%`));
         }
-        if (hud._forgeKind === 'tool') {
+        if (o.kind === 'tool') {
           const t = TOOLS[o.base];
           return h('div.odd', icon(hasArt(t.icon) ? t.icon : t.fallbackIcon || 'items/relic', 22), h('span', t.name), h('span.odd-ab', `power ${t.power}`), h('div.spacer'),
             h('div.odd-bar', h('i', { style: { width: `${Math.round(o.chance * 100)}%` } })), h('span.odd-pct', `${Math.round(o.chance * 100)}%`));
         }
         const def = CATALOG.weapon[o.base] || CATALOG.armor[o.base] || CATALOG.helmet[o.base] || CATALOG.shield[o.base];
-        const ab = hud._forgeKind === 'weapon' ? abilityOf({ base: o.base, traits: p.traits }) : null;
+        const ab = o.kind === 'weapon' ? abilityOf({ base: o.base, traits: p.traits }) : null;
         return h('div.odd', icon(gearIconKey({ base: o.base, icon: def?.icon, slot: CATALOG.weapon[o.base] ? 'weapon' : 'armor' }) || 'items/relic', 22),
           h('span', def?.name || o.base), ab ? h('span.odd-ab', { style: { color: ab.color } }, ab.name) : null, h('div.spacer'),
           h('div.odd-bar', h('i', { style: { width: `${Math.round(o.chance * 100)}%` } })), h('span.odd-pct', `${Math.round(o.chance * 100)}%`));
@@ -117,14 +119,14 @@ export function openTableMenu(hud, { atTable = false, tab = null } = {}) {
       disabled: !p.ok || !canPay(g, mix),
       onclick: () => {
         m.el.classList.add('forging');
-        const base = rollForgeBase(p);
+        const opt = rollOption(p), base = opt.base;
         const bdef = CATALOG.weapon[base] || CATALOG.armor[base] || CATALOG.helmet[base] || CATALOG.shield[base];
         const tl = TOOLS[base];
-        const revealIcon = hud._forgeKind === 'potion' ? (POTION_ICONS[base] || CONSUMABLES[base]?.icon || 'gear/health_potion') : hud._forgeKind === 'tool' && tl ? (hasArt(tl.icon) ? tl.icon : tl.fallbackIcon || 'items/relic') : gearIconKey({ base, icon: bdef?.icon, slot: CATALOG.weapon[base] ? 'weapon' : 'armor' }) || 'items/relic';
-        forgeMinigame({ root: document.getElementById('ui'), title: `Forging a ${hud._forgeKind}`, iconKey: 'buildings/workshop', revealIcon, stages: ['heat', 'hammer', 'quench'], tier: p.rarity }).then(score => {
+        const revealIcon = opt.kind === 'potion' ? (POTION_ICONS[base] || CONSUMABLES[base]?.icon || 'gear/health_potion') : opt.kind === 'tool' && tl ? (hasArt(tl.icon) ? tl.icon : tl.fallbackIcon || 'items/relic') : gearIconKey({ base, icon: bdef?.icon, slot: CATALOG.weapon[base] ? 'weapon' : 'armor' }) || 'items/relic';
+        forgeMinigame({ root: document.getElementById('ui'), title: `Forging ${opt.label || opt.kind}`, iconKey: 'buildings/workshop', revealIcon, stages: ['heat', 'hammer', 'quench'], tier: p.rarity }).then(score => {
           m.el.classList.remove('forging');
           if (score == null) return;
-          const r = forge(g, mix, hud._forgeKind, { score, hero, base, toolKind: hud._forgeToolKind });
+          const r = forge(g, mix, opt.kind, { score, hero, base, toolKind: opt.toolKind || 'pickaxe', slot: opt.slot || null });
           if (!r.ok) { hud.hint(r.why, 1800); render(); return; }
           if (hero) g.puff({ x: hero.x, y: hero.y - 14 }, 'effects/spark', 12, 18);
           if (r.potion) hud.craftReveal({ made: r.name, item: null, quality: null, extra: 0, recipe: { icon: r.icon }, score });

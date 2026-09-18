@@ -1,15 +1,15 @@
+import { TOOLS, toolsOf } from '../game/tools.js';
 import { h, icon, costChips, modal } from './dom.js';
 import { DAY_LENGTH } from '../core/constants.js';
 import { spriteAvailable, sprite } from '../core/assets.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { ITEMS } from '../data/people.js';
 import { RARITY } from '../game/rpg.js';
-import { gearIconKey } from '../render/gearArt.js';
+import { gearIconKey, hasArt } from '../render/gearArt.js';
 import {
   FURNITURE, LANDING, FURNITURE_CATS, DESIGNS, houseShape, interiorOf, itemAt, canPlace, placeFurniture, removeFurniture,
   moveFurniture, storeItem, takeItem, storeGear, takeGear, slotsLeft, itemLabel,
-  FLOORINGS, WALLPAPERS, setFloorTile, floorTileAt, setWallpaper, builderOf,
-} from '../game/houses.js';
+  FLOORINGS, WALLPAPERS, setFloorTile, floorTileAt, setWallpaper, builderOf, storeTool, takeTool } from '../game/houses.js';
 
 /*
  * Inside a home: an isometric room you build in (no character here).
@@ -422,8 +422,8 @@ export class HouseEditor {
     const info = h('div.inv-info', 'Click a slot or drag it to the other side to move it');
     const move = stack => {
       const r = stack.side === 'chest'
-        ? (stack.gear ? takeGear(g, it, stack.gear.id) : takeItem(g, it, hero, stack.key, stack.count))
-        : (stack.gear ? storeGear(g, it, stack.gear.id) : storeItem(g, it, hero, stack.key, stack.count));
+        ? (stack.gear ? takeGear(g, it, stack.gear.id) : stack.tool ? takeTool(g, it, stack.tool) : takeItem(g, it, hero, stack.key, stack.count))
+        : (stack.gear ? storeGear(g, it, stack.gear.id) : stack.tool ? storeTool(g, it, stack.tool) : storeItem(g, it, hero, stack.key, stack.count));
       if (r && !r.ok) this.hint?.(r.why, 1800);
       render();
     };
@@ -436,7 +436,7 @@ export class HouseEditor {
       }
       stack.side = side;
       const color = stack.gear ? RARITY[stack.gear.rarity]?.color : null;
-      const name = stack.gear ? stack.gear.name : itemLabel(stack.key);
+      const name = stack.gear ? stack.gear.name : stack.tool ? TOOLS[stack.tool]?.name || stack.tool : itemLabel(stack.key);
       return h('button.inv-slot', {
         draggable: true, title: `${name}${stack.count > 1 ? ` ×${stack.count}` : ''}`, style: color ? { borderColor: color, boxShadow: `inset 0 0 10px ${color}44` } : null,
         onclick: () => move(stack),
@@ -445,7 +445,7 @@ export class HouseEditor {
         ondragend: () => { dragging = null; },
         ondragover: e => { if (dragging && dragging.side !== side) e.preventDefault(); },
         ondrop: e => { e.preventDefault(); if (dragging && dragging.side !== side) move(dragging); dragging = null; },
-      }, icon(stack.gear ? gearIconKey(stack.gear) || 'items/relic' : ITEMS[stack.key]?.icon || 'items/relic', 30), stack.count > 1 ? h('span.inv-count', stack.count) : null);
+      }, icon(stack.gear ? gearIconKey(stack.gear) || 'items/relic' : stack.tool ? (hasArt(TOOLS[stack.tool]?.icon) ? TOOLS[stack.tool].icon : TOOLS[stack.tool]?.fallbackIcon || 'items/relic') : ITEMS[stack.key]?.icon || 'items/relic', 30), stack.count > 1 ? h('span.inv-count', stack.count) : null);
     };
     const grid = (stacks, size, side) => {
       const n = Math.max(size, stacks.length);
@@ -455,15 +455,16 @@ export class HouseEditor {
       }, Array.from({ length: n }, (_, i) => cell(stacks[i], side)));
     };
     const render = () => {
-      const chest = [...Object.entries(it.store.items).map(([key, count]) => ({ key, count })), ...it.store.gear.map(gear => ({ gear, count: 1 }))];
-      const mine = [...Object.entries(hero?.inv?.pack || {}).filter(([k, n]) => n > 0 && ITEMS[k]).map(([key, count]) => ({ key, count })), ...(g.state.rpg?.bag || []).map(gear => ({ gear, count: 1 }))];
+      const toolStacks = obj => Object.entries(obj || {}).flatMap(([k, n]) => (TOOLS[k] ? Array.from({ length: n }, () => ({ tool: k, count: 1 })) : []));   // tools do not stack
+      const chest = [...Object.entries(it.store.items).map(([key, count]) => ({ key, count })), ...it.store.gear.map(gear => ({ gear, count: 1 })), ...toolStacks(it.store.tools)];
+      const mine = [...Object.entries(hero?.inv?.pack || {}).filter(([k, n]) => n > 0 && ITEMS[k]).map(([key, count]) => ({ key, count })), ...(g.state.rpg?.bag || []).map(gear => ({ gear, count: 1 })), ...toolStacks(toolsOf(g))];
       const all = (list, fn) => () => { for (const st of list) { const r = fn(st); if (r && !r.ok) { this.hint?.(r.why, 1800); break; } } render(); };
       m.el.replaceChildren(m.closeBtn,
         h('div.inv-head', h('h2', def.name), h('span.faint', `${slotsLeft(it)} of ${def.slots} slots free · +${def.storage} storage`), h('div.spacer'),
-          h('button.btn.sm', { disabled: !chest.length, onclick: all(chest, st => (st.gear ? takeGear(g, it, st.gear.id) : takeItem(g, it, hero, st.key, st.count))) }, 'Take all')),
+          h('button.btn.sm', { disabled: !chest.length, onclick: all(chest, st => (st.gear ? takeGear(g, it, st.gear.id) : st.tool ? takeTool(g, it, st.tool) : takeItem(g, it, hero, st.key, st.count))) }, 'Take all')),
         grid(chest, def.slots, 'chest'),
         h('div.inv-head', h('b', 'Inventory'), h('div.spacer'),
-          h('button.btn.sm', { disabled: !mine.length, onclick: all(mine, st => (st.gear ? storeGear(g, it, st.gear.id) : storeItem(g, it, hero, st.key, st.count))) }, 'Store all')),
+          h('button.btn.sm', { disabled: !mine.length, onclick: all(mine.filter(st => !st.tool), st => (st.gear ? storeGear(g, it, st.gear.id) : storeItem(g, it, hero, st.key, st.count))) }, 'Store all')),
         grid(mine, COLS * 3, 'inv'),
         info);
     };

@@ -111,7 +111,7 @@ export async function run() {
     g.state.creatures = [];
     const me = g.state.villagers[0];
     H.startLead(g, me);
-    ok(!F.forgePreview({ iron: 2 }).ok, 'the forge needs at least 3 materials');
+    ok(!F.forgePreview({}).ok && F.forgeOptions({ iron: 1 }).odds[0].kind === 'tool' && F.forgeOptions({ iron: 8 }).odds[0].slot === 'armor', 'the forge needs materials, and how many decides what (1 iron: a shovel, 8: armour)');
     const iron = F.forgePreview({ iron: 4 });
     const holy = F.forgePreview({ silver: 3, lich_soul: 1 });
     ok(iron.ok && iron.odds.every(o => R.CATALOG.weapon[o.base]) && Math.abs(iron.odds.reduce((a, o) => a + o.chance, 0) - 1) < 1e-6, 'a preview lists real weapons whose chances add up to 100%');

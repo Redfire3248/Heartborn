@@ -118,10 +118,10 @@ const ARMOUR = () => [...Object.entries(CATALOG.armor), ...Object.entries(CATALO
  * What a mix of materials would make. `mix`: { material: count }; `kind`: 'weapon' | 'armour'.
  * Returns { ok, why, total, mult, rarity, traits, odds: [{ base, chance }] }.
  */
-export function forgePreview(mix, kind = 'weapon', toolKind = 'pickaxe') {
+export function forgePreview(mix, kind = 'weapon', toolKind = 'pickaxe', slot = null) {
   const entries = Object.entries(mix).filter(([k, n]) => MATERIALS[k] && n > 0);
   const total = entries.reduce((a, [, n]) => a + n, 0);
-  if (total < 3) return { ok: false, why: 'Put in at least 3 materials', total, odds: [], traits: [] };
+  if (total < 1) return { ok: false, why: 'Put some materials in', total, odds: [], traits: [] };
   const share = k => (mix[k] || 0) / total;
   const mult = entries.reduce((a, [k, n]) => a + MATERIALS[k].mult * n, 0) / total * (1 + Math.min(0.25, (total - 3) * 0.02));   // more material, a little more power
   const rarity = Math.min(4, Math.round(entries.reduce((a, [k, n]) => a + MATERIALS[k].rarity * n, 0) / total));
@@ -134,7 +134,7 @@ export function forgePreview(mix, kind = 'weapon', toolKind = 'pickaxe') {
   }
   if (entries.every(([k]) => MATERIALS[k].potionOnly)) return { ok: false, why: 'Food only makes potions', total, odds: [], traits };
   if (kind === 'tool') {   // the materials set a power to aim at (more material aims a little higher); the dice land near it
-    const aim = entries.reduce((a, [k, n]) => a + (TOOL_POWER[k] ?? MATERIALS[k].mult * 5) * n, 0) / total + Math.min(1, (total - 3) * 0.05);   // copper aims at bronze, iron at iron, mythril at diamond, dragon scale near lava
+    const aim = entries.reduce((a, [k, n]) => a + (TOOL_POWER[k] ?? MATERIALS[k].mult * 5) * n, 0) / total + Math.max(0, Math.min(1, (total - 3) * 0.05));   // copper aims at bronze, iron at iron, mythril at diamond, dragon scale near lava
     const odds0 = toolsOfKind(toolKind).map(([k, t]) => ({ base: k, w: Math.exp(-((t.power - aim) ** 2) / 1.3) })).filter(o => o.w > 0.02);
     const tsum = odds0.reduce((a, o) => a + o.w, 0);
     if (!tsum) return { ok: false, why: 'No tool of that kind can be forged from this', total, odds: [], traits: [] };
@@ -149,11 +149,11 @@ export function forgePreview(mix, kind = 'weapon', toolKind = 'pickaxe') {
     // a small handful makes light weapons, a big pile makes heavy ones
     for (const b of Object.keys(weights)) {
       const dmg = CATALOG.weapon[b]?.dmg || 12;
-      if (total < 6) weights[b] *= dmg <= 12 ? 1.8 : 0.5;
-      else if (total >= 12) weights[b] *= dmg >= 18 ? 1.8 : 0.6;
+      if (total <= 3) weights[b] *= dmg <= 12 ? 1.8 : 0.5;
+      else if (total >= 9) weights[b] *= dmg >= 18 ? 1.8 : 0.6;
     }
   } else {
-    const all = ARMOUR();
+    const all = slot ? Object.entries(CATALOG[slot] || {}).filter(([, d]) => !d.admin && !d.noLoot && d.icon !== null).map(([k]) => k) : ARMOUR();
     for (const b of all) weights[b] = 1;
   }
   // pieces that only exist at a higher rarity need a strong enough mix
@@ -165,6 +165,59 @@ export function forgePreview(mix, kind = 'weapon', toolKind = 'pickaxe') {
   if (!sum) return { ok: false, why: 'Nothing can be forged from this', total, odds: [], traits };
   const odds = Object.entries(weights).map(([base, w]) => ({ base, chance: w / sum })).sort((a, b) => b.chance - a.chance);
   return { ok: true, total, mult, rarity, traits, odds };
+}
+
+/**
+ * What a handful of materials becomes, by how many you put in (like Minecraft's recipes). Half or more food makes
+ * potions. Returns the possible kinds with their weights.
+ */
+export function recipeShapes(mix) {
+  const total = Object.values(mix).reduce((a, n) => a + (n > 0 ? n : 0), 0);
+  if (!total) return [];
+  if ((mix.food || 0) / total >= 0.5) return [{ kind: 'potion', w: 1, label: 'Potions' }];
+  const T = (toolKind, w) => ({ kind: 'tool', toolKind, w, label: toolKind.replace('_', ' ') });
+  const A = (slot, w) => ({ kind: 'armour', slot, w, label: slot === 'armor' ? 'armour' : slot });
+  const W = (w, label = 'weapon') => ({ kind: 'weapon', w, label });
+  if (total === 1) return [T('shovel', 1)];
+  if (total === 2) return [W(0.7, 'light weapon'), T('hoe', 0.3)];
+  if (total === 3) return [T('pickaxe', 0.45), T('axe', 0.45), T('fishing_rod', 0.1)];
+  if (total === 4) return [T('hammer', 0.4), T('sickle', 0.3), A('helmet', 0.3)];
+  if (total === 5) return [A('helmet', 0.6), A('shield', 0.4)];
+  if (total === 6) return [A('shield', 0.6), W(0.4)];
+  if (total === 7) return [A('armor', 0.7), W(0.3)];
+  if (total === 8) return [A('armor', 1)];
+  if (total <= 12) return [W(0.7, 'heavy weapon'), A('armor', 0.3)];
+  return [W(1, 'heavy weapon')];
+}
+
+/** The guide shown in the Forge: how many materials make what. */
+export const RECIPE_GUIDE = '1 shovel · 2 weapon or hoe · 3 pickaxe, axe or rod · 4 hammer, sickle or helmet · 5 helmet or shield · 6 shield or weapon · 7-8 armour · 9+ big weapons · half food: potions';
+
+/** Everything this mix could make, with its odds: [{ base, kind, toolKind, slot, chance }]. */
+export function forgeOptions(mix) {
+  const shapes = recipeShapes(mix);
+  if (!shapes.length) return { ok: false, why: 'Put some materials in', odds: [], traits: [] };
+  const odds = [];
+  let head = null, lastWhy = 'Nothing can be forged from this';
+  const wsum = shapes.reduce((a, s) => a + s.w, 0);
+  for (const s of shapes) {
+    const p = forgePreview(mix, s.kind, s.toolKind || 'pickaxe', s.slot || null);
+    if (!p.ok) { lastWhy = p.why; continue; }
+    head ||= p;
+    for (const o of p.odds) odds.push({ base: o.base, kind: s.kind, toolKind: s.toolKind, slot: s.slot, label: s.label, chance: o.chance * s.w / wsum });
+  }
+  if (!odds.length) return { ok: false, why: lastWhy, odds: [], traits: [] };
+  const sum = odds.reduce((a, o) => a + o.chance, 0);
+  for (const o of odds) o.chance /= sum;
+  odds.sort((a, b) => b.chance - a.chance);
+  return { ...head, ok: true, shapes, odds };
+}
+
+/** Roll one option from forgeOptions. */
+export function rollOption(p) {
+  let x = Math.random();
+  for (const o of p.odds) { x -= o.chance; if (x < 0) return o; }
+  return p.odds[p.odds.length - 1];
 }
 
 /** Do you have the materials? */
@@ -181,8 +234,8 @@ export function rollForgeBase(p) {
   return p.odds[p.odds.length - 1].base;
 }
 
-export function forge(g, mix, kind = 'weapon', { score = 0.5, hero = null, base = null, toolKind = 'pickaxe' } = {}) {
-  const p = forgePreview(mix, kind, toolKind);
+export function forge(g, mix, kind = 'weapon', { score = 0.5, hero = null, base = null, toolKind = 'pickaxe', slot = null } = {}) {
+  const p = forgePreview(mix, kind, toolKind, slot);
   if (!p.ok) return { ok: false, why: p.why };
   if (!canPay(g, mix)) return { ok: false, why: 'You do not have those materials' };
   for (const [k, n] of Object.entries(mix)) g.state.resources[k] -= n;

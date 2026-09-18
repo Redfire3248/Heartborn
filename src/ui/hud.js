@@ -1,3 +1,4 @@
+import { openIslandMap } from './islandMap.js';
 import { PETS } from '../game/pets.js';
 import { openPets } from './petsMenu.js';
 import { checkAchievements, titleOf } from '../game/journal.js';
@@ -246,7 +247,7 @@ export class HUD {
     this.mini = h('canvas', { width: Math.round(MAP_W * MINI_SCALE), height: Math.round(MAP_H * MINI_SCALE) });
     this.miniK = MAP_W / mapSize;   // bigger worlds are drawn smaller so the minimap keeps its size
     // clicking the minimap opens the World Map
-    this.mini.addEventListener('click', () => this.openMap());
+    this.mini.addEventListener('click', () => openIslandMap(this));
     this.root.append(h('div.card.minimap', { title: 'Open the World Map (V)' }, this.mini));
     // back to the main screen (saves first); while visiting, back takes you home first
     this.root.append(h('button.card.home-btn', {
@@ -439,7 +440,7 @@ export class HUD {
     if (this.houseEditor) return;   // the house view has its own keys
     const k = e.key.toLowerCase();
     if (this._rebinding) return;   // Settings is waiting for a key
-    if (is(k, 'map')) { this.openMap(); return; }
+    if (is(k, 'map')) { openIslandMap(this); return; }
     if (k === 'escape' && this.visiting) { this.onReturnHome(); return; }
     if (is(k, 'character') && !this.game.sail) { this.toggleLead(); return; }
     if (is(k, 'inventory')) { this.inventory(); return; }
@@ -813,8 +814,7 @@ export class HUD {
     if (k.startsWith('item:')) { const c = CONSUMABLES[k.slice(5)]; return c ? { name: c.name, icon: c.icon, count: itemsOf(g)[k.slice(5)] || 0, does: c.does } : null; }
     const t = TOOLS[k];
     if (!t) return null;
-    const n = toolsOf(g)[k] || 0;
-    return { name: t.name, icon: hasArt(t.icon) ? t.icon : t.fallbackIcon, count: n > 1 ? n : null };
+    return { name: t.name, icon: hasArt(t.icon) ? t.icon : t.fallbackIcon, count: null };   // tools do not stack: each has its own slot
   }
 
   /** The inventory grid opens above the hotbar: click a thing to put it in the selected slot. */
@@ -882,7 +882,7 @@ export class HUD {
       (() => {
         // like Minecraft: what sits in your hotbar is not shown again in here
         const off = k => !bar.includes(k);
-        const filled = [...(off('weapon') ? [cell('weapon')] : []), ...((r.potions || 0) > 0 && off('potion') ? [cell('potion')] : []), ...Object.keys(itemsOf(g)).filter(k => CONSUMABLES[k] && itemsOf(g)[k] > 0 && off(`item:${k}`)).map(k => cell(`item:${k}`)), ...keys.filter(off).map(k => cell(k))];
+        const filled = [...(off('weapon') ? [cell('weapon')] : []), ...((r.potions || 0) > 0 && off('potion') ? [cell('potion')] : []), ...Object.keys(itemsOf(g)).filter(k => CONSUMABLES[k] && itemsOf(g)[k] > 0 && off(`item:${k}`)).map(k => cell(`item:${k}`)), ...keys.flatMap(k => Array.from({ length: Math.max(1, (owned[k] || 1) - (bar.includes(k) ? 1 : 0)) }, () => k)).filter(k => off(k) || (owned[k] || 0) > 1).map(k => cell(k))];   // one slot per tool you own (the one in your hotbar is not shown again)
         const size = Math.max(27, Math.ceil(filled.length / 9) * 9);   // a fixed grid of slots, like a chest
         return h('div.inv-cells', ...filled, ...Array.from({ length: size - filled.length }, () => h('div.inv-cell.empty')));
       })(),
@@ -3562,44 +3562,66 @@ export class HUD {
     this.miniVersion = w.version;
   }
 
+  /**
+   * The minimap, GTA style: a round radar of the land around you (not the whole island), north up, with your
+   * markers. Markers further away show as an arrow on its rim. Click it for the full map.
+   */
   drawMinimapDots() {
     const g = this.game;
     if (this.miniVersion !== g.world.version) this.drawMinimapBase();
     const ctx = this.mini.getContext('2d');
-    const mk = MINI_SCALE * (MAP_W / g.world.w);
-    ctx.setTransform(mk, 0, 0, mk, 0, 0);
-    // the renderer's smooth terrain overview looks far nicer than flat pixels once it exists
+    const W = this.mini.width, R = 20;   // radius in tiles
+    const v = heroOf(g), cam = this.renderer.camera;
+    const cx = (v ? v.x : cam.x) / TILE, cy = (v ? v.y : cam.y) / TILE;
+    const s = W / (2 * R), px = 1 / s;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, W, W);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(W / 2, W / 2, W / 2 - 3, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = '#16354f'; ctx.fillRect(0, 0, W, W);
+    ctx.setTransform(s, 0, 0, s, W / 2 - cx * s, W / 2 - cy * s);
     const terrain = this.renderer.terrain;
     const overview = terrain?.world === g.world && terrain.version === g.world.version ? terrain.overview : null;
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(overview || this.miniBase, 0, 0, g.world.w, g.world.h);
+    const near = (x, y, r = R + 2) => Math.abs(x - cx) < r && Math.abs(y - cy) < r;
     ctx.fillStyle = 'rgba(28,70,26,0.55)';
-    for (const o of g.state.objects) if (o.t.startsWith('tree_') && o.t !== 'tree_stump') ctx.fillRect(o.x + 0.2, o.y + 0.2, 0.6, 0.6);
-    ctx.fillStyle = '#ffae3d';
-    for (const b of g.state.buildings) { const s = sizeOf(b); ctx.fillRect(b.tx, b.ty, s, s); }
-    ctx.fillStyle = '#ffffff';
-    for (const v of g.state.villagers) if (!v.away) ctx.fillRect(Math.floor(v.x / TILE), Math.floor(v.y / TILE), 1, 1);
-    // what you look for: home, crafting tables, the dungeon cave and bounties
-    const mark = (x, y, color, r) => { ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x, y, r + 0.8, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); };
-    if (g.state.center) mark(g.state.center.x / TILE, g.state.center.y / TILE, '#ffd76a', 2.2);
-    for (const b of g.state.buildings) if (b.type === 'crafting_table') mark(b.tx + 0.5, b.ty + 0.5, '#c08a5a', 1.6);
-    for (const e of g.state.dungeons || []) mark(e.x / TILE, e.y / TILE, '#b06aff', 2.4);
-    for (const c of g.state.creatures) if (c.bounty) mark(c.x / TILE, c.y / TILE, '#ffcf3a', 2);
-    // enemies: red dots, bigger and pulsing for armies and bosses
+    for (const o of g.state.objects) if (o.t.startsWith('tree_') && o.t !== 'tree_stump' && near(o.x, o.y)) ctx.fillRect(o.x + 0.15, o.y + 0.15, 0.7, 0.7);
+    for (const b of g.state.buildings) { if (!near(b.tx, b.ty)) continue; const z = sizeOf(b); ctx.fillStyle = '#ffae3d'; ctx.fillRect(b.tx, b.ty, z, z); }
+    const mark = (x, y, color, r) => { ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x, y, (r + 1.2) * px, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r * px, 0, Math.PI * 2); ctx.fill(); };
+    if (g.state.center) mark(g.state.center.x / TILE, g.state.center.y / TILE, '#ffd76a', 5);
+    for (const e of g.state.dungeons || []) mark(e.x / TILE, e.y / TILE, '#b06aff', 5);
     const pulse = 0.75 + 0.25 * Math.sin(performance.now() / 160);
     for (const c of g.state.creatures) {
-      if (!CREATURES[c.t]?.hostile) continue;
-      const army = c.raid || c.attackId;
-      const r = (CREATURES[c.t].boss ? 2.6 : army ? 1.8 : 1.2) * (army ? pulse : 1);
-      ctx.fillStyle = army ? '#ff2a1f' : '#ff6b5b';
-      ctx.beginPath(); ctx.arc(c.x / TILE, c.y / TILE, r, 0, Math.PI * 2); ctx.fill();
+      const def = CREATURES[c.t];
+      if (!near(c.x / TILE, c.y / TILE)) continue;
+      if (c.bounty) { mark(c.x / TILE, c.y / TILE, '#ffcf3a', 5); continue; }
+      if (!def?.hostile) continue;
+      mark(c.x / TILE, c.y / TILE, def.boss ? '#ff2a1f' : '#ff6b5b', (def.boss ? 6 : 3.5) * (def.boss ? pulse : 1));
     }
-    const cam = this.renderer.camera;
-    const vw = window.innerWidth / cam.zoom / TILE, vh = window.innerHeight / cam.zoom / TILE;
-    ctx.strokeStyle = '#ffd76a';
-    ctx.lineWidth = 1.5 / MINI_SCALE;
-    ctx.strokeRect(cam.x / TILE - vw / 2, cam.y / TILE - vh / 2, vw, vh);
+    for (const o of g.strangers || []) mark(o.x / TILE, o.y / TILE, '#5aa9ff', 4);
+    ctx.restore();
+    // markers: pins inside the radar, arrows on its rim for the ones further away
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    for (const mk of g.state.markers || []) {
+      const dx = (mk.x - cx) * s, dy = (mk.y - cy) * s, d = Math.hypot(dx, dy), rim = W / 2 - 12;
+      ctx.fillStyle = mk.color; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+      if (d < rim) { ctx.beginPath(); ctx.arc(W / 2 + dx, W / 2 + dy, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); continue; }
+      const ang = Math.atan2(dy, dx), x = W / 2 + Math.cos(ang) * rim, y = W / 2 + Math.sin(ang) * rim;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+      ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(-6, -8); ctx.lineTo(-6, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+    // you: an arrow in the middle, pointing the way you face
+    const face = g.hero?.facing ?? -Math.PI / 2;
+    ctx.save(); ctx.translate(W / 2, W / 2); ctx.rotate(face);
+    ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-9, -10); ctx.lineTo(-4, 0); ctx.lineTo(-9, 10); ctx.closePath(); ctx.stroke(); ctx.fill();
+    ctx.restore();
+    // the rim
+    ctx.strokeStyle = 'rgba(255, 215, 106, 0.85)'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(W / 2, W / 2, W / 2 - 3, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#ffd76a'; ctx.font = 'bold 22px "Pixelify Sans", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('N', W / 2, 24);
   }
 
   // ------------------------------------------------------------ homes
