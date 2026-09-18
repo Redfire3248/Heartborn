@@ -109,6 +109,14 @@ export function modal(content, { onClose, cls = '', closeX = !!onClose } = {}) {
   return { el: card, close, closeBtn };
 }
 
+/** If a window of this kind is already open, close it and return true (so pressing its key again toggles it). */
+export function closeIfOpen(cls) {
+  const old = document.querySelector(`.modal.${cls}`);
+  if (!old) return false;
+  old.closest('.modal-bg')?.remove();
+  return true;
+}
+
 export function confirmModal(title, text, { okLabel = 'Confirm', okClass = 'primary' } = {}) {
   return new Promise(resolve => {
     const m = modal([

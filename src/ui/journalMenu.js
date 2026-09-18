@@ -1,7 +1,7 @@
 /*
  * The Journal window: today's free chest and three challenges, and your achievements (pick one as your title).
  */
-import { h, icon, modal, costChips, smallIcon } from './dom.js';
+import { h, icon, modal, costChips, smallIcon, closeIfOpen } from './dom.js';
 import { hasArt } from '../render/gearArt.js';
 import { heroOf } from '../game/hero.js';
 import { play } from '../core/sound.js';
@@ -9,6 +9,7 @@ import { rpgOf } from '../game/rpg.js';
 import { dailyOf, openDailyChest, claimChallenge, claimBonus, ACHIEVEMENTS, setTitle } from '../game/journal.js';
 
 export function openJournal(hud, tab = null) {
+  if (closeIfOpen('journal-modal')) return null;
   const g = hud.game;
   const hero = heroOf(hud.dungeon || g) || heroOf(g);
   const m = modal([], { cls: 'journal-modal', closeX: true });

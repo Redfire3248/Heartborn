@@ -1,7 +1,7 @@
 /*
  * The Market Stall window: today's three offers to buy, and your ores and materials to sell.
  */
-import { h, icon, modal, costChips, rarityFrame, RES_ICON } from './dom.js';
+import { h, icon, modal, costChips, rarityFrame, RES_ICON, closeIfOpen } from './dom.js';
 import { hasArt, gearIconKey } from '../render/gearArt.js';
 import { heroOf } from '../game/hero.js';
 import { play } from '../core/sound.js';
@@ -19,6 +19,7 @@ const offerIcon = o => {
 const offerRarity = o => (o.type === 'tool' ? toolRarity(o.key) : o.type === 'gear' ? o.item.rarity : 0);
 
 export function openShop(hud) {
+  if (closeIfOpen('shop-modal')) return null;
   const g = hud.game;
   const hero = heroOf(hud.dungeon || g) || heroOf(g);
   const m = modal([], { cls: 'shop-modal', closeX: true });

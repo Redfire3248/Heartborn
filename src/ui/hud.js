@@ -734,7 +734,7 @@ export class HUD {
         onclick: () => { if (this._dragged) return; selectSlot(g, i); this._hotbarKey = null; if (!this.els.invPanel.hidden) this.renderInventory(); },
         oncontextmenu: e => { e.preventDefault(); this.analyzeKey(slots[i]); },
         onpointerdown: e => k && this.startSlotDrag(e, { from: i, value: k, icon: info.icon }),
-      }, h('span.hot-num', String(i + 1)), info ? icon(info.icon, 34) : null, info?.count != null ? h('span.hot-count', String(info.count)) : null);
+      }, h('span.hot-num', String(i + 1)), info ? icon(info.icon, 34) : null, info?.count != null ? h('span.hot-count', String(info.count)) : null, this.abilityBadge(k));
     }), h('button.hot-bag', { title: 'Inventory (I)', onclick: () => this.inventory() }, icon(hasArt('ui/inventory') ? 'ui/inventory' : 'tools/backpack', 24)));
     const held = slots[r.hotSel];
     const info = this.slotInfo(held, v);
@@ -787,6 +787,13 @@ export class HUD {
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
+  }
+
+  /** A small SKILL tag on a weapon that has a special ability (F). */
+  abilityBadge(k) {
+    if (k !== 'weapon') return null;
+    const ab = weaponAbility(rpgOf(this.game).gear.weapon);
+    return ab ? h('span.ability-badge', { title: `Special ability (F): ${ab.name}`, style: { '--ab': ab.color || '#c08aff' } }, 'SKILL') : null;
   }
 
   /** Rarity of a hotbar or inventory value (for its frame). */
@@ -859,7 +866,7 @@ export class HUD {
         onmouseenter: () => { this._invHover = k; },
         onmouseleave: () => { if (this._invHover === k) this._invHover = null; },
         onpointerdown: e => this.startSlotDrag(e, { from: null, value: k, icon: info.icon }),
-      }, icon(info.icon, 36), info.count != null ? h('span.hot-count', String(info.count)) : null, inBar >= 0 ? h('span.hot-num', String(inBar + 1)) : null);
+      }, icon(info.icon, 36), info.count != null ? h('span.hot-count', String(info.count)) : null, inBar >= 0 ? h('span.hot-num', String(inBar + 1)) : null, this.abilityBadge(k));
     };
     const keys = Object.keys(owned).filter(k => TOOLS[k]).sort((a, b) => (TOOLS[a].kind > TOOLS[b].kind ? 1 : TOOLS[a].kind < TOOLS[b].kind ? -1 : TOOLS[b].power - TOOLS[a].power));
     const heldInfo = this.slotInfo(bar[r.hotSel], v);
@@ -943,7 +950,7 @@ export class HUD {
           const better = gearScore(it) > gearScore(r.gear[it.slot]);
           const fr = rarityFrame(it.rarity);
           return h('button.bag-cell' + (it.rarity >= 4 ? `.rarity-${RARITY[it.rarity].name.toLowerCase()}` : '') + (sel === it.id ? '.sel' : '') + fr.cls, { title: `${it.name}: ${gearText(it)}`, style: fr.cls ? fr.style : { borderColor: RARITY[it.rarity].color }, onclick: () => { this._bagSel = sel === it.id ? null : it.id; render(); } },
-            icon(gearIconKey(it) || 'items/relic', 32), better ? h('span.bag-up', '▲') : '');
+            icon(gearIconKey(it) || 'items/relic', 32), better ? h('span.bag-up', '▲') : '', it.slot === 'weapon' && weaponAbility(it) ? h('span.ability-badge', { title: `Special ability (F): ${weaponAbility(it).name}` }, 'SKILL') : null);
         }), ...Array.from({ length: Math.max(0, 18 - r.bag.length) }, () => h('div.bag-cell.empty'))),
       ].filter(Boolean));
     };

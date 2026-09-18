@@ -60,6 +60,7 @@ export function updateCreature(g, c, dt) {
   // raiders give up after a day and a half; ghosts vanish at dawn
   if (c.raid && !c.fleeing && s.time - (c.born || 0) > DAY_LENGTH * 1.5) c.fleeing = true;
   if (def.night && !g.isNight && Math.random() < dt * 0.2) { g.puff(c, 'effects/ghost_wisp', 3); remove(g, c); return; }
+  if (c.nightSpawn && !g.isNight && !c.hunting && Math.random() < dt * 0.08) { g.puff(c, 'effects/ghost_wisp', 3); remove(g, c); return; }   // the night's monsters fade at dawn
 
   if (def.water) { wander(g, c, dt, def, true); return; }
 

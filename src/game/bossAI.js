@@ -43,7 +43,8 @@ export function fightBoss(g, c, def, dt) {
   }
   const rage = c._enraged ? 1 : 0;
   const run = Math.max(def.speed * 2.4, WALK_SPEED * 1.75) * (1 + rage * 0.2) * (c._chill ? c._chill.k : 1);
-  for (const k of ['cd', 'dodgeCd', 'guardCd', 'leapCd', 'dashCd', 'waveCd', 'rainCd', 'thrustCd']) if (ai[k] != null) ai[k] -= dt * (1 + rage * 0.4);
+  const tempo = def.elden ? 1.45 : 1;   // the Ashen Knight rests far less between attacks
+  for (const k of ['cd', 'dodgeCd', 'guardCd', 'leapCd', 'dashCd', 'waveCd', 'rainCd', 'thrustCd']) if (ai[k] != null) ai[k] -= dt * (1 + rage * 0.4) * tempo;
   if (c._guard > 0) c._guard -= dt;
   if (c._iframes > 0) c._iframes -= dt;
   if (c._attack) c._attack = Math.max(0, c._attack - dt);
@@ -317,8 +318,9 @@ function doAct(g, c, def, hero, ai, dt, run, rage) {
       if (a.t <= 0 || !c._walking) ai.act = { kind: 'recover', t: 0.9 - rage * 0.2 };
       return;
     }
-    case 'recover':   // the opening: it is catching its breath
+    case 'recover':   // the opening: it is catching its breath (the Ashen Knight's openings are short)
       c._windup = 0;
+      if (def.elden) a.t -= dt * 0.6;
       if (a.t <= 0) { ai.act = null; ai.cd = rnd(0.8, 1.6) - rage * 0.4; }
       return;
     default:

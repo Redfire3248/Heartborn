@@ -851,10 +851,12 @@ export class Renderer {
       if (atkT) blade = a - side * 1.7 + side * 3.2 * ease * (facing === 'up' || facing === 'down' ? 1 : 1);
       else if (hero.blocking) blade = Math.PI / 2 + side * 0.7;   // sword held low and out of the way behind the shield
       else blade = -Math.PI / 2 + side * (0.55 + (v._walking ? Math.sin(step) * 0.15 : Math.sin(this.time * 2) * 0.04));
-      const len = size * 0.72 * (WEAPONS[w.base]?.length || 1);
+      const small = held === 'potion' || held?.startsWith?.('item:');   // potions, bombs and food: a small thing in the hand
+      const len = small ? size * 0.34 : tool ? size * 0.55 : size * 0.72 * (WEAPONS[w.base]?.length || 1);
       const cx = weaponHand.x + Math.cos(blade) * len * 0.32, cy = weaponHand.y + Math.sin(blade) * len * 0.32;
       // gear icons are drawn pointing up and to the right (45 degrees): turn them to the blade direction
-      drawSprite(ctx, weaponKey, cx, cy, len, { rot: blade + Math.PI / 4 + (tool || held === 'potion' || held?.startsWith?.('item:') ? 0 : WEAPONS[w.base]?.iconRot || 0), center: true, full: true, tint: tint === '#ffffff' ? '#ffffff' : null, solid: tint === '#ffffff' });
+      if (small && !atkT) { drawSprite(ctx, weaponKey, weaponHand.x + side * 3, weaponHand.y + 2, len, { center: true, full: true, tint: tint === '#ffffff' ? '#ffffff' : null, solid: tint === '#ffffff' }); return; }   // held upright, not waved like a blade
+      drawSprite(ctx, weaponKey, cx, cy, len, { rot: blade + Math.PI / 4 + (tool || small ? 0 : WEAPONS[w.base]?.iconRot || 0), center: true, full: true, tint: tint === '#ffffff' ? '#ffffff' : null, solid: tint === '#ffffff' });
     };
     const drawShield = () => {
       if (!shieldKey) return;

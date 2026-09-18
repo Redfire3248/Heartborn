@@ -534,7 +534,7 @@ export function damageHero(g, v, dmg, from = null) {
     // a guard raised just as the blow lands: a perfect parry (the window is a little wider with a good shield)
     if (g.state.time - (h.blockAt || 0) < 0.12 + (shieldDef?.parry ?? 0.2)) {
       if (from && 'hp' in from && !from.traits) {
-        from._stunned = Math.max(from._stunned || 0, CREATURES[from.t]?.boss ? 0.8 : 1.8);
+        from._stunned = Math.max(from._stunned || 0, CREATURES[from.t]?.boss ? 1.2 : 2);   // a parry stuns for 2 seconds (bosses shake it off sooner)
         from._whiteFlash = 0.2; from._windup = 0; from._charge = null;
         const a = Math.atan2(from.y - v.y, from.x - v.x), push = TILE * (CREATURES[from.t]?.boss ? 2 : 9);
         from._kbx = Math.cos(a) * push; from._kby = Math.sin(a) * push;

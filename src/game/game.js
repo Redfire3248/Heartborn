@@ -128,6 +128,7 @@ export class Game {
 
     for (const v of [...s.villagers]) updateVillager(this, v, dt);
     for (const c of [...s.creatures]) updateCreature(this, c, dt);
+    this.nightSpawns(dt);
     updateEnemyShots(this, dt);
     if (on('warbands') || on('invasions')) updateWar(this, dt);
     else if (this.state.incoming?.length) this.state.incoming = [];   // armies are switched off: nothing marches
@@ -491,6 +492,35 @@ export class Game {
       if (this.world.walkableTile(tx, ty)) return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
     }
     return null;
+  }
+
+  /**
+   * After dark the monsters come out (like Minecraft): every few seconds, just out of sight of your hero, a few night
+   * creatures of this land appear, until there are plenty about. They melt away at dawn (night creatures) or stay.
+   */
+  nightSpawns(dt) {
+    if (this.dungeon || this.visiting || !this.hero || !this.isNight) return;
+    this._nightT = (this._nightT ?? 3) - dt;
+    if (this._nightT > 0) return;
+    this._nightT = 2 + Math.random() * 1.5;
+    const s = this.state;
+    const hero = s.villagers.find(v => v.id === this.hero.id && !v.away);
+    if (!hero || this.hero.inHouse) return;
+    const near = s.creatures.filter(c => CREATURES[c.t]?.hostile && Math.hypot(c.x - hero.x, c.y - hero.y) < TILE * 28).length;
+    if (near >= 32) return;
+    const theme = gameTheme(this);
+    const pool = [...(theme.night || []), 'zombie', 'zombie', 'skeleton', 'skeleton', 'giant_spider', 'ghost'].filter(t => CREATURES[t]);
+    const n = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      for (let tries = 0; tries < 12; tries++) {
+        const a = Math.random() * Math.PI * 2, d = TILE * (11 + Math.random() * 8);   // out of view, but close enough to find you
+        const tx = Math.floor((hero.x + Math.cos(a) * d) / TILE), ty = Math.floor((hero.y + Math.sin(a) * d) / TILE);
+        if (!this.world.walkableTile(tx, ty)) continue;
+        const c = this.spawnCreature(pool[Math.floor(Math.random() * pool.length)], tx * TILE + TILE / 2, ty * TILE + TILE / 2);
+        if (c) c.nightSpawn = true;
+        break;
+      }
+    }
   }
 
   spawnWild(type, minDist) {

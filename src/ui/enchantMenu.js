@@ -3,7 +3,7 @@
  * then enchant it (a short ritual minigame, then the dice).
  */
 import { toolRarity } from '../game/tools.js';
-import { h, icon, modal, costChips, rarityFrame, smallIcon } from './dom.js';
+import { h, icon, modal, costChips, rarityFrame, smallIcon, closeIfOpen } from './dom.js';
 import { hasArt, gearIconKey } from '../render/gearArt.js';
 import { heroOf } from '../game/hero.js';
 import { play } from '../core/sound.js';
@@ -18,6 +18,7 @@ const iconOf = t => {
 const idOf = t => (t.tool ? `tool:${t.tool}` : `gear:${t.item.id}`);
 
 export function openEnchantMenu(hud) {
+  if (closeIfOpen('enchant-modal')) return null;
   const g = hud.game;
   const hero = heroOf(hud.dungeon || g) || heroOf(g);
   const m = modal([], { cls: 'enchant-modal', closeX: true });

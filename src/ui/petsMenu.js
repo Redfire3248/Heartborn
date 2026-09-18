@@ -1,12 +1,13 @@
 /*
  * The Pets window: hatch your eggs, pick the pet that follows you, or let one go.
  */
-import { h, icon, modal, rarityFrame, confirmModal } from './dom.js';
+import { h, icon, modal, rarityFrame, confirmModal, closeIfOpen } from './dom.js';
 import { play } from '../core/sound.js';
 import { RARITY } from '../game/rpg.js';
 import { PETS, petsOf, hatch, choosePet, releasePet } from '../game/pets.js';
 
 export function openPets(hud) {
+  if (closeIfOpen('pets-modal')) return null;
   const g = hud.game;
   const m = modal([], { cls: 'pets-modal', closeX: true });
   const render = () => {
