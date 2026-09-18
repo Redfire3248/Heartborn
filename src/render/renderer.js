@@ -151,7 +151,7 @@ export class Renderer {
     if (g.dungeon) {
       const d = g.dungeon;
       for (const t of d.torches) if (inView(t.x, t.y)) items.push({ y: t.y - TILE, draw: () => this.drawTorch(t) });
-      if (hasArt('dungeon/bones')) for (const p of d.props || []) if (inView(p.x, p.y)) items.push({ y: ['puddle', 'floor_grate', 'bones', 'rubble', 'cobweb'].includes(p.kind) ? p.y - TILE * 2 : p.y, draw: () => drawSprite(this.ctx, `dungeon/${p.kind}`, p.x, p.y + TILE * 0.35, TILE * ({ pillar: 1.3, cage: 1.1, chains: 1.1, altar: 1.3, glow_crystal: 0.9, cobweb: 1 }[p.kind] || 0.8), { flip: p.flip }) });
+      if (hasArt('dungeon/bones')) for (const p of d.props || []) if (inView(p.x, p.y)) items.push({ y: ['puddle', 'floor_grate', 'bones', 'rubble', 'cobweb'].includes(p.kind) ? p.y - TILE * 2 : p.y, draw: () => (p.light ? this.drawFireProp(g, p) : drawSprite(this.ctx, `dungeon/${p.kind}`, p.x, p.y + TILE * 0.35, TILE * ({ pillar: 1.3, cage: 1.1, chains: 1.1, altar: 1.3, glow_crystal: 0.9, cobweb: 1 }[p.kind] || 0.8), { flip: p.flip })) });
       if (d.key) items.push({ y: d.key.y, draw: () => this.drawKey(d.key) });
     }
     for (const t of g.state.torches || []) if (inView(t.x, t.y)) items.push({ y: t.y, draw: () => this.drawPlacedTorch(g, t) });
@@ -503,9 +503,38 @@ export class Renderer {
     if (g.fx.bolts?.length) g.fx.bolts = g.fx.bolts.filter(b => b.life > 0);
   }
 
+  /** A warm glow that flickers, drawn over a flame. */
+  flameGlow(x, y, r, color = '255,170,70') {
+    const { ctx } = this;
+    const f = r * (1 + Math.sin(this.time * 13 + x * 0.7) * 0.08 + Math.sin(this.time * 31 + y) * 0.05);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const grd = ctx.createRadialGradient(x, y, 0, x, y, f);
+    grd.addColorStop(0, `rgba(${color},0.55)`); grd.addColorStop(1, `rgba(${color},0)`);
+    ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(x, y, f, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  /** A brazier or candles on a dungeon floor. */
+  drawFireProp(g, p) {
+    if (!hasArt(p.kind)) return;
+    const size = TILE * (p.kind.endsWith('brazier') ? 1.15 : 0.8), foot = p.y + TILE * 0.35;
+    this.shadow(p.x, foot - 2, TILE * 0.3);
+    drawSprite(this.ctx, p.kind, p.x, foot, size);
+    this.flameGlow(p.x, foot - size * 0.78, TILE * 0.7);
+    if (Math.random() < 0.04) g.fx?.particles?.push({ x: p.x + (Math.random() - 0.5) * 6, y: foot - size * 0.85, vx: (Math.random() - 0.5) * 6, vy: -18, sprite: 'effects/spark', size: 4, life: 0.6, max: 0.6, rot: 0 });
+  }
+
   drawTorch(t) {
     const { ctx } = this;
     const P = TILE / 8;
+    const kind = `lights/${t.kind || 'wall_torch'}`;
+    if (hasArt(kind)) {   // an iron sconce on the wall; the flame's glow flickers
+      const size = TILE * 1.05;
+      drawSprite(ctx, kind, t.x, t.y + TILE * 0.1, size);
+      if (t.kind !== 'wall_torch_unlit') this.flameGlow(t.x, t.y + TILE * 0.1 - size * 0.78, TILE * 0.8, t.kind === 'soul_torch' ? '90,160,255' : '255,170,70');
+      return;
+    }
     if (hasArt('dungeon/torch_1')) { drawSprite(ctx, `dungeon/torch_${1 + Math.floor(this.time * 8 + t.x) % 4}`, t.x, t.y + TILE * 0.15, TILE * 0.9); return; }
     ctx.fillStyle = '#5a3a1e'; ctx.fillRect(t.x - P * 0.5, t.y - TILE * 0.55, P, P * 3.5);
     ctx.fillStyle = '#3b3b44'; ctx.fillRect(t.x - P, t.y - TILE * 0.55, P * 2, P * 0.8);
@@ -596,8 +625,10 @@ export class Renderer {
     this.shadow(t.x, t.y, TILE * 0.25);
     // the torch art leans (about 63 degrees): turn it upright about its middle so it stands on its spot
     const size = TILE * 1.1;
-    drawSprite(ctx, hasArt(TOOLS.torch.icon) ? TOOLS.torch.icon : TOOLS.torch.fallbackIcon || 'items/torch', t.x, t.y - size * 0.42, size, { rot: -0.466, center: true });
-    const fx = t.x, fy = t.y - size * 0.82;   // the flame
+    const standing = hasArt('lights/standing_torch');
+    if (standing) drawSprite(ctx, 'lights/standing_torch', t.x, t.y - size * 0.45, size, { center: true });
+    else drawSprite(ctx, hasArt(TOOLS.torch.icon) ? TOOLS.torch.icon : TOOLS.torch.fallbackIcon || 'items/torch', t.x, t.y - size * 0.42, size, { rot: -0.466, center: true });
+    const fx = t.x, fy = t.y - size * (standing ? 0.78 : 0.82);   // the flame
     const f = 1 + Math.sin(this.time * 14 + t.x) * 0.15;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -1328,8 +1359,8 @@ export class Renderer {
     for (const v of g.state.villagers) if (!v.away) lights.push({ x: v.x, y: v.y - 8, r: TILE * (g.hero?.id === v.id ? heroLight(g, !!g.dungeon) + (g.dungeon ? lightBonus(g) * 0.3 : 0) : 1.1) });
     for (const t of g.state.torches || []) lights.push({ x: t.x, y: t.y - 10, r: TILE * 5 });   // placed torches
     if (g.dungeon) {
-      for (const t of g.dungeon.torches) lights.push({ x: t.x, y: t.y - TILE * 0.4, r: TILE * 3.4 });
-      for (const p of g.dungeon.props || []) if (p.kind === 'glow_crystal') lights.push({ x: p.x, y: p.y, r: TILE * 1.8 });
+      for (const t of g.dungeon.torches) if (t.kind !== 'wall_torch_unlit') lights.push({ x: t.x, y: t.y - TILE * 0.4, r: TILE * 3.4 });
+      for (const p of g.dungeon.props || []) if (p.kind === 'glow_crystal') lights.push({ x: p.x, y: p.y, r: TILE * 1.8 }); else if (p.light) lights.push({ x: p.x, y: p.y, r: TILE * (p.kind.endsWith('brazier') ? 3.4 : 2.2) });
       for (const p of [g.dungeon.exit, g.dungeon.stairsDown, g.dungeon.key]) if (p) lights.push({ x: p.x, y: p.y, r: TILE * 1.6 });
     }
     const flicker = 1 + Math.sin(this.time * 12) * 0.03;

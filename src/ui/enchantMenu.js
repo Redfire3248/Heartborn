@@ -12,7 +12,8 @@ import { ENCHANTS, MAX_ENCHANTS, enchName, enchantables, peekEnchants, enchantCo
 
 export const ODDS_RARITY = ['Common', 'Rare', 'Epic', 'Legendary', 'Mythic'];
 export const ODDS_COLOR = ['#b8b2a6', '#5aa9ff', '#c77dff', '#ffb347', '#ff4d6d'];
-export const bookIcon = r => (hasArt(`items/book_${ODDS_RARITY[r].toLowerCase()}`) ? `items/book_${ODDS_RARITY[r].toLowerCase()}` : hasArt('items/enchanted_book') ? 'items/enchanted_book' : 'items/scroll');
+/** A book's picture: the cover with its enchantment's symbol, else the cover of its rarity. */
+export const bookIcon = (key, r = 0) => (hasArt(`books/book_${key}`) ? `books/book_${key}` : hasArt(`books/book_${ODDS_RARITY[r].toLowerCase()}`) ? `books/book_${ODDS_RARITY[r].toLowerCase()}` : 'items/scroll');
 
 const iconOf = t => {
   const info = targetInfo(t);
@@ -26,7 +27,7 @@ const fmtOdds = n => `1 in ${n.toLocaleString()}`;
  * The rolling reel. Spins through random enchantment names for each result, slowing down until it lands, then
  * flashes the result's rarity. Tap to skip. Resolves when the player closes it.
  */
-export function rollReel(results, { title = 'Enchanting', pool = Object.keys(ENCHANTS) } = {}) {
+export function rollReel(results, { title = 'Enchanting', pool = Object.keys(ENCHANTS), book = false } = {}) {
   return new Promise(resolve => {
     const reel = h('div.rng-reel');
     const odds = h('div.rng-odds');
@@ -56,6 +57,7 @@ export function rollReel(results, { title = 'Enchanting', pool = Object.keys(ENC
         }
         const rar = r.rarity ?? oddsRarity(r.odds || 1);
         show(r.key, r.level, true);
+        if (book) reel.prepend(icon(hasArt(`books/book_${ODDS_RARITY[r.rarity ?? oddsRarity(r.odds || 1)].toLowerCase()}`) ? `books/book_${ODDS_RARITY[r.rarity ?? oddsRarity(r.odds || 1)].toLowerCase()}` : bookIcon(r.key), 56));
         box.style.setProperty('--rc', ODDS_COLOR[rar]);
         void box.offsetWidth; box.classList.add('flash');
         odds.replaceChildren(h('b', { style: { color: ODDS_COLOR[rar] } }, ODDS_RARITY[rar]), h('span', fmtOdds(r.odds || 1)));
@@ -132,7 +134,7 @@ export function openEnchantMenu(hud) {
               play('complete'); hud.hint(`${enchName(res2.key, res2.level)} added to ${info.name}`, 1800);
               if (hero) g.puff({ x: hero.x, y: hero.y - 14 }, 'effects/magic_orb', 10, 18);
               render();
-            } }, icon(bookIcon(r), 30), h('b', { style: { color: e.color } }, enchName(b.key, b.level)), h('i', { style: { color: ODDS_COLOR[r] } }, fits ? fmtOdds(b.odds || 1) : `${e.for.join('/')} only`));
+            } }, icon(bookIcon(b.key, r), 30), h('b', { style: { color: e.color } }, enchName(b.key, b.level)), h('i', { style: { color: ODDS_COLOR[r] } }, fits ? fmtOdds(b.odds || 1) : `${e.for.join('/')} only`));
           })),
           h('div.ench-cost', h('span.faint', 'New book:'), costChips(BOOK_COST, res)),
           h('button.btn.primary.ench-go', {
@@ -143,7 +145,7 @@ export function openEnchantMenu(hud) {
               if (!r.ok) { hud.hint(r.why, 1800); return; }
               busy = true;
               m.el.classList.add('forging');
-              await rollReel([r.book], { title: 'Writing a book' });
+              await rollReel([r.book], { title: 'Writing a book', book: true });
               busy = false;
               m.el.classList.remove('forging');
               render();
@@ -155,7 +157,7 @@ export function openEnchantMenu(hud) {
       h('div.table-head', icon(hasArt('ui/enchant') ? 'ui/enchant' : 'effects/magic_orb', 32), h('div', h('h2', 'Enchanting Table'), h('div.faint', 'Pure luck: every roll replaces the old enchantments with a new random set. Books add one without removing the rest.'))),
       h('div.ench-tabs',
         h(`button.btn.sm${tab === 'enchant' ? '.primary' : '.ghost'}`, { onclick: () => { hud._enchTab = 'enchant'; render(); } }, 'Roll'),
-        h(`button.btn.sm${tab === 'books' ? '.primary' : '.ghost'}`, { onclick: () => { hud._enchTab = 'books'; render(); } }, `Books (${books.length})`)),
+        h(`button.btn.sm${tab === 'books' ? '.primary' : '.ghost'}`, { onclick: () => { hud._enchTab = 'books'; render(); } }, icon(hasArt('books/book_stack') ? 'books/book_stack' : 'items/scroll', 18), `Books (${books.length})`)),
       h('div.ench-grid', ...cells),
       detail);
   };

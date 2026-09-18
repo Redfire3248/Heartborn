@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Books and new torches',
+    changes: [
+      'Enchantment books have their own art: each shows its enchantment on the cover, and new books land on a cover of their rarity',
+      'Dungeon torches remade as iron wall sconces with a flickering glow, with gold ones in the boss room and the odd blue soul-fire torch',
+      'Dungeons now have braziers, candles and skull candles that light the rooms',
+      'A torch you place stands upright on its pole',
+    ],
+  },
+  {
     title: 'Enchanting is pure luck',
     changes: [
       'Enchanting is now a roll: a reel spins through enchantments and lands with its rarity and 1 in N odds',

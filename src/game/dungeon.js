@@ -182,8 +182,11 @@ export function makeDungeonGame(home, { depth = 1, entrance = null, seed = (Date
 
   // torches on the top wall of every room
   for (const a of [...rooms, boss]) {
-    for (let x = a.x + 1; x < a.x + a.w - 1; x += 4 + Math.floor(r() * 2)) d.torches.push({ x: (x + 0.5) * TILE, y: a.y * TILE });
+    for (let x = a.x + 1; x < a.x + a.w - 1; x += 4 + Math.floor(r() * 2)) d.torches.push({ x: (x + 0.5) * TILE, y: a.y * TILE, kind: a === boss ? 'gold_sconce' : r() < 0.12 ? 'soul_torch' : r() < 0.08 ? 'wall_torch_unlit' : 'wall_torch' });
   }
+  // fire on the floor: braziers, candles and skull candles (they light the room too)
+  for (const a of rooms) if (r() < 0.45) { const p = spot(a, 1); d.props.push({ kind: ['lights/brazier', 'lights/candles', 'lights/skull_candle'][Math.floor(r() * 3)], x: p.x, y: p.y, light: true }); }
+  d.props.push({ kind: 'lights/brazier', x: (boss.x + boss.w / 2 - 2) * TILE, y: (boss.y + 1.4) * TILE, light: true }, { kind: 'lights/brazier', x: (boss.x + boss.w / 2 + 2) * TILE, y: (boss.y + 1.4) * TILE, light: true });
   const theme = gameTheme(home);
   const pool = [...POOLS[Math.min(POOLS.length - 1, depth - 1)], ...theme.dungeon];
   const toughness = 1 + (depth - 1) * 0.4;
