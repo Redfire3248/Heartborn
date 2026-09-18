@@ -22,8 +22,8 @@ export function openPets(hud) {
           h('button.btn.sm.ghost', { onclick: async () => { if (await confirmModal('Release pet?', `${p.name} will leave for good.`, { okLabel: 'Release', okClass: 'danger' })) { releasePet(g, p.id); render(); } } }, 'Release')));
     });
     m.el.replaceChildren(m.closeBtn,
-      h('div.table-head', icon('characters/chicken', 32), h('div', h('h2', 'Pets'), h('div.faint', 'Bosses sometimes drop a pet egg. Hatch it to see what you get; the pet you pick follows you, fetches loot and helps.'))),
-      h('div.egg-row', icon('items/relic', 34), h('div', h('b', `Eggs: ${r.eggs}`), h('div.faint', 'Common 45% · Rare 30% · Epic 16% · Legendary 7.5% · Mythic 1.5%')),
+      h('div.table-head', icon('pets/happy', 32), h('div', h('h2', 'Pets'), h('div.faint', 'Bosses sometimes drop a pet egg. Hatch it to see what you get; the pet you pick follows you, fetches loot and helps.'))),
+      h('div.egg-row', icon('pets/egg_common', 40), h('div', h('b', `Eggs: ${r.eggs}`), h('div.faint', 'Common 45% · Rare 30% · Epic 16% · Legendary 7.5% · Mythic 1.5%')),
         h(`button.btn${r.eggs ? '.primary' : ''}`, { disabled: !r.eggs, onclick: () => { const p = hatch(g); if (!p) return; play('reveal'); hud.rareLootReveal?.({ pet: p }); render(); } }, 'Hatch')),
       cards.length ? h('div.pet-grid', ...cards) : h('div.faint', 'No pets yet. Defeat bosses to find eggs.'));
   };

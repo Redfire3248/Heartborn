@@ -512,5 +512,15 @@ window.SHEETS = {
       "status_burn", "status_frozen", "status_poison", "status_stun", "status_bleed", "status_slow", "status_enraged", "status_shielded",
       "rarity_0", "rarity_1", "rarity_2", "rarity_3", "rarity_4", "tab_ore", "tab_mob", "tab_gear"
     ]
+  },
+  pets: {
+    title: "Pets sheet, pets and eggs",
+    folder: "pets",
+    mode: "sprite",
+    cols: 8,
+    names: [
+      "chicken", "rabbit", "pig", "slime", "bat", "wolf", "forest_spirit", "dragon",
+      "egg_common", "egg_rare", "egg_epic", "egg_legendary", "egg_mythic", "egg_hatching", "food_bowl", "happy"
+    ]
   }
 };

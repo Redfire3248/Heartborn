@@ -24,7 +24,7 @@ const SECTIONS = [
   { id: 'mob', name: 'Creatures', tab: 'ui/tab_mob', verb: 'slain', list: () => Object.entries(CREATURES).filter(([, d]) => d.sprite && !d.noIndex).map(([k, d]) => ({ key: k, name: nice(k), icon: d.sprite, note: d.boss ? 'Boss' : d.hostile ? null : 'Animal', rarity: d.boss ? 3 : 0 })) },
   { id: 'gear', name: 'Weapons', tab: 'ui/tab_gear', list: () => gearList(['weapon']) },
   { id: 'armour', name: 'Armour', tab: 'ui/ench_protection', counts: 'gear', list: () => gearList(['armor', 'helmet', 'shield']) },
-  { id: 'pet', name: 'Pets', tab: 'characters/chicken', list: () => Object.entries(PETS).map(([k, p]) => ({ key: k, name: p.name, icon: p.sprite, rarity: p.rarity, note: p.desc })) },
+  { id: 'pet', name: 'Pets', tab: 'pets/happy', list: () => Object.entries(PETS).map(([k, p]) => ({ key: k, name: p.name, icon: p.sprite, rarity: p.rarity, note: p.desc })) },
   { id: 'tool', name: 'Tools', tab: 'ui/ench_efficiency', list: () => Object.entries(TOOLS).map(([k, t]) => ({ key: k, name: t.name, icon: hasArt(t.icon) ? t.icon : t.fallbackIcon || 'items/relic', rarity: toolRarity(k) })) },
 ];
 

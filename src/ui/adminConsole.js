@@ -1,3 +1,5 @@
+import { PETS as PET_LIST } from '../game/pets.js';
+import { CONSUMABLES as CONSUMABLE_LIST } from '../game/consumables.js';
 import { TOOLS as ALL_TOOLS } from '../game/tools.js';
 import { ENCHANTS } from '../game/enchanting.js';
 import { h, icon, RES_ICON } from './dom.js';
@@ -109,7 +111,7 @@ const HISTORY_KEY = 'hb_admin_history';
 // What each argument position expects, for autocomplete + hints.
 // Arrays are fixed choices; '...' repeats the pair before it (give res n res n …).
 // the strongest, most useful things are listed first everywhere in the console
-const TOP_COMMANDS = ['god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'shop', 'journal', 'pet', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
+const TOP_COMMANDS = ['get', 'god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'shop', 'journal', 'pet', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
 const commandRank = k => { const i = TOP_COMMANDS.indexOf(k); return i < 0 ? 999 : i; };
 const gearRank = d => (d.admin ? 1e6 : 0) + (d.minRarity || 0) * 1e4 + (d.damage || d.armor * 100 || d.block * 100 || 0);
 const creatureRank = d => (d.boss ? 1e6 : d.hostile ? 1e4 : 0) + (d.hp || 0);
@@ -124,7 +126,7 @@ const ARG_SPECS = {
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
   item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['mythic', 'legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], items: [['*', 'bomb', 'dynamite', 'med_kit', 'speed_potion', 'strength_potion', 'invisibility_potion', 'mana_potion', 'antidote', 'golden_apple', 'ammo_box'], 'number'], tool: ['tool', 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
-  build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting', 'market']], shop: [['open', 'reroll', 'sellall']], journal: [['open', 'newday', 'finish', 'unlock', 'reset']], pet: [['open', 'egg', 'give', 'hatch', 'list', 'clear'], ['chicken', 'rabbit', 'pig', 'slime', 'bat', 'wolf', 'forest_spirit', 'dragon', '5']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
+  get: ['thing', 'number', ['mythic', 'legendary', 'epic', 'rare', 'common', 'equip']], build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting', 'market']], shop: [['open', 'reroll', 'sellall']], journal: [['open', 'newday', 'finish', 'unlock', 'reset']], pet: [['open', 'egg', 'give', 'hatch', 'list', 'clear'], ['chicken', 'rabbit', 'pig', 'slime', 'bat', 'wolf', 'forest_spirit', 'dragon', '5']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
 export class AdminConsole {
@@ -273,6 +275,20 @@ export class AdminConsole {
       ];
       case 'enchant': return [{ value: '*', label: '*', detail: 'every enchantment at max on all your gear and held tool' }, { value: 'list', label: 'list', detail: 'show every enchantment' }, { value: 'random', label: 'random', detail: 'a free random enchant' }, { value: 'clear', label: 'clear', detail: 'remove enchantments' }, { value: 'menu', label: 'menu', detail: 'open the Enchanting Table menu anywhere' },
         ...Object.entries(ENCHANTS).map(([k, e]) => ({ value: k, label: k, detail: `${e.name} · max ${e.max} · ${e.for.join('/')}` }))];
+      case 'thing': return [
+        { value: 'all-gear', label: 'all-gear', detail: 'one of every weapon, armour, helmet, shield and trinket' },
+        { value: 'all-tools', label: 'all-tools', detail: 'one of every tool' },
+        { value: 'all-items', label: 'all-items', detail: 'every potion, bomb and consumable' },
+        { value: 'all-pets', label: 'all-pets', detail: 'one of every pet' },
+        { value: 'all-materials', label: 'all-materials', detail: 'some of every ore and material' },
+        ...Object.entries(CATALOG).flatMap(([slot, list]) => Object.entries(list).map(e => [...e, slot])).filter(([, d]) => d.icon !== null && (!d.noLoot || d.admin)).sort(([, a], [, b]) => gearRank(b) - gearRank(a)).map(([k, d, slot]) => ({ value: k, label: k, detail: `${d.name} · ${slot}${d.admin ? ' · ADMIN' : ''}`, icon: gearIconKey({ base: k, slot, icon: d.icon }) })),
+        ...Object.entries(ALL_TOOLS).sort(([, a], [, b]) => (b.power || 0) - (a.power || 0)).map(([k, t]) => ({ value: k, label: k, detail: `${t.name} · tool · power ${t.power ?? '-'}`, icon: t.icon })),
+        ...Object.entries(CONSUMABLE_LIST).map(([k, c]) => ({ value: k, label: k, detail: `${c.name} · item`, icon: c.icon })),
+        { value: 'potion', label: 'potion', detail: 'Health Potion · item', icon: 'gear/health_potion' },
+        ...Object.entries(PET_LIST).map(([k, p]) => ({ value: `pet:${k}`, label: `pet:${k}`, detail: `${p.name} · pet`, icon: p.sprite })),
+        { value: 'egg', label: 'egg', detail: 'Pet egg', icon: 'pets/egg_common' },
+        ...RESOURCES.map(r => ({ value: r, label: r, detail: 'resource / material', icon: RES_ICON[r] })),
+      ];
       case 'building': return [star('one of every building'), ...Object.entries(BUILDINGS).map(([k, d]) => ({ value: k, label: k, detail: `${d.name} · ${ERAS[d.era].name}`, icon: buildingSprite(k) }))];
       case 'creature': return [star('every creature'), { value: 'hostile', label: 'hostile', detail: 'every monster' }, { value: 'boss', label: 'boss', detail: 'every boss' }, ...Object.entries(CREATURES).sort(([, a], [, b]) => creatureRank(b) - creatureRank(a)).map(([k, d]) => ({ value: k, label: k, detail: d.boss ? `BOSS · ${d.hp} hp` : d.hostile ? `hostile · ${d.hp} hp` : 'animal', icon: d.sprite }))];
       case 'event': return [{ value: 'list', label: 'list', detail: 'show all events' }, ...EVENTS.map(ev => ({ value: ev.id, label: ev.id, detail: ev.title, icon: ev.icon }))];
@@ -881,6 +897,48 @@ const COMMANDS = {
       const n = Math.max(1, Math.floor(Number(count) || 1));
       for (const k of keys) T.giveTool(this.game, k, n);
       this.print(`✓ gave ${keys.length > 1 ? `${keys.length} tools` : T.TOOLS[keys[0]].name}${n > 1 ? ` ×${n}` : ''} (open your Inventory with I)`, 'ok');
+    },
+  },
+  get: {
+    usage: 'get <anything> [count] [rarity] [equip]', desc: 'Give yourself anything: gear (get katana 1 legendary equip), tools, items and potions, resources and materials, pets (get pet:dragon), eggs, or all-gear / all-tools / all-items / all-pets / all-materials',
+    async run([what, ...rest]) {
+      if (!what) throw new Error('get <anything> [count] [rarity] [equip] (start typing to see everything)');
+      const g = this.game, v = heroOf(g);
+      const num = rest.find(x => /^\d+$/.test(x));
+      const n = Math.max(1, Math.min(9999, Number(num) || 1));
+      const rarityName = rest.find(x => ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(x));
+      const rarity = rarityName ? ['common', 'rare', 'epic', 'legendary', 'mythic'].indexOf(rarityName) : null;
+      const equipIt = rest.includes('equip');
+      const T = await import('../game/tools.js');
+      const C = await import('../game/consumables.js');
+      const P = await import('../game/pets.js');
+      const F = await import('../game/forging.js');
+      const got = [];
+      const giveGear = (base, slot) => { const d = CATALOG[slot][base]; const it = makeGear(g, base, d.admin ? 5 : rarity ?? Math.max(d.minRarity || 0, 0)); takeGear(g, it, v); if (equipIt) equip(g, it.id); got.push({ name: it.name, icon: gearIconKey(it), color: RARITY[it.rarity].color }); };
+      const givePet = k => { const r = P.petsOf(g); const pet = { id: `pet${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`, kind: k, name: P.PETS[k].name }; r.pets.push(pet); r.pet = pet.id; got.push({ name: pet.name, icon: P.PETS[k].sprite }); };
+      if (what === 'all-gear') { for (const [slot, list] of Object.entries(CATALOG)) for (const [k, d] of Object.entries(list)) if (d.icon !== null && !d.noLoot && !d.admin) giveGear(k, slot); }
+      else if (what === 'all-tools') { for (const k of Object.keys(T.TOOLS)) { T.giveTool(g, k, n); got.push({ name: T.TOOLS[k].name, icon: T.TOOLS[k].icon }); } }
+      else if (what === 'all-items') { for (const k of Object.keys(C.CONSUMABLES)) { C.giveItem(g, k, n); got.push({ name: `${n} x ${C.CONSUMABLES[k].name}`, icon: C.CONSUMABLES[k].icon }); } }
+      else if (what === 'all-pets') { for (const k of Object.keys(P.PETS)) givePet(k); }
+      else if (what === 'all-materials') { for (const k of F.FORGE_KEYS) { g.state.resources[k] = (g.state.resources[k] || 0) + (num ? n : 50); } got.push({ name: `${num ? n : 50} of every material` }); }
+      else if (what === 'egg' || what === 'eggs') { P.giveEgg(g, n); got.push({ name: `${n} pet egg${n > 1 ? 's' : ''}`, icon: 'pets/egg_common' }); }
+      else if (what === 'potion' || what === 'potions') { rpgOf(g).potions = (rpgOf(g).potions || 0) + n; got.push({ name: `${n} Health Potion${n > 1 ? 's' : ''}`, icon: 'gear/health_potion' }); }
+      else if (what.startsWith('pet:') || (P.PETS[what] && !T.TOOLS[what])) { const k = what.replace(/^pet:/, ''); if (!P.PETS[k]) throw new Error(`no pet "${k}" (pets: ${Object.keys(P.PETS).join(', ')})`); for (let i = 0; i < Math.min(n, 20); i++) givePet(k); }
+      else if (T.TOOLS[what]) { T.giveTool(g, what, n); got.push({ name: `${n > 1 ? n + ' x ' : ''}${T.TOOLS[what].name}`, icon: T.TOOLS[what].icon }); }
+      else if (C.CONSUMABLES[what]) { C.giveItem(g, what, n); got.push({ name: `${n} x ${C.CONSUMABLES[what].name}`, icon: C.CONSUMABLES[what].icon }); }
+      else if (RESOURCES.includes(what)) { g.state.resources[what] = (g.state.resources[what] || 0) + (num ? n : 100); got.push({ name: `${num ? n : 100} ${what}`, icon: RES_ICON[what] }); }
+      else {
+        const slot = Object.keys(CATALOG).find(s => CATALOG[s][what]);
+        if (!slot) throw new Error(`nothing called "${what}". Start typing to see everything you can get.`);
+        for (let i = 0; i < Math.min(n, 50); i++) giveGear(what, slot);
+      }
+      g.emit('change');
+      this.print(`✓ got ${got.length > 1 ? `${got.length} things` : got[0]?.name || what}${equipIt ? ' (equipped)' : ''}`, 'ok');
+      if (got.length > 1 || got[0]?.icon) {
+        this.out.append(h('div.gc-gear-list', got.slice(0, 16).map(x => h('div.gc-gear', x.icon ? icon(x.icon, 22) : null, h('b', x.color ? { style: { color: x.color } } : {}, x.name)))));
+        if (got.length > 16) this.print(`…and ${got.length - 16} more`, 'dim');
+        this.out.scrollTop = this.out.scrollHeight;
+      }
     },
   },
   enchant: {

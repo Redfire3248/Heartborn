@@ -10,14 +10,14 @@ import { pickUp } from './groundItems.js';
 
 /** Every pet: which picture it uses, its rarity and what it does. */
 export const PETS = {
-  chicken:       { name: 'Chicken',       sprite: 'characters/chicken',       rarity: 0, size: 0.45, role: 'collector', desc: 'Picks up loot around you' },
-  rabbit:        { name: 'Rabbit',        sprite: 'characters/rabbit',        rarity: 0, size: 0.45, role: 'collector', desc: 'Picks up loot around you, a little further' },
-  pig:           { name: 'Pig',           sprite: 'characters/pig',           rarity: 1, size: 0.55, role: 'collector', desc: 'Picks up loot from far away' },
-  slime:         { name: 'Slime',         sprite: 'characters/slime',         rarity: 1, size: 0.5,  role: 'fighter', dmg: 6, desc: 'Bounces at monsters near you' },
-  bat:           { name: 'Bat',           sprite: 'characters/bat',           rarity: 1, size: 0.45, role: 'fighter', dmg: 5, fly: true, desc: 'Swoops at monsters near you' },
-  wolf:          { name: 'Wolf',          sprite: 'characters/wolf',          rarity: 2, size: 0.6,  role: 'fighter', dmg: 14, desc: 'Fights beside you' },
-  forest_spirit: { name: 'Forest Spirit', sprite: 'characters/forest_spirit', rarity: 3, size: 0.6,  role: 'healer', heal: 4, fly: true, desc: 'Heals you over time and picks up loot' },
-  dragon:        { name: 'Baby Dragon',   sprite: 'characters/dragon',        rarity: 4, size: 0.7,  role: 'fighter', dmg: 30, fly: true, fire: true, desc: 'Breathes fire at monsters and picks up loot' },
+  chicken:       { name: 'Chicken',       sprite: 'pets/chicken',       rarity: 0, size: 0.45, role: 'collector', desc: 'Picks up loot around you' },
+  rabbit:        { name: 'Rabbit',        sprite: 'pets/rabbit',        rarity: 0, size: 0.45, role: 'collector', desc: 'Picks up loot around you, a little further' },
+  pig:           { name: 'Pig',           sprite: 'pets/pig',           rarity: 1, size: 0.55, role: 'collector', desc: 'Picks up loot from far away' },
+  slime:         { name: 'Slime',         sprite: 'pets/slime',         rarity: 1, size: 0.5,  role: 'fighter', dmg: 6, desc: 'Bounces at monsters near you' },
+  bat:           { name: 'Bat',           sprite: 'pets/bat',           rarity: 1, size: 0.45, role: 'fighter', dmg: 5, fly: true, desc: 'Swoops at monsters near you' },
+  wolf:          { name: 'Wolf',          sprite: 'pets/wolf',          rarity: 2, size: 0.6,  role: 'fighter', dmg: 14, desc: 'Fights beside you' },
+  forest_spirit: { name: 'Forest Spirit', sprite: 'pets/forest_spirit', rarity: 3, size: 0.6,  role: 'healer', heal: 4, fly: true, desc: 'Heals you over time and picks up loot' },
+  dragon:        { name: 'Baby Dragon',   sprite: 'pets/dragon',        rarity: 4, size: 0.7,  role: 'fighter', dmg: 30, fly: true, fire: true, desc: 'Breathes fire at monsters and picks up loot' },
 };
 
 /** Your pets and eggs. */

@@ -887,7 +887,7 @@ export class Renderer {
     const size = TILE * def.size;
     const bob = def.fly ? Math.sin(this.time * 4) * 2 - 10 : pb.moving ? -Math.abs(Math.sin(this.time * 10)) * 2 : 0;
     this.shadow(pb.x, pb.y, size * 0.5);
-    drawSprite(this.ctx, def.sprite, pb.x, pb.y + bob, size, { flip: !pb.flip });
+    drawSprite(this.ctx, def.sprite, pb.x, pb.y + bob, size, { flip: pb.flip });   // pet art faces right
   }
 
   /** Small icons over a monster for what is on it: burning, frozen, slowed, bleeding, stunned, enraged. */
