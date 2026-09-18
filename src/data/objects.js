@@ -86,6 +86,8 @@ export const CREATURES = {
   spider_queen:  { sprite: 'characters/spider_queen',  fallback: { sprite: 'characters/giant_spider', tint: '#c03a3a' }, size: 2.0, hp: 380, speed: 30, hostile: true, damage: 16, armor: 0.2, boss: true, ranged: { shot: 'web_ball', range: 7, every: 3.5, count: 3, spread: 0.4, dmg: 0.4 }, summons: { type: 'cave_spider', every: 10, count: 3 } },
   slime_king:    { sprite: 'characters/slime_king',    fallback: { sprite: 'characters/slime', tint: '#5ae07a' }, size: 2.0, hp: 360, speed: 14, hostile: true, damage: 14, boss: true, ranged: { shot: 'poison_spit', range: 6, every: 3, count: 5, spread: 0.5, dmg: 0.6 }, slam: { every: 6, range: 3.5, radius: 2, delay: 1, dmg: 1.2 }, summons: { type: 'slime', every: 14, count: 2 } },
   // armor: share of every blow shrugged off (a real weapon halves it); breath: fire that burns everyone near it
+  // an Elden Ring style boss: delayed swings, long combos, a thrust across the arena, shockwave slams, and a burning second phase
+  ashen_knight:  { sprite: 'characters/ashen_knight', fallback: { sprite: 'characters/warrior', tint: '#3a2e44' }, size: 1.7, hp: 650, speed: 30, hostile: true, damage: 28, armor: 0.35, boss: true, elden: true },
   dragon:        { sprite: 'characters/dragon',        size: 2.6, hp: 1500, speed: 46, hostile: true, damage: 36, flying: true, armor: 0.6, boss: true, breath: { every: 4.5, radius: 2.5, damage: 18 }, ranged: { shot: 'fireball', range: 10, min: 3, every: 5, count: 3, spread: 0.25, dmg: 0.6 } },
   // soldiers of an enemy army (another player or a barbarian warband)
   invader:       { sprite: 'characters/warrior',       size: 1.0, hp: 50, speed: 32, hostile: true, damage: 9, steals: true, tint: '#ff3a3a' },

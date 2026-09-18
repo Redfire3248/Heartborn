@@ -120,7 +120,7 @@ const TAB_FEATURE = { jobs: 'people', court: 'court', deeds: 'laws', empire: 'em
 for (const grp of DOCK_GROUPS) if (grp) grp.tabs = grp.tabs.filter(([id]) => !TAB_FEATURE[id] || on(TAB_FEATURE[id]));
 for (let i = DOCK_GROUPS.length - 1; i >= 0; i--) if (DOCK_GROUPS[i] && !DOCK_GROUPS[i].tabs.length) DOCK_GROUPS.splice(i, 1);
 const groupOf = id => DOCK_GROUPS.find(g => g?.tabs.some(t => t[0] === id));
-const BOSS_NAMES = { cave_troll: 'Cave Troll', forest_spirit: 'Forest Spirit', slime_king: 'The Slime King', spider_queen: 'The Spider Queen', stone_golem: 'The Stone Golem', lich: 'The Lich', dragon: 'Ancient Dragon' };
+const BOSS_NAMES = { cave_troll: 'Cave Troll', forest_spirit: 'Forest Spirit', slime_king: 'The Slime King', spider_queen: 'The Spider Queen', stone_golem: 'The Stone Golem', lich: 'The Lich', dragon: 'Ancient Dragon', ashen_knight: 'Varek, the Ashen Knight' };
 
 export class HUD {
   constructor({ game, renderer, input, mp, user, isAdmin, onSave, onSignOut, onRestart, onVisit, onReturnHome, world, username, onSwitchWorld, onBackToMenu, onSeaView, onAbroad, onDungeon }) {
@@ -3753,7 +3753,7 @@ export class HUD {
       const def = CREATURES[boss.t];
       const art = !spriteAvailable(def.sprite) && def.fallback ? def.fallback.sprite : def.sprite;
       const name = boss.bounty?.name || BOSS_NAMES[boss.t] || `${boss.elite ? 'Elite ' : ''}${boss.t.replace(/_/g, ' ').replace(/(^|\s)\w/g, m => m.toUpperCase())}`;
-      const title = boss.bounty ? `Bounty · ${boss.bounty.gold} gold` : boss.dungeonBoss && this.dungeon ? `Guardian of Floor ${this.dungeon.dungeon.depth}` : boss.elite ? 'Elite' : def.boss ? 'Boss' : 'Strong foe';
+      const title = boss.t === 'ashen_knight' ? (boss._phase2 ? 'The Last Flame' : 'Sworn Blade of the Old Crown') : boss.bounty ? `Bounty · ${boss.bounty.gold} gold` : boss.dungeonBoss && this.dungeon ? `Guardian of Floor ${this.dungeon.dungeon.depth}` : boss.elite ? 'Elite' : def.boss ? 'Boss' : 'Strong foe';
       el = this.els.bossBar = h('div.boss-bar',
         h('div.boss-portrait', icon(art, 44)),
         h('div.boss-main',

@@ -28,6 +28,13 @@ export function fightBoss(g, c, def, dt) {
 
   // below half health: enraged, once
   const hpK = (c.hp ?? maxHp(c)) / maxHp(c);
+  if (def.elden && !c._phase2 && hpK < 0.5) {   // phase two: it kneels, the flame catches, and the arena erupts
+    c._phase2 = true; c._enraged = true;
+    ai.act = { kind: 'phase2', t: 2.2, max: 2.2 };
+    c._iframes = 2.3;
+    g.announce?.('The Last Flame awakens');
+    g.fx.shake = Math.max(g.fx.shake, 1.5);
+  }
   if (!c._enraged && hpK < 0.5) {
     c._enraged = true;
     ai.act = { kind: 'roar', t: 0.7 };
@@ -36,7 +43,7 @@ export function fightBoss(g, c, def, dt) {
   }
   const rage = c._enraged ? 1 : 0;
   const run = Math.max(def.speed * 2.4, WALK_SPEED * 1.75) * (1 + rage * 0.2) * (c._chill ? c._chill.k : 1);
-  for (const k of ['cd', 'dodgeCd', 'guardCd', 'leapCd', 'dashCd']) ai[k] -= dt * (1 + rage * 0.4);
+  for (const k of ['cd', 'dodgeCd', 'guardCd', 'leapCd', 'dashCd', 'waveCd', 'rainCd', 'thrustCd']) if (ai[k] != null) ai[k] -= dt * (1 + rage * 0.4);
   if (c._guard > 0) c._guard -= dt;
   if (c._iframes > 0) c._iframes -= dt;
   if (c._attack) c._attack = Math.max(0, c._attack - dt);
@@ -53,6 +60,8 @@ export function fightBoss(g, c, def, dt) {
     ai.dodgeCd = rnd(2.2, 3.5);
     return true;
   }
+
+  if (def.elden && eldenChoose(g, c, def, hero, ai, d, rage, sees)) return true;
 
   // the moves it already had: summons, ground slams, ranged shots
   if (d > TILE * 2.6 && special(g, c, { ...def, ranged: def.ranged && { ...def.ranged, min: 0 } }, hero, dt)) return true;
@@ -120,6 +129,60 @@ export function fightBoss(g, c, def, dt) {
   return true;
 }
 
+/**
+ * The Ashen Knight's own choices, Elden Ring style:
+ *   delayed swings (it holds the blade up for a different time each swing, so you cannot just mash dodge),
+ *   long chains, a thrust across the arena with its path lit first, and a leap whose landing sends out shockwaves.
+ *   Phase two adds fire: burning sword waves from range and flames falling around you.
+ */
+function eldenChoose(g, c, def, hero, ai, d, rage, sees) {
+  ai.waveCd ??= 3; ai.rainCd ??= 6; ai.thrustCd ??= 4;   // they count down with the other cooldowns, every frame
+  // phase two: sword waves of fire from range
+  if (c._phase2 && ai.waveCd <= 0 && d > TILE * 2.5 && d < TILE * 9 && sees) {
+    ai.waveCd = rnd(3.5, 5);
+    const base = Math.atan2(hero.y - c.y, hero.x - c.x);
+    for (const off of [-0.28, 0, 0.28]) (g.enemyShots ||= []).push({ kind: 'fireball', x: c.x, y: c.y - 12, vx: Math.cos(base + off) * TILE * 8, vy: Math.sin(base + off) * TILE * 8, left: TILE * 11, dmg: def.damage * 0.7 * power(c), from: c });
+    c._attack = 0.3; c._swing = { t: 0, dur: 0.25, ang: base, dir: 1, heavy: true };
+    ai.act = { kind: 'recover', t: 0.5 };
+    return true;
+  }
+  // phase two: flames fall around you (each spot glows first)
+  if (c._phase2 && ai.rainCd <= 0 && d < TILE * 10) {
+    ai.rainCd = rnd(7, 9);
+    for (let i = 0; i < 7; i++) {
+      const a = Math.random() * Math.PI * 2, r = i === 0 ? 0 : TILE * rnd(1, 3.5);
+      (g.aoes ||= []).push({ x: hero.x + Math.cos(a) * r, y: hero.y + Math.sin(a) * r, r: TILE * 1.1, t: 0, delay: 0.9 + i * 0.18, dmg: def.damage * 0.8 * power(c), from: c });
+    }
+    g.float(c.x, c.y - def.size * TILE - 8, 'FLAMES FALL!', '#ff7a3a');
+    ai.act = { kind: 'recover', t: 1.2 };
+    return true;
+  }
+  // the thrust: its line lights up, then it crosses the room
+  if (ai.thrustCd <= 0 && d > TILE * 2.2 && d < TILE * 8 && sees) {
+    ai.thrustCd = rnd(5, 7);
+    const ang = Math.atan2(hero.y - c.y, hero.x - c.x), dx = Math.cos(ang), dy = Math.sin(ang);
+    const t = 0.75 - rage * 0.15;
+    for (let i = 1; i <= 7; i++) (g.aoes ||= []).push({ x: c.x + dx * TILE * i, y: c.y + dy * TILE * i, r: TILE * 0.7, t: 0, delay: t + i * 0.04, dmg: 0, from: c, warn: true });
+    ai.act = { kind: 'thrustWind', t, dx, dy };
+    c._windup = t;
+    return true;
+  }
+  // in reach: the delayed swing, or a long chain
+  if (d < TILE * 2.1 && ai.cd <= 0) {
+    if (Math.random() < 0.45) {
+      const t = rnd(0.6, 1.7) - rage * 0.2;   // the famous delay: never the same twice
+      ai.act = { kind: 'heavy', t, max: t, ang: Math.atan2(hero.y - c.y, hero.x - c.x) };
+      c._windup = t; c._charging = t;
+      if (Math.random() < 0.5) g.float(c.x, c.y - def.size * TILE - 8, '...', '#ffb070');
+    } else {
+      ai.act = { kind: 'combo', left: Math.floor(rnd(3, 5)) + (c._phase2 ? 2 : 0), phase: 'wind', t: swingWind(rage) };
+      c._windup = ai.act.t;
+    }
+    return true;
+  }
+  return false;
+}
+
 const clear = (g, c, hero) => !g.world.clearLine || g.world.clearLine(c.x, c.y, hero.x, hero.y);
 
 const swingWind = rage => (rage ? 0.26 : 0.36);
@@ -146,7 +209,10 @@ function doAct(g, c, def, hero, ai, dt, run, rage) {
       if (def.flying || g.world.walkable(nx, ny)) { c.x = nx; c.y = ny; }   // it never jumps through a wall
       c._hop = Math.sin(k * Math.PI) * TILE * 2.2;
       c._windup = Math.max(0, a.t);
-      if (a.t <= 0) { c._hop = 0; ai.act = { kind: 'recover', t: 0.7 - rage * 0.2 }; }
+      if (a.t <= 0) {
+        c._hop = 0; ai.act = { kind: 'recover', t: 0.7 - rage * 0.2 };
+        if (def.elden) for (let i = 0; i < 3; i++) (g.aoes ||= []).push({ x: c.x, y: c.y, r: TILE * (1.8 + i * 1.5), t: 0, delay: 0.25 + i * 0.35, dmg: def.damage * 0.7 * power(c), from: c, ring: true });   // shockwaves roll outward: dodge through them
+      }
       return;
     }
     case 'dashWind':
@@ -227,6 +293,30 @@ function doAct(g, c, def, hero, ai, dt, run, rage) {
       }
       step(g, c, hero.x, hero.y, run * 0.4 * dt, def);   // it drifts toward you while spinning
       return;
+    case 'phase2': {   // kneeling while the flame takes it, then a burst all around
+      c._windup = Math.max(0, a.t);
+      if (Math.random() < dt * 30) g.fx.particles.push({ x: c.x + (Math.random() - 0.5) * def.size * TILE, y: c.y - Math.random() * def.size * TILE, vx: 0, vy: -30, sprite: 'effects/flame', size: 8, life: 0.6, max: 0.6, rot: 0 });
+      if (a.t <= 0) {
+        (g.aoes ||= []).push({ x: c.x, y: c.y, r: TILE * 4, t: 0, delay: 0.05, dmg: def.damage * 1.2 * power(c), from: c });
+        g.anim('effects/boss_burst', c.x, c.y - 10, { size: TILE * 8, dur: 0.6 });
+        g.fx.shake = Math.max(g.fx.shake, 3);
+        ai.act = { kind: 'recover', t: 0.6 };
+      }
+      return;
+    }
+    case 'thrustWind':   // the blade drawn back, the path lit red
+      c._windup = Math.max(0, a.t);
+      c._charging = Math.max(0, a.t);
+      if (a.t <= 0) { c._charging = 0; ai.act = { kind: 'thrust', t: 0.42, dx: a.dx, dy: a.dy }; c._attack = 0.4; }
+      return;
+    case 'thrust': {   // across the arena in a straight line
+      const sp = TILE * 20 * dt;
+      step(g, c, c.x + a.dx * TILE * 4, c.y + a.dy * TILE * 4, sp, { ...def, speed: 1 });
+      if (Math.random() < dt * 30) g.anim('combat/dust', c.x - a.dx * 12, c.y, { size: 22, dur: 0.3 });
+      if (!a.hit && Math.hypot(hero.x - c.x, hero.y - c.y) < TILE * 1.3 && clear(g, c, hero)) { a.hit = true; strikeVillager(g, c, hero, def.damage * 1.6 * power(c)); }
+      if (a.t <= 0 || !c._walking) ai.act = { kind: 'recover', t: 0.9 - rage * 0.2 };
+      return;
+    }
     case 'recover':   // the opening: it is catching its breath
       c._windup = 0;
       if (a.t <= 0) { ai.act = null; ai.cd = rnd(0.8, 1.6) - rage * 0.4; }

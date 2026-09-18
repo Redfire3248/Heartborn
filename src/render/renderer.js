@@ -323,18 +323,48 @@ export class Renderer {
     for (let y = 0; y < w.h; y++) {
       for (let x = 0; x < w.w; x++) {
         const X = x * TILE, Y = y * TILE;
-        if (art) {   // the painted tiles
+        if (art) {   // the painted tiles, drawn so walls read as walls: tall lit faces, stone lips, a dark mass behind
           if (!wall(x, y)) {
             const f = rnd(x, y);
             tileArt(`dungeon/${f < 0.55 ? 'dungeon_floor_1' : f < 0.8 ? 'dungeon_floor_2' : f < 0.89 ? 'dungeon_floor_cracked' : f < 0.97 ? 'dungeon_floor_mossy' : 'dungeon_floor_rubble'}`, X, Y);
+            ctx.fillStyle = 'rgba(12,8,22,0.22)'; ctx.fillRect(X, Y, TILE, TILE);   // floors a touch darker than walls
             if (openDoors.has(`${x},${y}`)) tileArt('dungeon/door_open', X, Y);
-            if (wall(x, y - 1)) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(X, Y, TILE, P * 1.2); }
+            // contact shadows: deep at the foot of a wall face, softer along side walls
+            if (wall(x, y - 1)) { const gr = ctx.createLinearGradient(0, Y, 0, Y + TILE * 0.55); gr.addColorStop(0, 'rgba(0,0,0,0.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gr; ctx.fillRect(X, Y, TILE, TILE * 0.55); }
+            if (wall(x - 1, y)) { const gr = ctx.createLinearGradient(X, 0, X + TILE * 0.35, 0); gr.addColorStop(0, 'rgba(0,0,0,0.4)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gr; ctx.fillRect(X, Y, TILE * 0.35, TILE); }
+            if (wall(x + 1, y)) { const gr = ctx.createLinearGradient(X + TILE, 0, X + TILE * 0.65, 0); gr.addColorStop(0, 'rgba(0,0,0,0.4)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gr; ctx.fillRect(X + TILE * 0.65, Y, TILE * 0.35, TILE); }
             continue;
           }
           if (isDoor(x, y)) { tileArt('dungeon/door_closed', X, Y); continue; }
-          if (!wall(x, y + 1) || isDoor(x, y + 1)) { const f = rnd(x, y, 1); tileArt(`dungeon/${f < 0.6 ? 'wall_face_1' : f < 0.85 ? 'wall_face_2' : 'wall_face_mossy'}`, X, Y); continue; }
-          if (!wall(x, y - 1) || !wall(x - 1, y) || !wall(x + 1, y) || !wall(x, y + 2)) { tileArt('dungeon/wall_top', X, Y); ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(X, Y, TILE, TILE); continue; }
-          ctx.fillStyle = '#0e0c12'; ctx.fillRect(X - 0.5, Y - 0.5, TILE + 1, TILE + 1);
+          const open = (xx, yy) => !wall(xx, yy) || isDoor(xx, yy);
+          const floorBelow = open(x, y + 1);
+          const floorTwoBelow = !floorBelow && open(x, y + 2);
+          if (floorBelow || floorTwoBelow) {
+            // a wall face two tiles tall: the lower tile is lit by the room, the upper falls into shade, a stone lip caps it
+            const f = rnd(x, y, 1);
+            tileArt(`dungeon/${f < 0.6 ? 'wall_face_1' : f < 0.85 ? 'wall_face_2' : 'wall_face_mossy'}`, X, Y);
+            const gr = ctx.createLinearGradient(0, Y, 0, Y + TILE);
+            if (floorBelow && wall(x, y - 1) && !open(x, y - 1)) { gr.addColorStop(0, 'rgba(0,0,0,0.2)'); gr.addColorStop(1, 'rgba(0,0,0,0.02)'); }
+            else { gr.addColorStop(0, 'rgba(0,0,0,0.55)'); gr.addColorStop(1, 'rgba(0,0,0,0.22)'); }
+            ctx.fillStyle = gr; ctx.fillRect(X, Y, TILE, TILE);
+            if (floorBelow) { ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(X, Y + TILE - P * 0.5, TILE, P * 0.5); }   // where the wall meets the floor
+            if (floorTwoBelow || open(x, y - 1)) {   // the top of the face: a stone lip catching the light
+              ctx.fillStyle = '#6f667c'; ctx.fillRect(X, Y, TILE, P * 1.1);
+              ctx.fillStyle = '#a097ae'; ctx.fillRect(X, Y, TILE, P * 0.35);
+              ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(X, Y + P * 1.1, TILE, P * 0.3);
+            }
+            if (open(x - 1, y)) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(X, Y, P * 0.5, TILE); }
+            if (open(x + 1, y)) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(X + TILE - P * 0.5, Y, P * 0.5, TILE); }
+            continue;
+          }
+          // the solid rock behind the walls: near black, with a lit stone lip wherever it meets the room
+          ctx.fillStyle = '#0b0910'; ctx.fillRect(X - 0.5, Y - 0.5, TILE + 1, TILE + 1);
+          const lip = (x0, y0, w0, h0, x1, y1, w1, h1) => { ctx.fillStyle = '#5a5266'; ctx.fillRect(x0, y0, w0, h0); ctx.fillStyle = '#8a80a0'; ctx.fillRect(x1, y1, w1, h1); };
+          if (open(x - 1, y)) lip(X, Y, P * 0.9, TILE, X, Y, P * 0.3, TILE);
+          if (open(x + 1, y)) lip(X + TILE - P * 0.9, Y, P * 0.9, TILE, X + TILE - P * 0.3, Y, P * 0.3, TILE);
+          if (open(x, y - 1)) lip(X, Y, TILE, P * 0.9, X, Y, TILE, P * 0.3);
+          // the rim continues round the corner where a side wall meets a face below
+          if (!open(x, y + 1) && (open(x - 1, y + 1) || open(x + 1, y + 1) || open(x - 1, y + 2) || open(x + 1, y + 2))) { ctx.fillStyle = 'rgba(90,82,102,0.3)'; ctx.fillRect(X, Y + TILE - P * 0.6, TILE, P * 0.6); }
           continue;
         }
         if (!wall(x, y)) {
