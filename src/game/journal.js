@@ -2,6 +2,7 @@
  * The Journal: a free chest every day, three daily challenges, and achievements that give you a title to show
  * under your name. Days are real days (they reset at midnight on your device), so there is a reason to come back.
  */
+import { giveEgg } from './pets.js';
 import { rpgOf, rollGear, takeGear, RARITY, CATALOG } from './rpg.js';
 import { toolsOf, TOOLS } from './tools.js';
 import { giveItem } from './consumables.js';
@@ -101,6 +102,7 @@ export function claimBonus(g, hero = null) {
   for (let i = 0; i < 6 && (!it || it.rarity < 1); i++) it = rollGear(g, { boss: true });
   if (it) takeGear(g, it, hero);
   g.state.resources.gems = (g.state.resources.gems || 0) + 5;
+  if (Math.random() < 0.2) giveEgg(g, 1);
   g.emit('change');
   return { ok: true, item: it };
 }
@@ -176,4 +178,3 @@ export function checkAchievements(g) {
 export const titleOf = g => { const r = rpgOf(g); const a = ACHIEVEMENTS.find(x => x.id === r.title && r.achievements?.[x.id]); return a ? a.title : ''; };
 export function setTitle(g, id) { const r = rpgOf(g); r.title = id && r.achievements?.[id] ? id : null; g.emit('change'); }
 
-void RARITY; void allIndex;

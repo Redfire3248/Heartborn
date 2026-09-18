@@ -1,3 +1,5 @@
+import { PETS } from '../game/pets.js';
+import { openPets } from './petsMenu.js';
 import { checkAchievements, titleOf } from '../game/journal.js';
 import { openJournal } from './journalMenu.js';
 import { openShop } from './shopMenu.js';
@@ -156,6 +158,7 @@ export class HUD {
     game.on('dungeon', e => setTimeout(() => this.enterDungeon(e), 0));
     game.on('house', b => setTimeout(() => this.enterHouse(b), 0));
     game.on('rareLoot', d => this.rareLootReveal(d));
+    game.on('petEgg', () => this.toast({ text: 'You found a pet egg! Hatch it in Pets (P)', kind: 'good' }));
     game.on('challengeDone', c => this.toast({ text: `Challenge done: ${c.text}. Claim it in your Journal (O)`, kind: 'good' }));
     game.on('discover', () => { if (!this._indexToastAt || performance.now() - this._indexToastAt > 4000) { this._indexToastAt = performance.now(); this.toast({ text: 'New entry in your Index (N)', kind: 'event' }); } });
     if (mp) {
@@ -442,6 +445,7 @@ export class HUD {
     if (is(k, 'inventory')) { this.inventory(); return; }
     if (is(k, 'index')) { openIndex(this); return; }
     if (is(k, 'journal')) { openJournal(this); return; }
+    if (is(k, 'pets')) { openPets(this); return; }
     const slot = ACTIONS.findIndex(a => a.id.startsWith('hot') && is(k, a.id)) - ACTIONS.findIndex(a => a.id === 'hot1');
     // like Minecraft: hover something in the inventory and press a number to put it in that hotbar slot
     if (slot >= 0 && this._invHover && !this.els.invPanel.hidden) { setSlot(this.game, slot, this._invHover); this._hotbarKey = null; this.renderInventory(); return; }
@@ -861,6 +865,7 @@ export class HUD {
     const heldInfo = this.slotInfo(bar[r.hotSel], v);
     panel.replaceChildren(
       h('div.inv-head', h('b', 'Inventory'), h('div.spacer'),
+        h('button.btn.sm', { title: 'Your pets and eggs (P)', onclick: () => openPets(this) }, 'Pets'),
         h('button.btn.sm', { title: 'Daily chest, challenges and achievements (O)', onclick: () => openJournal(this) }, hasArt('items/token_crown') ? icon('items/token_crown', 16) : null, 'Journal'),
         h('button.btn.sm', { title: 'Everything you have found (N)', onclick: () => openIndex(this) }, hasArt('ui/index') ? icon('ui/index', 16) : null, 'Index'),
         h('button.btn.sm.analyze-btn', { title: 'Analyze the item under your cursor (or what you hold). Tip: right-click a hotbar slot', onclick: () => this.analyzeKey(this._invHover || bar[r.hotSel]) }, 'Analyze'),
@@ -1752,7 +1757,7 @@ export class HUD {
   /** What you just crafted, shown big: its quality, rarity and any lucky bonus. */
   /** A boss material, rare metal or Legendary+ gear was picked up: show it off (several at once merge into one card). */
   rareLootReveal(d) {
-    const key = d.achievement ? `ach:${d.achievement.id}` : d.chest ? 'chest' : d.gear ? `gear:${d.gear.id}` : `res:${d.res}`;
+    const key = d.pet ? `pet:${d.pet.id}` : d.achievement ? `ach:${d.achievement.id}` : d.chest ? 'chest' : d.gear ? `gear:${d.gear.id}` : `res:${d.res}`;
     const now = performance.now();
     const open = this.root.querySelector('.rare-loot');
     if (open && open.dataset.key === key && now - (this._rareAt || 0) < 2500) {   // more of the same: add to the count
@@ -1764,7 +1769,8 @@ export class HUD {
     open?.remove();
     this._rareAt = now; this._rareCount = d.count || 1;
     let name, iconKey, rarity, sub;
-    if (d.achievement) { name = d.achievement.name; iconKey = hasArt('items/mat_star_shard') ? 'items/mat_star_shard' : 'items/star_rank'; rarity = 3; sub = `Achievement · title: ${d.achievement.title}`; }
+    if (d.pet) { const pd = PETS[d.pet.kind]; name = d.pet.name; iconKey = pd.sprite; rarity = pd.rarity; sub = 'New pet'; }
+    else if (d.achievement) { name = d.achievement.name; iconKey = hasArt('items/mat_star_shard') ? 'items/mat_star_shard' : 'items/star_rank'; rarity = 3; sub = `Achievement · title: ${d.achievement.title}`; }
     else if (d.chest) { name = d.text; iconKey = 'gear/chest_open'; rarity = 1; sub = 'Daily chest'; }
     else if (d.gear) { name = d.gear.name; iconKey = gearIconKey(d.gear) || 'items/relic'; rarity = d.gear.rarity; sub = 'Rare loot'; }
     else { const mt = MATERIALS[d.res]; name = mt?.name || d.res; iconKey = mt ? matIcon(d.res) : RES_ICON[d.res]; rarity = Math.max(3, mt?.rarity || 3); sub = mt?.boss ? 'Boss material' : 'Rare material'; }
@@ -1774,7 +1780,7 @@ export class HUD {
       h('div.rare-sub', d.achievement || d.chest ? null : smallIcon(`ui/rarity_${Math.min(4, rarity)}`, 16), d.achievement ? `ACHIEVEMENT UNLOCKED · ${d.achievement.title.toUpperCase()}` : d.chest ? 'DAILY CHEST' : `${R.name.toUpperCase()} · ${sub.toUpperCase()}`),
       h('div.rare-icon', icon(iconKey, 84)),
       h('b.rare-name', name),
-      d.gear || d.achievement || d.chest ? null : h('span.rare-count', `x${this._rareCount}`));
+      d.gear || d.achievement || d.chest || d.pet ? null : h('span.rare-count', `x${this._rareCount}`));
     this.root.append(el);
     play('reveal');
     clearTimeout(this._rareTimer);

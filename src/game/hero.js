@@ -1,3 +1,4 @@
+import { updatePet } from './pets.js';
 import { doorOf } from './houses.js';
 import { enchantTraits } from './enchanting.js';
 import { gameTheme } from './worldTypes.js';
@@ -835,6 +836,7 @@ export function updateHero(g, dt, controls = {}) {
   if (controls.act && h.atkCd <= 0 && !blocking && !h.dash) attack(g, v, st);
   if (g.hero !== h) return;   // the swing took you somewhere else (into a dungeon or a house)
   updateArrows(g, v, dt);
+  updatePet(g, v, dt);
   updateQuests(g);
   updateTreasure(g, dt, v);
   if (controls.potion) drinkPotion(g, v);

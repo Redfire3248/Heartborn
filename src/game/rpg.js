@@ -1,3 +1,4 @@
+import { giveEgg } from './pets.js';
 import { dailyProgress } from './journal.js';
 import { TILE } from '../core/constants.js';
 import { on } from '../core/features.js';
@@ -534,6 +535,7 @@ export function onHeroKill(g, c, v) {
     if (v && v.hp < (g.hero?.maxHp || 100) && Math.random() < 0.3) dropPickup(g, 'heart', c.x - 8, c.y);
     if (Math.random() < (c.elite || boss ? 0.45 : 0.07)) dropPickup(g, 'potion', c.x + 8, c.y);
     if (boss) chestsOf(g).push({ id: `boss${Date.now().toString(36)}`, x: c.x, y: c.y + 10, boss: true });
+    if (boss && Math.random() < 0.3) { giveEgg(g, 1); g.float(c.x, c.y - TILE * 2.4, 'A pet egg!', '#ffd76a'); }
   }
   if (def.hostile) {
     // what it carries: its own drops (a snake has no iron bars), bosses and ore-carriers also the local ores

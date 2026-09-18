@@ -109,7 +109,7 @@ const HISTORY_KEY = 'hb_admin_history';
 // What each argument position expects, for autocomplete + hints.
 // Arrays are fixed choices; '...' repeats the pair before it (give res n res n …).
 // the strongest, most useful things are listed first everywhere in the console
-const TOP_COMMANDS = ['god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'shop', 'journal', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
+const TOP_COMMANDS = ['god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'shop', 'journal', 'pet', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
 const commandRank = k => { const i = TOP_COMMANDS.indexOf(k); return i < 0 ? 999 : i; };
 const gearRank = d => (d.admin ? 1e6 : 0) + (d.minRarity || 0) * 1e4 + (d.damage || d.armor * 100 || d.block * 100 || 0);
 const creatureRank = d => (d.boss ? 1e6 : d.hostile ? 1e4 : 0) + (d.hp || 0);
@@ -124,7 +124,7 @@ const ARG_SPECS = {
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
   item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['mythic', 'legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], items: [['*', 'bomb', 'dynamite', 'med_kit', 'speed_potion', 'strength_potion', 'invisibility_potion', 'mana_potion', 'antidote', 'golden_apple', 'ammo_box'], 'number'], tool: ['tool', 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
-  build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting', 'market']], shop: [['open', 'reroll', 'sellall']], journal: [['open', 'newday', 'finish', 'unlock', 'reset']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
+  build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting', 'market']], shop: [['open', 'reroll', 'sellall']], journal: [['open', 'newday', 'finish', 'unlock', 'reset']], pet: [['open', 'egg', 'give', 'hatch', 'list', 'clear'], ['chicken', 'rabbit', 'pig', 'slime', 'bat', 'wolf', 'forest_spirit', 'dragon', '5']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
 export class AdminConsole {
@@ -949,6 +949,26 @@ const COMMANDS = {
       g.finishBuilding(placed);
       g.emit('change');
       this.print(`✓ ${BUILDING_DEFS[type].name} placed next to you (press E beside it)`, 'ok');
+    },
+  },
+  pet: {
+    usage: 'pet [open|egg n|give <kind>|hatch|list|clear]', desc: 'Pets: open the window, get eggs, give yourself a pet (chicken, rabbit, pig, slime, bat, wolf, forest_spirit, dragon), hatch an egg, list or remove all',
+    async run([act = 'open', arg]) {
+      const P = await import('../game/pets.js');
+      const g = this.game, r = P.petsOf(g);
+      if (act === 'egg') { P.giveEgg(g, Math.max(1, Number(arg) || 1)); this.print(`✓ ${r.eggs} eggs`, 'ok'); return; }
+      if (act === 'give') {
+        const kinds = arg === '*' ? Object.keys(P.PETS) : [arg];
+        if (!kinds.every(k => P.PETS[k])) throw new Error(`pet give <kind>: ${Object.keys(P.PETS).join(', ')}`);
+        for (const k of kinds) { const pet = { id: `pet${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`, kind: k, name: P.PETS[k].name }; r.pets.push(pet); r.pet = pet.id; }
+        g.emit('change'); this.print(`✓ ${kinds.map(k => P.PETS[k].name).join(', ')} (following you)`, 'ok'); return;
+      }
+      if (act === 'hatch') { const p = P.hatch(g); this.print(p ? `✓ hatched ${p.name}` : '✗ no eggs (pet egg 3)', p ? 'ok' : 'err'); return; }
+      if (act === 'list') { this.print(`eggs ${r.eggs} · ${r.pets.map(p => p.name + (r.pet === p.id ? ' (following)' : '')).join(', ') || 'no pets'}`); return; }
+      if (act === 'clear') { r.pets = []; r.pet = null; r.eggs = 0; g.emit('change'); this.print('✓ pets and eggs removed', 'ok'); return; }
+      if (!this.hud) throw new Error('no game screen');
+      this.toggle();
+      const M = await import('./petsMenu.js'); M.openPets(this.hud);
     },
   },
   journal: {

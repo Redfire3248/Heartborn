@@ -1,3 +1,4 @@
+import { PETS } from '../game/pets.js';
 import { titleOf } from '../game/journal.js';
 import { keyLabel, keyOf } from '../core/controls.js';
 import { specialDrop } from '../game/forging.js';
@@ -135,6 +136,7 @@ export class Renderer {
       if (!v.away && inView(v.x, v.y)) items.push({ y: v.y, draw: () => this.drawVillager(g, v) });
     }
     // strangers from other lands (visitors, spies dressed as travellers), gliding to where they really are
+    if (g.petBody && !g.visiting) { const pb = g.petBody; if (inView(pb.x, pb.y)) items.push({ y: pb.y, draw: () => this.drawPet(pb) }); }
     for (const st of g.strangers || []) {
       st.x += (st.tx - st.x) * Math.min(1, dt * 8); st.y += (st.ty - st.y) * Math.min(1, dt * 8);
       if (inView(st.x, st.y)) items.push({ y: st.y, draw: () => this.drawStranger(g, st) });
@@ -876,6 +878,16 @@ export class Renderer {
     const key = `hero/${who}_${anim}_${dir}_${n}`;
     if (!sprite(key)) return null;   // art not loaded yet: fall back to the villager look
     return { key, flip: dir === 'side' && dx < 0 };
+  }
+
+  /** Your pet: small, bobbing along (fliers hover). */
+  drawPet(pb) {
+    const def = PETS[pb.kind];
+    if (!def) return;
+    const size = TILE * def.size;
+    const bob = def.fly ? Math.sin(this.time * 4) * 2 - 10 : pb.moving ? -Math.abs(Math.sin(this.time * 10)) * 2 : 0;
+    this.shadow(pb.x, pb.y, size * 0.5);
+    drawSprite(this.ctx, def.sprite, pb.x, pb.y + bob, size, { flip: !pb.flip });
   }
 
   /** Small icons over a monster for what is on it: burning, frozen, slowed, bleeding, stunned, enraged. */

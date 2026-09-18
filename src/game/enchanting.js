@@ -159,4 +159,3 @@ export function atEnchantTable(g, hero = null) {
   return (g.state.buildings || []).some(b => b.type === 'enchanting_table' && b.built !== false && Math.hypot((b.tx + 0.5) * TILE - v.x, (b.ty + 0.5) * TILE - v.y) < TILE * 3.5);
 }
 
-void CATALOG;
