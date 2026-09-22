@@ -59,6 +59,27 @@
             ".validate": "!newData.exists() || (newData.child('uid').val() === auth.uid && newData.child('t').isString())"
           }
         },
+        "mobHost": {
+          ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null)",
+          ".write": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null)"
+        },
+        "mobs": {
+          ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null)",
+          ".write": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null) && root.child('w').child($world).child('mobHost').child('uid').val() === auth.uid"
+        },
+        "mobHits": {
+          "$host": {
+            ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null) && auth.uid === $host",
+            ".write": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null)"
+          }
+        },
+        "mobKills": {
+          ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null)",
+          ".indexOn": [
+            "ts"
+          ],
+          ".write": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null)"
+        },
         "chat": {
           ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null)",
           ".indexOn": [

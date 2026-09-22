@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Fight the same monsters',
+    changes: [
+      'On a server one player runs the monsters for everybody, so you all see and fight the same ones',
+      'Hit a monster and the damage goes to whoever runs it; whoever lands the last blow gets the loot and the experience',
+      'Monsters can hurt the other players standing next to them, and if the host leaves someone else picks the monsters up seconds later',
+      'Other players now appear as the character they picked, not a stand-in villager',
+    ],
+  },
+  {
     title: 'One world, shared',
     changes: [
       'On a server the island is now the same for everyone: chop a tree, mine a rock, pave a path, put up or knock down a building and everyone sees it',

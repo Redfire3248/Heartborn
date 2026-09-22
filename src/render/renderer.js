@@ -698,7 +698,12 @@ export class Renderer {
     const v = st._v ||= { id: `s${st.id}`, age: 25, hp: 100, traits: [], skills: {}, inv: { pack: {} } };
     Object.assign(v, { name: st.name, sex: st.sex, job: st.job, profession: st.job, x: st.x, y: st.y, _walking: st._walking, _flip: st._flip });
     if (st._hitFlash > 0) { st._hitFlash -= 1 / 60; v._whiteFlash = st._hitFlash; } else v._whiteFlash = 0;
-    this.drawVillager(g, v);
+    const look = st.avatar ? avatarArt(st.avatar, 'front') : null;   // the character they picked, not a stand-in villager
+    if (look && hasArt(look)) {
+      const bob = st._walking ? Math.sin(this.time * 9 + st.x) * 1.5 : 0;
+      this.shadow(st.x, st.y, TILE * 0.55);
+      drawSprite(this.ctx, look, st.x, st.y + bob, TILE * 1.15, { alpha: v._whiteFlash ? 0.7 : 1 });
+    } else this.drawVillager(g, v);
     label(this.ctx, st.name, st.x, st.y + 7);
     if (st.title) titleLabel(this.ctx, st.title, st.x, st.y + 13);
   }

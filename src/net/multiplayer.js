@@ -1,7 +1,11 @@
+import { avatarId } from '../game/avatars.js';
+import { CREATURES } from '../data/objects.js';
+import { damageCreature } from '../game/creatures.js';
+import { mobsToSend, applyNetMobs, MOB_LEASE_MS } from '../game/netMobs.js';
 import { hookWorldSync, applyEdit } from '../game/worldSync.js';
 import { on } from '../core/features.js';
 import { toolsOf, giveTool, dropTool } from '../game/tools.js';
-import { rpgOf } from '../game/rpg.js';
+import { rpgOf, onHeroKill } from '../game/rpg.js';
 import { cleanText } from './chatSafety.js';
 import {
   ref, onValue, onChildAdded, onChildRemoved, push, set, update, remove, get, serverTimestamp,
@@ -10,7 +14,7 @@ import {
 import { rtdb } from './firebase.js';
 import { profileFor, writeProfile, getProfile } from './save.js';
 import { EVENTS } from '../data/events.js';
-import { RAID_SHIELD_MS, ADULT_AGE } from '../core/constants.js';
+import { RAID_SHIELD_MS, ADULT_AGE, TILE } from '../core/constants.js';
 import { clamp } from '../core/rng.js';
 import { trySpot, DUST_SECONDS, spawnArmy, tributeCost, rally } from '../game/war.js';
 import { returnHome } from '../game/villagers.js';
@@ -71,6 +75,7 @@ export class Multiplayer {
   constructor(user, game, world = 'realm') {
     this.user = user;
     this.g = game;
+    game.mp = this;   // the game asks us to pass blows on to whoever runs the monsters
     this.uid = user.uid;
     this.world = world;
     this.w = `w/${world}/`;   // every multiplayer path lives inside its world
@@ -107,6 +112,9 @@ export class Multiplayer {
     }));
     this.presenceTimer = setInterval(() => this.heartbeat(), 30_000);
     this.warTimer = setInterval(() => this.warTick(), 1000);
+
+    // shared monsters: one player runs them for everybody, and passes them on a few times a second
+    if (this.world !== 'realm') this.startMobs();
 
     // the shared world: every change anyone makes to the island (chopped, mined, paved, built, knocked down)
     if (this.world !== 'realm') {
@@ -933,8 +941,79 @@ export class Multiplayer {
     set(path, {
       from: this.uid, x: Math.round(v.x), y: Math.round(v.y), sex: v.sex === 'f' ? 'f' : 'm',
       name: disguised ? 'Traveller' : String(v.name || 'Visitor').slice(0, 40), job: disguised ? 'gather' : String(v.job || 'idle').slice(0, 20),
-      walking: !!v._walking, flip: !!v._flip, ts: now, title: disguised ? '' : String(this.titleText || '').slice(0, 30),
+      walking: !!v._walking, flip: !!v._flip, ts: now, title: disguised ? '' : String(this.titleText || '').slice(0, 30), a: disguised ? null : avatarId(this.g),
     }).catch(() => {});
+  }
+
+  // ---------------- shared monsters ----------------
+
+  /** Watches who runs the monsters, takes the job when it is free, and sends or shows them. */
+  startMobs() {
+    const claim = ref(rtdb, `${this.w}mobHost`);
+    this.unsubs.push(onValue(claim, snap => {
+      const v = snap.val();
+      const live = v && Date.now() - (v.ts || 0) < MOB_LEASE_MS ? v.uid : null;
+      this.mobHostUid = live;
+      const wasGuest = this.g.mobGuest;
+      this.g.mobHost = live === this.uid;
+      this.g.mobGuest = !!live && !this.g.mobHost;
+      if (this.g.mobGuest && !wasGuest) {   // our own monsters were never real: the host's are
+        this.g.state.creatures = this.g.state.creatures.filter(c => !CREATURES[c.t]?.hostile || c.net);
+      }
+    }, () => {}));
+    this.mobLease = setInterval(() => {
+      runTransaction(claim, cur => ((!cur || Date.now() - (cur.ts || 0) > MOB_LEASE_MS || cur.uid === this.uid) ? { uid: this.uid, ts: Date.now() } : undefined)).catch(() => {});
+      if (this.g.mobHost) this.mobsAttackPlayers();
+    }, 4000);
+    this.mobTimer = setInterval(() => {
+      if (!this.g.mobHost) return;
+      set(ref(rtdb, `${this.w}mobs`), mobsToSend(this.g, this.g.livePlayers || [])).catch(() => {});
+    }, 250);
+    this.unsubs.push(onValue(ref(rtdb, `${this.w}mobs`), snap => {
+      if (this.g.mobGuest) applyNetMobs(this.g, snap.val() || {});
+    }, () => {}));
+    // the host takes the blows everyone else lands
+    this.unsubs.push(onChildAdded(ref(rtdb, `${this.w}mobHits/${this.uid}`), snap => {
+      const hit = snap.val();
+      remove(snap.ref).catch(() => {});
+      if (!hit || !this.g.mobHost) return;
+      const c = this.g.state.creatures.find(x => x.id === hit.id);
+      if (!c) return;
+      damageCreature(this.g, c, Math.max(0, Math.min(9999, hit.dmg || 0)), null);
+      if (!this.g.state.creatures.includes(c)) push(ref(rtdb, `${this.w}mobKills`), { id: hit.id, by: hit.from, t: c.t, x: Math.round(c.x), y: Math.round(c.y), ts: Date.now() }).catch(() => {});
+    }, () => {}));
+    // whoever struck the last blow gets the experience and the loot, on their own machine
+    this.unsubs.push(onChildAdded(query(ref(rtdb, `${this.w}mobKills`), orderByChild('ts'), limitToLast(15)), snap => {
+      const k = snap.val();
+      if (this.g.mobHost) remove(snap.ref).catch(() => {});
+      if (!k || Date.now() - (k.ts || 0) > 20_000) return;
+      this.g.state.creatures = this.g.state.creatures.filter(c => c.netId !== k.id);
+      if (k.by !== this.uid) return;
+      const v = this.g.state.villagers?.find(x => x.id === this.g.hero?.id);
+      if (v) { this.g.hero.kills = (this.g.hero.kills || 0) + 1; onHeroKill(this.g, { t: k.t, x: k.x, y: k.y }, v); }
+    }, () => {}));
+  }
+
+  /** A guest's blow, sent to whoever runs the monsters. */
+  sendMobHit(id, dmg) {
+    if (!id || !this.mobHostUid || this.mobHostUid === this.uid) return;
+    push(ref(rtdb, `${this.w}mobHits/${this.mobHostUid}`), { id, dmg: Math.round(dmg), from: this.uid, ts: Date.now() }).catch(() => {});
+  }
+
+  /** The host also lets monsters hurt the other players standing next to them. */
+  mobsAttackPlayers() {
+    const now = Date.now();
+    for (const p of this.g.livePlayers || []) {
+      for (const c of this.g.state.creatures) {
+        const def = CREATURES[c.t];
+        if (!def?.hostile || !def.damage) continue;
+        if (Math.hypot(c.x - p.x, c.y - p.y) > TILE * 1.3) continue;
+        if (now - (c._netSwing || 0) < 1500) continue;
+        c._netSwing = now;
+        this.sendHit(p.uid, def.damage, c.x, c.y, def.name || c.t.replace(/_/g, ' '));
+        break;
+      }
+    }
   }
 
   /** Tells everyone else about a change to the island. Old records are tidied away by the world's owner. */
@@ -972,7 +1051,7 @@ export class Multiplayer {
     this._liveAt = now; this._liveX = v.x; this._liveY = v.y;
     set(ref(rtdb, `${this.w}live/${this.uid}`), {
       x: Math.round(v.x), y: Math.round(v.y), name: String(v.name || this.name || 'Player').slice(0, 40),
-      sex: v.sex === 'f' ? 'f' : 'm', walking: !!v._walking, flip: !!v._flip, dungeon: !!dungeon,
+      sex: v.sex === 'f' ? 'f' : 'm', walking: !!v._walking, flip: !!v._flip, dungeon: !!dungeon, a: avatarId(this.g),
       level: Math.round(level) || 1, facing, title: String(this.titleText || '').slice(0, 30), ts: now,
     }).catch(() => {});
   }
@@ -982,9 +1061,11 @@ export class Multiplayer {
     const now = Date.now();
     return Object.entries(all).filter(([uid, s]) => uid !== this.uid && now - (s.ts || 0) < 15_000 && !s.dungeon).map(([uid, s]) => {
       const old = prev.get(uid);
-      return { id: uid, uid, player: true, title: s.title || '', name: s.name, sex: s.sex, job: 'idle', level: s.level || 1, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
+      return { id: uid, uid, player: true, avatar: s.a || null, title: s.title || '', name: s.name, sex: s.sex, job: 'idle', level: s.level || 1, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
     });
   }
+
+  stopMobs() { clearInterval(this.mobLease); clearInterval(this.mobTimer); }
 
   clearLive() { remove(ref(rtdb, `${this.w}live/${this.uid}`)).catch(() => {}); }
 
@@ -993,7 +1074,7 @@ export class Multiplayer {
     const now = Date.now();
     return Object.entries(all).filter(([, s]) => now - (s.ts || 0) < 20_000 && s.from !== this.uid).map(([id, s]) => {
       const old = prev.get(id);
-      return { id, from: s.from, title: s.title || '', name: s.name, sex: s.sex, job: s.job, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
+      return { id, from: s.from, avatar: s.a || null, title: s.title || '', name: s.name, sex: s.sex, job: s.job, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
     });
   }
 

@@ -1,3 +1,4 @@
+import { glideNetMobs } from './netMobs.js';
 import {
   TILE, DAY_LENGTH, DAYS_PER_SEASON, SEASONS, DAYS_PER_YEAR, BASE_STORAGE, BASE_HOUSING, ADULT_AGE, MAP_W } from '../core/constants.js';
 import { clamp, chance, pick, weighted } from '../core/rng.js';
@@ -127,8 +128,9 @@ export class Game {
     if (this.day > s.lastDay) { s.lastDay = this.day; this.newDay(); }
 
     for (const v of [...s.villagers]) updateVillager(this, v, dt);
-    for (const c of [...s.creatures]) updateCreature(this, c, dt);
-    this.nightSpawns(dt);
+    if (this.mobGuest) glideNetMobs(this, dt);   // someone else runs the monsters: we slide them to where they are
+    for (const c of [...s.creatures]) { if (c.net) continue; if (this.mobGuest && CREATURES[c.t]?.hostile) continue; updateCreature(this, c, dt); }
+    if (!this.mobGuest) this.nightSpawns(dt);   // and they do the spawning too
     updateEnemyShots(this, dt);
     if (on('warbands') || on('invasions')) updateWar(this, dt);
     else if (this.state.incoming?.length) this.state.incoming = [];   // armies are switched off: nothing marches

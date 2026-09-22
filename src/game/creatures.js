@@ -374,6 +374,12 @@ export function updateEnemyShots(g, dt) {
 
 export function damageCreature(g, c, dmg, by) {
   const def = CREATURES[c.t];
+  if (c.net) {   // the host runs this one: send the blow, and show it landing here straight away
+    c._hurtFlash = 0.25;
+    c._lastDmg = dmg;
+    g.mp?.sendMobHit?.(c.netId, dmg);
+    return;
+  }
   if (c.hp == null) c.hp = maxHp(c);
   // armoured beasts shrug off most blows from people; a real weapon cuts through better
   const heroArmed = by && g.hero?.id === by.id && g.state.rpg?.gear?.weapon;
