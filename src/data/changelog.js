@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Chunks, like Minecraft',
+    changes: [
+      'The island is filed in chunks: drawing now touches only the squares on screen instead of walking every tree and rock on the map',
+      'Creatures near you live at full speed, distant ones think in slower steps and very far ones wait until you come near',
+      'Raids, bounties and bosses never sleep, so they still come for you',
+    ],
+  },
+  {
     title: 'Smoother',
     changes: [
       'The map fog is redrawn a few times a second instead of every frame: much lighter while you walk, especially on big islands',

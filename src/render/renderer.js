@@ -89,6 +89,7 @@ export class Renderer {
   }
 
   render(g, dt) {
+    g._camSpot = this.camera;   // where the world is being watched from, for the creatures far away
     this.time += dt;
     this.lastGame = g;
     const { ctx, canvas } = this;
@@ -120,7 +121,7 @@ export class Renderer {
     // y-sorted scene
     const items = [];
     const inView = (x, y) => x >= (view.x0 - 2) * TILE && x <= (view.x1 + 2) * TILE && y >= view.y0 * TILE && y <= (view.y1 + 3) * TILE;
-    for (const o of g.state.objects) {
+    for (const o of g.world.objectsIn(view.x0 - 2, view.y0 - 2, view.x1 + 2, view.y1 + 3)) {   // only the chunks on screen
       const x = o.x * TILE + TILE / 2, y = o.y * TILE + TILE * 0.9;
       if (inView(x, y)) items.push({ y, draw: () => this.drawObject(o, x, y) });
     }

@@ -10,6 +10,7 @@ export const TILES = [
 ];
 export const T = Object.fromEntries(TILES.map((k, i) => [k.replace('tile_', ''), i]));
 const BLOCKED = new Set([T.deep_water, T.water, T.lava]);
+export const CHUNK = 16;   // tiles per chunk: what the screen and the searches work in
 
 export class World {
   constructor(seed, size = MAP_W) {
@@ -18,6 +19,7 @@ export class World {
     this.h = size;
     this.tiles = new Uint8Array(this.w * this.h);
     this.objGrid = new Map();   // tile index -> object
+    this.chunks = new Map();    // chunk key -> the objects standing in it
     this.version = 0;           // bumps when tiles change so the renderer can redraw
     generateTiles(this);
   }
@@ -36,15 +38,43 @@ export class World {
     return false;
   }
 
+  /**
+   * Chunks: the island is cut into squares of CHUNK tiles, and every tree, rock and bush is filed under one.
+   * Drawing and searching then only touch the squares on screen instead of walking the whole island.
+   */
+  chunkKey(tx, ty) { return ((ty / CHUNK) | 0) * 4096 + ((tx / CHUNK) | 0); }
+
+  chunkAdd(o) {
+    const k = this.chunkKey(o.x, o.y);
+    let set = this.chunks.get(k);
+    if (!set) this.chunks.set(k, set = new Set());
+    set.add(o);
+  }
+
+  chunkRemove(o) { this.chunks.get(this.chunkKey(o.x, o.y))?.delete(o); }
+
+  /** Everything filed in the chunks that cover this box of tiles. */
+  *objectsIn(x0, y0, x1, y1) {
+    const cx0 = Math.max(0, (x0 / CHUNK) | 0), cx1 = ((Math.min(this.w - 1, x1)) / CHUNK) | 0;
+    const cy0 = Math.max(0, (y0 / CHUNK) | 0), cy1 = ((Math.min(this.h - 1, y1)) / CHUNK) | 0;
+    for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
+      const set = this.chunks.get(cy * 4096 + cx);
+      if (set) for (const o of set) yield o;
+    }
+  }
+
   indexObjects(objects) {
+    this.chunks.clear();
+    for (const o of objects) this.chunkAdd(o);
     this.objGrid.clear();
     for (const o of objects) this.objGrid.set(o.y * this.w + o.x, o);
   }
   objectAt(tx, ty) { return this.objGrid.get(ty * this.w + tx) || null; }
-  addObject(objects, o) { objects.push(o); this.objGrid.set(o.y * this.w + o.x, o); }
+  addObject(objects, o) { objects.push(o); this.objGrid.set(o.y * this.w + o.x, o); this.chunkAdd(o); }
   removeObject(objects, o) {
     const i = objects.indexOf(o);
     if (i >= 0) objects.splice(i, 1);
+    this.chunkRemove(o);
     if (this.objGrid.get(o.y * this.w + o.x) === o) this.objGrid.delete(o.y * this.w + o.x);
   }
 

@@ -5,6 +5,8 @@ import { clamp, chance, pick, weighted } from '../core/rng.js';
 import { World, T, makeCreature } from './world.js';
 import { BUILDINGS, ERAS, sizeOf, OLD_SIZES } from '../data/buildings.js';
 import { OBJECTS, CREATURES, setSpriteEra } from '../data/objects.js';
+
+const NEAR_DIST = 40 * 32;   // creatures within about 40 tiles of you live at full speed
 import { EVENTS } from '../data/events.js';
 import { updateVillager, makeVillager, dailyVillagers, killVillager } from './villagers.js';
 import { updateCreature, updateEnemyShots } from './creatures.js';
@@ -133,7 +135,19 @@ export class Game {
     const fxCap = this._frameAvg > 0.028 ? 120 : 320;   // below about 36 frames a second, trim harder
     if (this.fx.particles.length > fxCap) this.fx.particles.splice(0, this.fx.particles.length - fxCap);
     if (this.mobGuest) glideNetMobs(this, dt);   // someone else runs the monsters: we slide them to where they are
-    for (const c of [...s.creatures]) { if (c.net) continue; if (this.mobGuest && CREATURES[c.t]?.hostile) continue; updateCreature(this, c, dt); }
+    // like a chunk-loaded world: creatures near you live at full speed, far ones think in slower steps, very far ones wait
+    const eye = this.heroSpot();
+    this._slowTick = (this._slowTick || 0) + 1;
+    for (const c of [...s.creatures]) {
+      if (c.net) continue;
+      if (this.mobGuest && CREATURES[c.t]?.hostile) continue;
+      if (eye) {
+        const far = Math.abs(c.x - eye.x) + Math.abs(c.y - eye.y);
+        if (far > NEAR_DIST * 2.4 && !c.hunting && !CREATURES[c.t]?.boss && !c.raid) continue;            // out of the loaded world: it waits
+        if (far > NEAR_DIST) { if (this._slowTick % 4) continue; updateCreature(this, c, dt * 4); continue; }   // a quarter as often, four times the step
+      }
+      updateCreature(this, c, dt);
+    }
     if (!this.mobGuest) this.nightSpawns(dt);   // and they do the spawning too
     updateEnemyShots(this, dt);
     if (on('warbands') || on('invasions')) updateWar(this, dt);
@@ -373,6 +387,12 @@ export class Game {
   addKarma(n) { this.state.karma = clamp(this.state.karma + n, -100, 100); }
 
   // ---------- buildings ----------
+  /** Where the world is being watched from: your hero, else the camera. */
+  heroSpot() {
+    const v = this.hero && this.state.villagers.find(x => x.id === this.hero.id);
+    return v || this._camSpot || null;
+  }
+
   builtBuildings() { return this.state.buildings.filter(b => b.built && !b.theirs); }   // another player's houses stand on the shared island, but they are not your economy
   hasBuilding(type) { return this.state.buildings.some(b => b.type === type && b.built); }
   buildingCenter(b) {
