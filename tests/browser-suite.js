@@ -1751,7 +1751,7 @@ export async function run() {
     for (let d = 0; d < 3; d++) g.newDay();
     hud.openPanel('log');
     await sleep(150);
-    ok(document.querySelectorAll('.graph').length === 6, 'Chronicle shows village graphs', `${document.querySelectorAll('.graph').length} graphs`);
+    ok(document.querySelectorAll('.graph').length === 5, 'Chronicle shows village graphs', `${document.querySelectorAll('.graph').length} graphs`);
     hud.closePanel();
 
     const { cleanText } = await import('/src/net/chatSafety.js');

@@ -65,9 +65,9 @@ export const BUILDINGS = {
 
   // ---- Food
   orchard:         { name: 'Orchard',          era: 1, size: 2, cost: { wood: 30 },                         work: 22, workplace: 'farm', slots: 3, desc: 'Fruit trees tended by farmers. More workers than a field.' },
-  pasture:         { name: 'Pasture',          era: 1, size: 2, cost: { wood: 35 },                         work: 22, daily: { food: 6 }, desc: 'Grazing cattle give +6 food every day.' },
+  pasture:         { name: 'Pasture',          era: 1, size: 2, cost: { wood: 35 },                         work: 22, daily: { gold: 6 }, desc: 'Cattle and hides sold at market: +6 gold every day.' },
   hunters_lodge:   { name: "Hunter's Lodge",   era: 0, size: 1, cost: { wood: 25 },                         work: 18, bonus: { hunt: 0.4 }, desc: '+40% meat from hunting.' },
-  apiary:          { name: 'Apiary',           era: 1, size: 1, cost: { wood: 20 },                         work: 14, daily: { food: 3 }, happy: 2, desc: 'Beehives: +3 food a day and a little sweetness.' },
+  apiary:          { name: 'Apiary',           era: 1, size: 1, cost: { wood: 20 },                         work: 14, daily: { gold: 3 }, happy: 2, desc: 'Beehives: +3 gold a day of honey and wax.' },
   bakery:          { name: 'Bakery',           era: 2, size: 1, cost: { wood: 30, stone: 25 },              work: 26, bonus: { farm: 0.25 }, happy: 4, desc: 'Bread from grain: +25% farm food.' },
   brewery:         { name: 'Brewery',          era: 2, size: 2, cost: { wood: 45, stone: 20 },              work: 30, happy: 10, gold: 1, desc: 'Ale for the people: +10 happiness, +1 gold a day.' },
 
@@ -121,7 +121,7 @@ export const BUILDINGS = {
   telegraph_office: { name: 'Telegraph Office',  era: 4, size: 1, cost: { wood: 40, iron: 40 },              work: 40, spot: 0.15, counterIntel: 0.05, desc: 'Fast messages from the borders: armies and spies spotted sooner.' },
   museum:           { name: 'Museum',            era: 4, size: 2, cost: { stone: 160, gold: 60 },            work: 70, happy: 12, influence: 4, desc: 'History on display: +12 happiness, +4 influence a day.' },
   academy_of_science: { name: 'Academy of Science', era: 5, size: 2, cost: { stone: 220, iron: 80, gold: 80 }, work: 100, daily: { science: 30 }, learn: 0.5, desc: '+30 science a day. Skills grow 50% faster.' },
-  vertical_farm:    { name: 'Vertical Farm',     era: 5, size: 2, cost: { stone: 150, iron: 60 },            work: 80, daily: { food: 50 }, desc: '+50 food a day, even in winter.' },
+  vertical_farm:    { name: 'Vertical Farm',     era: 5, size: 2, cost: { stone: 150, iron: 60 },            work: 80, daily: { gold: 40 }, desc: 'Produce sold the day it is picked: +40 gold a day.' },
   hospital_modern:  { name: 'Modern Hospital',   era: 5, size: 2, cost: { stone: 180, iron: 60, science: 100 }, work: 90, health: 4, heal: true, desc: 'Sickness barely spreads. The wounded recover fast.' },
 
   // ---- Atomic age

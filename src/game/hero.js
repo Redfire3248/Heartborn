@@ -659,7 +659,7 @@ export function knockOutHero(g, v) {
   if (!h || h.id !== v.id) return false;
   if (g.state.rpg?.god) { v.hp = Math.max(v.hp, 1); return true; }
   const st = heroStats(g);
-  v.hp = Math.round(st.maxHp * 0.4);
+  v.hp = st.maxHp;   // you come to at home in full health: the loss is the gold and the walk back
   const home = g.center;
   v.x = home.x + 20; v.y = home.y + 20;
   h.iframes = 3; h.dash = null; h.arrows = [];
@@ -901,7 +901,7 @@ export function updateHero(g, dt, controls = {}) {
   if (g.visiting) return;
 
   // a quick bite from the stores when hungry (nobody else feeds a ruler on the move)
-  if (v.hunger < 35 && g.state.resources.food >= 3) { g.state.resources.food -= 3; v.hunger = 100; g.float(v.x, v.y - TILE * 1.3, 'Ate', '#8fe07a'); }
+  v.hunger = 100;   // food is gone from the game: your hero never goes hungry
 
   // finds are picked up by walking over them
   for (const f of [...(g.state.finds || [])]) {

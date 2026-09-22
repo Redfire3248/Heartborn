@@ -1,6 +1,16 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Food is out of the game',
+    changes: [
+      'Food is gone: no hunger, no food in the resource bar, no food in the chronicle',
+      'Berries, mushrooms, pumpkins, carrots, wheat, grass and apple trees pay in gold now',
+      'Snakes, rats, bats, wolves, bears and spiders drop coin instead of meat',
+      'Pastures, apiaries and vertical farms sell what they make: gold every day instead of food',
+      'Knocked out: you come to at home in full health, and the loss is the gold and the walk back',
+    ],
+  },
+  {
     title: 'Combat polish, a real chat, and loot worth the fight',
     changes: [
       'Step inside a house and you vanish from the island for everyone else, as you should',

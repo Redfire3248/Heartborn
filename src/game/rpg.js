@@ -522,12 +522,12 @@ function completeQuests(g, v) {
 const ENCHANT_NAME = bk => enchName(bk.key, bk.level);
 
 const MONSTER_DROPS = {
-  snake:           { drops: [['food', 1, 2, 0.4]] },
-  rat:             { drops: [['food', 1, 1, 0.3]] },
-  bat:             { drops: [['food', 1, 1, 0.2]] },
-  wolf:            { drops: [['food', 2, 4, 0.6]] },
-  bear:            { drops: [['food', 4, 8, 0.8]] },
-  giant_spider:    { drops: [['food', 1, 2, 0.3], ['gems', 1, 1, 0.08]] },
+  snake:           { drops: [['gold', 1, 3, 0.4]] },
+  rat:             { drops: [['gold', 1, 2, 0.3]] },
+  bat:             { drops: [['gold', 1, 2, 0.2]] },
+  wolf:            { drops: [['gold', 2, 5, 0.6]] },
+  bear:            { drops: [['gold', 5, 12, 0.8]] },
+  giant_spider:    { drops: [['gold', 1, 3, 0.3], ['gems', 1, 1, 0.08]] },
   cave_spider:     { drops: [['food', 1, 1, 0.25], ['gems', 1, 1, 0.05]] },
   slime:           { drops: [['gems', 1, 1, 0.15]] },
   goblin:          { drops: [['gold', 2, 8, 0.6], ['copper', 1, 2, 0.2], ['iron', 1, 1, 0.1]], ore: 0.2 },

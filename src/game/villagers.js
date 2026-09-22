@@ -773,7 +773,7 @@ function runTask(g, v, dt) {
     case 'eat':
       if ((t.timer -= dt) > 0) return;
       if (s.resources.food >= FOOD_PER_MEAL) {
-        if (Math.random() >= -g.law.food) s.resources.food -= FOOD_PER_MEAL;   // rationing skips some meals' cost
+        // food is gone from the game: a meal costs nothing now
         v.hunger = Math.min(100, v.hunger + MEAL_RESTORES);
       }
       if (v.hunger < 60 && s.resources.food >= FOOD_PER_MEAL) t.timer = 1.5;

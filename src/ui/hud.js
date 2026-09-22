@@ -84,7 +84,7 @@ import { play, soundSettings, setVolume } from '../core/sound.js';
 import { cleanText, mutedPlayers, setMuted, reportMessage } from '../net/chatSafety.js';
 import { BUILD, LATEST_CHANGES, checkLatest } from '../core/version.js';
 
-const TOP_RES = ['food', 'wood', 'stone', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];   // ores, metals and boss materials are in the Materials bag
+const TOP_RES = ['wood', 'stone', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];   // food is out of the game   // ores, metals and boss materials are in the Materials bag
 // bombs and science only appear once they matter
 const SHOW_WHEN = {
   bombs: g => !g.solo && (g.state.resources.bombs > 0 || g.hasBuilding('powder_mill')), science: g => !g.solo && (g.state.resources.science > 0 || g.state.era >= 3),
@@ -2415,7 +2415,7 @@ export class HUD {
     };
     return h('div.col', { style: { gap: '6px' } },
       h('h3', `Last ${hist.length} days`),
-      h('div.graphs', graph('pop', 'People', '#7fc8ff'), graph('food', 'Food', '#7ee06a'), graph('gold', 'Gold', '#ffcf5a'), graph('happy', 'Happiness', '#ff9fd4'), graph('wood', 'Wood', '#c08a4a'), graph('army', 'Warriors', '#ff6b5b')));
+      h('div.graphs', graph('pop', 'People', '#7fc8ff'), graph('gold', 'Gold', '#ffcf5a'), graph('happy', 'Happiness', '#ff9fd4'), graph('wood', 'Wood', '#c08a4a'), graph('army', 'Warriors', '#ff6b5b')));
   }
 
   // ---- multiplayer

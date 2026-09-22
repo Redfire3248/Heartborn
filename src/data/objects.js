@@ -3,7 +3,7 @@
 export const OBJECTS = {
   tree_oak:        { sprite: 'nature/tree_oak',        size: 1.7, work: 'chop', wood: [4, 7], stump: true },
   tree_pine:       { sprite: 'nature/tree_pine',       size: 1.8, work: 'chop', wood: [5, 8], stump: true },
-  tree_apple:      { sprite: 'nature/tree_apple',      size: 1.7, work: 'chop', wood: [3, 5], food: [3, 6], stump: true },
+  tree_apple:      { sprite: 'nature/tree_apple',      size: 1.7, work: 'chop', wood: [3, 5], gold: [1, 3], stump: true },
   tree_palm:       { sprite: 'nature/tree_palm',       size: 1.8, work: 'chop', wood: [3, 5], stump: true },
   tree_dead:       { sprite: 'nature/tree_dead',       size: 1.6, work: 'chop', wood: [2, 4] },
   tree_snowy_pine: { sprite: 'nature/tree_snowy_pine', size: 1.8, work: 'chop', wood: [5, 8], stump: true },
@@ -11,13 +11,13 @@ export const OBJECTS = {
   tree_stump:      { sprite: 'nature/tree_stump',      size: 0.8, growsInto: 'sapling', growDays: 1 },   // a stump sprouts a sapling after a day
   sapling:         { sprite: 'nature/stump_sprout',    size: 0.8, growsInto: 'tree_oak', growDays: 2 },  // and grows back into the tree it was
 
-  berry_bush:      { sprite: 'nature/berry_bush',      size: 0.9, work: 'gather', food: [2, 4], charges: 4, regrowDays: 2 },
-  mushroom:        { sprite: 'nature/mushroom',        size: 0.6, work: 'gather', food: [1, 3], charges: 1, poison: 0.25 },
-  pumpkin:         { sprite: 'nature/pumpkin',         size: 0.7, work: 'gather', food: [5, 8], charges: 1 },
-  carrot:          { sprite: 'nature/carrot',          size: 0.7, work: 'gather', food: [2, 4], charges: 1 },
-  wheat:           { sprite: 'nature/wheat',           size: 0.8, work: 'gather', food: [2, 4], charges: 2 },
+  berry_bush:      { sprite: 'nature/berry_bush',      size: 0.9, work: 'gather', gold: [1, 3], charges: 4, regrowDays: 2 },
+  mushroom:        { sprite: 'nature/mushroom',        size: 0.6, work: 'gather', gold: [1, 2], charges: 1, poison: 0.25 },
+  pumpkin:         { sprite: 'nature/pumpkin',         size: 0.7, work: 'gather', gold: [2, 5], charges: 1 },
+  carrot:          { sprite: 'nature/carrot',          size: 0.7, work: 'gather', gold: [1, 3], charges: 1 },
+  wheat:           { sprite: 'nature/wheat',           size: 0.8, work: 'gather', gold: [1, 3], charges: 2 },
   // plants you cut down with a swing (your hands, a blade or a sickle)
-  tall_grass:      { sprite: 'nature/tall_grass',      size: 0.7, work: 'cut', food: [1, 2], charges: 1 },
+  tall_grass:      { sprite: 'nature/tall_grass',      size: 0.7, work: 'cut', gold: [1, 1], charges: 1 },
   flowers:         { sprite: 'nature/flowers',         size: 0.7, work: 'cut', influence: [1, 2], charges: 1 },
   reeds:           { sprite: 'nature/reeds',           size: 0.8, work: 'cut', wood: [1, 2], charges: 1 },
   cactus:          { sprite: 'nature/cactus',          size: 0.9, work: 'cut', wood: [1, 2], charges: 1 },   // cactus gives a little wood, not food
