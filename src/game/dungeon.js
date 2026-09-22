@@ -29,6 +29,11 @@ const POOLS = [
   ['dark_mage', 'fire_imp', 'zombie', 'mimic', 'skeleton_archer', 'bandit'],
 ];
 const BOSSES = ['cave_troll', 'slime_king', 'spider_queen', 'forest_spirit', 'stone_golem', 'lich'];
+/** The deep ones: from floor 6 down, every guardian is one of these, and each fights its own way. */
+const DEEP_BOSSES = ['frost_warden', 'iron_warlord', 'drowned_king', 'void_herald', 'gilded_spider', 'bone_conductor', 'sand_colossus',
+  'bog_hag', 'last_lantern', 'emberling_tyrant', 'rot_baron', 'glass_widow', 'thunder_ox', 'pale_abbot', 'mire_leviathan',
+  'rust_golem', 'nine_eyed_watcher', 'marrow_knight', 'storm_djinn', 'obsidian_hound', 'silk_empress', 'hollow_crown', 'deep_miner',
+  'ash_widowmaker', 'sunken_choirboy', 'basalt_titan', 'wyrm_priest', 'frostbitten_champion', 'gravebloom', 'clockwork_executioner', 'nightmare_stag'];
 
 // ------------------------------------------------------------------ the maze
 
@@ -209,7 +214,10 @@ export function makeDungeonGame(home, { depth = 1, entrance = null, seed = (Date
   });
   const bc = rc(boss);
   const order = [...theme.bosses, ...BOSSES.filter(b => !theme.bosses.includes(b))];   // this world's own bosses come first
-  const bossType = depth % 5 === 0 ? 'ashen_knight' : order[(depth - 1) % order.length];   // every fifth floor: the Ashen Knight
+  // every fifth floor belongs to Varek; the first floors are the old guardians, and past floor 5 the deep ones take over
+  const bossType = depth % 5 === 0 ? 'ashen_knight'
+    : depth <= 5 ? order[(depth - 1) % order.length]
+      : DEEP_BOSSES[Math.floor(r() * DEEP_BOSSES.length)];
   const bossMonster = g.spawnCreature(bossType, bc.x, bc.y, { hpMult: 0.7 + (depth - 1) * 0.5, dungeonBoss: true, scale: 1.15 });
   if (bossMonster) { bossMonster.dmgMult = 0.8 + (depth - 1) * 0.25; d.bossId = bossMonster.id; }
   for (let k = 0; k < 1 + Math.floor(depth / 2); k++) { const p = spot(boss, 2); g.spawnCreature(pool[0], p.x, p.y, { hpMult: toughness }); }

@@ -288,6 +288,28 @@ export function special(g, c, def, target, dt) {
       g.float(c.x, c.y - TILE * 1.8, 'Calls for help!', '#ff9f7a');
     }
   }
+  // an aura: standing next to it hurts
+  if (def.aura && d < TILE * def.aura.r) {
+    c._auraT = (c._auraT ?? 0) + dt;
+    if (c._auraT >= 1) {
+      c._auraT = 0;
+      strikeVillager(g, c, target, def.damage * def.aura.dmg * (c.dmgMult || 1));
+      g.puff({ x: target.x, y: target.y - 10 }, def.aura.sprite || 'effects/toxic_bubble', 3, 10);
+    }
+  }
+  // it stitches itself back together
+  if (def.heals) {
+    c._healT = (c._healT ?? def.heals.every) - dt;
+    if (c._healT <= 0) {
+      c._healT = def.heals.every;
+      const max = maxHp(c);
+      if (c.hp < max) {
+        c.hp = Math.min(max, c.hp + max * def.heals.part);
+        g.float(c.x, c.y - TILE * 1.6, 'Mends itself', '#8fe07a');
+        g.puff({ x: c.x, y: c.y - 10 }, 'effects/plus_heal', 4, 12);
+      }
+    }
+  }
   // a ground slam: a red circle appears where you stand, then it lands
   if (def.slam && d < TILE * def.slam.range) {
     c._slamCd = (c._slamCd ?? def.slam.every * 0.6) - dt;
@@ -319,7 +341,44 @@ export function special(g, c, def, target, dt) {
     // archers keep their distance
     if (r.min && d < TILE * r.min) { step(g, c, c.x + (c.x - target.x), c.y + (c.y - target.y), def.speed * 0.9 * dt, def); return true; }
   }
+  // a blink: it vanishes and comes back beside you
+  if (def.blink && c._specialCd <= 0 && d > TILE * 2 && d < TILE * def.blink.range) {
+    const a = Math.atan2(target.y - c.y, target.x - c.x) + (Math.random() - 0.5);
+    const bx = target.x - Math.cos(a) * TILE * 1.6, by = target.y - Math.sin(a) * TILE * 1.6;
+    if (g.world.walkable(bx, by)) {
+      g.anim('combat/poof', c.x, c.y - 8, { size: TILE * 1.6, dur: 0.35 });
+      g.puff({ x: c.x, y: c.y - 8 }, 'effects/ghost_wisp', 5, 12);
+      c.x = bx; c.y = by;
+      g.anim('combat/poof', c.x, c.y - 8, { size: TILE * 1.6, dur: 0.35 });
+      c._specialCd = def.blink.every;
+      c._attack = 0.3;
+      return true;
+    }
+  }
+  // a burst: shots in every direction at once, so standing close is no safer than standing far
+  if (def.burst && c._specialCd <= 0 && d < TILE * def.burst.range) {
+    c._specialCd = def.burst.every;
+    c._attack = 0.4;
+    const kind = SHOTS[def.burst.shot] || SHOTS.magic_bolt;
+    const n = def.burst.count || 8;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + Math.random() * 0.2;
+      (g.enemyShots ||= []).push({
+        kind: def.burst.shot, x: c.x, y: c.y - 10, vx: Math.cos(a) * TILE * kind.speed, vy: Math.sin(a) * TILE * kind.speed,
+        left: TILE * (def.burst.range + 2), dmg: def.damage * (def.burst.dmg ?? 0.8) * (c.scale || 1) * (c.dmgMult || 1), from: c, target: null,
+      });
+    }
+    g.float(c.x, c.y - TILE * 1.8, def.burst.text || 'Burst!', '#ffb3aa');
+    return true;
+  }
   if (c._specialCd > 0) return false;
+  // a charge: it paws the ground, then runs right through where you stood
+  if (def.charges && d > TILE * 2 && d < TILE * (def.charges.range || 8)) {
+    const a = Math.atan2(target.y - c.y, target.x - c.x);
+    c._charge = { dx: Math.cos(a), dy: Math.sin(a), wind: def.charges.wind ?? 0.6, t: Math.min(2, d / (def.speed * 3.2) + 0.35) };
+    c._specialCd = def.charges.every ?? 5;
+    return true;
+  }
   if (c.t === 'boar' && d > TILE * 2 && d < TILE * 7) {
     const a = Math.atan2(target.y - c.y, target.x - c.x);
     c._charge = { dx: Math.cos(a), dy: Math.sin(a), wind: 0.7, t: Math.min(1.6, d / (def.speed * 3.2) + 0.3) };   // long enough to run right through where you stood

@@ -1,6 +1,16 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: '31 new bosses, each with its own fight',
+    changes: [
+      'The deep floors belong to new guardians: the Frost Warden, Iron Warlord, Drowned King, Void Herald, Basalt Titan, Gravebloom and 25 more',
+      'Varek, the Ashen Knight, has his own portrait at last',
+      'New ways for a monster to fight: charges that run you down, blinks that put it behind you, bursts of shots in every direction, auras that hurt to stand near, and menders that stitch themselves back together',
+      'Past floor 5 every guardian is one of the deep ones, and no two fight the same way',
+      'Weapons sit in your hand properly now: the grip stays in the fist while the blade sweeps, in every direction and with tools and potions too',
+    ],
+  },
+  {
     title: 'Food is out of the game',
     changes: [
       'Food is gone: no hunger, no food in the resource bar, no food in the chronicle',
