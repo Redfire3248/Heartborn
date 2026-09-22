@@ -96,7 +96,8 @@ export class Game {
 
   // ---------- time ----------
   get day() { return Math.floor(this.state.time / DAY_LENGTH); }
-  get hour() { return ((this.state.time / DAY_LENGTH) % 1) * 24; }
+  /** On a server the sun follows one clock for everybody, so night falls on us all at once. */
+  get hour() { return (((this.state.time + (this.clockShift || 0)) / DAY_LENGTH) % 1) * 24; }
   get isNight() { const h = this.hour; return h >= 20 || h < 5; }
   get season() { return SEASONS[Math.floor(this.day / DAYS_PER_SEASON) % SEASONS.length]; }
   get year() { return Math.floor(this.day / DAYS_PER_YEAR) + 1; }

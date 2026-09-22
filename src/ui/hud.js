@@ -1,6 +1,6 @@
 import { watchInvites, declineInvite, joinWorld } from '../net/social.js';
 import { openBackpack } from './backpack.js';
-import { openIslandMap, exploreAround, saveExplored, fogCanvas } from './islandMap.js';
+import { openIslandMap, exploreAround, saveExplored, fogCanvas, addMarker } from './islandMap.js';
 import { PETS } from '../game/pets.js';
 import { openPets } from './petsMenu.js';
 import { checkAchievements, titleOf } from '../game/journal.js';
@@ -168,7 +168,7 @@ export class HUD {
       // player vs player
       game.pvp = (uid, dmg, x, y, name) => mp.sendHit(uid, dmg, x, y, name);
       mp.on('pvpHit', hit => this.takePlayerHit(hit));
-      mp.on('chat', () => this.panel === 'world' && this.worldTab === 'chat' && this.refreshPanel());
+      mp.on('chat', () => { this.showChat(); if (this.panel === 'world' && this.worldTab === 'chat') this.refreshPanel(); });
       mp.on('players', () => this.panel === 'world' && this.worldTab === 'players' && this.refreshPanel());
       mp.on('armies', () => this.panel === 'world' && this.worldTab === 'players' && this.refreshPanel());
       this.missionTimer = setInterval(() => { if (this.panel === 'world' && this.worldTab === 'players' && (mp.missions().length || mp.armies().length) && !this.panelEl?.matches(':hover')) this.refreshPanel(); }, 1000);
@@ -268,6 +268,19 @@ export class HUD {
     this.leadInput = { mx: 0, my: 0, act: false, dash: false, block: false };
     this.root.append(h('button.card.lead-btn', { title: 'Your character: level, points, gear and loot (G)', onclick: () => this.toggleLead() },
       icon('ui/character', 22), h('span.home-label', 'Character')));
+    // chat while you play: Enter opens the line, what people say floats above it for a while
+    this.els.chatLog = h('div.chat-live');
+    this.els.chatInput = h('input.input.chat-line', { placeholder: 'Say something (Enter sends, Esc closes)', maxLength: 200, hidden: true });
+    this.els.chatInput.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Escape') { this.closeChat(); return; }
+      if (e.key !== 'Enter') return;
+      const text = this.els.chatInput.value.trim();
+      this.els.chatInput.value = '';
+      if (text) this.mp?.sendChat(text).catch(err => this.hint(err.message, 1600));
+      this.closeChat();
+    });
+    this.root.append(h('div.chat-wrap', this.els.chatLog, this.els.chatInput));
     this.els.heroBar = h('div.card.hero-bar', { hidden: true });
     this.els.heroPad = h('div.hero-pad', { hidden: true });
     this.els.hotbar = h('div.hotbar', { hidden: true });
@@ -436,6 +449,7 @@ export class HUD {
     if (this.houseEditor) return;   // the house view has its own keys
     const k = e.key.toLowerCase();
     if (this._rebinding) return;   // Settings is waiting for a key
+    if (k === 'enter' && this.mp && !this.game.sail) { this.openChat(); return; }
     if (is(k, 'map')) { openIslandMap(this); return; }
     if (k === 'escape' && this.visiting) { this.onReturnHome(); return; }
     if (is(k, 'character') && !this.game.sail) { this.toggleLead(); return; }
@@ -1028,6 +1042,27 @@ export class HUD {
   }
 
   /** Another player hit you: it lands on whoever you are playing right now (not while you are in a dungeon or at home indoors). */
+  /** Opens the chat line (Enter). */
+  openChat() {
+    if (!this.mp) { this.hint('Chat is for worlds you share with others', 1600); return; }
+    this.els.chatInput.hidden = false;
+    this.els.chatInput.focus();
+    this.showChat(true);
+  }
+
+  closeChat() { this.els.chatInput.hidden = true; this.els.chatInput.blur(); }
+
+  /** The last few things said, fading away on their own. */
+  showChat(keep = false) {
+    const mp = this.mp;
+    if (!mp) return;
+    const now = Date.now();
+    const recent = (mp.chat || []).slice(-6).filter(m => keep || now - (m.ts || 0) < 25_000);
+    this.els.chatLog.replaceChildren(...recent.map(m => h('div.chat-msg' + (m.uid === this.user?.uid ? '.mine' : ''), h('b', m.name || 'Someone'), h('span', m.text))));
+    clearTimeout(this._chatFade);
+    this._chatFade = setTimeout(() => { if (this.els.chatInput.hidden) this.els.chatLog.replaceChildren(); }, 25_000);
+  }
+
   takePlayerHit(hit) {
     if (this.dungeon) return;
     const g = this.abroad?.land || this.game;
@@ -2286,7 +2321,23 @@ export class HUD {
       h('div.row', icon(w.wid === 'solo' ? 'buildings/campfire' : 'buildings/fortress', 28),
         h('div', h('b', w.name || 'World'), h('div.faint', w.wid === 'solo' ? 'Solo world — only you live here' : `World with friends${w.owner === this.user.uid ? ' · you host it' : ''}`))),
       isPrivate && w.code ? h('div.row', { style: { flexWrap: 'wrap' } }, h('span.faint', 'Invite code'), h('span.chip', { style: { fontFamily: 'var(--num)', letterSpacing: '3px', userSelect: 'text' } }, w.code), h('span.faint', 'or invite friends in the Friends tab')) : null,
-      h('button.btn.sm', { onclick: () => this.onSwitchWorld?.() }, '🌍 Switch world')));
+      h('div.row', { style: { flexWrap: 'wrap' } },
+        h('button.btn.sm', { onclick: () => this.onSwitchWorld?.() }, '🌍 Switch world'),
+        mp ? h(`button.btn.sm${this.game.state.pvp ? '.danger' : ''}`, {
+          title: 'When you both have this on, your blows land on each other',
+          onclick: () => { this.game.state.pvp = !this.game.state.pvp; this.hint(this.game.state.pvp ? 'Other players can fight you now' : 'No more fighting other players', 1800); this.refreshPanel(); },
+        }, this.game.state.pvp ? 'Fighting: on' : 'Fighting: off') : null)));
+    if (mp) {   // who is standing near you right now
+      const near = (this.game.livePlayers || []).map(p => ({ p, d: Math.hypot(p.x - (heroOf(this.game)?.x || 0), p.y - (heroOf(this.game)?.y || 0)) / TILE })).sort((a, b) => a.d - b.d);
+      body.append(h('div.law-cat',
+        h('h3', `Players here (${near.length})`),
+        ...(near.length ? near.slice(0, 8).map(({ p, d }) => h('div.player',
+          icon('ui/character', 24), h('div', h('div.pname', p.name || 'Player'), h('div.faint', `${Math.round(d)} tiles away${p.pvp ? ' · up for a fight' : ''}`)),
+          h('div.row', { style: { gap: '4px' } },
+            h('button.btn.sm.ghost', { title: 'Put a marker where they are', onclick: () => { addMarker(this.game, p.x / TILE, p.y / TILE, p.name || 'Player'); this.hint(`Marked ${p.name || 'them'} on your map`, 1600); } }, 'Mark'),
+            d < 6 ? h('button.btn.sm', { title: 'Offer them a deal', onclick: () => { const found = mp.players.find(x => x.uid === p.uid); if (found) this.offerModal(found); else this.hint('They are not listed yet', 1500); } }, 'Trade') : null))) :
+          [h('div.faint', 'Nobody else is on this island right now.')])));
+    }
     if (this.worldTab === 'friends') {
       const holder = h('div.col');
       const invites = h('div.col');

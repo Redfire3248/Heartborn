@@ -113,6 +113,10 @@ export class Multiplayer {
     this.presenceTimer = setInterval(() => this.heartbeat(), 30_000);
     this.warTimer = setInterval(() => this.warTick(), 1000);
 
+    // one sky: the hour of the day comes from a clock we all share, not from how long each of us has played
+    const sky = () => { this.g.clockShift = Date.now() / 1000 - this.g.state.time; };
+    if (this.world !== 'realm') { sky(); this.skyTimer = setInterval(sky, 5000); }
+
     // shared monsters: one player runs them for everybody, and passes them on a few times a second
     if (this.world !== 'realm') this.startMobs();
 
@@ -1052,7 +1056,7 @@ export class Multiplayer {
     set(ref(rtdb, `${this.w}live/${this.uid}`), {
       x: Math.round(v.x), y: Math.round(v.y), name: String(v.name || this.name || 'Player').slice(0, 40),
       sex: v.sex === 'f' ? 'f' : 'm', walking: !!v._walking, flip: !!v._flip, dungeon: !!dungeon, a: avatarId(this.g),
-      level: Math.round(level) || 1, facing, title: String(this.titleText || '').slice(0, 30), ts: now,
+      level: Math.round(level) || 1, facing, title: String(this.titleText || '').slice(0, 30), ts: now, pvp: !!this.g.state.pvp,
     }).catch(() => {});
   }
 
@@ -1061,11 +1065,11 @@ export class Multiplayer {
     const now = Date.now();
     return Object.entries(all).filter(([uid, s]) => uid !== this.uid && now - (s.ts || 0) < 15_000 && !s.dungeon).map(([uid, s]) => {
       const old = prev.get(uid);
-      return { id: uid, uid, player: true, avatar: s.a || null, title: s.title || '', name: s.name, sex: s.sex, job: 'idle', level: s.level || 1, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
+      return { id: uid, uid, player: true, pvp: !!s.pvp, avatar: s.a || null, title: s.title || '', name: s.name, sex: s.sex, job: 'idle', level: s.level || 1, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
     });
   }
 
-  stopMobs() { clearInterval(this.mobLease); clearInterval(this.mobTimer); }
+  stopMobs() { clearInterval(this.mobLease); clearInterval(this.mobTimer); clearInterval(this.skyTimer); }
 
   clearLive() { remove(ref(rtdb, `${this.w}live/${this.uid}`)).catch(() => {}); }
 

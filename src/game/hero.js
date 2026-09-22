@@ -231,13 +231,14 @@ function attack(g, v, st) {
     hits++;
   }
   // other players on this island: the blow is sent to them
-  if (g.pvp) for (const p of g.strangers || []) {
-    if (!p.from) continue;
+  if (g.pvp) for (const p of [...(g.strangers || []), ...(g.livePlayers || [])]) {
+    if (p.player && !(g.state.pvp && p.pvp)) continue;   // friends do not hit each other unless you both want it
+    if (!p.from && !p.uid) continue;
     const d = Math.hypot(p.x - v.x, p.y - v.y);
     const arc = sp?.whirl && finisher ? Math.PI * 2 : w.arc;
     if (d > w.range * TILE + TILE * 0.4 || (d > TILE * 0.4 && angleDiff(Math.atan2(p.y - v.y, p.x - v.x), h.facing) > arc / 2 + 0.25)) continue;
     const blow = dmg * 0.6;   // players take less than monsters do, so fights last a few swings
-    g.pvp(p.from, blow, v.x, v.y, v.name);
+    g.pvp(p.from || p.uid, blow, v.x, v.y, v.name);
     p._hitFlash = 0.18;
     g.float(p.x, p.y - TILE * 1.3, String(Math.round(blow)), crit || finisher ? '#ffd76a' : '#ffffff');
     g.anim('combat/hit', p.x, p.y - 12, { size: 30, dur: 0.25 });

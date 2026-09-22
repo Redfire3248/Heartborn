@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'A proper server',
+    changes: [
+      'One sky: on a server night falls for everyone at the same moment',
+      'Chat while you play: press Enter to say something, and what people say floats on screen for a while',
+      'World shows who is on the island with you, how far away they are, a Mark button to put them on your map and Trade when you stand close',
+      'Fighting other players is off by default and only works when you both switch it on',
+    ],
+  },
+  {
     title: 'Chunks, like Minecraft',
     changes: [
       'The island is filed in chunks: drawing now touches only the squares on screen instead of walking every tree and rock on the map',
