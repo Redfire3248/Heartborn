@@ -1,3 +1,4 @@
+import { openBackpack } from './backpack.js';
 import { openIslandMap, exploreAround, saveExplored, fogCanvas } from './islandMap.js';
 import { PETS } from '../game/pets.js';
 import { openPets } from './petsMenu.js';
@@ -332,14 +333,7 @@ export class HUD {
       const dashDown = held(k, 'dash') || t.dash;
       const dash = dashDown && !this._dashHeld;
       const potionDown = held(k, 'potion') || t.potion;
-      let potion = potionDown && !this._potionHeld;
-      if (potion && hg === g && (atTable(g, heroOf(g)) || atEnchantTable(g, heroOf(g)) || atStall(g, heroOf(g)))) {   // the closest station opens
-        potion = false;
-        const st = nearestStation(g, heroOf(g));
-        if (st?.type === 'market_stall') openShop(this);
-        else if (st?.type === 'enchanting_table' || (!st && atEnchantTable(g, heroOf(g)) && !atTable(g, heroOf(g)))) openEnchantMenu(this);
-        else this.openTable();
-      }
+      const potion = potionDown && !this._potionHeld;
       this._potionHeld = potionDown;
       this._dashHeld = dashDown;
       const fights = !abroad || abroad.role === 'visitor';   // a visitor can fight other players; a disguised spy cannot
@@ -444,6 +438,7 @@ export class HUD {
     if (k === 'escape' && this.visiting) { this.onReturnHome(); return; }
     if (is(k, 'character') && !this.game.sail) { this.toggleLead(); return; }
     if (is(k, 'inventory')) { this.inventory(); return; }
+    if (is(k, 'backpack') && !this.game.sail) { if (!this.useStation()) openBackpack(this); return; }
     if (is(k, 'index')) { openIndex(this); return; }
     if (is(k, 'journal')) { openJournal(this); return; }
     if (is(k, 'pets')) { openPets(this); return; }
@@ -817,6 +812,18 @@ export class HUD {
     return { name: t.name, icon: hasArt(t.icon) ? t.icon : t.fallbackIcon, count: null };   // tools do not stack: each has its own slot
   }
 
+  /** Opens the station you are standing at (Forge, Enchanting Table or Market Stall). True if there was one. */
+  useStation() {
+    const g = this.game, v = heroOf(g);
+    if (this.dungeon || this.visiting || !v) return false;
+    if (!(atTable(g, v) || atEnchantTable(g, v) || atStall(g, v))) return false;
+    const st = nearestStation(g, v);
+    if (st?.type === 'market_stall') openShop(this);
+    else if (st?.type === 'enchanting_table' || (!st && atEnchantTable(g, v) && !atTable(g, v))) openEnchantMenu(this);
+    else this.openTable();
+    return true;
+  }
+
   /** The inventory grid opens above the hotbar: click a thing to put it in the selected slot. */
   inventory() {
     const panel = this.els.invPanel;
@@ -876,8 +883,8 @@ export class HUD {
         h('button.btn.sm', { title: 'Daily chest, challenges and achievements (O)', onclick: () => openJournal(this) }, hasArt('items/token_crown') ? icon('items/token_crown', 16) : null, 'Journal'),
         h('button.btn.sm', { title: 'Everything you have found (N)', onclick: () => openIndex(this) }, hasArt('ui/index') ? icon('ui/index', 16) : null, 'Index'),
         h('button.btn.sm.analyze-btn', { title: 'Analyze the item under your cursor (or what you hold). Tip: right-click a hotbar slot', onclick: () => this.analyzeKey(this._invHover || bar[r.hotSel]) }, 'Analyze'),
-        h('button.btn.sm', { title: 'Ores, metals and boss materials', onclick: () => openMaterialsBag(this) }, 'Materials'),
-        h('button.btn.sm', { title: 'Your gear and stats (G)', onclick: () => this.characterSheet() }, 'Gear'),
+        h('button.btn.sm', { title: 'Ores, metals and boss materials', onclick: () => openBackpack(this, 'mats') }, 'Materials'),
+        h('button.btn.sm', { title: 'Your gear, tools, items and stats (E)', onclick: () => openBackpack(this, 'gear') }, 'Gear'),
         h('button.modal-x.inv-x', { title: 'Close (I)', onclick: () => { panel.hidden = true; } }, hasArt('ui/close') ? icon('ui/close', 16) : '✕')),
       (() => {
         // like Minecraft: what sits in your hotbar is not shown again in here

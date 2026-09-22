@@ -801,16 +801,16 @@ export class Renderer {
     drawSprite(ctx, styled, x, y, size, { tint: blighted ? '#553311' : styled === buildingSprite(b.type) ? DESIGNS[design]?.tint : null });
     if (b.type === 'market_stall' && g.hero && !g.visiting) {
       const hero = g.state.villagers.find(v => v.id === g.hero.id), c = g.buildingCenter(b);
-      if (hero && nearestStation(g, hero) === b) keyPrompt(ctx, keyLabel(keyOf('potion')), 'Shop', c.x, y - TILE * 1.55 + Math.sin(this.time * 3) * 0.8);
+      if (hero && nearestStation(g, hero) === b) keyPrompt(ctx, keyLabel(keyOf('backpack')), 'Shop', c.x, y - TILE * 1.55 + Math.sin(this.time * 3) * 0.8);
     }
     if (b.type === 'enchanting_table' && g.hero && !g.visiting) {
       const hero = g.state.villagers.find(v => v.id === g.hero.id), c = g.buildingCenter(b);
-      if (hero && nearestStation(g, hero) === b) keyPrompt(ctx, keyLabel(keyOf('potion')), 'Enchant', c.x, y - TILE * 1.55 + Math.sin(this.time * 3) * 0.8);
+      if (hero && nearestStation(g, hero) === b) keyPrompt(ctx, keyLabel(keyOf('backpack')), 'Enchant', c.x, y - TILE * 1.55 + Math.sin(this.time * 3) * 0.8);
     }
     if (b.type === 'crafting_table' && g.hero && !g.visiting) {
       const hero = g.state.villagers.find(v => v.id === g.hero.id), c = g.buildingCenter(b);
       if (hero && nearestStation(g, hero) === b) {   // only the closer table shows its key
-        keyPrompt(ctx, keyLabel(keyOf('potion')), 'Craft', c.x, y - TILE * 1.55 + Math.sin(this.time * 3) * 0.8);
+        keyPrompt(ctx, keyLabel(keyOf('backpack')), 'Craft', c.x, y - TILE * 1.55 + Math.sin(this.time * 3) * 0.8);
       }
     }
     if (isHome(b) && g.hero && !g.visiting) {

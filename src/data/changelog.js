@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'The Backpack: one screen for everything',
+    changes: [
+      'Press E for the Backpack: Character, Gear, Tools, Items and Materials in one place, with tabs like the Forge',
+      'Character shows your figure, what you wear, bars for health, stamina, damage, crit, armour and speed, and your attribute points',
+      'Tools are grouped into pickaxes, axes, shovels, hoes, sickles, hammers, rods and useful things: tap one to put it in your hotbar',
+      'E also opens whatever station you stand at; drinking a potion moved to T',
+    ],
+  },
+  {
     title: 'A painted dungeon',
     changes: [
       'A whole new dungeon tileset: stone brick, flagstone, cracked, mossy, rubble, bones, blood and plank floors',
