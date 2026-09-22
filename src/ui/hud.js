@@ -276,8 +276,6 @@ export class HUD {
     }, pxIcon('target'), h('span.home-label', 'Village')));
     // lead in person: walk your ruler around yourself
     this.leadInput = { mx: 0, my: 0, act: false, dash: false, block: false };
-    this.root.append(h('button.card.lead-btn', { title: 'Your character: level, points, gear and loot (G)', onclick: () => this.toggleLead() },
-      icon('ui/character', 22), h('span.home-label', 'Character')));
     // chat while you play: Enter opens the line, what people say floats above it for a while
     this.chatLines = [];   // what has been said and what has happened, newest last
     this.els.chatLog = h('div.chat-live');
@@ -513,9 +511,10 @@ export class HUD {
 
   // ------------------------------------------------------------ you, the avatar
   /** The G key / Avatar button: your character sheet (you are always playing as your avatar). */
+  /** The character key (G) opens the Backpack on its Character tab: there is no separate sheet any more. */
   toggleLead() {
     if (this.visiting) return;
-    this.characterSheet();
+    openBackpack(this, 'char');
   }
 
   playAs(v) {

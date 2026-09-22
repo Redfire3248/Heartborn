@@ -1,6 +1,13 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'One place for your character',
+    changes: [
+      'The Character button is gone from the screen: the Backpack already holds your character, gear, tools, items and materials',
+      'G still opens it, straight onto the Character tab',
+    ],
+  },
+  {
     title: '31 new bosses, each with its own fight',
     changes: [
       'The deep floors belong to new guardians: the Frost Warden, Iron Warlord, Drowned King, Void Herald, Basalt Titan, Gravebloom and 25 more',

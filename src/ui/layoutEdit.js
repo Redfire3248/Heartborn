@@ -14,7 +14,6 @@ export const LAYOUT_ITEMS = [
   { sel: '.hero-ability', name: 'Skill' },
   { sel: '.hotbar-wrap', name: 'Hotbar' },
   { sel: '.hero-bar', name: 'Health' },
-  { sel: '.lead-btn', name: 'Character' },
   { sel: '.topbar', name: 'Resources' },
   { sel: '.dock', name: 'Menu' },
   { sel: '.minimap', name: 'Minimap' },
