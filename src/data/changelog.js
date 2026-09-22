@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Abilities that look like something',
+    changes: [
+      'Every weapon ability got a proper show: racing shockwave rings, streaks of light, a wash of colour over the screen and heavier shake',
+      'Holy Light drops a shaft of light on each foe, Flame Wave rolls forward in front of you, Frost Nova bursts into ice and snow',
+      'Thunderstorm walks its bolts from one foe to the next, Shadow Step leaves a trail of after-images, Soul Reap pulls souls into you',
+      'Iaido cuts a long streak through everything, Regrowth swirls leaves, Earthsplitter cracks the ground and throws rocks',
+    ],
+  },
+  {
     title: 'Choose what you forge',
     changes: [
       'The Forge has three buttons now: Armour, Weapon and Tool',

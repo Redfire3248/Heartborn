@@ -273,17 +273,44 @@ export function useAbility(g) {
   const foes = r => g.state.creatures.filter(c => CREATURES[c.t]?.hostile && Math.hypot(c.x - v.x, c.y - v.y) < TILE * r);
   const flash = (r, color) => (g.fx.flashes ||= []).push({ x: v.x, y: v.y - 10, r: TILE * r, color, life: 0.5, max: 0.5 });
   const daze = (c, s) => { if (!CREATURES[c.t]?.boss) c._stunned = Math.max(c._stunned || 0, s); };
+  // a ring that races outwards, a streak of light, a wash of colour over the screen, a spray of sprites
+  const ring = (r, color, o = {}) => (g.fx.rings ||= []).push({ x: o.x ?? v.x, y: (o.y ?? v.y) - 8, r0: TILE * (o.r0 ?? 0.2), r: TILE * r, color, width: o.width || 4, life: o.life || 0.5, max: o.life || 0.5, glow: o.glow !== false, spokes: o.spokes || 0, spin: o.spin || 0, flat: o.flat, alpha: o.alpha });
+  const streak = (x0, y0, x1, y1, color, o = {}) => (g.fx.streaks ||= []).push({ x0, y0, x1, y1, color, width: o.width || 5, life: o.life || 0.35, max: o.life || 0.35 });
+  const tint = (color, strength = 0.28, life = 0.35) => { g.fx.tint = { color, strength, life, max: life }; };
+  const spray = (sprite, n, o = {}) => {
+    for (let i = 0; i < n; i++) {
+      const a = o.a != null ? o.a + (Math.random() - 0.5) * (o.spread ?? 1.4) : (i / n) * Math.PI * 2;
+      const sp = (o.speed || 110) * (0.6 + Math.random() * 0.8);
+      g.fx.particles.push({ x: (o.x ?? v.x) + Math.cos(a) * (o.r0 || 0), y: (o.y ?? v.y - 10) + Math.sin(a) * (o.r0 || 0) * 0.5, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * (o.flat ?? 0.6) - (o.lift || 0), sprite, size: o.size || 9, life: o.life || 0.6, max: o.life || 0.6, rot: 0 });
+    }
+  };
   g.float(v.x, v.y - TILE * 1.9, ab.name.toUpperCase() + '!', ab.color);
-  g.fx.shake = Math.max(g.fx.shake, 1.2);
+  g.fx.shake = Math.max(g.fx.shake, 1.6);
+  ring(1.6, ab.color, { r0: 0.1, width: 3, life: 0.3 });   // the cast itself: a quick pulse at your feet
   switch (ab.id) {
     case 'holy_light':
       flash(4, '#fff3b0');
+      tint('#fff3b0', 0.4, 0.45);
+      ring(4, '#fff3b0', { width: 6, life: 0.6, spokes: 12, spin: 1.2 });
+      ring(2.6, '#ffffff', { width: 3, life: 0.45 });
       v.hp = Math.min(st.maxHp, v.hp + st.maxHp * 0.25);
-      for (const c of foes(4)) { hitCreature(g, v, c, base * (UNDEAD.has(c.t) ? 5 : 2.5), true, { stun: 0 }); daze(c, 1.2); }
-      for (let i = 0; i < 16; i++) g.fx.particles.push({ x: v.x, y: v.y - 10, vx: Math.cos(i / 16 * Math.PI * 2) * 90, vy: Math.sin(i / 16 * Math.PI * 2) * 90, sprite: 'effects/spark', size: 8, life: 0.6, max: 0.6, rot: 0 });
+      g.float(v.x, v.y - TILE * 2.4, `+${Math.round(st.maxHp * 0.25)}`, '#8fe07a');
+      for (const c of foes(4)) {
+        hitCreature(g, v, c, base * (UNDEAD.has(c.t) ? 5 : 2.5), true, { stun: 0 });
+        daze(c, 1.2);
+        streak(c.x, c.y - TILE * 5, c.x, c.y - 6, '#fff3b0', { width: 7, life: 0.3 });   // a shaft of light on every foe
+        spray('effects/spark', 4, { x: c.x, y: c.y - 8, speed: 60, lift: 30 });
+      }
+      spray('effects/spark', 18, { speed: 100, lift: 40 });
       break;
     case 'flame_wave':
       flash(3, '#ff9a3a');
+      tint('#ff6a20', 0.26, 0.3);
+      for (let i = 1; i <= 4; i++) {   // the wave rolls out in front of you
+        const d = TILE * i * 1.1, x = v.x + Math.cos(h.facing) * d, y = v.y + Math.sin(h.facing) * d;
+        ring(0.9 + i * 0.25, '#ff9a3a', { x, y, r0: 0.2, width: 5, life: 0.3 + i * 0.07 });
+        spray('effects/flame', 5, { x, y: y - 6, a: h.facing, spread: 2.4, speed: 60, size: 13, life: 0.5 + i * 0.05, lift: 20 });
+      }
       for (const c of foes(4.5)) {
         if (angleDiff(Math.atan2(c.y - v.y, c.x - v.x), h.facing) > 1.1) continue;
         hitCreature(g, v, c, base * 2, false, { stun: 0 });
@@ -293,6 +320,11 @@ export function useAbility(g) {
       break;
     case 'frost_nova':
       flash(3.5, '#9fd4ff');
+      tint('#9fd4ff', 0.3, 0.4);
+      ring(3.5, '#9fd4ff', { width: 7, life: 0.5, spokes: 8 });
+      ring(2.2, '#ffffff', { width: 3, life: 0.35 });
+      spray('effects/ice_crystal', 14, { speed: 140, size: 9, life: 0.5 });
+      spray('effects/snowflake', 10, { speed: 70, size: 7, life: 0.8, lift: 20 });
       for (const c of foes(3.5)) {
         hitCreature(g, v, c, base * 1.3, false, { stun: 0 });
         if (!g.state.creatures.includes(c)) continue;
@@ -300,49 +332,89 @@ export function useAbility(g) {
         if (!CREATURES[c.t]?.boss) { c._stunned = Math.max(c._stunned || 0, 2.5); c._frozen = now + 2.5; }
       }
       break;
-    case 'thunderstorm':
-      for (const c of foes(7).slice(0, 4)) {
-        (g.fx.bolts ||= []).push({ x0: c.x + (Math.random() - 0.5) * 40, y0: c.y - 160, x1: c.x, y1: c.y - 10, life: 0.3 });
-        hitCreature(g, v, c, base * 2.2, true, { stun: 0 });
-        daze(c, 0.8);
-      }
+    case 'thunderstorm': {
+      tint('#fff27a', 0.32, 0.25);
+      const targets = foes(7).slice(0, 4);
+      targets.forEach((c, i) => {
+        const strike = () => {
+          if (!g.state.creatures.includes(c)) return;
+          (g.fx.bolts ||= []).push({ x0: c.x + (Math.random() - 0.5) * 40, y0: c.y - 220, x1: c.x, y1: c.y - 10, life: 0.3 });
+          (g.fx.flashes ||= []).push({ x: c.x, y: c.y - 10, r: TILE * 1.6, color: '#fff27a', life: 0.35, max: 0.35 });
+          ring(1.4, '#fff27a', { x: c.x, y: c.y, width: 4, life: 0.35 });
+          spray('effects/spark', 8, { x: c.x, y: c.y - 8, speed: 120, size: 6, life: 0.4 });
+          hitCreature(g, v, c, base * 2.2, true, { stun: 0 });
+          daze(c, 0.8);
+          g.fx.shake = Math.max(g.fx.shake, 1.4);
+        };
+        if (i === 0) strike(); else setTimeout(strike, i * 110);   // one after another, like a storm walking towards them
+      });
       flash(2, '#fff27a');
       break;
+    }
     case 'shadow_step': {
       const c = foes(8).sort((a, b) => Math.hypot(a.x - v.x, a.y - v.y) - Math.hypot(b.x - v.x, b.y - v.y))[0];
       if (!c) { h.abilityReady = now + 1; g.float(v.x, v.y - TILE * 1.4, 'No foe in reach', '#cfc6e0'); return false; }
       g.puff({ x: v.x, y: v.y - 8 }, 'effects/ghost_wisp', 6, 10);
       const a = Math.atan2(c.y - v.y, c.x - v.x);
       const bx = c.x + Math.cos(a) * TILE * 0.8, by = c.y + Math.sin(a) * TILE * 0.8;
+      const ox = v.x, oy = v.y;
       if (g.world.walkable(bx, by)) { v.x = bx; v.y = by; }
       h.facing = a + Math.PI;
       h.iframes = Math.max(h.iframes || 0, 0.5);
+      streak(ox, oy - 12, v.x, v.y - 12, '#b06aff', { width: 10, life: 0.4 });
+      for (let i = 1; i <= 4; i++) g.puff({ x: ox + (v.x - ox) * (i / 5), y: oy + (v.y - oy) * (i / 5) - 8 }, 'effects/ghost_wisp', 2, 6);
+      tint('#2a0d3f', 0.35, 0.3);
       hitCreature(g, v, c, base * 3, true, { stun: 0.5 });
+      ring(1.8, '#b06aff', { x: c.x, y: c.y, width: 5, life: 0.4 });
+      g.anim('combat/crit_slash', c.x, c.y - 10, { size: TILE * 3, dur: 0.3, rot: a });
       flash(1.5, '#b06aff');
       break;
     }
     case 'soul_reap': {
       let n = 0;
-      for (const c of foes(3)) { hitCreature(g, v, c, base * 1.6, false, { stun: 0 }); n++; }
+      for (const c of foes(3)) {
+        hitCreature(g, v, c, base * 1.6, false, { stun: 0 });
+        streak(c.x, c.y - 10, v.x, v.y - 12, '#8aff9a', { width: 4, life: 0.45 });   // the soul flies to you
+        g.puff({ x: c.x, y: c.y - 10 }, 'effects/ghost_wisp', 3, 8);
+        n++;
+      }
       v.hp = Math.min(st.maxHp, v.hp + n * st.maxHp * 0.06);
+      if (n) g.float(v.x, v.y - TILE * 2.4, `+${Math.round(n * st.maxHp * 0.06)}`, '#8fe07a');
+      for (let i = 0; i < 3; i++) ring(2.4 + i * 0.4, '#8aff9a', { width: 4, life: 0.3 + i * 0.1, spin: 2 });
       g.anim('combat/crit_slash', v.x, v.y - 10, { size: TILE * 6, dur: 0.35, rot: h.facing });
+      tint('#0f3a1c', 0.22, 0.3);
       flash(3, '#8aff9a');
       break;
     }
     case 'iaido': {
       const a = h.facing;
-      for (let s = 0; s < 8; s++) { const nx = v.x + Math.cos(a) * TILE * 0.6, ny = v.y + Math.sin(a) * TILE * 0.6; if (!g.world.walkable(nx, ny)) break; v.x = nx; v.y = ny; g.anim('combat/dust', v.x, v.y, { size: 16, dur: 0.25 }); for (const c of foes(1.2)) if (!c._iaido) { c._iaido = true; hitCreature(g, v, c, base * 2.4, true, { stun: 0.3 }); } }
+      const sx = v.x, sy = v.y;
+      for (let s = 0; s < 8; s++) { const nx = v.x + Math.cos(a) * TILE * 0.6, ny = v.y + Math.sin(a) * TILE * 0.6; if (!g.world.walkable(nx, ny)) break; v.x = nx; v.y = ny; g.anim('combat/dust', v.x, v.y, { size: 16, dur: 0.25 }); for (const c of foes(1.2)) if (!c._iaido) { c._iaido = true; hitCreature(g, v, c, base * 2.4, true, { stun: 0.3 }); streak(c.x - Math.cos(a) * TILE, c.y - Math.sin(a) * TILE - 10, c.x + Math.cos(a) * TILE, c.y + Math.sin(a) * TILE - 10, '#fff', { width: 6, life: 0.3 }); } }
+      streak(sx, sy - 12, v.x, v.y - 12, '#ff8a7a', { width: 12, life: 0.45 });
+      g.anim('combat/crit_slash', v.x, v.y - 10, { size: TILE * 4, dur: 0.3, rot: a });
+      tint('#ff8a7a', 0.2, 0.25);
       for (const c of g.state.creatures) delete c._iaido;
       h.iframes = Math.max(h.iframes || 0, 0.4);
       break;
     }
     case 'regrowth':
       h.regrow = { per: st.maxHp * 0.1, left: 4, tick: 0 };
+      ring(2.4, '#7aff9a', { width: 5, life: 0.6, spokes: 6, spin: -1.5 });
+      spray('effects/leaf', 14, { speed: 45, lift: 55, size: 10, life: 1.1 });
+      tint('#1b4d2a', 0.2, 0.4);
       flash(2, '#7aff9a');
       break;
     case 'earthsplitter':
       g.anim('combat/poof', v.x, v.y - 6, { size: TILE * 6, dur: 0.45 });
-      g.fx.shake = Math.max(g.fx.shake, 2.2);
+      g.fx.shake = Math.max(g.fx.shake, 3.2);
+      tint('#6b4a2a', 0.3, 0.45);
+      ring(3.2, '#c8a070', { width: 9, life: 0.55 });
+      ring(4.6, '#8a6a44', { width: 5, life: 0.7, alpha: 0.7 });
+      for (let i = 0; i < 8; i++) {   // cracks shooting out of the crater
+        const a = (i / 8) * Math.PI * 2 + Math.random() * 0.3;
+        streak(v.x, v.y, v.x + Math.cos(a) * TILE * 3.4, v.y + Math.sin(a) * TILE * 1.9, '#c8a070', { width: 4, life: 0.5 });
+      }
+      spray('effects/rock_chunk', 12, { speed: 90, lift: 70, size: 9, life: 0.8 });
       for (const c of foes(3.2)) { hitCreature(g, v, c, base * 2, false, { stun: 0 }); daze(c, 1.5); }
       break;
   }

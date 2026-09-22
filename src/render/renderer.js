@@ -183,6 +183,7 @@ export class Renderer {
       }
       g.fx.flashes = g.fx.flashes.filter(f => f.life > 0);
     }
+    this.drawAbilityFx(g, dt);
     this.drawParticles(g);
     this.drawBeams(g);
     this.drawStrikes(g);
@@ -191,6 +192,15 @@ export class Renderer {
 
     // screen-space overlays
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    if (g.fx.tint?.life > 0) {
+      const t = g.fx.tint;
+      t.life -= dt;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, t.life / t.max) * (t.strength || 0.3);
+      ctx.fillStyle = t.color;
+      ctx.fillRect(0, 0, this.canvas.width / this.dpr, this.canvas.height / this.dpr);
+      ctx.restore();
+    }
     this.drawBubbles(g, ox, oy, s);
     this.drawFloaters(g, ox, oy, s);
     this.drawEnemyMarkers(g, ox, oy, s);
@@ -575,6 +585,50 @@ export class Renderer {
     drawSprite(this.ctx, p.kind, p.x, foot, size);
     this.flameGlow(p.x, foot - size * 0.78, TILE * 0.7);
     if (Math.random() < 0.04) g.fx?.particles?.push({ x: p.x + (Math.random() - 0.5) * 6, y: foot - size * 0.85, vx: (Math.random() - 0.5) * 6, vy: -18, sprite: 'effects/spark', size: 4, life: 0.6, max: 0.6, rot: 0 });
+  }
+
+  /**
+   * Ability effects: expanding rings (shockwaves, novas), streaks (dashes and slashes) and rune circles.
+   * They live in g.fx.rings / g.fx.streaks and fade out on their own.
+   */
+  drawAbilityFx(g, dt) {
+    const { ctx } = this;
+    for (const r of g.fx.rings || []) {
+      r.life -= dt;
+      const k = Math.max(0, 1 - r.life / r.max);                 // 0 at the start, 1 at the end
+      const rad = r.r0 + (r.r - r.r0) * (1 - Math.pow(1 - k, 2));  // shoots out, then eases
+      const fade = Math.max(0, r.life / r.max);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = fade * (r.alpha ?? 1);
+      ctx.strokeStyle = r.color; ctx.lineWidth = (r.width || 4) * (0.4 + fade);
+      ctx.beginPath(); ctx.ellipse(r.x, r.y, rad, rad * (r.flat ?? 0.55), 0, 0, Math.PI * 2); ctx.stroke();
+      if (r.glow) { ctx.globalAlpha = fade * 0.35; ctx.lineWidth = (r.width || 4) * 3; ctx.stroke(); }
+      if (r.spokes) {   // a rune circle: little marks around the ring
+        ctx.globalAlpha = fade;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < r.spokes; i++) {
+          const a = (i / r.spokes) * Math.PI * 2 + (r.spin || 0) * (1 - fade);
+          const x = r.x + Math.cos(a) * rad, y = r.y + Math.sin(a) * rad * (r.flat ?? 0.55);
+          ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x, y + 5); ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+    if (g.fx.rings?.length) g.fx.rings = g.fx.rings.filter(r => r.life > 0);
+    for (const s of g.fx.streaks || []) {
+      s.life -= dt;
+      const fade = Math.max(0, s.life / s.max);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = fade;
+      ctx.strokeStyle = s.color; ctx.lineWidth = (s.width || 5) * fade;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(s.x0, s.y0); ctx.lineTo(s.x1, s.y1); ctx.stroke();
+      ctx.globalAlpha = fade * 0.4; ctx.lineWidth = (s.width || 5) * 2.5 * fade; ctx.stroke();
+      ctx.restore();
+    }
+    if (g.fx.streaks?.length) g.fx.streaks = g.fx.streaks.filter(s => s.life > 0);
   }
 
   drawTorch(t) {
