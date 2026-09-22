@@ -721,6 +721,10 @@ export class Renderer {
       const bob = st._walking ? Math.sin(this.time * 9 + st.x) * 1.5 : 0;
       this.shadow(st.x, st.y, TILE * 0.55);
       drawSprite(this.ctx, look, st.x, st.y + bob, TILE * 1.15, { alpha: v._whiteFlash ? 0.7 : 1 });
+      if (st.held && hasArt(st.held)) {   // what they are carrying, in the hand facing you
+        const side = st._flip ? -1 : 1;
+        drawSprite(this.ctx, st.held, st.x + side * TILE * 0.42, st.y - TILE * 0.34 + bob, TILE * 0.5, { center: true, rot: side * 0.5, flip: st._flip });
+      }
     } else this.drawVillager(g, v);
     label(this.ctx, st.name, st.x, st.y + 7);
     if (st.title) titleLabel(this.ctx, st.title, st.x, st.y + 13);

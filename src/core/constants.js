@@ -7,6 +7,7 @@ export const NEW_MAP_SIZE = 160;   // new worlds are bigger and have many biomes
 
 // Time (seconds of real time at 1x speed)
 export const DAY_LENGTH = 90;
+export const SAFE_TILES = 16;   // no wandering monster comes this close to where you start
 export const DAYS_PER_SEASON = 2;
 export const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
 export const DAYS_PER_YEAR = DAYS_PER_SEASON * SEASONS.length;

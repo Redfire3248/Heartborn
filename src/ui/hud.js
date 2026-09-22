@@ -288,7 +288,9 @@ export class HUD {
     this.els.hotbar = h('div.hotbar', { hidden: true });
     this.els.hotName = h('div.hot-name');
     this.els.invPanel = h('div.card.inv-panel', { hidden: true });
-    this.root.append(this.els.heroBar, this.els.heroPad, h('div.hotbar-wrap', this.els.invPanel, this.els.hotName, this.els.hotbar));
+    this.els.vitals = h('div.vitals-strip', { hidden: true });
+    this.els.questWrap = h('div.quest-wrap');
+    this.root.append(this.els.questWrap, this.els.heroBar, this.els.heroPad, h('div.hotbar-wrap', this.els.invPanel, this.els.vitals, this.els.hotName, this.els.hotbar));
     watchLayout();
     // sailing: status, Fire, Return to port, and a steering pad for touch screens
     this.sailInput = { throttle: 0, turn: 0, fire: false, wheel: 0 };
@@ -323,7 +325,7 @@ export class HUD {
     if (this.mp && !this.abroad) {
       const hg = this.dungeon || g;
       const me = heroOf(hg) || heroOf(g);
-      if (me) this.mp.publishLive(me, { facing: hg.hero?.facing || 0, level: rpgOf(g).level, dungeon: !!this.dungeon });
+      if (me) this.mp.publishLive(me, { facing: hg.hero?.facing || 0, level: rpgOf(g).level, dungeon: !!this.dungeon, held: this.heldIconKey(hg, me) });
     }
     if (this.follow) {
       if (!g.state.villagers.includes(this.follow)) this.follow = null;
@@ -537,7 +539,7 @@ export class HUD {
     this.root.classList.toggle('leading', !!v);
     pad.classList.toggle('abroad', !!abroad && abroad.role === 'spy');
     if (!v) {
-      if (!bar.hidden) { bar.hidden = true; pad.hidden = true; bar.replaceChildren(); pad.replaceChildren(); this._heroKey = null; Object.assign(this.leadInput, { mx: 0, my: 0, act: false, dash: false, block: false }); }
+      if (!bar.hidden) { bar.hidden = true; pad.hidden = true; this.els.vitals.hidden = true; this.els.vitals.replaceChildren(); this.els.questWrap.replaceChildren(); bar.replaceChildren(); pad.replaceChildren(); this._heroKey = null; Object.assign(this.leadInput, { mx: 0, my: 0, act: false, dash: false, block: false }); }
       return;
     }
     bar.classList.toggle('card', !!abroad);   // abroad it is one card; at home it splits into small cards
@@ -563,17 +565,23 @@ export class HUD {
       // split into small cards down the left side: you (health, stamina, level) and your quests
       const questsOpen = this._questsOpen ?? !matchMedia('(max-width: 760px), (max-height: 520px)').matches;
       bar.replaceChildren(
-        h('div.card.hero-vitals', { title: 'Open your character (G)', onclick: () => this.characterSheet() },
+        h('div.card.hero-vitals', { title: 'Open your character (E)', onclick: () => openBackpack(this) },
           h('div.hero-top',
             h('span.hero-level', `Lv ${r.level}`), h('b', v.name),
             gearIconKey(w) ? icon(gearIconKey(w), 16) : '',
             r.points ? h('span.hero-points', `+${r.points}`) : '',
-            h('span.hero-potions', { title: 'Health potions: press E to drink' }, icon('gear/health_potion', 14), String(r.potions || 0))),
-          els.heroHp,
+            h('span.hero-potions', { title: 'Health potions: press T to drink' }, icon('gear/health_potion', 14), String(r.potions || 0)))));
+      // hearts and bars over the hotbar, where you are already looking
+      this.els.vitals.hidden = false;
+      this.els.vitals.replaceChildren(
+        els.heroHp,
+        h('div.vitals-meters',
           h('div.hero-meter.st', { title: 'Stamina: attacks, dashes and blocking use it' }, els.heroSt),
-          h('div.hero-meter.xp', { title: 'Experience' }, els.heroXp)),
-        // no quest board any more: only a bounty, when one is out there
-        bounty ? h('div.card.hero-questcard', h('div.hero-bounty', icon('items/icon_gold', 14), `${bounty.bounty.name} · ${bounty.bounty.gold} gold · ${dist < 3 ? 'right here!' : `${dist} tiles ${compass(bounty.x - v.x, bounty.y - v.y)}`}`)) : '');
+          h('div.hero-meter.xp', { title: 'Experience' }, els.heroXp)));
+      // a bounty, when one is out there, out of the way on the right
+      this.els.questWrap.replaceChildren(bounty
+        ? h('div.card.hero-questcard', h('div.hero-bounty', icon('items/icon_gold', 14), `${bounty.bounty.name} · ${bounty.bounty.gold} gold · ${dist < 3 ? 'right here!' : `${dist} tiles ${compass(bounty.x - v.x, bounty.y - v.y)}`}`))
+        : '');
     }
     // health as hearts, Zelda style: one heart per 20 health, halves in between
     const hearts = Math.ceil(st.maxHp / 20);
@@ -1068,6 +1076,17 @@ export class HUD {
     this.els.chatLog.replaceChildren(...recent.map(m => h('div.chat-msg' + (m.uid === this.user?.uid ? '.mine' : ''), h('b', m.name || 'Someone'), h('span', m.text))));
     clearTimeout(this._chatFade);
     this._chatFade = setTimeout(() => { if (this.els.chatInput.hidden) this.els.chatLog.replaceChildren(); }, 25_000);
+  }
+
+  /** The picture of whatever is in your hand right now, for the other players to see. */
+  heldIconKey(g, v) {
+    try {
+      const r = rpgOf(this.game);
+      const key = hotbarOf(this.game)[r.hotSel];
+      if (key && key !== 'weapon') { const info = this.slotInfo(key, v); if (info?.icon) return info.icon; }
+      const w = heroWeapon(g, v);
+      return gearIconKey(w) || null;
+    } catch { return null; }
   }
 
   takePlayerHit(hit) {

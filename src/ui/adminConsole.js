@@ -111,7 +111,7 @@ const HISTORY_KEY = 'hb_admin_history';
 // What each argument position expects, for autocomplete + hints.
 // Arrays are fixed choices; '...' repeats the pair before it (give res n res n …).
 // the strongest, most useful things are listed first everywhere in the console
-const TOP_COMMANDS = ['get', 'god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'map', 'shop', 'journal', 'pet', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
+const TOP_COMMANDS = ['get', 'god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'map', 'top', 'shop', 'journal', 'pet', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
 const commandRank = k => { const i = TOP_COMMANDS.indexOf(k); return i < 0 ? 999 : i; };
 const gearRank = d => (d.admin ? 1e6 : 0) + (d.minRarity || 0) * 1e4 + (d.damage || d.armor * 100 || d.block * 100 || 0);
 const creatureRank = d => (d.boss ? 1e6 : d.hostile ? 1e4 : 0) + (d.hp || 0);
@@ -126,7 +126,7 @@ const ARG_SPECS = {
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
   item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['mythic', 'legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], items: [['*', 'bomb', 'dynamite', 'med_kit', 'speed_potion', 'strength_potion', 'invisibility_potion', 'mana_potion', 'antidote', 'golden_apple', 'ammo_box'], 'number'], tool: ['tool', 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
-  get: ['thing', 'number', ['mythic', 'legendary', 'epic', 'rare', 'common', 'equip']], build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting', 'market']], map: [['open', 'reveal', 'hide', 'markers', 'clear']], shop: [['open', 'reroll', 'sellall']], journal: [['open', 'newday', 'finish', 'unlock', 'reset']], pet: [['open', 'egg', 'give', 'hatch', 'list', 'clear'], ['chicken', 'rabbit', 'pig', 'slime', 'bat', 'wolf', 'forest_spirit', 'dragon', '5']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
+  get: ['thing', 'number', ['mythic', 'legendary', 'epic', 'rare', 'common', 'equip']], build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting', 'market']], map: [['open', 'reveal', 'hide', 'markers', 'clear']], top: [['level', 'wealth', 'kills', 'pop', 'karma', 'day']], shop: [['open', 'reroll', 'sellall']], journal: [['open', 'newday', 'finish', 'unlock', 'reset']], pet: [['open', 'egg', 'give', 'hatch', 'list', 'clear'], ['chicken', 'rabbit', 'pig', 'slime', 'bat', 'wolf', 'forest_spirit', 'dragon', '5']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
 export class AdminConsole {
@@ -1003,6 +1003,22 @@ const COMMANDS = {
       if (!e.for.includes(E.targetKind(t))) throw new Error(`${e.name} only goes on ${e.for.join('/')}`);
       const res = E.enchant(g, t, { force: { key, level: level ?? e.max } });
       this.print(res.ok ? `✓ ${E.enchName(res.key, res.level)} on ${nameOf(t)}` : `✗ ${res.why}`, res.ok ? 'ok' : 'err');
+    },
+  },
+  top: {
+    usage: 'top [level|wealth|kills|pop|karma|day]', desc: 'Who is ahead in this world: levels, riches, kills, people, karma or days played',
+    async run([by = 'level']) {
+      const keys = { level: 'level', wealth: 'wealth', kills: 'kills', pop: 'pop', karma: 'karma', day: 'day' };
+      const key = keys[by];
+      if (!key) throw new Error('top <level|wealth|kills|pop|karma|day>');
+      const mp = this.mp || this.hud?.mp;
+      const g = this.game;
+      const mine = { name: g.state.owner?.name || 'You', level: g.state.rpg?.level || 1, wealth: Math.floor((g.state.resources.gold || 0) + (g.state.resources.gems || 0) * 10), kills: Math.round(g.hero?.kills || 0), pop: g.state.villagers.length, karma: Math.round(g.state.karma), day: g.day + 1, me: true };
+      const rows = mp ? [...mp.players.map(p => ({ ...p })), ...(mp.players.some(p => p.uid === mp.uid) ? [] : [mine])] : [mine];
+      rows.sort((a, b) => (b[key] || 0) - (a[key] || 0));
+      this.print(`■ top by ${by}`, 'ok');
+      rows.slice(0, 12).forEach((p, i) => this.print(`${String(i + 1).padStart(2)}. ${(p.name || 'Someone').padEnd(16)} ${key} ${p[key] ?? 0}${p.online ? ' · online' : ''}${p.me || p.uid === mp?.uid ? ' · you' : ''}`));
+      if (!mp) this.print('(only you: this is a solo world)');
     },
   },
   map: {

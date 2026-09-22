@@ -1,6 +1,17 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Safe ground, and you can see what people carry',
+    changes: [
+      'Your home ground is safe: wandering and night monsters never spawn within 16 tiles of where you started, and any that stray in turn around and leave',
+      'An army marching on you still comes, and quests and bosses are unchanged',
+      'Monsters like zombies and skeletons almost never wander in by day: the dark things come out at night',
+      'Other players now show the weapon or tool in their hand, as well as their own look and name',
+      'Health, stamina and experience moved over the hotbar like Minecraft, and the bounty card moved out of the corner to the right',
+      'New admin command: top level, top wealth, top kills, top pop, top karma or top day',
+    ],
+  },
+  {
     title: 'Seeing each other, properly',
     changes: [
       'Fixed: your position was only sent while you watched your village, so once you started playing nobody saw you move',

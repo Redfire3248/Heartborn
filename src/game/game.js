@@ -1,6 +1,6 @@
 import { glideNetMobs } from './netMobs.js';
 import {
-  TILE, DAY_LENGTH, DAYS_PER_SEASON, SEASONS, DAYS_PER_YEAR, BASE_STORAGE, BASE_HOUSING, ADULT_AGE, MAP_W } from '../core/constants.js';
+  TILE, DAY_LENGTH, SAFE_TILES, DAYS_PER_SEASON, SEASONS, DAYS_PER_YEAR, BASE_STORAGE, BASE_HOUSING, ADULT_AGE, MAP_W } from '../core/constants.js';
 import { clamp, chance, pick, weighted } from '../core/rng.js';
 import { World, T, makeCreature } from './world.js';
 import { BUILDINGS, ERAS, sizeOf, OLD_SIZES } from '../data/buildings.js';
@@ -245,8 +245,9 @@ export class Game {
     // night dangers
     if (s.creatures.filter(c => CREATURES[c.t].hostile).length < 12) {
       if (s.karma < -20 && chance(0.35)) this.spawnRaiders(pick(['ghost', 'skeleton']), 1 + Math.floor(-s.karma / 40));
-      if (chance(0.12)) this.spawnWild(pick(theme.night), 22);
-      if (theme.night.length > 1 && chance(0.08)) this.spawnWild(pick(theme.night), 26);
+      const dayK = this.isNight ? 1 : 0.12;   // by day the dark things mostly stay away
+      if (chance(0.12 * dayK)) this.spawnWild(pick(theme.night), 22);
+      if (theme.night.length > 1 && chance(0.08 * dayK)) this.spawnWild(pick(theme.night), 26);
       if (s.villagers.length > 10 && chance(0.06)) this.spawnRaiders('goblin', 2);
     }
     if (on('warbands')) maybeScheduleWarband(this);
@@ -393,6 +394,13 @@ export class Game {
   heroSpot() {
     const v = this.hero && this.state.villagers.find(x => x.id === this.hero.id);
     return v || this._camSpot || null;
+  }
+
+  /** Your home ground: monsters keep out of it (an army marching on you is another matter). */
+  inSafeZone(x, y) {
+    const cen = this.state.center;
+    if (!cen || this.dungeon) return false;
+    return Math.hypot(x - cen.x, y - cen.y) < SAFE_TILES * TILE;
   }
 
   builtBuildings() { return this.state.buildings.filter(b => b.built && !b.theirs); }   // another player's houses stand on the shared island, but they are not your economy
@@ -551,8 +559,9 @@ export class Game {
           const a = Math.random() * Math.PI * 2, d = TILE * (11 + Math.random() * 8);   // out of view, but close enough to find you
           const tx = Math.floor((who.x + Math.cos(a) * d) / TILE), ty = Math.floor((who.y + Math.sin(a) * d) / TILE);
           if (!this.world.walkableTile(tx, ty)) continue;
+          if (this.inSafeZone(tx * TILE, ty * TILE)) continue;   // your home ground stays quiet
           const c = this.spawnCreature(pool[Math.floor(Math.random() * pool.length)], tx * TILE + TILE / 2, ty * TILE + TILE / 2);
-          if (c) c.nightSpawn = true;
+          if (c) { c.nightSpawn = true; c.wild = true; }
           break;
         }
       }
@@ -561,7 +570,10 @@ export class Game {
 
   spawnWild(type, minDist) {
     const p = this.randomLandTile(minDist, minDist + 15);
-    if (p) this.spawnCreature(type, p.x, p.y);
+    if (!p) return;
+    if (CREATURES[type]?.hostile && this.inSafeZone(p.x, p.y)) return;   // never in your home ground
+    const c = this.spawnCreature(type, p.x, p.y);
+    if (c && CREATURES[type]?.hostile) c.wild = true;   // it wandered in, so it can be sent away again
   }
 
   /** Hostiles that march on the village. */

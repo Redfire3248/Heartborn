@@ -2167,3 +2167,19 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .chat-line { pointer-events: auto; font-size: 13px; }
 /* clear of the move stick and the hotbar on a touch screen */
 @media (max-width: 900px), (max-height: 620px) { .chat-wrap { left: auto; right: 12px; bottom: 250px; width: min(280px, 58vw); align-items: flex-end; } .chat-msg { font-size: 11.5px; } }
+
+/* health, stamina and experience over the hotbar, Minecraft style */
+.vitals-strip { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 0 0 4px; pointer-events: none; }
+.vitals-strip .hero-hearts { display: flex; gap: 1px; filter: drop-shadow(0 2px 2px rgba(0,0,0,.6)); }
+.vitals-strip .hero-hearts img, .vitals-strip .hero-hearts canvas { width: 18px; height: 18px; }
+.vitals-meters { display: flex; gap: 6px; align-items: center; }
+.vitals-strip .hero-meter { width: 116px; height: 7px; border-radius: 4px; background: rgba(0,0,0,.55); border: 1px solid rgba(0,0,0,.6); overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,.45); }
+.vitals-strip .hero-meter > div { height: 100%; }
+/* the bounty card moved off the hero bar, to the right under the minimap */
+.quest-wrap { position: fixed; right: 12px; top: 150px; z-index: 12; width: min(230px, 46vw); display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+.quest-wrap > * { pointer-events: auto; }
+@media (max-width: 760px), (max-height: 520px) {
+  .quest-wrap { top: 118px; right: 6px; width: min(180px, 52vw); font-size: 11.5px; }
+  .vitals-strip .hero-hearts img, .vitals-strip .hero-hearts canvas { width: 15px; height: 15px; }
+  .vitals-strip .hero-meter { width: 92px; }
+}

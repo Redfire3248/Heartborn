@@ -64,6 +64,16 @@ export function updateCreature(g, c, dt) {
     if (def.hostile && !def.boss && !c.bounty && c.t !== 'invader' && Math.random() < 0.1) { c.elite = true; c.scale = (c.scale || 1) * 1.3; c.hp = maxHp(c); }
   }
   setLevel(g, c);   // its level decides how much it can take and how hard it hits
+  if (def.hostile && c.wild && !c.raid && !c.attackId && g.inSafeZone?.(c.x, c.y)) {   // wandered too close to home: it turns back
+    const cen = g.state.center;
+    const a = Math.atan2(c.y - cen.y, c.x - cen.x) || 0;
+    const sp = (def.speed || 30) * 1.4 * dt;
+    c.x += Math.cos(a) * sp; c.y += Math.sin(a) * sp;
+    c._flip = Math.cos(a) < 0;
+    c._walking = true;
+    c.hunting = null;
+    return;
+  }
   if (c.hp == null) c.hp = maxHp(c);
   if (c.t === 'invader' && c._archer == null) c._archer = Math.random() < 0.3;
   c._walking = false;
