@@ -7,7 +7,9 @@ import { CONSUMABLES } from '../game/consumables.js';
 import { h, icon, modal, smallIcon, TRAIT_ICON } from './dom.js';
 import { RARITY, CATALOG } from '../game/rpg.js';
 import { gearIconKey, hasArt } from '../render/gearArt.js';
-import { MATERIALS, MATERIAL_KEYS, TRAITS, forgePreview, canPay, forge, abilityOf, rollForgeBase, FORGE_TOOL_KINDS, FORGE_KEYS, POTION_NAMES, POTION_ICONS, forgeOptions, rollOption, RECIPE_GUIDE } from '../game/forging.js';
+import { MATERIALS, MATERIAL_KEYS, TRAITS, forgePreview, canPay, forge, abilityOf, rollForgeBase, FORGE_TOOL_KINDS, FORGE_KEYS, POTION_NAMES, POTION_ICONS, forgeOptions, rollOption, RECIPE_GUIDE, FORGE_WANTS } from '../game/forging.js';
+
+const WANT_ICON = { armour: 'ui/tab_gear', weapon: 'items/sword', tool: 'items/hammer' };
 import { RECIPES, needsTable, canCraft, missingToDiscover } from '../game/crafting.js';
 import { heroOf } from '../game/hero.js';
 import { forgeMinigame } from './forge.js';
@@ -71,6 +73,11 @@ export function openTableMenu(hud, { atTable = false, tab = null } = {}) {
     const sub = (k, n) => { mix[k] = Math.max(0, (mix[k] || 0) - n); render(); };
 
     // no buttons to pick a type: how many materials you put in decides it (the guide says what makes what)
+    hud._forgeWant ||= 'weapon';
+    const wants = h('div.forge-wants', ...FORGE_WANTS.map(w => h(`button.forge-want${hud._forgeWant === w.key ? '.on' : ''}`, {
+      title: w.hint,
+      onclick: () => { hud._forgeWant = w.key; play('click'); render(); },
+    }, icon(WANT_ICON[w.key], 20), w.name)));
     const kinds = h('div.faint.forge-guide', RECIPE_GUIDE);
 
     const slots = h('div.forge-slots', ...Array.from({ length: MAX_SLOTS }, (_, i) => {
@@ -88,7 +95,7 @@ export function openTableMenu(hud, { atTable = false, tab = null } = {}) {
         icon(matIcon(k), 30), h('span.mat-count', fmtN(left)));
     }), ...(owned.length ? [] : [h('div.faint', 'No materials yet. Mine ores and defeat bosses.')]));
 
-    const p = forgeOptions(mix);
+    const p = forgeOptions(mix, hud._forgeWant);
     const total = Object.values(mix).reduce((a, n) => a + n, 0);
     const makes = p.ok ? [...new Set((p.shapes || []).map(s => s.label))].join(' or ') : '';
     const preview = h('div.forge-preview',
@@ -139,7 +146,7 @@ export function openTableMenu(hud, { atTable = false, tab = null } = {}) {
       },
     }, 'Forge');
 
-    return h('div.forge-tab', kinds, slots, preview, h('div.forge-actions', h('button.btn.sm.ghost', { onclick: () => { hud._forgeMix = {}; render(); } }, 'Clear'), go), h('h3', 'Materials'), bag);
+    return h('div.forge-tab', wants, kinds, slots, preview, h('div.forge-actions', h('button.btn.sm.ghost', { onclick: () => { hud._forgeMix = {}; render(); } }, 'Clear'), go), h('h3', 'Materials'), bag);
   };
 
   // ------------------------------------------------------------ workbench

@@ -193,10 +193,26 @@ export function recipeShapes(mix) {
 /** The guide shown in the Forge: how many materials make what. */
 export const RECIPE_GUIDE = '1 shovel · 2 weapon or hoe · 3 pickaxe, axe or rod · 4 hammer, sickle or helmet · 5 helmet or shield · 6 shield or weapon · 7-8 armour · 9+ big weapons · half food: potions';
 
-/** Everything this mix could make, with its odds: [{ base, kind, toolKind, slot, chance }]. */
-export function forgeOptions(mix) {
-  const shapes = recipeShapes(mix);
+/** The three things you can ask the Forge for (potions come from food, whatever you picked). */
+export const FORGE_WANTS = [
+  { key: 'armour', name: 'Armour', of: s => s.kind === 'armour', hint: 'helmets, armour and shields: 4 to 8 materials, or 9-12 for a chance at armour' },
+  { key: 'weapon', name: 'Weapon', of: s => s.kind === 'weapon', hint: 'weapons: 2 materials for a light one, 6, 7 or 9 and up for heavy ones' },
+  { key: 'tool', name: 'Tool', of: s => s.kind === 'tool', hint: 'tools: 1 shovel, 2 hoe, 3 pickaxe, axe or rod, 4 hammer or sickle' },
+];
+
+/** Everything this mix could make, with its odds: [{ base, kind, toolKind, slot, chance }]. `want`: one of FORGE_WANTS. */
+export function forgeOptions(mix, want = null) {
+  let shapes = recipeShapes(mix);
   if (!shapes.length) return { ok: false, why: 'Put some materials in', odds: [], traits: [] };
+  const wd = want && FORGE_WANTS.find(w => w.key === want);
+  if (wd && shapes[0].kind !== 'potion') {   // food still makes potions
+    const kept = shapes.filter(wd.of);
+    if (!kept.length) {
+      const n = Object.values(mix).reduce((a, x) => a + x, 0);
+      return { ok: false, why: `${n} material${n === 1 ? '' : 's'} cannot make ${wd.name.toLowerCase()} — ${wd.hint}`, odds: [], traits: [] };
+    }
+    shapes = kept;
+  }
   const odds = [];
   let head = null, lastWhy = 'Nothing can be forged from this';
   const wsum = shapes.reduce((a, s) => a + s.w, 0);

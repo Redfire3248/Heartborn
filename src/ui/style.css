@@ -2152,3 +2152,8 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .bp-ench { font-size: 11px; padding: 1px 6px; border: 1px solid; border-radius: 999px; }
 .bp-mat { cursor: default; }
 .bp-mat-info { min-height: 18px; }
+
+/* the Forge: what are you making? */
+.forge-wants { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.forge-want { display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px; border-radius: 10px; border: 1px solid rgba(255,215,106,.3); background: rgba(0,0,0,.3); color: var(--muted, #a898bd); font: inherit; font-size: 13px; cursor: pointer; }
+.forge-want.on { color: #ffe9b0; border-color: #ffd76a; background: rgba(255,215,106,.15); }

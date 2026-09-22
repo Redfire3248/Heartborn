@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Choose what you forge',
+    changes: [
+      'The Forge has three buttons now: Armour, Weapon and Tool',
+      'How many materials you put in still decides which piece you get, and the odds show only what you asked for',
+      'If your materials cannot make it, the Forge says how many you need',
+    ],
+  },
+  {
     title: 'The Backpack: one screen for everything',
     changes: [
       'Press E for the Backpack: Character, Gear, Tools, Items and Materials in one place, with tabs like the Forge',
