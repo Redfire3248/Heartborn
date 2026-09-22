@@ -90,6 +90,11 @@ export class Renderer {
 
   render(g, dt) {
     g._camSpot = this.camera;   // where the world is being watched from, for the creatures far away
+    // how much the machine can take: measured, not guessed. Long frames switch the extras off by themselves.
+    this._frameAvg = this._frameAvg ? this._frameAvg * 0.94 + dt * 0.06 : dt;
+    const forced = (typeof localStorage !== 'undefined' && localStorage.getItem('hb-quality')) || 'auto';
+    this.lowFx = forced === 'low' ? true : forced === 'high' ? false : this._frameAvg > 0.030;   // about 33 frames a second
+    g.lowFx = this.lowFx;
     this.time += dt;
     this.lastGame = g;
     const { ctx, canvas } = this;
@@ -189,7 +194,7 @@ export class Renderer {
     this.drawBeams(g);
     this.drawStrikes(g);
     this.drawLighting(g, ox, oy, s);
-    if (!g.dungeon) this.drawWeather(g, dt);
+    if (!g.dungeon && !this.lowFx) this.drawWeather(g, dt);   // rain and snow are the first thing to go
 
     // screen-space overlays
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -390,10 +395,22 @@ export class Renderer {
           }
           // the solid rock behind the walls: near black, with a lit stone lip wherever it meets the room
           const open2 = (xx, yy) => !wall(xx, yy) || isDoor(xx, yy);
-          if (set) {   // the painted tileset: a capped wall top where it borders a room, dark rock deeper in
-            const borders = open2(x - 1, y) || open2(x + 1, y) || open2(x, y - 1) || open2(x, y + 1) || open2(x, y + 2);
-            tileArt(borders ? (rnd(x, y, 2) < 0.2 ? 'dtiles/wall_corner' : 'dtiles/wall_top') : 'dtiles/rock', X, Y);
-            if (!borders) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(X, Y, TILE, TILE); }
+          if (set) {
+            // the painted tileset. The capped top only goes where a room looks down on it from above; the sides of a
+            // corridor are plain rock with a lit edge, so a narrow passage does not turn into a ladder of stone lips
+            if (open2(x, y - 1)) {
+              tileArt(rnd(x, y, 2) < 0.18 ? 'dtiles/wall_corner' : 'dtiles/wall_top', X, Y);
+            } else {
+              tileArt('dtiles/rock', X, Y);
+              ctx.fillStyle = 'rgba(0,0,0,0.42)'; ctx.fillRect(X, Y, TILE, TILE);
+              const edge = (ex, ey, ew, eh, lx, ly, lw, lh) => {
+                ctx.fillStyle = 'rgba(92,84,108,0.85)'; ctx.fillRect(ex, ey, ew, eh);
+                ctx.fillStyle = 'rgba(150,140,172,0.75)'; ctx.fillRect(lx, ly, lw, lh);
+              };
+              if (open2(x - 1, y)) edge(X, Y, P * 0.9, TILE, X, Y, P * 0.3, TILE);
+              if (open2(x + 1, y)) edge(X + TILE - P * 0.9, Y, P * 0.9, TILE, X + TILE - P * 0.3, Y, P * 0.3, TILE);
+              if (open2(x, y + 1)) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(X, Y + TILE - P * 0.6, TILE, P * 0.6); }
+            }
             continue;
           }
           ctx.fillStyle = '#0b0910'; ctx.fillRect(X - 0.5, Y - 0.5, TILE + 1, TILE + 1);
@@ -1108,6 +1125,18 @@ export class Renderer {
       const max = maxHp(c);
       const hp = c.hp ?? max;
       if (hp < max) bar(ctx, c.x - 10, c.y - size + offsetY - 4, 20, hp / max, '#ff4a4a');
+      if (c.lvl && !def.boss && this.camera.zoom > 1.2) {   // how tough it is, next to you
+        const mine = g.state.rpg?.level || 1;
+        ctx.save();
+        ctx.font = 'bold 7px "Pixelify Sans", sans-serif'; ctx.textAlign = 'center';
+        ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(0,0,0,.85)';
+        const txt = `Lv ${c.lvl}`;
+        const y = c.y - size + offsetY - (hp < max ? 8 : 4);
+        ctx.strokeText(txt, c.x, y);
+        ctx.fillStyle = c.lvl >= mine + 5 ? '#ff6b5b' : c.lvl >= mine ? '#ffd76a' : '#9fe07a';
+        ctx.fillText(txt, c.x, y);
+        ctx.restore();
+      }
       if (c.attackId || c.t === 'invader') drawSprite(ctx, 'effects/marker_war', c.x, c.y - size + offsetY - 6, 9);
       if (c.t === 'forest_spirit' || c.t === 'dragon') {
         if (Math.random() < 0.1) g.fx.particles.push({ x: c.x + (Math.random() - 0.5) * size, y: c.y + offsetY - size * Math.random(), vx: 0, vy: -10, sprite: c.t === 'dragon' ? 'effects/flame' : 'effects/leaf', size: 6, life: 0.8, max: 0.8, rot: 0 });

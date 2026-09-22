@@ -1,6 +1,19 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Levels, Varek, and walls that look like walls',
+    changes: [
+      'Monsters have levels now: further from home, deeper underground and at night they are tougher, and their level shows over their head',
+      'A higher level means more health, a harder hit and more experience when you win',
+      'The Ashen Knight is finished: he guards every fifth floor, leaves Ashen Embers, gold, gems and a book, and goes out in a burst of fire',
+      'Dungeon corridors no longer stack stone lips like a ladder: side walls are rock with a lit edge, capped tops only where a room looks down on them',
+      'A message when another player joins or leaves your world',
+      'Other players show their own name, not the name of the character they lead',
+      'The one running the monsters now spawns them around every player, so nobody walks an empty island',
+      'Effects setting: automatic, everything, or keep it smooth for older phones',
+    ],
+  },
+  {
     title: 'A proper server',
     changes: [
       'One sky: on a server night falls for everyone at the same moment',

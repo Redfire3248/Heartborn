@@ -143,7 +143,8 @@ export class Game {
       if (c.net) continue;
       if (this.mobGuest && CREATURES[c.t]?.hostile) continue;
       if (eye) {
-        const far = Math.abs(c.x - eye.x) + Math.abs(c.y - eye.y);
+        let far = Math.abs(c.x - eye.x) + Math.abs(c.y - eye.y);
+        if (this.mobHost) for (const p of this.livePlayers || []) far = Math.min(far, Math.abs(c.x - p.x) + Math.abs(c.y - p.y));   // someone else is standing there
         if (far > NEAR_DIST * 2.4 && !c.hunting && !CREATURES[c.t]?.boss && !c.raid) continue;            // out of the loaded world: it waits
         if (far > NEAR_DIST) { if (this._slowTick % 4) continue; updateCreature(this, c, dt * 4); continue; }   // a quarter as often, four times the step
       }
@@ -530,26 +531,30 @@ export class Game {
    * creatures of this land appear, until there are plenty about. They melt away at dawn (night creatures) or stay.
    */
   nightSpawns(dt) {
-    if (this.dungeon || this.visiting || !this.hero || !this.isNight) return;
+    if (this.dungeon || this.visiting || !this.isNight) return;
     this._nightT = (this._nightT ?? 3) - dt;
     if (this._nightT > 0) return;
     this._nightT = 2 + Math.random() * 1.5;
     const s = this.state;
-    const hero = s.villagers.find(v => v.id === this.hero.id && !v.away);
-    if (!hero || this.hero.inHouse) return;
-    const near = s.creatures.filter(c => CREATURES[c.t]?.hostile && Math.hypot(c.x - hero.x, c.y - hero.y) < TILE * 28).length;
-    if (near >= 32) return;
+    const hero = this.hero && s.villagers.find(v => v.id === this.hero.id && !v.away);
+    // on a server the one running the monsters makes them for every player, so nobody walks an empty island
+    const around = [...(hero && !this.hero.inHouse ? [hero] : []), ...(this.mobHost ? (this.livePlayers || []) : [])];
+    if (!around.length) return;
     const theme = gameTheme(this);
     const pool = [...(theme.night || []), 'zombie', 'zombie', 'skeleton', 'skeleton', 'giant_spider', 'ghost'].filter(t => CREATURES[t]);
-    const n = 2 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < n; i++) {
-      for (let tries = 0; tries < 12; tries++) {
-        const a = Math.random() * Math.PI * 2, d = TILE * (11 + Math.random() * 8);   // out of view, but close enough to find you
-        const tx = Math.floor((hero.x + Math.cos(a) * d) / TILE), ty = Math.floor((hero.y + Math.sin(a) * d) / TILE);
-        if (!this.world.walkableTile(tx, ty)) continue;
-        const c = this.spawnCreature(pool[Math.floor(Math.random() * pool.length)], tx * TILE + TILE / 2, ty * TILE + TILE / 2);
-        if (c) c.nightSpawn = true;
-        break;
+    for (const who of around) {
+      const near = s.creatures.filter(c => CREATURES[c.t]?.hostile && Math.hypot(c.x - who.x, c.y - who.y) < TILE * 28).length;
+      if (near >= 32) continue;
+      const n = 2 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) {
+        for (let tries = 0; tries < 12; tries++) {
+          const a = Math.random() * Math.PI * 2, d = TILE * (11 + Math.random() * 8);   // out of view, but close enough to find you
+          const tx = Math.floor((who.x + Math.cos(a) * d) / TILE), ty = Math.floor((who.y + Math.sin(a) * d) / TILE);
+          if (!this.world.walkableTile(tx, ty)) continue;
+          const c = this.spawnCreature(pool[Math.floor(Math.random() * pool.length)], tx * TILE + TILE / 2, ty * TILE + TILE / 2);
+          if (c) c.nightSpawn = true;
+          break;
+        }
       }
     }
   }

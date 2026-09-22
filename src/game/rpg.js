@@ -525,14 +525,16 @@ const MONSTER_DROPS = {
   dark_mage:       { drops: [['gems', 1, 2, 0.5], ['gold', 3, 10, 0.5]] },
   fire_imp:        { drops: [['coal', 1, 3, 0.5], ['magmite', 1, 1, 0.08]] },
   mimic:           { drops: [['gold', 20, 60, 1], ['gems', 1, 3, 0.6]] },
+  ashen_knight:    { drops: [['gold', 150, 320, 1], ['gems', 8, 16, 1], ['ashen_ember', 1, 3, 1], ['obsidian', 3, 6, 0.8]] },
 };
 
 /** You killed something: experience, maybe loot on the ground, and quest progress. */
 export function onHeroKill(g, c, v) {
+  const lvlBonus = 1 + Math.max(0, (c?.lvl || 1) - 1) * 0.08;   // a tougher creature is worth more
   const def = CREATURES[c.t];
   if (!def) return;
   const boss = !!def.boss || !!c.bounty;
-  gainXp(g, (def.hp * (c.scale || 1)) / 3 * (boss ? 2 : 1) * (c.elite ? 2.5 : 1) + (def.hostile ? 5 : 1), v);
+  gainXp(g, ((def.hp * (c.scale || 1)) / 3 * (boss ? 2 : 1) * (c.elite ? 2.5 : 1) + (def.hostile ? 5 : 1)) * lvlBonus, v);
   if (def.hostile) {
     // Zelda-style drops: hearts when you are hurt, now and then a potion
     if (v && v.hp < (g.hero?.maxHp || 100) && Math.random() < 0.3) dropPickup(g, 'heart', c.x - 8, c.y);
@@ -540,6 +542,15 @@ export function onHeroKill(g, c, v) {
     if (boss) chestsOf(g).push({ id: `boss${Date.now().toString(36)}`, x: c.x, y: c.y + 10, boss: true });
     if (boss && Math.random() < 0.3) { giveEgg(g, 1); g.float(c.x, c.y - TILE * 2.4, 'A pet egg!', '#ffd76a'); }
     if (boss && Math.random() < 0.25) { const bk = newBook(g); g.float(c.x, c.y - TILE * 2.8, `Book: ${ENCHANT_NAME(bk)}`, '#c08aff'); }
+    if (c.t === 'ashen_knight') {   // Varek always leaves his ember, a book, and the field goes quiet
+      const bk = newBook(g);
+      g.float(c.x, c.y - TILE * 3.2, `Book: ${ENCHANT_NAME(bk)}`, '#ffb347');
+      g.fx.tint = { color: '#ffb347', strength: 0.5, life: 1.2, max: 1.2 };
+      g.fx.shake = Math.max(g.fx.shake, 3);
+      (g.fx.rings ||= []).push({ x: c.x, y: c.y - 10, r0: 8, r: TILE * 9, color: '#ffb347', width: 8, life: 1.4, max: 1.4, glow: true, spokes: 14, spin: 2 });
+      for (let i = 0; i < 26; i++) g.fx.particles.push({ x: c.x, y: c.y - 12, vx: Math.cos(i / 26 * Math.PI * 2) * 120, vy: Math.sin(i / 26 * Math.PI * 2) * 70 - 40, sprite: 'effects/flame', size: 11, life: 1.1, max: 1.1, rot: 0 });
+      g.announce?.('Varek, the Ashen Knight, falls. His fire goes out.');
+    }
   }
   if (def.hostile) {
     // what it carries: its own drops (a snake has no iron bars), bosses and ore-carriers also the local ores

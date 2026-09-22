@@ -145,6 +145,16 @@ export class Multiplayer {
     this.unsubs.push(onValue(ref(rtdb, `${this.w}presence`), snap => {
       const all = snap.val() || {};
       this.players = Object.entries(all).map(([uid, p]) => ({ uid, ...p })).sort((a, b) => (b.online - a.online) || (b.pop - a.pop));
+      // who came and who went, so the world can say so
+      const online = new Set(this.players.filter(p => p.online && p.uid !== this.uid).map(p => p.uid));
+      if (this._onlineSeen) {
+        for (const p of this.players) {
+          if (p.uid === this.uid) continue;
+          if (online.has(p.uid) && !this._onlineSeen.has(p.uid)) this.emit('joined', p);
+          if (!online.has(p.uid) && this._onlineSeen.has(p.uid)) this.emit('left', p);
+        }
+      }
+      this._onlineSeen = online;
       this.emit('players', this.players);
     }));
 
@@ -1054,7 +1064,7 @@ export class Multiplayer {
     if (!moved && now - (this._liveAt || 0) < 3000) return;   // standing still: a keep-alive now and then
     this._liveAt = now; this._liveX = v.x; this._liveY = v.y;
     set(ref(rtdb, `${this.w}live/${this.uid}`), {
-      x: Math.round(v.x), y: Math.round(v.y), name: String(v.name || this.name || 'Player').slice(0, 40),
+      x: Math.round(v.x), y: Math.round(v.y), name: String(this.name || v.name || 'Player').slice(0, 40),
       sex: v.sex === 'f' ? 'f' : 'm', walking: !!v._walking, flip: !!v._flip, dungeon: !!dungeon, a: avatarId(this.g),
       level: Math.round(level) || 1, facing, title: String(this.titleText || '').slice(0, 30), ts: now, pvp: !!this.g.state.pvp,
     }).catch(() => {});

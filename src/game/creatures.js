@@ -16,9 +16,44 @@ const BIG_KILLS = {
   skeleton:      { iron: [1, 3] },
   dragon:        { gold: [300, 600], gems: [25, 40], influence: [120, 200], text: 'THE DRAGON IS SLAIN! Legends will be sung!' },
   bear:          { text: 'A great bear was brought down.' },
+  ashen_knight:  { gold: [150, 320], gems: [8, 16], influence: [60, 120], text: 'VAREK, THE ASHEN KNIGHT, HAS FALLEN!' },
 };
 
-export const maxHp = c => Math.round(CREATURES[c.t].hp * (c.scale || 1) * (c.hpMult || 1) * (c.elite ? 1.8 : 1));
+export const maxHp = c => Math.round(CREATURES[c.t].hp * (c.scale || 1) * (c.hpMult || 1) * (c.elite ? 1.8 : 1) * levelMult(c));
+
+// ------------------------------------------------------------------ levels
+
+/**
+ * How much tougher a creature is for its level: every level adds a little health and bite.
+ * Bosses already grow with the depth they guard, so their levels count for half.
+ */
+export const levelMult = c => 1 + Math.max(0, (c.lvl || 1) - 1) * (CREATURES[c.t]?.boss ? 0.05 : 0.12);
+export const levelDmgMult = c => 1 + Math.max(0, (c.lvl || 1) - 1) * (CREATURES[c.t]?.boss ? 0.03 : 0.07);
+
+/**
+ * What level this creature should be. Far from home is rougher, deep floors rougher still,
+ * night is worse than day, and everything creeps up as the days pass — so the island grows with you.
+ */
+export function levelFor(g, c) {
+  const def = CREATURES[c.t] || {};
+  if (g.dungeon) {   // down in the dark: the floor decides
+    const depth = g.dungeon.depth || 1;
+    return Math.max(1, Math.round(2 + depth * 2 + (def.boss ? 4 : 0) + (Math.random() < 0.5 ? 0 : 1)));
+  }
+  const cen = g.state.center || { x: c.x, y: c.y };
+  const tiles = Math.hypot(c.x - cen.x, c.y - cen.y) / TILE;
+  const days = Math.max(0, Math.floor((g.day || 0) / 6));
+  const lvl = 1 + Math.floor(tiles / 14) + days + (g.isNight ? 2 : 0) + (def.boss ? 5 : 0) + (c.elite ? 2 : 0) + (Math.random() < 0.35 ? 1 : 0);
+  return Math.max(1, Math.min(99, Math.round(lvl)));
+}
+
+/** Gives a creature its level (once), which makes it tougher and hit harder. */
+export function setLevel(g, c) {
+  if (c.lvl != null) return c.lvl;
+  c.lvl = levelFor(g, c);
+  c.dmgMult = (c.dmgMult || 1) * levelDmgMult(c);
+  return c.lvl;
+}
 
 export function updateCreature(g, c, dt) {
   const def = CREATURES[c.t];
@@ -28,6 +63,7 @@ export function updateCreature(g, c, dt) {
     c._eliteRolled = true;
     if (def.hostile && !def.boss && !c.bounty && c.t !== 'invader' && Math.random() < 0.1) { c.elite = true; c.scale = (c.scale || 1) * 1.3; c.hp = maxHp(c); }
   }
+  setLevel(g, c);   // its level decides how much it can take and how hard it hits
   if (c.hp == null) c.hp = maxHp(c);
   if (c.t === 'invader' && c._archer == null) c._archer = Math.random() < 0.3;
   c._walking = false;

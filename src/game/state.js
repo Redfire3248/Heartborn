@@ -19,7 +19,7 @@ export function newState({ uid, name, villageName, seed = Math.floor(Math.random
     owner: { uid, name, villageName },
     time: 90 * 0.3,          // dawn of day one
     center: start,
-    resources: { food: 25, wood: 15, stone: 10, coal: 0, iron: 0, weapons: 0, bombs: 0, gold: 0, gems: 0, science: 0, influence: 20, copper: 0, silver: 0, obsidian: 0, mythril: 0, frostite: 0, magmite: 0, troll_hide: 0, slime_core: 0, spider_silk: 0, spirit_bark: 0, golem_heart: 0, lich_soul: 0, dragon_scale: 0, jade: 0, cobalt: 0, moonstone: 0, titanium: 0, sunstone: 0, voidstone: 0 },
+    resources: { food: 25, wood: 15, stone: 10, coal: 0, iron: 0, weapons: 0, bombs: 0, gold: 0, gems: 0, science: 0, influence: 20, copper: 0, silver: 0, obsidian: 0, mythril: 0, frostite: 0, magmite: 0, troll_hide: 0, slime_core: 0, spider_silk: 0, spirit_bark: 0, golem_heart: 0, lich_soul: 0, dragon_scale: 0, ashen_ember: 0, jade: 0, cobalt: 0, moonstone: 0, titanium: 0, sunstone: 0, voidstone: 0 },
     karma: 0,
     era: 0,
     villagers: [],
@@ -96,7 +96,7 @@ export function deserialize(json) {
   // a hero saved while down in a dungeon (the page was closed or reloaded there) comes back up to the surface
   for (const v of [...(state.villagers || []), ...(state.benched || [])]) if (v.away?.dungeon) { delete v.away; v._task = null; }
   state.resources.science ??= 0;
-  for (const k of ["copper","silver","obsidian","mythril","frostite","magmite","troll_hide","slime_core","spider_silk","spirit_bark","golem_heart","lich_soul","dragon_scale","jade","cobalt","moonstone","titanium","sunstone","voidstone"]) state.resources[k] ??= 0;
+  for (const k of ["copper","silver","obsidian","mythril","frostite","magmite","troll_hide","slime_core","spider_silk","spirit_bark","golem_heart","lich_soul","dragon_scale","ashen_ember","jade","cobalt","moonstone","titanium","sunstone","voidstone"]) state.resources[k] ??= 0;
   for (const v of state.villagers || []) v.skills.stealth ??= 0;
   for (const v of state.villagers || []) v.skills.craft ??= 0;
   state.laws ||= { government: 'council', economy: 'barter', military: 'peace', faith: 'old_gods' };

@@ -83,7 +83,7 @@ export const RES_ICON = {
   food: 'items/icon_food', wood: 'items/icon_wood', stone: 'items/icon_stone', coal: 'items/icon_coal',
   iron: 'items/icon_iron', weapons: 'items/sword', bombs: 'effects/explosion', science: 'effects/magic_orb', gold: 'items/icon_gold', gems: 'items/icon_gem', influence: 'items/icon_influence',
   copper: 'items/icon_copper', silver: 'items/icon_silver', obsidian: 'items/icon_obsidian', mythril: 'items/icon_mythril', frostite: 'items/icon_frostite', magmite: 'items/icon_magmite',
-  troll_hide: 'characters/cave_troll', slime_core: 'items/mat_slime_core', spider_silk: 'items/mat_spider_silk', spirit_bark: 'items/mat_spirit_bark', golem_heart: 'items/mat_golem_heart', lich_soul: 'items/mat_lich_soul', dragon_scale: 'items/mat_dragon_scale',
+  troll_hide: 'characters/cave_troll', slime_core: 'items/mat_slime_core', spider_silk: 'items/mat_spider_silk', spirit_bark: 'items/mat_spirit_bark', golem_heart: 'items/mat_golem_heart', lich_soul: 'items/mat_lich_soul', dragon_scale: 'items/mat_dragon_scale', ashen_ember: 'items/mat_star_shard',
   jade: 'items/icon_jade', cobalt: 'items/icon_cobalt', moonstone: 'items/icon_moonstone', titanium: 'items/icon_titanium', sunstone: 'items/icon_sunstone', voidstone: 'items/icon_voidstone',
 };
 

@@ -48,6 +48,7 @@ export const MATERIALS = {
   golem_heart:  { name: 'Golem Heart', mult: 1.75, rarity: 4, trait: 'quake', boss: 'stone_golem', icon: 'items/mat_golem_heart', pool: ['greatsword', 'maul', 'zweihander'] },
   lich_soul:    { name: 'Lich Soul', mult: 1.85, rarity: 4, trait: 'drain', boss: 'lich', icon: 'items/mat_lich_soul', pool: ['necro_staff', 'shadow_blade', 'scythe'] },
   dragon_scale: { name: 'Dragon Scale', mult: 2.1, rarity: 4, trait: 'burn', boss: 'dragon', icon: 'items/mat_dragon_scale', pool: ['flame_sword', 'holy_sword', 'thunder_sword', 'greatsword'] },
+  ashen_ember:  { name: 'Ashen Ember', mult: 2.3, rarity: 4, trait: 'quake', boss: 'ashen_knight', icon: 'items/mat_star_shard', pool: ['greatsword', 'zweihander', 'maul', 'holy_sword'] },
 };
 /**
  * How strong a tool each material forges (pickaxe power it aims at). Every ore forges a pickaxe a step above its own
@@ -56,7 +57,7 @@ export const MATERIALS = {
 export const TOOL_POWER = {
   wood: 1, stone: 2, coal: 2, food: 1, copper: 3.5, iron: 5, jade: 5.5, silver: 6, gold: 6.5, cobalt: 6.5, moonstone: 7, gems: 7,
   frostite: 8, titanium: 8, sunstone: 8, obsidian: 8.5, mythril: 10, magmite: 10.5, voidstone: 12,
-  slime_core: 8, spider_silk: 8.5, spirit_bark: 9, golem_heart: 10, lich_soul: 11, dragon_scale: 12, troll_hide: 9,
+  slime_core: 8, spider_silk: 8.5, spirit_bark: 9, golem_heart: 10, lich_soul: 11, dragon_scale: 12, ashen_ember: 13, troll_hide: 9,
 };
 
 export const BOSS_MATERIAL = Object.fromEntries(Object.entries(MATERIALS).filter(([, m]) => m.boss && !m.off).map(([k, m]) => [m.boss, k]));

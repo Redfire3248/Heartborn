@@ -172,6 +172,8 @@ export class HUD {
       mp.on('players', () => this.panel === 'world' && this.worldTab === 'players' && this.refreshPanel());
       mp.on('armies', () => this.panel === 'world' && this.worldTab === 'players' && this.refreshPanel());
       this.missionTimer = setInterval(() => { if (this.panel === 'world' && this.worldTab === 'players' && (mp.missions().length || mp.armies().length) && !this.panelEl?.matches(':hover')) this.refreshPanel(); }, 1000);
+      mp.on('joined', p => { this.toast({ text: `${p.name || 'Someone'} joined the world`, kind: 'good' }); this.announce(`${p.name || 'Someone'} joined`); });
+      mp.on('left', p => this.toast({ text: `${p.name || 'Someone'} left the world`, kind: 'info' }));
       mp.on('visitAsks', asks => this.showVisitAsks(asks));
       mp.on('players', players => {
         // rebuild bridges only when the set of neighbours (or who is online) changes
@@ -2678,6 +2680,20 @@ export class HUD {
         item('🚪', 'Sign out', this.onSignOut)),
       h('h3', 'Gameplay'),
       h('label.set-toggle', h('input', { type: 'checkbox', checked: quickCraft(), onchange: e => setQuickCraft(e.target.checked) }), h('span', 'Quick craft: skip the minigames for tools and potions')),
+      h('h3', 'Effects'),
+      (() => {
+        const now = () => { try { return localStorage.getItem('hb-quality') || 'auto'; } catch { return 'auto'; } };
+        const row = h('div.row', { style: { flexWrap: 'wrap', gap: '5px' } });
+        const draw = () => row.replaceChildren(
+          ...[['auto', 'Automatic'], ['high', 'Everything'], ['low', 'Keep it smooth']].map(([v, label]) =>
+            h(`button.btn.sm${now() === v ? '.primary' : ''}`, {
+              title: v === 'auto' ? 'Switches the extras off by itself when the game starts to stutter' : v === 'high' ? 'Weather, sparks and glows, always' : 'No weather and fewer sparks, for older phones',
+              onclick: () => { try { localStorage.setItem('hb-quality', v); } catch {} draw(); },
+            }, label)),
+          h('span.faint', { style: { alignSelf: 'center' } }, this.renderer?.lowFx ? 'now: smooth' : 'now: everything'));
+        draw();
+        return row;
+      })(),
       h('h3', 'Sound'),
       this.soundSliders(),
       h('h3', 'Controls'),
@@ -3871,7 +3887,7 @@ export class HUD {
       el = this.els.bossBar = h('div.boss-bar',
         h('div.boss-portrait', icon(art, 44)),
         h('div.boss-main',
-          h('div.boss-names', h('span.boss-name', name), h('span.boss-title', title)),
+          h('div.boss-names', h('span.boss-name', name), h('span.boss-title', boss.lvl ? `Lv ${boss.lvl} · ${title}` : title)),
           h('div.boss-track',
             h('div.boss-trail'), h('div.boss-fill'), h('div.boss-shine'),
             h('div.boss-ticks', ...Array.from({ length: 9 }, () => h('i'))),
