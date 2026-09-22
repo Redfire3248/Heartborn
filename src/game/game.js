@@ -367,7 +367,7 @@ export class Game {
   addKarma(n) { this.state.karma = clamp(this.state.karma + n, -100, 100); }
 
   // ---------- buildings ----------
-  builtBuildings() { return this.state.buildings.filter(b => b.built); }
+  builtBuildings() { return this.state.buildings.filter(b => b.built && !b.theirs); }   // another player's houses stand on the shared island, but they are not your economy
   hasBuilding(type) { return this.state.buildings.some(b => b.type === type && b.built); }
   buildingCenter(b) {
     const size = sizeOf(b);

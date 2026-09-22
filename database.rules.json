@@ -49,6 +49,16 @@
             ".write": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null) && auth.uid === $uid"
           }
         },
+        "edits": {
+          ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null)",
+          ".indexOn": [
+            "ts"
+          ],
+          ".write": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null)",
+          "$id": {
+            ".validate": "!newData.exists() || (newData.child('uid').val() === auth.uid && newData.child('t').isString())"
+          }
+        },
         "chat": {
           ".read": "($world === 'realm' || root.child('worldMembers').child($world).child(auth.uid).exists()) && (auth != null)",
           ".indexOn": [

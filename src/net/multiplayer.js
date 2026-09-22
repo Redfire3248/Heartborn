@@ -1,9 +1,10 @@
+import { hookWorldSync, applyEdit } from '../game/worldSync.js';
 import { on } from '../core/features.js';
 import { toolsOf, giveTool, dropTool } from '../game/tools.js';
 import { rpgOf } from '../game/rpg.js';
 import { cleanText } from './chatSafety.js';
 import {
-  ref, onValue, onChildAdded, onChildRemoved, push, set, update, remove, serverTimestamp,
+  ref, onValue, onChildAdded, onChildRemoved, push, set, update, remove, get, serverTimestamp,
   onDisconnect, query, orderByChild, limitToLast, runTransaction,
 } from 'firebase/database';
 import { rtdb } from './firebase.js';
@@ -84,6 +85,7 @@ export class Multiplayer {
     this.warned = new Set();
     this.sweeps = {};         // attack id -> scouting sweep timer
     this.busy = new Set();
+    this._seenEdits = new Set();   // changes to the island we have already played back
     this.lastChatAt = 0;
     this.startedAt = Date.now();
     this.listeners = {};
@@ -105,6 +107,19 @@ export class Multiplayer {
     }));
     this.presenceTimer = setInterval(() => this.heartbeat(), 30_000);
     this.warTimer = setInterval(() => this.warTick(), 1000);
+
+    // the shared world: every change anyone makes to the island (chopped, mined, paved, built, knocked down)
+    if (this.world !== 'realm') {
+      hookWorldSync(this.g, e => this.sendEdit(e));
+      const editQ = query(ref(rtdb, `${this.w}edits`), orderByChild('ts'), limitToLast(600));
+      this.unsubs.push(onChildAdded(editQ, snap => {
+        const e = snap.val();
+        if (!e || e.uid === this.uid) return;         // our own changes already happened here
+        if (this._seenEdits.has(snap.key)) return;
+        this._seenEdits.add(snap.key);
+        applyEdit(this.g, e);
+      }, () => {}));
+    }
 
     // everyone playing this world, live: the same island for all of us, so we see each other walking about
     const mine = ref(rtdb, `${this.w}live/${this.uid}`);
@@ -920,6 +935,28 @@ export class Multiplayer {
       name: disguised ? 'Traveller' : String(v.name || 'Visitor').slice(0, 40), job: disguised ? 'gather' : String(v.job || 'idle').slice(0, 20),
       walking: !!v._walking, flip: !!v._flip, ts: now, title: disguised ? '' : String(this.titleText || '').slice(0, 30),
     }).catch(() => {});
+  }
+
+  /** Tells everyone else about a change to the island. Old records are tidied away by the world's owner. */
+  sendEdit(e) {
+    if (!e || this.world === 'realm') return;
+    push(ref(rtdb, `${this.w}edits`), { ...e, uid: this.uid, ts: Date.now() }).catch(() => {});
+    this._edited = (this._edited || 0) + 1;
+    if (this._edited % 200 === 0) this.pruneEdits();
+  }
+
+  /** Keeps the log from growing for ever: the oldest records go once there are a lot of them. */
+  async pruneEdits() {
+    try {
+      const snap = await get(query(ref(rtdb, `${this.w}edits`), orderByChild('ts'), limitToLast(1200)));
+      const all = snap.val() || {};
+      const keys = Object.keys(all);
+      if (keys.length < 1100) return;
+      const oldest = keys.sort((a, b) => (all[a].ts || 0) - (all[b].ts || 0)).slice(0, keys.length - 800);
+      const gone = {};
+      for (const k of oldest) gone[k] = null;
+      await update(ref(rtdb, `${this.w}edits`), gone);
+    } catch {}
   }
 
   /**

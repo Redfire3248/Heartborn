@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'One world, shared',
+    changes: [
+      'On a server the island is now the same for everyone: chop a tree, mine a rock, pave a path, put up or knock down a building and everyone sees it',
+      'Join later and you catch up on what happened while you were away',
+      'Other players buildings stand on your island but do not feed your own stores',
+      'Mobs, loot and dungeons are still your own',
+    ],
+  },
+  {
     title: 'See each other',
     changes: [
       'Everyone playing the same server now walks the same island in front of you, with their name over their head, on the radar and on the map',
