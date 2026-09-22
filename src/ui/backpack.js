@@ -47,6 +47,7 @@ function toHotbar(g, key) {
 
 export function openBackpack(hud, tab = null) {
   if (!tab && closeIfOpen('backpack-modal')) return null;
+  if (hud.els?.invPanel) hud.els.invPanel.hidden = true;   // the little hotbar panel would sit under this one
   const g = hud.game;
   const m = modal([], { cls: 'backpack-modal', closeX: true });
   hud._bpTab = tab || hud._bpTab || 'char';

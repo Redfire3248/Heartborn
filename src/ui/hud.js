@@ -7,7 +7,7 @@ import { checkAchievements, titleOf } from '../game/journal.js';
 import { openJournal } from './journalMenu.js';
 import { openShop } from './shopMenu.js';
 import { atStall } from '../game/shop.js';
-import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo, rarityFrame, TRAIT_ICON, smallIcon } from './dom.js';
+import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, fmt, timeAgo, rarityFrame, TRAIT_ICON, smallIcon, closeIfOpen } from './dom.js';
 import { openEnchantMenu } from './enchantMenu.js';
 import { atEnchantTable, ENCHANTS, enchName } from '../game/enchanting.js';
 import { openIndex } from './indexBook.js';
@@ -829,6 +829,7 @@ export class HUD {
   /** The inventory grid opens above the hotbar: click a thing to put it in the selected slot. */
   inventory() {
     const panel = this.els.invPanel;
+    if (panel.hidden) closeIfOpen('backpack-modal');   // never both at once
     panel.hidden = !panel.hidden;
     if (!panel.hidden) this.renderInventory();
   }

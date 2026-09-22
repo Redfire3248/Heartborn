@@ -1,6 +1,12 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Playtest fixes',
+    changes: [
+      'The Backpack and the little hotbar panel no longer sit on top of each other: opening one puts the other away',
+    ],
+  },
+  {
     title: 'Fight the same monsters',
     changes: [
       'On a server one player runs the monsters for everybody, so you all see and fight the same ones',
