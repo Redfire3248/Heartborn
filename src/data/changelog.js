@@ -1,6 +1,13 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'No more food in the Forge',
+    changes: [
+      'Food is no longer a forging material: it is gone from the Forge, the material list and the recipe guide',
+      'Potions come from what you kill, chests and the Market Stall instead',
+    ],
+  },
+  {
     title: 'Teleports and tricks',
     changes: [
       'tp <player> jumps you to them, tp <player> here pulls them to you',

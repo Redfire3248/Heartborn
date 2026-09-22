@@ -20,10 +20,10 @@ const toolsOfKind = kind => Object.entries(TOOLS).filter(([, t]) => t.kind === k
 
 /** Forge materials. `mult`: power; `rarity`: 0 Common .. 4 Mythic; `trait`: given at 25%+; `pool`: weapons it leans to. */
 export const MATERIALS = {
-  // basics: wood and stone make wooden and stone things; food only goes into potions
+  // basics: wood and stone make wooden and stone things
   wood:         { name: 'Wood', mult: 0.6, rarity: 0, trait: null, icon: 'items/icon_wood', pool: ['club', 'quarterstaff', 'bow', 'slingshot'], basic: true },
   stone:        { name: 'Stone', mult: 0.75, rarity: 0, trait: null, icon: 'items/icon_stone', pool: ['club', 'hammer', 'slingshot'], basic: true },
-  food:         { name: 'Food', mult: 0.3, rarity: 0, trait: null, icon: 'items/icon_food', pool: [], basic: true, potionOnly: true },
+  food:         { off: true, name: 'Food', mult: 0.3, rarity: 0, trait: null, icon: 'items/icon_food', pool: [], basic: true, potionOnly: true },   // switched off: the Forge is for metal, not dinner
   copper:       { name: 'Copper', mult: 0.85, rarity: 0, trait: null, icon: 'items/icon_copper', pool: ['short_sword', 'dagger', 'hand_axe', 'spear', 'club'] },
   iron:         { name: 'Iron', mult: 1, rarity: 0, trait: null, icon: 'items/icon_iron', pool: ['sword', 'longsword', 'mace', 'axe', 'spear', 'halberd'] },
   coal:         { name: 'Coal', mult: 0.9, rarity: 0, trait: null, icon: 'items/icon_coal', pool: ['club', 'hammer', 'flail'], filler: true },
@@ -62,7 +62,7 @@ export const TOOL_POWER = {
 
 export const BOSS_MATERIAL = Object.fromEntries(Object.entries(MATERIALS).filter(([, m]) => m.boss && !m.off).map(([k, m]) => [m.boss, k]));
 export const MATERIAL_KEYS = Object.keys(MATERIALS).filter(k => !MATERIALS[k].off && !MATERIALS[k].basic);
-/** Everything the Forge accepts (materials plus wood, stone and food). */
+/** Everything the Forge accepts (materials plus wood and stone). */
 export const FORGE_KEYS = Object.keys(MATERIALS).filter(k => !MATERIALS[k].off);
 
 /** A drop worth a special look: boss materials and the rarest metals. Returns its rarity (0..4) or -1. */
@@ -133,7 +133,7 @@ export function forgePreview(mix, kind = 'weapon', toolKind = 'pickaxe', slot = 
     const sum = Object.values(w).reduce((a, b) => a + b, 0);
     return { ok: true, total, mult, rarity: 0, traits: [], count: Math.max(1, Math.floor(total / 3)), odds: Object.entries(w).map(([base, n]) => ({ base, chance: n / sum })).sort((a, b) => b.chance - a.chance) };
   }
-  if (entries.every(([k]) => MATERIALS[k].potionOnly)) return { ok: false, why: 'Food only makes potions', total, odds: [], traits };
+  if (entries.every(([k]) => MATERIALS[k].potionOnly)) return { ok: false, why: 'The Forge does not take food', total, odds: [], traits };
   if (kind === 'tool') {   // the materials set a power to aim at (more material aims a little higher); the dice land near it
     const aim = entries.reduce((a, [k, n]) => a + (TOOL_POWER[k] ?? MATERIALS[k].mult * 5) * n, 0) / total + Math.max(0, Math.min(1, (total - 3) * 0.05));   // copper aims at bronze, iron at iron, mythril at diamond, dragon scale near lava
     const odds0 = toolsOfKind(toolKind).map(([k, t]) => ({ base: k, w: Math.exp(-((t.power - aim) ** 2) / 1.3) })).filter(o => o.w > 0.02);
@@ -169,13 +169,12 @@ export function forgePreview(mix, kind = 'weapon', toolKind = 'pickaxe', slot = 
 }
 
 /**
- * What a handful of materials becomes, by how many you put in (like Minecraft's recipes). Half or more food makes
+ * What a handful of materials becomes, by how many you put in (like Minecraft's recipes).
  * potions. Returns the possible kinds with their weights.
  */
 export function recipeShapes(mix) {
   const total = Object.values(mix).reduce((a, n) => a + (n > 0 ? n : 0), 0);
   if (!total) return [];
-  if ((mix.food || 0) / total >= 0.5) return [{ kind: 'potion', w: 1, label: 'Potions' }];
   const T = (toolKind, w) => ({ kind: 'tool', toolKind, w, label: toolKind.replace('_', ' ') });
   const A = (slot, w) => ({ kind: 'armour', slot, w, label: slot === 'armor' ? 'armour' : slot });
   const W = (w, label = 'weapon') => ({ kind: 'weapon', w, label });
@@ -192,9 +191,9 @@ export function recipeShapes(mix) {
 }
 
 /** The guide shown in the Forge: how many materials make what. */
-export const RECIPE_GUIDE = '1 shovel · 2 weapon or hoe · 3 pickaxe, axe or rod · 4 hammer, sickle or helmet · 5 helmet or shield · 6 shield or weapon · 7-8 armour · 9+ big weapons · half food: potions';
+export const RECIPE_GUIDE = '1 shovel · 2 weapon or hoe · 3 pickaxe, axe or rod · 4 hammer, sickle or helmet · 5 helmet or shield · 6 shield or weapon · 7-8 armour · 9+ big weapons';
 
-/** The three things you can ask the Forge for (potions come from food, whatever you picked). */
+/** The three things you can ask the Forge for. */
 export const FORGE_WANTS = [
   { key: 'armour', name: 'Armour', of: s => s.kind === 'armour', hint: 'helmets, armour and shields: 4 to 8 materials, or 9-12 for a chance at armour' },
   { key: 'weapon', name: 'Weapon', of: s => s.kind === 'weapon', hint: 'weapons: 2 materials for a light one, 6, 7 or 9 and up for heavy ones' },
@@ -206,7 +205,7 @@ export function forgeOptions(mix, want = null) {
   let shapes = recipeShapes(mix);
   if (!shapes.length) return { ok: false, why: 'Put some materials in', odds: [], traits: [] };
   const wd = want && FORGE_WANTS.find(w => w.key === want);
-  if (wd && shapes[0].kind !== 'potion') {   // food still makes potions
+  if (wd) {
     const kept = shapes.filter(wd.of);
     if (!kept.length) {
       const n = Object.values(mix).reduce((a, x) => a + x, 0);
