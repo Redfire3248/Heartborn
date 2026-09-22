@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'A painted dungeon',
+    changes: [
+      'A whole new dungeon tileset: stone brick, flagstone, cracked, mossy, rubble, bones, blood and plank floors',
+      'Wall faces with cracks, chains, banners and lit grate windows, capped wall tops and near-black rock behind them',
+      'The boss room has a gold-trimmed floor with a glowing rune at its centre, and its door is a skull-locked gate',
+    ],
+  },
+  {
     title: 'A much better map',
     changes: [
       'The map fills in as you explore, like a Minecraft map: land you have not been near stays dark (on the minimap too)',
