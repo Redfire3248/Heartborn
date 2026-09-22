@@ -2165,8 +2165,8 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .chat-msg b { color: #ffd76a; margin-right: 5px; }
 .chat-msg.mine b { color: #7ee06a; }
 .chat-line { pointer-events: auto; font-size: 13px; }
-/* clear of the move stick and the hotbar on a touch screen */
-@media (max-width: 900px), (max-height: 620px) { .chat-wrap { left: auto; right: 12px; bottom: 250px; width: min(280px, 58vw); align-items: flex-end; } .chat-msg { font-size: 11.5px; } }
+/* clear of the move stick, the action buttons and the hotbar on a touch screen */
+@media (max-width: 900px), (max-height: 620px) { .chat-wrap { left: 8px; right: auto; bottom: 330px; width: min(270px, 62vw); align-items: flex-start; } .chat-msg { font-size: 11.5px; } .chat-live.open { max-height: 26vh; } }
 
 /* health, stamina and experience over the hotbar, Minecraft style */
 .vitals-strip { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 0 0 4px; pointer-events: none; }
@@ -2183,3 +2183,11 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
   .vitals-strip .hero-hearts img, .vitals-strip .hero-hearts canvas { width: 15px; height: 15px; }
   .vitals-strip .hero-meter { width: 92px; }
 }
+
+/* the chat: a log you can pin open, with a line to type in */
+.chat-btn { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; padding: 3px 9px; border-radius: 999px; border: 1px solid rgba(255,215,106,.3); background: rgba(12,8,22,.65); color: var(--muted, #a898bd); font: inherit; font-size: 11.5px; cursor: pointer; pointer-events: auto; opacity: .55; }
+.chat-btn:hover, .chat-btn.on { opacity: 1; color: #ffe9b0; border-color: #ffd76a; }
+.chat-live.open { max-height: 34vh; overflow-y: auto; padding: 4px; border-radius: 10px; background: rgba(12,8,22,.55); border: 1px solid rgba(255,255,255,.08); pointer-events: auto; }
+.chat-msg.sys-in b, .chat-msg.sys-in span { color: #8fe07a; }
+.chat-msg.sys-out span { color: #ffb3aa; }
+.chat-msg.sys-in, .chat-msg.sys-out { font-style: italic; }

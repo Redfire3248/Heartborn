@@ -168,12 +168,19 @@ export class HUD {
       // player vs player
       game.pvp = (uid, dmg, x, y, name) => mp.sendHit(uid, dmg, x, y, name);
       mp.on('pvpHit', hit => this.takePlayerHit(hit));
-      mp.on('chat', () => { this.showChat(); if (this.panel === 'world' && this.worldTab === 'chat') this.refreshPanel(); });
+      mp.on('chat', list => {
+        const last = list[list.length - 1];
+        if (last && last.id !== this._lastChatId) {
+          this._lastChatId = last.id;
+          this.addChatLine({ name: last.name || 'Someone', text: last.text, mine: last.uid === this.user?.uid });
+        }
+        if (this.panel === 'world' && this.worldTab === 'chat') this.refreshPanel();
+      });
       mp.on('players', () => this.panel === 'world' && this.worldTab === 'players' && this.refreshPanel());
       mp.on('armies', () => this.panel === 'world' && this.worldTab === 'players' && this.refreshPanel());
       this.missionTimer = setInterval(() => { if (this.panel === 'world' && this.worldTab === 'players' && (mp.missions().length || mp.armies().length) && !this.panelEl?.matches(':hover')) this.refreshPanel(); }, 1000);
-      mp.on('joined', p => { this.toast({ text: `${p.name || 'Someone'} joined the world`, kind: 'good' }); this.announce(`${p.name || 'Someone'} joined`); });
-      mp.on('left', p => this.toast({ text: `${p.name || 'Someone'} left the world`, kind: 'info' }));
+      mp.on('joined', p => { this.toast({ text: `${p.name || 'Someone'} joined the world`, kind: 'good' }); this.addChatLine({ text: `${p.name || 'Someone'} joined the world`, kind: 'sys-in' }); });
+      mp.on('left', p => { this.toast({ text: `${p.name || 'Someone'} left the world`, kind: 'info' }); this.addChatLine({ text: `${p.name || 'Someone'} left the world`, kind: 'sys-out' }); });
       mp.on('command', c => this.applyRemoteCommand(c));
       mp.on('visitAsks', asks => this.showVisitAsks(asks));
       mp.on('players', players => {
@@ -272,7 +279,9 @@ export class HUD {
     this.root.append(h('button.card.lead-btn', { title: 'Your character: level, points, gear and loot (G)', onclick: () => this.toggleLead() },
       icon('ui/character', 22), h('span.home-label', 'Character')));
     // chat while you play: Enter opens the line, what people say floats above it for a while
+    this.chatLines = [];   // what has been said and what has happened, newest last
     this.els.chatLog = h('div.chat-live');
+    this.els.chatBtn = h('button.chat-btn', { title: 'Chat (Enter). Click to keep it open', onclick: () => this.toggleChatPinned() }, icon('items/chat', 16), h('span', 'Chat'));
     this.els.chatInput = h('input.input.chat-line', { placeholder: 'Say something (Enter sends, Esc closes)', maxLength: 200, hidden: true });
     this.els.chatInput.addEventListener('keydown', e => {
       e.stopPropagation();
@@ -283,7 +292,7 @@ export class HUD {
       if (text) this.mp?.sendChat(text).catch(err => this.hint(err.message, 1600));
       this.closeChat();
     });
-    this.root.append(h('div.chat-wrap', this.els.chatLog, this.els.chatInput));
+    this.root.append(h('div.chat-wrap', this.els.chatBtn, this.els.chatLog, this.els.chatInput));
     this.els.heroBar = h('div.card.hero-bar', { hidden: true });
     this.els.heroPad = h('div.hero-pad', { hidden: true });
     this.els.hotbar = h('div.hotbar', { hidden: true });
@@ -326,7 +335,7 @@ export class HUD {
     if (this.mp && !this.abroad) {
       const hg = this.dungeon || g;
       const me = heroOf(hg) || heroOf(g);
-      if (me) this.mp.publishLive(me, { facing: hg.hero?.facing || 0, level: rpgOf(g).level, dungeon: !!this.dungeon, held: this.heldIconKey(hg, me) });
+      if (me) this.mp.publishLive(me, { facing: hg.hero?.facing || 0, level: rpgOf(g).level, dungeon: !!this.dungeon || !!g.hero?.inHouse, held: this.heldIconKey(hg, me), hp: Math.round(me.hp), maxHp: Math.round(heroStats(g).maxHp) });
     }
     if (this.follow) {
       if (!g.state.villagers.includes(this.follow)) this.follow = null;
@@ -1058,6 +1067,21 @@ export class HUD {
   }
 
   /** Another player hit you: it lands on whoever you are playing right now (not while you are in a dungeon or at home indoors). */
+  /** Adds a line to the chat log: something said, or something that happened. */
+  addChatLine(line) {
+    this.chatLines.push({ ...line, at: Date.now() });
+    if (this.chatLines.length > 80) this.chatLines.shift();
+    this.showChat();
+  }
+
+  /** Keeps the chat open (or lets it fade again). */
+  toggleChatPinned() {
+    this.chatPinned = !this.chatPinned;
+    this.els.chatBtn.classList.toggle('on', this.chatPinned);
+    this.root.classList.toggle('chat-open', this.chatPinned);
+    this.showChat();
+  }
+
   /** Opens the chat line (Enter). */
   openChat() {
     if (!this.mp) { this.hint('Chat is for worlds you share with others', 1600); return; }
@@ -1068,15 +1092,20 @@ export class HUD {
 
   closeChat() { this.els.chatInput.hidden = true; this.els.chatInput.blur(); }
 
-  /** The last few things said, fading away on their own. */
+  /** The chat log: everything while it is pinned open, or the last few lines while they are fresh. */
   showChat(keep = false) {
-    const mp = this.mp;
-    if (!mp) return;
+    const el = this.els.chatLog;
+    if (!el) return;
+    const open = keep || this.chatPinned || !this.els.chatInput.hidden;
     const now = Date.now();
-    const recent = (mp.chat || []).slice(-6).filter(m => keep || now - (m.ts || 0) < 25_000);
-    this.els.chatLog.replaceChildren(...recent.map(m => h('div.chat-msg' + (m.uid === this.user?.uid ? '.mine' : ''), h('b', m.name || 'Someone'), h('span', m.text))));
+    const lines = open ? this.chatLines.slice(-40) : this.chatLines.slice(-6).filter(m => now - m.at < 25_000);
+    el.classList.toggle('open', !!open);
+    el.replaceChildren(...lines.map(m => h(`div.chat-msg${m.kind ? `.${m.kind}` : ''}${m.mine ? '.mine' : ''}`,
+      m.name ? h('b', m.name) : null,
+      h('span', m.text))));
+    el.scrollTop = el.scrollHeight;
     clearTimeout(this._chatFade);
-    this._chatFade = setTimeout(() => { if (this.els.chatInput.hidden) this.els.chatLog.replaceChildren(); }, 25_000);
+    if (!open) this._chatFade = setTimeout(() => this.showChat(), 25_000);
   }
 
   /** The picture of whatever is in your hand right now, for the other players to see. */
@@ -1132,7 +1161,7 @@ export class HUD {
         break;
       case 'say':
         this.toast({ text: `${who}: ${String(c.text || '').slice(0, 120)}`, kind: 'event' });
-        this.announce(`${who}: ${String(c.text || '').slice(0, 120)}`);
+        this.addChatLine({ name: who, text: String(c.text || '').slice(0, 120) });
         break;
       default: break;
     }
@@ -1144,14 +1173,24 @@ export class HUD {
     const g = this.abroad?.land || this.game;
     const v = heroOf(g);
     if (!v || !g.hero) return;
+    if (hit.parry) {   // they parried your blow: you are the one left reeling
+      g.hero.stagger = Math.max(g.hero.stagger || 0, 1.2);
+      v._whiteFlash = 0.2;
+      g.float(v.x, v.y - TILE * 1.5, 'PARRIED!', '#ffd76a');
+      g.fx.shake = Math.max(g.fx.shake, 1.2);
+      return;
+    }
     const from = { x: hit.x, y: hit.y };
+    const wasBlocking = g.hero.blocking;
+    const parryWindow = g.state.time - (g.hero.blockAt || 0) < 0.32;
     const dmg = damageHero(g, v, hit.dmg, from);
+    if (!dmg && wasBlocking && parryWindow && hit.from) this.mp?.sendParry(hit.from);   // a perfect guard sends it back
     if (!dmg) return;
     v.hp -= dmg;
     v._hurtFlash = 0.25;
     g.fx.shake = Math.max(g.fx.shake, 0.6);
     g.float(v.x, v.y - TILE * 1.3, `-${Math.round(dmg)}`, '#ff6a5a');
-    if (v.hp <= 0) { knockOutHero(g, v); this.toast({ text: `${hit.name || 'Another player'} knocked you out`, kind: 'bad' }); }
+    if (v.hp <= 0) { knockOutHero(g, v); this.toast({ text: `${hit.name || 'Another player'} knocked you out`, kind: 'bad' }); this.addChatLine({ text: `${hit.name || 'Another player'} knocked you out`, kind: 'sys-out' }); }
   }
 
   leaveAbroad() {

@@ -1,6 +1,18 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Combat polish, a real chat, and loot worth the fight',
+    changes: [
+      'Step inside a house and you vanish from the island for everyone else, as you should',
+      'Combat feels heavier: sparks fly the way you swung, the screen kicks with the size of the blow, and a kill stops time for a beat',
+      'A swing pressed while the last one is still finishing is remembered, so chains never swallow your input',
+      'A ring marks whatever your next swing would land on, and your combo counts up to FINISH',
+      'Player fights: their health shows over their head, a perfect guard sends the blow back and leaves them reeling, and knockouts are announced',
+      'Chat is a proper log now: pin it open, scroll it, and see joins, leaves and knockouts in it',
+      'Weak monsters no longer hand out treasure: wolves and spiders drop scraps, only real dangers drop Epic and better',
+    ],
+  },
+  {
     title: 'No more food in the Forge',
     changes: [
       'Food is no longer a forging material: it is gone from the Forge, the material list and the recipe guide',

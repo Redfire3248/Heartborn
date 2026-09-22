@@ -170,6 +170,7 @@ export class Renderer {
     items.sort((a, b) => a.y - b.y);
     for (const it of items) it.draw();
     if (g.state.track && !g.visiting && !g.dungeon) this.drawTrackArrow(g);
+    this.drawCombatCues(g);
 
     this.drawSea(g);
     this.drawGhost(g);
@@ -583,6 +584,49 @@ export class Renderer {
     }
   }
 
+  /**
+   * Combat read-outs: a ring under whatever your next swing would land on, and the combo you are building.
+   * Both fade the moment you stop fighting, so they never clutter a quiet screen.
+   */
+  drawCombatCues(g) {
+    const h = g.hero;
+    if (!h) return;
+    const v = g.state.villagers?.find(x => x.id === h.id);
+    if (!v) return;
+    const { ctx } = this;
+    // what your swing would find: the closest foe in front of you
+    const reach = TILE * 2.6;
+    let best = null, bestD = Infinity;
+    for (const c of g.state.creatures) {
+      if (!CREATURES[c.t]?.hostile) continue;
+      const d = Math.hypot(c.x - v.x, c.y - v.y);
+      if (d > reach || d > bestD) continue;
+      if (Math.abs(((Math.atan2(c.y - v.y, c.x - v.x) - (h.facing || 0) + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > 1.1) continue;
+      best = c; bestD = d;
+    }
+    if (best) {
+      const k = 0.75 + 0.25 * Math.sin(this.time * 8);
+      ctx.save();
+      ctx.globalAlpha = 0.75;
+      ctx.strokeStyle = '#ffd76a'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(best.x, best.y + 2, 13 * k, 6 * k, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+    // the combo you are on
+    const since = g.state.time - (h.sinceAttackSwing ?? -99);
+    if (h.combo > 1 && since < 1.1) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - since / 1.1);
+      ctx.font = 'bold 11px "Pixelify Sans", sans-serif'; ctx.textAlign = 'center';
+      const txt = h.combo >= 3 ? 'FINISH!' : `x${h.combo}`;
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.85)';
+      ctx.strokeText(txt, v.x + 22, v.y - TILE * 1.5);
+      ctx.fillStyle = h.combo >= 3 ? '#ffd76a' : '#fff1cf';
+      ctx.fillText(txt, v.x + 22, v.y - TILE * 1.5);
+      ctx.restore();
+    }
+  }
+
   /** A warm glow that flickers, drawn over a flame. */
   flameGlow(x, y, r, color = '255,170,70') {
     const { ctx } = this;
@@ -721,6 +765,9 @@ export class Renderer {
       const bob = st._walking ? Math.sin(this.time * 9 + st.x) * 1.5 : 0;
       this.shadow(st.x, st.y, TILE * 0.55);
       drawSprite(this.ctx, look, st.x, st.y + bob, TILE * 1.15, { alpha: v._whiteFlash ? 0.7 : 1 });
+      if (st.hp != null && st.maxHp && st.hp < st.maxHp) {   // hurt: show how they are doing
+        bar(this.ctx, st.x - 12, st.y - TILE * 1.35, 24, Math.max(0, st.hp / st.maxHp), '#ff5b6b');
+      }
       if (st.held && hasArt(st.held)) {   // what they are carrying, in the hand facing you
         const side = st._flip ? -1 : 1;
         drawSprite(this.ctx, st.held, st.x + side * TILE * 0.42, st.y - TILE * 0.34 + bob, TILE * 0.5, { center: true, rot: side * 0.5, flip: st._flip });

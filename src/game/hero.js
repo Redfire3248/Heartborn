@@ -467,13 +467,25 @@ function bladeSpecial(g, v, c, dmg, sp, finisher) {
 
 function hitCreature(g, v, c, dmg, crit, w) {
   const had = g.state.creatures.includes(c);
+  const hpBefore = c.hp;
   damageCreature(g, c, dmg, v);
   const boss = !!CREATURES[c.t]?.boss;
+  // the blow lands: sparks the way you swung, a kick to the screen for the size of it
+  const hitAngle = Math.atan2(c.y - v.y, c.x - v.x);
+  const heavy = Math.min(1, dmg / 80);
+  for (let i = 0; i < (crit ? 7 : 4); i++) {
+    const sa = hitAngle + (Math.random() - 0.5) * 1.5;
+    g.fx.particles.push({ x: c.x, y: c.y - 10, vx: Math.cos(sa) * (70 + heavy * 160), vy: Math.sin(sa) * (70 + heavy * 160) - 20, sprite: crit ? 'effects/hit_star' : 'effects/spark', size: crit ? 9 : 6, life: 0.35, max: 0.35, rot: 0 });
+  }
+  g.fx.shake = Math.max(g.fx.shake, (crit ? 1.1 : 0.5) + heavy * 1.4);
+  const killed = had && !g.state.creatures.includes(c);
+  if (killed) { g.hitStop = Math.max(g.hitStop || 0, boss ? 0.22 : 0.12); g.fx.shake = Math.max(g.fx.shake, boss ? 3 : 1.4); }
+  void hpBefore;
   if (boss && !c._lastDmg) return;   // it rolled out of the way
   if (boss) dmg = c._lastDmg;
   gainSkill(g, v, 'combat', true);
   g.anim('combat/hit', c.x, c.y - 8, { size: crit ? 34 : 24, dur: 0.24 });
-  g.hitStop = crit ? 0.09 : 0.05;
+  g.hitStop = Math.max(g.hitStop || 0, crit ? 0.1 : 0.05);
   g.float(c.x + (Math.random() - 0.5) * 10, c.y - TILE * 0.9, String(Math.round(dmg)), crit ? '#ffd76a' : '#ffffff');
 
   // knockback: sent sliding away from the blow (heavier weapons send them further; bosses barely budge)
@@ -777,6 +789,7 @@ export function updateHero(g, dt, controls = {}) {
   const h = g.hero;
   const st = heroStats(g);
   h.cd -= dt; h.actCd -= dt; h.swing = Math.max(0, h.swing - dt);
+  h.buffer = Math.max(0, (h.buffer || 0) - dt);   // a swing asked for while the last one finishes
   h.atkCd = (h.atkCd || 0) - dt; h.dashCd = (h.dashCd || 0) - dt; h.iframes = Math.max(0, (h.iframes || 0) - dt);
   h.stagger = Math.max(0, (h.stagger || 0) - dt);
   if (v._whiteFlash > 0) v._whiteFlash -= dt;
@@ -906,7 +919,10 @@ export function updateHero(g, dt, controls = {}) {
   }
 
   // ATTACK: swing your weapon in an arc (or loose an arrow); with nothing to fight nearby it works the land
-  if (controls.act && h.atkCd <= 0 && !blocking && !h.dash) attack(g, v, st);
+  // a swing asked for while the last one is still finishing is remembered for a moment, so chains never drop an input
+  if (controls.act && !h._actHeld) h.buffer = 0.5;   // long enough to carry across a heavy weapon's recovery
+  h._actHeld = !!controls.act;
+  if ((controls.act || h.buffer > 0) && h.atkCd <= 0 && !blocking && !h.dash) { h.buffer = 0; attack(g, v, st); }
   if (g.hero !== h) return;   // the swing took you somewhere else (into a dungeon or a house)
   updateArrows(g, v, dt);
   updatePet(g, v, dt);

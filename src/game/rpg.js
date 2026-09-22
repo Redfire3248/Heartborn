@@ -303,12 +303,27 @@ export function spendPoint(g, stat) {
 
 // ------------------------------------------------------------------ loot
 
-const pickRarity = (g, boss) => {
+const pickRarity = (g, boss, cap = MYTHIC) => {
   const lvl = rpgOf(g).level;
   const roll = Math.random() * 100 - Math.min(20, lvl) - g.state.era * 2 - (boss ? 45 : 0);
-  if (boss && Math.random() < 0.04) return MYTHIC;
-  return roll < 2 ? 3 : roll < 12 ? 2 : roll < 38 ? 1 : 0;
+  if (boss && Math.random() < 0.04) return Math.min(cap, MYTHIC);
+  return Math.min(cap, roll < 2 ? 3 : roll < 12 ? 2 : roll < 38 ? 1 : 0);
 };
+
+/**
+ * What a kill is worth. A wolf is not a troll: weak things drop little, and what they do drop is plain.
+ * Danger comes from the creature's own health and bite, with elites and bosses in a class of their own.
+ */
+export function lootTier(def, c = {}) {
+  if (def.boss || c.bounty) return { chance: 1, cap: MYTHIC };
+  const danger = (def.hp || 10) / 220 + (def.damage || 0) / 26;   // wolf ~0.47, zombie ~0.65, golem ~2.7
+  if (c.elite) return { chance: 0.5, cap: danger > 1 ? 3 : 2 };
+  if (!def.hostile) return { chance: 0.02, cap: 0 };
+  if (danger < 0.55) return { chance: 0.06, cap: 0 };          // wolves, spiders, rats: scraps at best
+  if (danger < 0.9) return { chance: 0.12, cap: 1 };           // zombies, skeletons, bandits: the odd Rare
+  if (danger < 1.6) return { chance: 0.2, cap: 2 };            // the heavier monsters: up to Epic
+  return { chance: 0.3, cap: 3 };                              // the truly dangerous: up to Legendary
+}
 
 /** A piece of gear of a given kind (e.g. 'katana', 'tower', 'plate') and rarity (0 Common .. 4 Mythic; admin weapons are always 5 Admin). */
 export function makeGear(g, base, rarity = 0) {
@@ -328,8 +343,8 @@ export function makeGear(g, base, rarity = 0) {
 }
 
 /** A random piece of loot, stronger with rarity (rare kinds only drop at their rarity or above). */
-export function rollGear(g, { boss = false, slot = null, weapons = boss } = {}) {
-  const rarity = pickRarity(g, boss);
+export function rollGear(g, { boss = false, slot = null, weapons = boss, cap = MYTHIC } = {}) {
+  const rarity = pickRarity(g, boss, cap);
   const roll = Math.random();
   // weapons are crafted: only bosses drop them; everything else drops shields, armour, helmets and trinkets
   const kind = slot || (weapons && roll < 0.42 ? 'weapon' : roll < 0.62 ? 'shield' : roll < 0.8 ? 'armor' : roll < 0.9 ? 'helmet' : 'trinket');
@@ -584,9 +599,9 @@ export function onHeroKill(g, c, v) {
     questProgress(g, 'slayType', { type: c.t, v });
   }
   if (c.bounty) questProgress(g, 'bounty', { v });
-  const chance = boss || c.elite ? 1 : def.hostile ? 0.2 : 0.03;
-  if (Math.random() < chance) {
-    const it = rollGear(g, { boss: boss || !!c.elite, weapons: !!def.boss });
+  const tier = lootTier(def, c);
+  if (Math.random() < tier.chance) {
+    const it = rollGear(g, { boss: boss || !!c.elite, weapons: !!def.boss, cap: tier.cap });
     (g.state.groundItems ||= []).push({ id: it.id, gear: it, item: null, count: 1, x: c.x + (Math.random() - 0.5) * 10, y: c.y + (Math.random() - 0.5) * 10 });
     g.float(c.x, c.y - TILE * 1.2, `${RARITY[it.rarity].name} loot!`, RARITY[it.rarity].color);
   }

@@ -1076,17 +1076,19 @@ export class Multiplayer {
    * Where you are right now, for everyone else in this world (about five times a second, and only
    * when you moved). Everyone shares the island, so this is enough to see each other walking around.
    */
-  publishLive(v, { facing = 0, level = 1, dungeon = false, held = null } = {}) {
+  publishLive(v, { facing = 0, level = 1, dungeon = false, held = null, hp = null, maxHp = null } = {}) {
     if (!v) return;
     const now = this.now();
     if (now - (this._liveAt || 0) < 200) return;
-    const moved = Math.abs(v.x - (this._liveX ?? -9999)) > 1 || Math.abs(v.y - (this._liveY ?? -9999)) > 1;
+    const moved = Math.abs(v.x - (this._liveX ?? -9999)) > 1 || Math.abs(v.y - (this._liveY ?? -9999)) > 1 || hp !== this._liveHp || dungeon !== this._liveHidden;
+    this._liveHp = hp; this._liveHidden = dungeon;
     if (!moved && now - (this._liveAt || 0) < 3000) return;   // standing still: a keep-alive now and then
     this._liveAt = now; this._liveX = v.x; this._liveY = v.y;
     set(ref(rtdb, `${this.w}live/${this.uid}`), {
       x: Math.round(v.x), y: Math.round(v.y), name: String(this.name || v.name || 'Player').slice(0, 40),
       sex: v.sex === 'f' ? 'f' : 'm', walking: !!v._walking, flip: !!v._flip, dungeon: !!dungeon, a: avatarId(this.g),
       level: Math.round(level) || 1, facing, title: String(this.titleText || '').slice(0, 30), ts: now, pvp: !!this.g.state.pvp, held: held ? String(held).slice(0, 48) : null,
+      hp: hp == null ? null : Math.max(0, Math.round(hp)), maxHp: maxHp == null ? null : Math.max(1, Math.round(maxHp)),
     }).catch(() => {});
   }
 
@@ -1095,7 +1097,7 @@ export class Multiplayer {
     const now = this.now();
     return Object.entries(all).filter(([uid, s]) => uid !== this.uid && Math.abs(now - (s.ts || 0)) < 25_000 && !s.dungeon).map(([uid, s]) => {
       const old = prev.get(uid);
-      return { id: uid, uid, player: true, pvp: !!s.pvp, held: s.held || null, avatar: s.a || null, title: s.title || '', name: s.name, sex: s.sex, job: 'idle', level: s.level || 1, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
+      return { id: uid, uid, player: true, pvp: !!s.pvp, held: s.held || null, hp: s.hp ?? null, maxHp: s.maxHp ?? null, avatar: s.a || null, title: s.title || '', name: s.name, sex: s.sex, job: 'idle', level: s.level || 1, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
     });
   }
 
@@ -1122,6 +1124,12 @@ export class Multiplayer {
   }
 
   unwatchIsland() { this._islandOff?.(); this._islandOff = null; }
+
+  /** Tell a player their blow was parried, so they take the stun like a monster would. */
+  sendParry(uid) {
+    if (!uid || uid === this.uid) return;
+    push(ref(rtdb, `${this.w}pvpHits/${uid}`), { from: this.uid, name: String(this.name || 'Someone').slice(0, 40), dmg: 0, parry: true, x: 0, y: 0, ts: this.now() }).catch(() => {});
+  }
 
   /** Hit another player: they take it on their side (their dodge, guard and armour still count). */
   sendHit(uid, dmg, x, y, name) {
