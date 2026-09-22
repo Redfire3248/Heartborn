@@ -80,6 +80,9 @@ export function exploredOf(g) {
 export function exploreAround(g, tx, ty, r = EXPLORE_R) {
   if (g.visiting || g.dungeon) return;
   const bits = exploredOf(g);
+  const e = g._explored;
+  if (Math.abs(tx - (e.lastX ?? -999)) < 0.5 && Math.abs(ty - (e.lastY ?? -999)) < 0.5) return;   // you have not moved far enough to see anything new
+  e.lastX = tx; e.lastY = ty;
   if (reveal(g.world, bits, tx, ty, r)) { g._explored.version++; g._explored.dirty = true; }
 }
 
@@ -103,7 +106,9 @@ export function revealAll(g, on = true) {
 /** A canvas (1 pixel per tile) that darkens the land you have not seen, drawn smoothed so its edges are soft. */
 export function fogCanvas(g) {
   const e = g._explored || (exploredOf(g), g._explored);
-  if (e.fog && e.fogVersion === e.version) return e.fog;
+  // walking reveals new land constantly: redrawing the whole sheet every frame is wasted work on a big island
+  if (e.fog && (e.fogVersion === e.version || performance.now() - (e.fogAt || 0) < 400)) return e.fog;
+  e.fogAt = performance.now();
   const w = g.world;
   const c = e.fog || document.createElement('canvas');
   c.width = w.w; c.height = w.h;
@@ -229,7 +234,7 @@ export function openIslandMap(hud) {
     const terrain = hud.renderer?.terrain;
     const img = terrain?.world === w && terrain.overview ? terrain.overview : hud.miniBase;
     ctx.imageSmoothingEnabled = view.z < 6;
-    if (img) ctx.drawImage(img, 0, 0, w.w, w.h);
+    if (img?.width && img?.height) ctx.drawImage(img, 0, 0, w.w, w.h);   // a canvas that is not painted yet has no size
     ctx.fillStyle = 'rgba(28,70,26,0.5)';
     if (view.z > 3) for (const o of g.state.objects) if (o.t.startsWith('tree_') && o.t !== 'tree_stump') ctx.fillRect(o.x + 0.2, o.y + 0.2, 0.6, 0.6);
     // buildings: their own picture when you are close, a footprint when far

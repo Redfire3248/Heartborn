@@ -3608,7 +3608,8 @@ export class HUD {
     const terrain = this.renderer.terrain;
     const overview = terrain?.world === g.world && terrain.version === g.world.version ? terrain.overview : null;
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(overview || this.miniBase, 0, 0, g.world.w, g.world.h);
+    const base = overview?.width ? overview : this.miniBase;
+    if (base?.width && base?.height) ctx.drawImage(base, 0, 0, g.world.w, g.world.h);
     const near = (x, y, r = R + 2) => Math.abs(x - cx) < r && Math.abs(y - cy) < r;
     ctx.fillStyle = 'rgba(28,70,26,0.55)';
     for (const o of g.state.objects) if (o.t.startsWith('tree_') && o.t !== 'tree_stump' && near(o.x, o.y)) ctx.fillRect(o.x + 0.15, o.y + 0.15, 0.7, 0.7);

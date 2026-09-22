@@ -128,6 +128,10 @@ export class Game {
     if (this.day > s.lastDay) { s.lastDay = this.day; this.newDay(); }
 
     for (const v of [...s.villagers]) updateVillager(this, v, dt);
+    // sparks and smoke must never cost frames: on a slow device we keep fewer of them
+    this._frameAvg = this._frameAvg ? this._frameAvg * 0.95 + dt * 0.05 : dt;
+    const fxCap = this._frameAvg > 0.028 ? 120 : 320;   // below about 36 frames a second, trim harder
+    if (this.fx.particles.length > fxCap) this.fx.particles.splice(0, this.fx.particles.length - fxCap);
     if (this.mobGuest) glideNetMobs(this, dt);   // someone else runs the monsters: we slide them to where they are
     for (const c of [...s.creatures]) { if (c.net) continue; if (this.mobGuest && CREATURES[c.t]?.hostile) continue; updateCreature(this, c, dt); }
     if (!this.mobGuest) this.nightSpawns(dt);   // and they do the spawning too

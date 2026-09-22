@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Smoother',
+    changes: [
+      'The map fog is redrawn a few times a second instead of every frame: much lighter while you walk, especially on big islands',
+      'Sparks and smoke are capped, and a device that starts to struggle keeps fewer of them',
+      'Guarded against a rare drawing error when the map art was not ready yet',
+    ],
+  },
+  {
     title: 'Playtest fixes',
     changes: [
       'The Backpack and the little hotbar panel no longer sit on top of each other: opening one puts the other away',
