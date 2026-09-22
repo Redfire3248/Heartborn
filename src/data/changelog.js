@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'See each other',
+    changes: [
+      'Everyone playing the same server now walks the same island in front of you, with their name over their head, on the radar and on the map',
+      'Invites work from the world picker too: pick which of your servers to invite a friend to',
+      'Invitations waiting for you show in World - Friends, with Join and Decline',
+    ],
+  },
+  {
     title: 'Abilities that look like something',
     changes: [
       'Every weapon ability got a proper show: racing shockwave rings, streaks of light, a wash of colour over the screen and heavier shake',

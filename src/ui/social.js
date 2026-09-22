@@ -36,6 +36,7 @@ export function worldPicker({ user, username, lastWorld = null, listWorldSaves, 
       saves = await listWorldSaves(user.uid).catch(() => []);
       if (!saves.some(s => s.kind === 'solo')) old = await oldVillage(user.uid).catch(() => null);
       render();
+      refreshFriends();   // now that we know your servers, friends can be invited to them
     };
     if (lastWorld && !lastWorld.wid.startsWith('solo')) {
       social.getWorld(lastWorld.wid).then(async w => {
@@ -125,7 +126,11 @@ export function worldPicker({ user, username, lastWorld = null, listWorldSaves, 
       invites = alive.filter(Boolean);
       render();
     }));
-    friendsPanel(side, { user, username });
+    const friendsHolder = h('div.col');
+    side.append(friendsHolder);
+    let friendsOff = friendsPanel(friendsHolder, { user, username });
+    const refreshFriends = () => { friendsOff?.(); friendsOff = friendsPanel(friendsHolder, { user, username, worlds: (saves || []).filter(s => s.kind === 'server').map(s => ({ wid: s.wid, name: s.name })) }); };
+    unsubs.push(() => friendsOff?.());
     render();
     load();
   });
@@ -252,7 +257,7 @@ export function slotPicker({ user, worldName, listSlots, deleteSlot }) {
 // ------------------------------------------------------------------ friends
 
 /** Friends list with requests and add-by-username, rendered into `el`. */
-export function friendsPanel(el, { user, username, world = null, onProfile = null }) {
+export function friendsPanel(el, { user, username, world = null, worlds = null, onProfile = null }) {
   let friends = {};
   const err = h('div.error-text');
   const profiles = new Map();
@@ -292,9 +297,22 @@ export function friendsPanel(el, { user, username, world = null, onProfile = nul
         h('button.btn.sm.good', { onclick: () => social.acceptFriend(user.uid, uid) }, 'Accept'),
         h('button.btn.sm.ghost', { onclick: () => social.removeFriend(user.uid, uid) }, '✕'),
       ])),
-      ...entries.filter(([, st]) => st === 'friend').map(([uid]) => row(uid, world && typeof world === 'object'
-        ? [h('button.btn.sm', { onclick: async () => { await social.inviteToWorld(world, user.uid, username, uid); err.style.color = 'var(--good)'; err.textContent = `Invited ${nameOf(uid)} to ${world.name}`; } }, 'Invite')]
-        : [])),
+      ...entries.filter(([, st]) => st === 'friend').map(([uid]) => {
+        const targets = [world, ...(worlds || [])].filter(w => w && typeof w === 'object' && w.wid);
+        const seen = new Set();
+        const list = targets.filter(w => !seen.has(w.wid) && seen.add(w.wid));
+        const invite = async w => {
+          try {
+            await social.inviteToWorld(w, user.uid, username, uid);
+            err.style.color = 'var(--good)';
+            err.textContent = `Invited ${nameOf(uid)} to ${w.name}. They see it in Worlds, under Invitations.`;
+          } catch (e) { err.style.color = ''; err.textContent = `Could not invite: ${e.message}`; }
+        };
+        if (!list.length) return row(uid, []);
+        if (list.length === 1) return row(uid, [h('button.btn.sm', { title: `Invite to ${list[0].name}`, onclick: () => invite(list[0]) }, 'Invite')]);
+        const pick = h('select.input.invite-pick', { style: { maxWidth: '150px' } }, ...list.map(w => h('option', { value: w.wid }, w.name)));
+        return row(uid, [pick, h('button.btn.sm', { onclick: () => invite(list.find(w => w.wid === pick.value) || list[0]) }, 'Invite')]);
+      }),
       ...entries.filter(([, st]) => st === 'out').map(([uid]) => row(uid, [h('span.faint', 'pending'), h('button.btn.sm.ghost', { onclick: () => social.removeFriend(user.uid, uid) }, '✕')])),
       entries.length ? null : h('div.faint', 'No friends yet. Add someone by their username.'),
     ].filter(Boolean));

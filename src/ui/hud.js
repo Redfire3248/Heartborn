@@ -1,3 +1,4 @@
+import { watchInvites, declineInvite, joinWorld } from '../net/social.js';
 import { openBackpack } from './backpack.js';
 import { openIslandMap, exploreAround, saveExplored, fogCanvas } from './islandMap.js';
 import { PETS } from '../game/pets.js';
@@ -369,6 +370,7 @@ export class HUD {
       if (abroad && me && this.mp && abroad.hostUid) this.mp.publishStranger(abroad.hostUid, abroad.strangerId, me, { disguised: abroad.role === 'spy' });
       // at home with visitors about: they see you walking too (so you can fight)
       else if (!abroad && !this.dungeon && me && this.mp && this.user && g.strangers?.length) this.mp.publishStranger(this.user.uid, `host_${this.user.uid}`, me);
+      if (me && this.mp && !abroad) this.mp.publishLive(me, { facing: g.hero?.facing || 0, level: rpgOf(g).level, dungeon: !!this.dungeon });   // the other players see you walking
     }
     this.tickTimer -= dt;
     if (this.tickTimer > 0) return;
@@ -2286,7 +2288,21 @@ export class HUD {
       h('button.btn.sm', { onclick: () => this.onSwitchWorld?.() }, '🌍 Switch world')));
     if (this.worldTab === 'friends') {
       const holder = h('div.col');
-      body.append(holder);
+      const invites = h('div.col');
+      body.append(invites, holder);
+      this.inviteUnsub?.();
+      this.inviteUnsub = watchInvites(this.user.uid, list => {   // worlds friends asked you to join
+        invites.replaceChildren(...(list.length ? [
+          h('h3', 'Invitations'),
+          ...list.map(inv => h('div.player',
+            icon('items/scroll', 28), h('div', h('div.pname', inv.name), h('div.faint', `${inv.fromName} invited you`)),
+            h('div.row', { style: { gap: '4px' } },
+              h('button.btn.sm.ghost', { onclick: () => declineInvite(this.user.uid, inv.wid).catch(() => {}) }, 'Decline'),
+              h('button.btn.sm.good', { onclick: async () => {
+                try { await joinWorld(this.user.uid, inv.wid, inv.name); this.hint(`Joined ${inv.name}. Use Switch world to play there.`, 2600); } catch (e) { this.hint(e.message, 2200); }
+              } }, 'Join')))),
+        ] : []));
+      });
       this.friendsUnsub = friendsPanel(holder, { user: this.user, username: this.username, world: isPrivate ? w : null });
       return [this.head('items/alliance', 'World', 'Friends & invites'), tabs, body];
     }
@@ -3608,7 +3624,7 @@ export class HUD {
       if (!def?.hostile) continue;
       mark(c.x / TILE, c.y / TILE, def.boss ? '#ff2a1f' : '#ff6b5b', (def.boss ? 6 : 3.5) * (def.boss ? pulse : 1));
     }
-    for (const o of g.strangers || []) mark(o.x / TILE, o.y / TILE, '#5aa9ff', 4);
+    for (const o of [...(g.strangers || []), ...(g.livePlayers || [])]) mark(o.x / TILE, o.y / TILE, '#5aa9ff', 4);
     ctx.restore();
     // markers: pins inside the radar, arrows on its rim for the ones further away
     ctx.setTransform(1, 0, 0, 1, 0, 0);

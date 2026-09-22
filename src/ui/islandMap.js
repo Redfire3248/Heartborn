@@ -215,7 +215,7 @@ export function openIslandMap(hud) {
       if ((def.boss || c.bounty) && layers.bosses) out.push({ x, y, sprite: def.sprite, name: `${def.boss ? 'Boss' : 'Bounty'}: ${def.name || c.t.replace(/_/g, ' ')}`, size: 26, ring: def.boss ? '#ff2a1f' : '#ffcf3a' });
       else if (def.hostile && layers.mobs && Math.hypot(x - hx, y - hy) < 26) out.push({ x, y, dot: '#ff6b5b', name: def.name || c.t.replace(/_/g, ' '), size: 7 });
     }
-    if (layers.players) for (const o of g.strangers || []) out.push({ x: o.x / TILE, y: o.y / TILE, dot: '#5aa9ff', name: o.name || 'Player', size: 9, label: o.name });
+    if (layers.players) for (const o of [...(g.strangers || []), ...(g.livePlayers || [])]) out.push({ x: o.x / TILE, y: o.y / TILE, dot: '#5aa9ff', name: o.name || 'Player', size: 9, label: o.name });
     return out;
   };
 

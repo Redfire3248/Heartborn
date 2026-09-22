@@ -137,7 +137,7 @@ export class Renderer {
     }
     // strangers from other lands (visitors, spies dressed as travellers), gliding to where they really are
     if (g.petBody && !g.visiting) { const pb = g.petBody; if (inView(pb.x, pb.y)) items.push({ y: pb.y, draw: () => this.drawPet(pb) }); }
-    for (const st of g.strangers || []) {
+    for (const st of [...(g.strangers || []), ...(g.livePlayers || [])]) {   // visitors, and the other players sharing this world
       st.x += (st.tx - st.x) * Math.min(1, dt * 8); st.y += (st.ty - st.y) * Math.min(1, dt * 8);
       if (inView(st.x, st.y)) items.push({ y: st.y, draw: () => this.drawStranger(g, st) });
     }

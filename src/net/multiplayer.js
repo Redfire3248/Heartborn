@@ -106,6 +106,15 @@ export class Multiplayer {
     this.presenceTimer = setInterval(() => this.heartbeat(), 30_000);
     this.warTimer = setInterval(() => this.warTick(), 1000);
 
+    // everyone playing this world, live: the same island for all of us, so we see each other walking about
+    const mine = ref(rtdb, `${this.w}live/${this.uid}`);
+    onDisconnect(mine).remove();
+    this.unsubs.push(onValue(ref(rtdb, `${this.w}live`), snap => {
+      const prev = new Map((this.g.livePlayers || []).map(s => [s.id, s]));
+      this.g.livePlayers = this.livePlayerList(snap.val() || {}, prev);
+      this.emit('livePlayers', this.g.livePlayers);
+    }, () => {}));
+
     this.unsubs.push(onValue(ref(rtdb, `${this.w}presence`), snap => {
       const all = snap.val() || {};
       this.players = Object.entries(all).map(([uid, p]) => ({ uid, ...p })).sort((a, b) => (b.online - a.online) || (b.pop - a.pop));
@@ -912,6 +921,35 @@ export class Multiplayer {
       walking: !!v._walking, flip: !!v._flip, ts: now, title: disguised ? '' : String(this.titleText || '').slice(0, 30),
     }).catch(() => {});
   }
+
+  /**
+   * Where you are right now, for everyone else in this world (about five times a second, and only
+   * when you moved). Everyone shares the island, so this is enough to see each other walking around.
+   */
+  publishLive(v, { facing = 0, level = 1, dungeon = false } = {}) {
+    if (!v) return;
+    const now = Date.now();
+    if (now - (this._liveAt || 0) < 200) return;
+    const moved = Math.abs(v.x - (this._liveX ?? -9999)) > 1 || Math.abs(v.y - (this._liveY ?? -9999)) > 1;
+    if (!moved && now - (this._liveAt || 0) < 3000) return;   // standing still: a keep-alive now and then
+    this._liveAt = now; this._liveX = v.x; this._liveY = v.y;
+    set(ref(rtdb, `${this.w}live/${this.uid}`), {
+      x: Math.round(v.x), y: Math.round(v.y), name: String(v.name || this.name || 'Player').slice(0, 40),
+      sex: v.sex === 'f' ? 'f' : 'm', walking: !!v._walking, flip: !!v._flip, dungeon: !!dungeon,
+      level: Math.round(level) || 1, facing, title: String(this.titleText || '').slice(0, 30), ts: now,
+    }).catch(() => {});
+  }
+
+  /** The other players in this world (never you), gliding from where they were to where they are. */
+  livePlayerList(all, prev) {
+    const now = Date.now();
+    return Object.entries(all).filter(([uid, s]) => uid !== this.uid && now - (s.ts || 0) < 15_000 && !s.dungeon).map(([uid, s]) => {
+      const old = prev.get(uid);
+      return { id: uid, uid, player: true, title: s.title || '', name: s.name, sex: s.sex, job: 'idle', level: s.level || 1, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
+    });
+  }
+
+  clearLive() { remove(ref(rtdb, `${this.w}live/${this.uid}`)).catch(() => {}); }
 
   /** Everyone walking an island (not you), gliding from where they were to where they are. */
   strangerList(all, prev) {
