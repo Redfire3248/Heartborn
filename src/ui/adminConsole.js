@@ -111,7 +111,7 @@ const HISTORY_KEY = 'hb_admin_history';
 // What each argument position expects, for autocomplete + hints.
 // Arrays are fixed choices; '...' repeats the pair before it (give res n res n …).
 // the strongest, most useful things are listed first everywhere in the console
-const TOP_COMMANDS = ['get', 'god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'map', 'top', 'shop', 'journal', 'pet', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
+const TOP_COMMANDS = ['get', 'god', 'gear', 'enchant', 'items', 'tool', 'rich', 'trade', 'trades', 'station', 'map', 'troll', 'shop', 'journal', 'pet', 'give', 'level', 'potions', 'heal', 'tp', 'kill', 'chest', 'spawn', 'dungeon', 'speed', 'stats', 'help'];
 const commandRank = k => { const i = TOP_COMMANDS.indexOf(k); return i < 0 ? 999 : i; };
 const gearRank = d => (d.admin ? 1e6 : 0) + (d.minRarity || 0) * 1e4 + (d.damage || d.armor * 100 || d.block * 100 || 0);
 const creatureRank = d => (d.boss ? 1e6 : d.hostile ? 1e4 : 0) + (d.hp || 0);
@@ -126,7 +126,7 @@ const ARG_SPECS = {
   errors: [['15', 'clear']], reports: [['15', 'clear']],
   villager: ['number'], changelog: ['number'], rich: ['number'], time: ['number'],
   item: ['item', 'number', 'villager'], drop: ['item', 'number'], gear: ['gear', ['mythic', 'legendary', 'epic', 'rare', 'common', '*'], 'number', ['equip']], missile: [['nuke', 'missile', 'orbital'], 'target'], nuke: ['target'], dungeon: [['1', '2', '3', '5', 'leave']], items: [['*', 'bomb', 'dynamite', 'med_kit', 'speed_potion', 'strength_potion', 'invisibility_potion', 'mana_potion', 'antidote', 'golden_apple', 'ammo_box'], 'number'], tool: ['tool', 'number'], person: [['1', '5', '*'], 'personopt', 'personopt', 'personopt', 'personopt', 'personopt', 'personopt'],
-  get: ['thing', 'number', ['mythic', 'legendary', 'epic', 'rare', 'common', 'equip']], build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting', 'market']], map: [['open', 'reveal', 'hide', 'markers', 'clear']], top: [['level', 'wealth', 'kills', 'pop', 'karma', 'day']], shop: [['open', 'reroll', 'sellall']], journal: [['open', 'newday', 'finish', 'unlock', 'reset']], pet: [['open', 'egg', 'give', 'hatch', 'list', 'clear'], ['chicken', 'rabbit', 'pig', 'slime', 'bat', 'wolf', 'forest_spirit', 'dragon', '5']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
+  get: ['thing', 'number', ['mythic', 'legendary', 'epic', 'rare', 'common', 'equip']], build: ['building', 'number'], enchant: ['enchant', 'number', ['weapon', 'armor', 'helmet', 'shield', 'tool']], trade: ['player'], trades: [['accept', 'decline'], 'number'], station: [['enchanting', 'crafting', 'market']], map: [['open', 'reveal', 'hide', 'markers', 'clear']], troll: [['player'], ['freeze', 'launch', 'boom', 'spook', 'bring', 'goto', 'swap', 'say', 'mobs', 'list']], shop: [['open', 'reroll', 'sellall']], journal: [['open', 'newday', 'finish', 'unlock', 'reset']], pet: [['open', 'egg', 'give', 'hatch', 'list', 'clear'], ['chicken', 'rabbit', 'pig', 'slime', 'bat', 'wolf', 'forest_spirit', 'dragon', '5']], index: [['*', 'clear']], empire: [['list', 'event', 'discover', 'war', 'win', 'peace'], ['*', '1', '2', '3']],
 };
 
 export class AdminConsole {
@@ -419,6 +419,13 @@ export class AdminConsole {
     const fmtRow = r => cols.map((c, i) => String(r[c] ?? '').padEnd(widths[i])).join('  ');
     this.print(fmtRow(Object.fromEntries(cols.map(c => [c, c.toUpperCase()]))), 'accent');
     for (const r of rows) this.print(fmtRow(r));
+  }
+
+  /** A player on your island, by name (any capitalisation, or the start of it). */
+  playerSpot(name) {
+    const list = this.game?.livePlayers || [];
+    const want = String(name || '').toLowerCase();
+    return list.find(p => (p.name || '').toLowerCase() === want) || list.find(p => (p.name || '').toLowerCase().startsWith(want)) || null;
   }
 
   async run(line) {
@@ -1005,20 +1012,49 @@ const COMMANDS = {
       this.print(res.ok ? `✓ ${E.enchName(res.key, res.level)} on ${nameOf(t)}` : `✗ ${res.why}`, res.ok ? 'ok' : 'err');
     },
   },
-  top: {
-    usage: 'top [level|wealth|kills|pop|karma|day]', desc: 'Who is ahead in this world: levels, riches, kills, people, karma or days played',
-    async run([by = 'level']) {
-      const keys = { level: 'level', wealth: 'wealth', kills: 'kills', pop: 'pop', karma: 'karma', day: 'day' };
-      const key = keys[by];
-      if (!key) throw new Error('top <level|wealth|kills|pop|karma|day>');
-      const mp = this.mp || this.hud?.mp;
+  troll: {
+    usage: 'troll <player> <freeze|launch|boom|spook|bring|goto|swap|mobs|say ...>', desc: 'Have a laugh with someone in your world: freeze them, launch them, spook them, pull them to you, swap places, or drop monsters on them. "troll list" shows who is here.',
+    async run([who, what = 'spook', ...rest]) {
       const g = this.game;
-      const mine = { name: g.state.owner?.name || 'You', level: g.state.rpg?.level || 1, wealth: Math.floor((g.state.resources.gold || 0) + (g.state.resources.gems || 0) * 10), kills: Math.round(g.hero?.kills || 0), pop: g.state.villagers.length, karma: Math.round(g.state.karma), day: g.day + 1, me: true };
-      const rows = mp ? [...mp.players.map(p => ({ ...p })), ...(mp.players.some(p => p.uid === mp.uid) ? [] : [mine])] : [mine];
-      rows.sort((a, b) => (b[key] || 0) - (a[key] || 0));
-      this.print(`■ top by ${by}`, 'ok');
-      rows.slice(0, 12).forEach((p, i) => this.print(`${String(i + 1).padStart(2)}. ${(p.name || 'Someone').padEnd(16)} ${key} ${p[key] ?? 0}${p.online ? ' · online' : ''}${p.me || p.uid === mp?.uid ? ' · you' : ''}`));
-      if (!mp) this.print('(only you: this is a solo world)');
+      const mp = this.mp || this.hud?.mp;
+      if (!mp) throw new Error('this only works in a world you share with others');
+      const here = (g.livePlayers || []);
+      if (!who || who === 'list') {
+        if (!here.length) this.print('nobody else is on this island right now');
+        for (const p of here) this.print(`${p.name} · ${Math.round(Math.hypot(p.x - (heroOf(g)?.x || 0), p.y - (heroOf(g)?.y || 0)) / 32)} tiles away`);
+        return;
+      }
+      const spot = this.playerSpot(who);
+      if (!spot) throw new Error(`no player called "${who}" on this island (troll list)`);
+      const me = heroOf(this.hud?.dungeon || g);
+      if (what === 'bring') { mp.sendCommand(spot.uid, { t: 'tp', x: Math.round(me.x), y: Math.round(me.y) }); this.print(`✓ ${spot.name} is on their way to you`, 'ok'); return; }
+      if (what === 'goto') { me.x = spot.x; me.y = spot.y; if (this.hud) Object.assign(this.hud.renderer.camera, { x: me.x, y: me.y }); this.print(`✓ you are standing on ${spot.name}`, 'ok'); return; }
+      if (what === 'swap') {
+        const mx = me.x, my = me.y;
+        me.x = spot.x; me.y = spot.y;
+        if (this.hud) Object.assign(this.hud.renderer.camera, { x: me.x, y: me.y });
+        mp.sendCommand(spot.uid, { t: 'tp', x: Math.round(mx), y: Math.round(my) });
+        this.print(`✓ swapped places with ${spot.name}`, 'ok'); return;
+      }
+      if (what === 'mobs') {
+        const n = Math.min(12, Number(rest[0]) || 4);
+        let made = 0;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2, d = 48 + Math.random() * 40;
+          if (g.spawnCreature('zombie', spot.x + Math.cos(a) * d, spot.y + Math.sin(a) * d)) made++;
+        }
+        mp.sendCommand(spot.uid, { t: 'spook' });
+        this.print(made ? `✓ ${made} zombies around ${spot.name}` : '✗ nowhere to put them', made ? 'ok' : 'err'); return;
+      }
+      if (what === 'say') {
+        const text = rest.join(' ');
+        if (!text) throw new Error('troll <player> say <what to tell them>');
+        mp.sendCommand(spot.uid, { t: 'say', text });
+        this.print(`✓ told ${spot.name}: ${text}`, 'ok'); return;
+      }
+      if (!['freeze', 'launch', 'boom', 'spook'].includes(what)) throw new Error('troll <player> <freeze|launch|boom|spook|bring|goto|swap|mobs|say>');
+      mp.sendCommand(spot.uid, { t: what, s: Number(rest[0]) || undefined });
+      this.print(`✓ ${what} on ${spot.name}`, 'ok');
     },
   },
   map: {
@@ -1267,8 +1303,22 @@ const COMMANDS = {
     run([n = '10']) { rpgOf(this.game).potions = Math.max(0, Math.floor(Number(n) || 0)); this.game.emit('change'); this.print(`✓ ${rpgOf(this.game).potions} potions`, 'ok'); },
   },
   tp: {
-    usage: 'tp <cursor|home|cave|boss|key|exit|x y>', desc: 'Teleport your hero (in a dungeon: boss, key, exit)',
+    usage: 'tp <cursor|home|cave|boss|key|exit|x y|player [here]>', desc: 'Teleport your hero, or tp <player> to jump to them, tp <player> here to pull them to you',
     run([where = 'cursor', y]) {
+      const other = where && this.playerSpot?.(where);   // a player by name: go to them, or pull them here
+      if (other) {
+        const me = heroOf(this.hud?.dungeon || this.game);
+        if (!me) throw new Error('no hero');
+        if (y === 'here' || y === 'me') {
+          this.mp.sendCommand(other.uid, { t: 'tp', x: Math.round(me.x), y: Math.round(me.y) });
+          this.print(`✓ pulled ${other.name} to you`, 'ok');
+          return;
+        }
+        me.x = other.x; me.y = other.y;
+        if (this.hud) Object.assign(this.hud.renderer.camera, { x: me.x, y: me.y });
+        this.print(`✓ teleported to ${other.name}`, 'ok');
+        return;
+      }
       const dg = this.hud?.dungeon;
       const g = dg || this.game;
       const v = heroOf(g);

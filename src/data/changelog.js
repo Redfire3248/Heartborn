@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Teleports and tricks',
+    changes: [
+      'tp <player> jumps you to them, tp <player> here pulls them to you',
+      'New troll command: freeze, launch, boom, spook, bring, goto, swap, mobs and say, plus troll list to see who is on your island',
+      'Only the owner of a world can push its players about, and whoever is on the end of it always sees who did it',
+      'The top leaderboard command is gone',
+    ],
+  },
+  {
     title: 'Safe ground, and you can see what people carry',
     changes: [
       'Your home ground is safe: wandering and night monsters never spawn within 16 tiles of where you started, and any that stray in turn around and leave',

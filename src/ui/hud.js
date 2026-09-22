@@ -174,6 +174,7 @@ export class HUD {
       this.missionTimer = setInterval(() => { if (this.panel === 'world' && this.worldTab === 'players' && (mp.missions().length || mp.armies().length) && !this.panelEl?.matches(':hover')) this.refreshPanel(); }, 1000);
       mp.on('joined', p => { this.toast({ text: `${p.name || 'Someone'} joined the world`, kind: 'good' }); this.announce(`${p.name || 'Someone'} joined`); });
       mp.on('left', p => this.toast({ text: `${p.name || 'Someone'} left the world`, kind: 'info' }));
+      mp.on('command', c => this.applyRemoteCommand(c));
       mp.on('visitAsks', asks => this.showVisitAsks(asks));
       mp.on('players', players => {
         // rebuild bridges only when the set of neighbours (or who is online) changes
@@ -1087,6 +1088,55 @@ export class HUD {
       const w = heroWeapon(g, v);
       return gearIconKey(w) || null;
     } catch { return null; }
+  }
+
+  /** Someone sent us a command: a teleport, or one of the owner's tricks. */
+  applyRemoteCommand(c) {
+    const g = this.dungeon || this.game;
+    const v = heroOf(g) || heroOf(this.game);
+    if (!v || !c) return;
+    const who = c.name || 'Someone';
+    const puff = () => { g.puff({ x: v.x, y: v.y - 10 }, 'effects/magic_orb', 10, 16); g.fx.shake = Math.max(g.fx.shake, 1.2); };
+    switch (c.t) {
+      case 'tp':
+        if (this.dungeon) { this.hint(`${who} tried to move you, but you are underground`, 2000); return; }
+        v.x = c.x; v.y = c.y;
+        Object.assign(this.renderer.camera, { x: v.x, y: v.y });
+        puff();
+        this.toast({ text: `${who} pulled you to them`, kind: 'event' });
+        break;
+      case 'freeze':
+        g.hero.stagger = Math.max(g.hero.stagger || 0, Math.min(8, c.s || 4));   // rooted to the spot for a moment
+        (g.fx.rings ||= []).push({ x: v.x, y: v.y - 8, r0: 4, r: 40, color: '#9fd4ff', width: 4, life: 0.6, max: 0.6, glow: true });
+        this.toast({ text: `${who} froze you on the spot`, kind: 'bad' });
+        break;
+      case 'launch': {
+        const a = Math.random() * Math.PI * 2;
+        g.hero.kbx = Math.cos(a) * TILE * 14; g.hero.kby = Math.sin(a) * TILE * 14;
+        v.x += Math.cos(a) * 60; v.y += Math.sin(a) * 60;
+        puff();
+        this.toast({ text: `${who} sent you flying`, kind: 'bad' });
+        break;
+      }
+      case 'boom':
+        g.anim('combat/poof', v.x, v.y - 6, { size: TILE * 5, dur: 0.5 });
+        g.fx.tint = { color: '#ff9a3a', strength: 0.35, life: 0.5, max: 0.5 };
+        g.fx.shake = Math.max(g.fx.shake, 3);
+        play('boom');
+        this.toast({ text: `${who} set off a bang under your feet`, kind: 'bad' });
+        break;
+      case 'spook':
+        for (let i = 0; i < 8; i++) g.puff({ x: v.x + (Math.random() - 0.5) * 60, y: v.y - 10 - Math.random() * 20 }, 'effects/ghost_wisp', 3, 10);
+        g.fx.tint = { color: '#2a0d3f', strength: 0.5, life: 1.2, max: 1.2 };
+        this.toast({ text: `${who} gave you a fright`, kind: 'event' });
+        break;
+      case 'say':
+        this.toast({ text: `${who}: ${String(c.text || '').slice(0, 120)}`, kind: 'event' });
+        this.announce(`${who}: ${String(c.text || '').slice(0, 120)}`);
+        break;
+      default: break;
+    }
+    g.emit?.('change');
   }
 
   takePlayerHit(hit) {

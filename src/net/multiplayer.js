@@ -990,6 +990,13 @@ export class Multiplayer {
     this.unsubs.push(onValue(ref(rtdb, `${this.w}mobs`), snap => {
       if (this.g.mobGuest) applyNetMobs(this.g, snap.val() || {});
     }, () => {}));
+    // commands sent straight to us (a teleport, or someone having a laugh)
+    this.unsubs.push(onChildAdded(ref(rtdb, `${this.w}cmds/${this.uid}`), snap => {
+      const c = snap.val();
+      remove(snap.ref).catch(() => {});
+      if (c && Math.abs(this.now() - (c.ts || 0)) < 30_000) this.emit('command', c);
+    }, () => {}));
+
     // the host takes the blows everyone else lands
     this.unsubs.push(onChildAdded(ref(rtdb, `${this.w}mobHits/${this.uid}`), snap => {
       const hit = snap.val();
@@ -1010,6 +1017,15 @@ export class Multiplayer {
       const v = this.g.state.villagers?.find(x => x.id === this.g.hero?.id);
       if (v) { this.g.hero.kills = (this.g.hero.kills || 0) + 1; onHeroKill(this.g, { t: k.t, x: k.x, y: k.y }, v); }
     }, () => {}));
+  }
+
+  /**
+   * A command aimed at one player (teleports and the tricks the world's owner can play).
+   * It lands on their machine, which decides what to do with it.
+   */
+  sendCommand(uid, cmd) {
+    if (!uid || uid === this.uid) return;
+    push(ref(rtdb, `${this.w}cmds/${uid}`), { ...cmd, from: this.uid, name: this.name, ts: this.now() }).catch(() => {});
   }
 
   /** A guest's blow, sent to whoever runs the monsters. */
