@@ -319,6 +319,12 @@ export class HUD {
   // ------------------------------------------------------------ per-frame
   tick(dt) {
     const g = this.game;
+    // where you are, for everyone else in this world — however you are playing right now
+    if (this.mp && !this.abroad) {
+      const hg = this.dungeon || g;
+      const me = heroOf(hg) || heroOf(g);
+      if (me) this.mp.publishLive(me, { facing: hg.hero?.facing || 0, level: rpgOf(g).level, dungeon: !!this.dungeon });
+    }
     if (this.follow) {
       if (!g.state.villagers.includes(this.follow)) this.follow = null;
       else {
@@ -385,7 +391,6 @@ export class HUD {
       if (abroad && me && this.mp && abroad.hostUid) this.mp.publishStranger(abroad.hostUid, abroad.strangerId, me, { disguised: abroad.role === 'spy' });
       // at home with visitors about: they see you walking too (so you can fight)
       else if (!abroad && !this.dungeon && me && this.mp && this.user && g.strangers?.length) this.mp.publishStranger(this.user.uid, `host_${this.user.uid}`, me);
-      if (me && this.mp && !abroad) this.mp.publishLive(me, { facing: g.hero?.facing || 0, level: rpgOf(g).level, dungeon: !!this.dungeon });   // the other players see you walking
     }
     this.tickTimer -= dt;
     if (this.tickTimer > 0) return;

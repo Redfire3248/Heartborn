@@ -103,7 +103,11 @@ export class Multiplayer {
   on(name, fn) { (this.listeners[name] ||= []).push(fn); }
   emit(name, data) { for (const fn of this.listeners[name] || []) fn(data); }
 
+  /** The time as the server sees it: two phones whose clocks disagree still agree on this. */
+  now() { return Date.now() + (this.timeOffset || 0); }
+
   start() {
+    this.unsubs.push(onValue(ref(rtdb, '.info/serverTimeOffset'), snap => { this.timeOffset = snap.val() || 0; }, () => {}));
     const me = ref(rtdb, `${this.w}presence/${this.uid}`);
     this.unsubs.push(onValue(ref(rtdb, '.info/connected'), snap => {
       if (!snap.val()) return;
@@ -947,7 +951,7 @@ export class Multiplayer {
   // ---------------- strangers: people from other lands walking in yours ----------------
   /** Where you are in someone else's land, so they see you walking about (a spy shows as a nameless traveller). */
   publishStranger(hostUid, id, v, { disguised = false } = {}) {
-    const now = Date.now();
+    const now = this.now();
     if (now - (this._strangerAt || 0) < 300) return;
     this._strangerAt = now;
     const path = ref(rtdb, `${this.w}strangers/${hostUid}/${id}`);
@@ -966,7 +970,7 @@ export class Multiplayer {
     const claim = ref(rtdb, `${this.w}mobHost`);
     this.unsubs.push(onValue(claim, snap => {
       const v = snap.val();
-      const live = v && Date.now() - (v.ts || 0) < MOB_LEASE_MS ? v.uid : null;
+      const live = v && this.now() - (v.ts || 0) < MOB_LEASE_MS ? v.uid : null;
       this.mobHostUid = live;
       const wasGuest = this.g.mobGuest;
       this.g.mobHost = live === this.uid;
@@ -976,7 +980,7 @@ export class Multiplayer {
       }
     }, () => {}));
     this.mobLease = setInterval(() => {
-      runTransaction(claim, cur => ((!cur || Date.now() - (cur.ts || 0) > MOB_LEASE_MS || cur.uid === this.uid) ? { uid: this.uid, ts: Date.now() } : undefined)).catch(() => {});
+      runTransaction(claim, cur => ((!cur || this.now() - (cur.ts || 0) > MOB_LEASE_MS || cur.uid === this.uid) ? { uid: this.uid, ts: this.now() } : undefined)).catch(() => {});
       if (this.g.mobHost) this.mobsAttackPlayers();
     }, 4000);
     this.mobTimer = setInterval(() => {
@@ -1000,7 +1004,7 @@ export class Multiplayer {
     this.unsubs.push(onChildAdded(query(ref(rtdb, `${this.w}mobKills`), orderByChild('ts'), limitToLast(15)), snap => {
       const k = snap.val();
       if (this.g.mobHost) remove(snap.ref).catch(() => {});
-      if (!k || Date.now() - (k.ts || 0) > 20_000) return;
+      if (!k || Math.abs(this.now() - (k.ts || 0)) > 30_000) return;
       this.g.state.creatures = this.g.state.creatures.filter(c => c.netId !== k.id);
       if (k.by !== this.uid) return;
       const v = this.g.state.villagers?.find(x => x.id === this.g.hero?.id);
@@ -1011,7 +1015,7 @@ export class Multiplayer {
   /** A guest's blow, sent to whoever runs the monsters. */
   sendMobHit(id, dmg) {
     if (!id || !this.mobHostUid || this.mobHostUid === this.uid) return;
-    push(ref(rtdb, `${this.w}mobHits/${this.mobHostUid}`), { id, dmg: Math.round(dmg), from: this.uid, ts: Date.now() }).catch(() => {});
+    push(ref(rtdb, `${this.w}mobHits/${this.mobHostUid}`), { id, dmg: Math.round(dmg), from: this.uid, ts: this.now() }).catch(() => {});
   }
 
   /** The host also lets monsters hurt the other players standing next to them. */
@@ -1033,7 +1037,7 @@ export class Multiplayer {
   /** Tells everyone else about a change to the island. Old records are tidied away by the world's owner. */
   sendEdit(e) {
     if (!e || this.world === 'realm') return;
-    push(ref(rtdb, `${this.w}edits`), { ...e, uid: this.uid, ts: Date.now() }).catch(() => {});
+    push(ref(rtdb, `${this.w}edits`), { ...e, uid: this.uid, ts: this.now() }).catch(() => {});
     this._edited = (this._edited || 0) + 1;
     if (this._edited % 200 === 0) this.pruneEdits();
   }
@@ -1058,7 +1062,7 @@ export class Multiplayer {
    */
   publishLive(v, { facing = 0, level = 1, dungeon = false } = {}) {
     if (!v) return;
-    const now = Date.now();
+    const now = this.now();
     if (now - (this._liveAt || 0) < 200) return;
     const moved = Math.abs(v.x - (this._liveX ?? -9999)) > 1 || Math.abs(v.y - (this._liveY ?? -9999)) > 1;
     if (!moved && now - (this._liveAt || 0) < 3000) return;   // standing still: a keep-alive now and then
@@ -1072,8 +1076,8 @@ export class Multiplayer {
 
   /** The other players in this world (never you), gliding from where they were to where they are. */
   livePlayerList(all, prev) {
-    const now = Date.now();
-    return Object.entries(all).filter(([uid, s]) => uid !== this.uid && now - (s.ts || 0) < 15_000 && !s.dungeon).map(([uid, s]) => {
+    const now = this.now();
+    return Object.entries(all).filter(([uid, s]) => uid !== this.uid && Math.abs(now - (s.ts || 0)) < 25_000 && !s.dungeon).map(([uid, s]) => {
       const old = prev.get(uid);
       return { id: uid, uid, player: true, pvp: !!s.pvp, avatar: s.a || null, title: s.title || '', name: s.name, sex: s.sex, job: 'idle', level: s.level || 1, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
     });
@@ -1085,8 +1089,8 @@ export class Multiplayer {
 
   /** Everyone walking an island (not you), gliding from where they were to where they are. */
   strangerList(all, prev) {
-    const now = Date.now();
-    return Object.entries(all).filter(([, s]) => now - (s.ts || 0) < 20_000 && s.from !== this.uid).map(([id, s]) => {
+    const now = this.now();
+    return Object.entries(all).filter(([, s]) => Math.abs(now - (s.ts || 0)) < 30_000 && s.from !== this.uid).map(([id, s]) => {
       const old = prev.get(id);
       return { id, from: s.from, avatar: s.a || null, title: s.title || '', name: s.name, sex: s.sex, job: s.job, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
     });

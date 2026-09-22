@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Seeing each other, properly',
+    changes: [
+      'Fixed: your position was only sent while you watched your village, so once you started playing nobody saw you move',
+      'Everyone now uses the server clock, so two devices whose clocks disagree still see each other',
+      'Going down a dungeon takes you off the island for the others, instead of leaving you standing there',
+    ],
+  },
+  {
     title: 'Levels, Varek, and walls that look like walls',
     changes: [
       'Monsters have levels now: further from home, deeper underground and at night they are tougher, and their level shows over their head',
