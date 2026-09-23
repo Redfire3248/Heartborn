@@ -624,8 +624,12 @@ const COMMANDS = {
     },
   },
   spawn: {
-    usage: 'spawn <creature|*|hostile|boss> [count] [here|me|<player>|*]', desc: 'Spawn creatures next to you (here), as raiders on a village, or at other players',
-    async run([type, count = '1', target = 'here']) {
+    usage: 'spawn <creature|*|hostile|boss> [count] [here|me|<player>|*] [level]', desc: 'Spawn creatures next to you (here), as raiders on a village, or at other players. A last number sets their level: spawn zombie 3 here 25',
+    async run([type, count = '1', target = 'here', level = null]) {
+      // "spawn zombie 3 25" reads the third number as a level, so you do not have to type "here"
+      if (level == null && /^\d+$/.test(target)) { level = target; target = 'here'; }
+      const lvl = level == null ? null : Math.max(1, Math.min(99, Math.floor(Number(level) || 1)));
+      const atLevel = c => { if (c && lvl != null) { c.lvl = lvl; c.dmgMult = (c.dmgMult || 1) * (1 + (lvl - 1) * 0.07); c.hp = null; } return c; };
       const kinds = type === '*' ? Object.keys(CREATURES)
         : type === 'hostile' ? Object.keys(CREATURES).filter(k => CREATURES[k].hostile && !CREATURES[k].boss)
           : type === 'boss' ? Object.keys(CREATURES).filter(k => CREATURES[k].boss) : [type];
@@ -639,7 +643,7 @@ const COMMANDS = {
         for (const k of kinds) for (let i = 0; i < n; i++) {
           const a = Math.random() * Math.PI * 2, r = 64 + Math.random() * 64;
           const x = v.x + Math.cos(a) * r, y = v.y + Math.sin(a) * r;
-          if (g.world.walkable(x, y) || CREATURES[k].flying) { g.spawnCreature(k, x, y, { hx: x, hy: y }); made++; }
+          if (g.world.walkable(x, y) || CREATURES[k].flying) { atLevel(g.spawnCreature(k, x, y, { hx: x, hy: y })); made++; }
         }
         this.print(`✓ ${made} spawned next to you`, 'ok');
         return;

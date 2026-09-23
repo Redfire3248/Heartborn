@@ -1,6 +1,16 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Skill on screen, and fixes',
+    changes: [
+      'A chip by your hotbar shows the skill your weapon holds, what it does and the key for it, and dims with a countdown while it recharges (on a computer: phones already have the SKILL button)',
+      'Fixed: in Materials only Iron had a hover card. The Backpack was reading the villagers list of traits instead of the forge one, so every material with a trait broke its own card',
+      'A hover card can never break hovering again, whatever is in it',
+      'The gold chip is gone from the Backpack header: it is already in the bar at the top',
+      'spawn takes a level: spawn zombie 3 40 makes three level 40 zombies',
+    ],
+  },
+  {
     title: 'A phone layout that works, and a tidy-up',
     changes: [
       'Phones: hearts and bars moved to the top, chat under them, the stick bottom-left and Attack, Dash, Block, potion and Skill in a cluster bottom-right. Nothing sits on top of anything now',

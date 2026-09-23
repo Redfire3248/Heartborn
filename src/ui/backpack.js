@@ -12,8 +12,7 @@ import { hasArt, gearIconKey } from '../render/gearArt.js';
 import { rpgOf, heroStats, xpToNext, spendPoint, resetStats, resetStatsCost, equip, equipBest, unequip, scrapGear, gearScore, RARITY } from '../game/rpg.js';
 import { TOOLS, toolsOf, hotbarOf, setSlot, selectSlot, toolRarity, toolValue, sellTool } from '../game/tools.js';
 import { CONSUMABLES, itemsOf } from '../game/consumables.js';
-import { MATERIALS, MATERIAL_KEYS, abilityOf as weaponAbility } from '../game/forging.js';
-import { TRAITS } from '../data/traits.js';
+import { MATERIALS, MATERIAL_KEYS, TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
 import { matIcon } from './tableMenu.js';
 import { ENCHANTS, enchName } from '../game/enchanting.js';
 import { AVATARS, avatarId, avatarArt, setLook } from '../game/avatars.js';
@@ -72,7 +71,7 @@ function hideTip(target) {
 }
 /** Gives an element a hover card: `parts()` builds it when the pointer arrives. */
 function withTip(el, parts) {
-  el.addEventListener('mouseenter', e => { showTip(el, parts()); el._tipMove?.(e); });
+  el.addEventListener('mouseenter', e => { let built = []; try { built = parts(); } catch { built = []; } if (!built.length) return; showTip(el, built); el._tipMove?.(e); });
   el.addEventListener('mouseleave', () => hideTip(el));
   el.addEventListener('pointerdown', () => hideTip(el));
   return el;
@@ -326,7 +325,7 @@ export function openBackpack(hud, tab = null) {
       h('div.bp-head',
         icon(hasArt('ui/inventory') ? 'ui/inventory' : 'ui/character', 30),
         h('div.bp-head-text', h('h2', 'Backpack'), h('div.faint', `Level ${r.level}${r.points ? ` · ${r.points} point${r.points === 1 ? '' : 's'} to spend` : ''}`)),
-        h('div.bp-gold', icon('items/icon_gold', 18), String(g.state.resources.gold || 0))),
+      ),
       h('div.bp-tabs', ...TABS.map(tb => h(`button.bp-tab${t === tb.key ? '.on' : ''}`, { onclick: () => { hud._bpTab = tb.key; play('click'); render(); } }, hasArt(tb.icon) ? icon(tb.icon, 18) : null, tb.name))),
       body,
       ...(sellBar ? [sellBar] : []));

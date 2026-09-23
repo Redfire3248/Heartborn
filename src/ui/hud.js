@@ -299,7 +299,8 @@ export class HUD {
     this.els.hotName = h('div.hot-name');
     this.els.invPanel = h('div.card.inv-panel', { hidden: true });
     this.els.vitals = h('div.vitals-strip', { hidden: true });
-    this.root.append(this.els.heroBar, this.els.heroPad, this.els.vitals, h('div.hotbar-wrap', this.els.invPanel, this.els.hotName, this.els.hotbar));   // the strip stands on its own: inside the hotbar it was trapped by its transform
+    this.els.skillChip = h('div.skill-chip', { hidden: true });
+    this.root.append(this.els.heroBar, this.els.heroPad, this.els.vitals, this.els.skillChip, h('div.hotbar-wrap', this.els.invPanel, this.els.hotName, this.els.hotbar));   // the strip stands on its own: inside the hotbar it was trapped by its transform
     watchLayout();
     // sailing: status, Fire, Return to port, and a steering pad for touch screens
     this.sailInput = { throttle: 0, turn: 0, fire: false, wheel: 0 };
@@ -383,6 +384,7 @@ export class HUD {
       if (hg._pickSound) { hg._pickSound = false; play('pickup'); }
       { const me = heroOf(hg); const low = !!me && !this.houseEditor && me.hp > 0 && me.hp < (hg.hero.maxHp || 100) * 0.25; if (low !== this._lowHp) { this._lowHp = low; this.root.classList.toggle('low-hp', low); } }
       if (this.els.abilityBtn && hg.hero) { const left = Math.max(0, (hg.hero.abilityReady || 0) - hg.state.time), max = hg.hero.abilityMax || 1; this.els.abilityBtn.style.setProperty('--cd', String(left / max)); this.els.abilityBtn.classList.toggle('cooling', left > 0); const wpn = rpgOf(hg).gear.weapon; this.els.abilityBtn.hidden = !weaponAbility(wpn); }
+      this.updateSkillChip(hg);
       if (hg === g && !this.houseEditor) {
         const biome = heroBiome(g);
         if (biome && biome !== this._biome) {
@@ -1169,6 +1171,26 @@ export class HUD {
       default: break;
     }
     g.emit?.('change');
+  }
+
+  /** The chip by your hotbar: which skill your weapon holds, the key for it, and how long until it is ready. */
+  updateSkillChip(hg) {
+    const el = this.els.skillChip;
+    if (!el || !hg?.hero) return;
+    const ab = weaponAbility(rpgOf(hg).gear.weapon);
+    if (!ab) { if (!el.hidden) { el.hidden = true; el.replaceChildren(); this._skillKey = null; } return; }
+    const left = Math.max(0, (hg.hero.abilityReady || 0) - hg.state.time);
+    const key = `${ab.id}|${Math.ceil(left)}`;
+    if (key !== this._skillKey) {
+      this._skillKey = key;
+      el.hidden = false;
+      el.style.setProperty('--sk', ab.color);
+      el.classList.toggle('cooling', left > 0);
+      el.replaceChildren(
+        icon('effects/magic_orb', 18),
+        h('div.skill-chip-text', h('b', { style: { color: ab.color } }, ab.name), h('span.faint', ab.desc.length > 54 ? `${ab.desc.slice(0, 54)}…` : ab.desc)),
+        h('span.skill-chip-key', left > 0 ? `${Math.ceil(left)}s` : keyLabel(keyOf('ability'))));
+    }
   }
 
   takePlayerHit(hit) {
