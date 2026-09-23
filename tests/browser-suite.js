@@ -571,6 +571,54 @@ export async function run() {
     H.endLead(g);
   });
 
+  await step('a phone on its side has controls, and they are not on top of each other', async () => {
+    // the whole phone layout used to be written for tall screens only ((max-width: 760px) and (min-height: 521px)),
+    // so turning a phone sideways left the menu row, the hotbar and the stick all in their computer places.
+    const rules = [];
+    for (const sheet of document.styleSheets) {
+      let list = null;
+      try { list = sheet.cssRules; } catch { continue; }   // a stylesheet from another origin
+      for (const r of list || []) if (r.media) rules.push(r);
+    }
+    const short = rules.filter(r => /max-height:\s*5[0-9][0-9]px/.test(r.conditionText || r.media.mediaText));
+    ok(short.length > 0, 'there is a layout for short screens at all', `${short.length} blocks`);
+    const text = short.map(r => [...r.cssRules].map(x => x.cssText).join(' ')).join(' ');
+    ok(/\.hero-pad[^{]*\{[^}]*display:\s*block/.test(text), 'a phone on its side still gets its stick and buttons');
+    ok(/\.dock[^{]*\{[^}]*top:/.test(text), 'the menu row is put somewhere of its own');
+    ok(/\.hotbar-wrap/.test(text), 'and so is the hotbar');
+
+    // and with the pad forced visible at this size, nothing lands on top of the hotbar
+    const pad = document.querySelector('.hero-pad');
+    if (pad) {
+      const was = pad.style.display;
+      pad.style.display = 'block';
+      await sleep(60);
+      const box = sel => { const e = document.querySelector(sel); const b = e?.getBoundingClientRect(); return b && b.width ? b : null; };
+      const hot = box('.hotbar-wrap');
+      const hits = [];
+      for (const sel of ['.hero-stick', '.hero-act', '.hero-dash', '.hero-block', '.hero-potion']) {
+        const b = box(sel);
+        if (!b || !hot) continue;
+        if (b.left < hot.right && b.right > hot.left && b.top < hot.bottom && b.bottom > hot.top) hits.push(sel);
+      }
+      pad.style.display = was;
+      ok(!hits.length, 'no touch control sits on the hotbar', hits.join(', '));
+    }
+  });
+
+  await step('notices reach you through the installed app', async () => {
+    const N = await import('/src/core/notify.js');
+    ok(typeof N.sendNotice === 'function' && typeof N.askToNotify === 'function', 'the notice module is there');
+    N.setNoticesOff(true);
+    ok(N.noticesOff(), 'you can switch them off');
+    N.setNoticesOff(false);
+    ok(!N.noticesOff(), 'and back on');
+    ok((await N.sendNotice({ title: 'test' })) === false || N.noticesAllowed(), 'nothing is sent before you have said yes');
+    ok((await N.sendNotice({ title: '' })) === false, 'and never an empty one');
+    ok((await N.registerForPush(null)) === null, 'push registers nobody without a signed-in player');
+    for (const fn of ['noticeInvite', 'noticeJoined', 'noticeChat', 'noticeTrade', 'noticeUpdate']) ok(typeof N[fn] === 'function', `there is a notice for ${fn.replace('notice', '').toLowerCase()}`);
+  });
+
   await step('the middle of the screen is only ever what people say', async () => {
     const app = window.__hb.app, hud = app?.hud;
     if (!hud) return ok(false, 'the game screen is up');

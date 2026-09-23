@@ -2464,3 +2464,74 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
   .chat-wrap { top: 150px !important; }
   .say-banner { top: calc(env(safe-area-inset-top) + 88px + var(--row, 0) * 32px); }
 }
+
+/* ------------------------------------------------------------------ touch buttons: icons, no words
+   The picture says it. Labels are gone, the icons are bigger, and every disc has a ring of light
+   in its own colour so you can find it without reading anything. */
+@media (pointer: coarse), (max-width: 820px), (max-height: 560px) {
+  .hero-act > span, .hero-dash > span, .hero-block > span, .hero-ability > span { display: none !important; }
+  .hero-act img { width: 40px !important; height: 40px !important; }
+  .hero-block img { width: 30px !important; height: 30px !important; }
+  .hero-potion img { width: 30px !important; height: 30px !important; }
+  .hero-ability img { width: 28px !important; height: 28px !important; }
+  .hero-act, .hero-dash, .hero-block, .hero-potion, .hero-ability { gap: 0; }
+  .hero-act .px-icon, .hero-dash .px-icon { width: 30px; height: 30px; }
+
+  /* a soft ring of light behind every disc, and a highlight across the top of the glass */
+  .hero-act::before, .hero-dash::before, .hero-block::before, .hero-potion::before, .hero-ability::before {
+    content: ''; position: absolute; inset: 3px; border-radius: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 52%);
+    pointer-events: none;
+  }
+  .hero-act::after, .hero-dash::after, .hero-block::after, .hero-potion::after, .hero-ability::after {
+    content: ''; position: absolute; inset: -6px; border-radius: 50%; pointer-events: none;
+    box-shadow: 0 0 16px var(--glow, rgba(255,255,255,.3)); opacity: .55; transition: opacity .1s ease;
+  }
+  .hero-act.down::after, .hero-dash.down::after, .hero-block.down::after, .hero-potion.down::after { opacity: 1; }
+  .hero-act { --glow: rgba(255,90,70,.75); }
+  .hero-dash { --glow: rgba(90,160,255,.7); }
+  .hero-block { --glow: rgba(230,220,200,.55); }
+  .hero-potion { --glow: rgba(255,90,120,.6); }
+  .hero-ability { --glow: rgba(180,120,255,.75); }
+  .hero-act img, .hero-block img, .hero-potion img, .hero-ability img, .hero-act .px-icon, .hero-dash .px-icon { position: relative; z-index: 1; }
+}
+
+/* ------------------------------------------------------------------ phones on their side
+   The portrait layout was written for tall screens only, so on a short one the menu row, the hotbar and
+   the controls all fell back to the computer layout and landed on top of each other. A short screen gets its
+   own arrangement: menus as a small icon row along the top, the hotbar centred at the bottom between your
+   two thumbs, the stick left, the buttons right. */
+@media (max-height: 560px) and (pointer: coarse), (max-height: 560px) and (max-width: 1100px) {
+  :root { --dock-h: 0px; --hot-h: 52px; --ui-floor: calc(var(--hot-h) + env(safe-area-inset-bottom)); }
+  .leading .hero-pad { display: block; }
+  .leading .goals, .leading .touch-bar, .leading .home-btn, .leading .center-btn, .leading .lead-btn { display: none !important; }
+
+  /* the menus: a compact row of icons across the top, away from both thumbs */
+  .dock {
+    left: 50% !important; right: auto !important; top: calc(env(safe-area-inset-top) + 4px) !important; bottom: auto !important;
+    transform: translateX(-50%) !important; flex-direction: row !important; gap: 5px; padding: 4px 7px; height: auto !important;
+    border-radius: 14px; justify-content: center;
+  }
+  .dock button { width: 44px !important; height: 38px !important; flex: none !important; padding: 2px; }
+  .dock button img { width: 24px; height: 24px; }
+  .dock-label, .dock .tip, .dock hr { display: none !important; }
+
+  /* the hotbar sits centred at the very bottom, only as wide as it needs to be */
+  .hotbar-wrap { left: 50% !important; right: auto !important; transform: translateX(-50%) !important; width: auto !important; max-width: 62vw; bottom: calc(4px + env(safe-area-inset-bottom)) !important; align-items: center !important; }
+  .hotbar { justify-content: center; gap: 3px; padding: 3px; }
+  .hot-slot { width: 38px !important; height: 38px !important; }
+  .hot-name { font-size: 10px; min-height: 12px; padding: 0 8px; }
+
+  /* your hearts up in the corner, chat under them, nothing in the middle */
+  .vitals-strip { top: calc(env(safe-area-inset-top) + 4px) !important; left: 8px !important; bottom: auto !important; transform: none !important; align-items: flex-start !important; }
+  .vitals-strip .hero-hearts img, .vitals-strip .hero-hearts canvas { width: 13px; height: 13px; }
+  .vitals-strip .hero-meter { width: 88px; height: 5px; }
+  .chat-wrap { left: 8px !important; right: auto !important; top: 62px !important; bottom: auto !important; width: min(220px, 34vw); align-items: flex-start; }
+  .say-banner { top: calc(env(safe-area-inset-top) + 48px + var(--row, 0) * 28px); }
+  .statusbar, .res-card { top: calc(env(safe-area-inset-top) + 4px) !important; }
+
+  /* panels and sheets have less room to play with */
+  .side { left: auto !important; right: 0 !important; top: 0 !important; bottom: 0 !important; width: min(380px, 68vw) !important; height: 100% !important; border-radius: 16px 0 0 16px; }
+  .boss-modal, .index-modal, .backpack-modal { max-height: 94vh; }
+  .boss-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+}

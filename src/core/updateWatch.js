@@ -4,6 +4,7 @@
  * a small bar offers to save and reload.
  */
 import { checkLatest } from './version.js';
+import { noticeUpdate } from './notify.js';
 
 const EVERY = 3 * 60 * 1000;
 
@@ -20,6 +21,7 @@ export function watchForUpdates({ beforeReload = async () => {} } = {}) {
   };
   const show = live => {
     shown = true;
+    noticeUpdate(live.version);   // and on your phone or your desktop, through the installed app
     const bar = document.createElement('div');
     bar.className = 'update-bar';
     const text = document.createElement('span');

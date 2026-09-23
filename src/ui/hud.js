@@ -14,6 +14,7 @@ import { openIndex } from './indexBook.js';
 import { openBossBook } from './bossBook.js';
 import { RANKS, fmtRun } from '../game/bossIndex.js';
 import { streakLeft } from '../game/streak.js';
+import { noticeInvite, noticeJoined, noticeChat, noticeTrade, noticesAllowed, noticesSupported, noticesBlocked, noticesOff, setNoticesOff, askToNotify, sendNotice, registerForPush } from '../core/notify.js';
 import { openLayoutEditor, watchLayout } from './layoutEdit.js';
 import { quickCraft, setQuickCraft } from '../core/prefs.js';
 import { TRAITS as FORGE_TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
@@ -169,6 +170,7 @@ export class HUD {
     game.on('petEgg', () => this.toast({ text: 'You found a pet egg! Hatch it in Pets (P)', kind: 'good' }));
     game.on('challengeDone', c => this.toast({ text: `Challenge done: ${c.text}. Claim it in your Journal (O)`, kind: 'good' }));
     game.on('bossDown', res => this.bossVictory(res));
+    this.watchForInvites();
     game.on('discover', () => { if (!this._indexToastAt || performance.now() - this._indexToastAt > 4000) { this._indexToastAt = performance.now(); this.toast({ text: 'New entry in your Index (N)', kind: 'event' }); } });
     if (mp) {
       // player vs player
@@ -178,14 +180,14 @@ export class HUD {
         const last = list[list.length - 1];
         if (last && last.id !== this._lastChatId) {
           this._lastChatId = last.id;
-          if (last.uid !== this.user?.uid) { this.addChatLine({ name: last.name || 'Someone', text: last.text }); this.saySomething({ name: last.name || 'Someone', text: last.text, uid: last.uid }); }
+          if (last.uid !== this.user?.uid) { this.addChatLine({ name: last.name || 'Someone', text: last.text }); this.saySomething({ name: last.name || 'Someone', text: last.text, uid: last.uid }); noticeChat(last.name, last.text); }
         }
         if (this.panel === 'world' && this.worldTab === 'chat') this.refreshPanel();
       });
       mp.on('players', () => this.panel === 'world' && this.worldTab === 'players' && this.refreshPanel());
       mp.on('armies', () => this.panel === 'world' && this.worldTab === 'players' && this.refreshPanel());
       this.missionTimer = setInterval(() => { if (this.panel === 'world' && this.worldTab === 'players' && (mp.missions().length || mp.armies().length) && !this.panelEl?.matches(':hover')) this.refreshPanel(); }, 1000);
-      mp.on('joined', p => { this.toast({ text: `${p.name || 'Someone'} joined the world`, kind: 'good' }); this.addChatLine({ text: `${p.name || 'Someone'} joined the world`, kind: 'sys-in' }); });
+      mp.on('joined', p => { this.toast({ text: `${p.name || 'Someone'} joined the world`, kind: 'good' }); this.addChatLine({ text: `${p.name || 'Someone'} joined the world`, kind: 'sys-in' }); noticeJoined(p.name); });
       mp.on('left', p => { this.toast({ text: `${p.name || 'Someone'} left the world`, kind: 'info' }); this.addChatLine({ text: `${p.name || 'Someone'} left the world`, kind: 'sys-out' }); });
       mp.on('command', c => this.applyRemoteCommand(c));
       mp.on('visitAsks', asks => this.showVisitAsks(asks));
@@ -1294,8 +1296,10 @@ export class HUD {
       for (const ev of ['pointerup', 'pointercancel', 'blur']) window.addEventListener(ev, () => { if (id != null) end(); });
       document.addEventListener('visibilitychange', () => { if (document.hidden) { end(); Object.assign(t, { act: false, dash: false, block: false, potion: false }); } });
     }
-    const hold = (cls, key, label, iconKey, size) => {
+    const hold = (cls, key, label, iconKey, size, title = null) => {
       const b = h(`button.${cls}`, {
+        title,
+        'aria-label': title || label,
         onpointerdown: e => { e.preventDefault(); t[key] = true; b.classList.add('down'); },
         onpointerup: () => { t[key] = false; b.classList.remove('down'); },
         onpointerleave: () => { t[key] = false; b.classList.remove('down'); },
@@ -1303,9 +1307,10 @@ export class HUD {
       }, iconKey ? icon(iconKey, size) : null, h('span', label));
       return b;
     };
-    const act = hold('hero-act', 'act', 'ATTACK', 'items/sword', 30);
-    const dash = hold('hero-dash', 'dash', 'DASH', null, 0);
-    const block = hold('hero-block', 'block', 'BLOCK', 'items/shield', 20);
+    const act = hold('hero-act', 'act', 'ATTACK', 'items/sword', 34, 'Attack');
+    const dash = hold('hero-dash', 'dash', 'DASH', null, 0, 'Dash');
+    dash.prepend(pxIcon('boot', 26));   // a boot: no word needed
+    const block = hold('hero-block', 'block', 'BLOCK', 'items/shield', 26, 'Block');
     const potion = hold('hero-potion', 'potion', '', 'gear/health_potion', 26);
     this.els.potionCount = h('span.hero-potion-count', '0');
     potion.append(this.els.potionCount);
@@ -2652,6 +2657,7 @@ export class HUD {
       if (o.type !== 'itemtrade' || this._seenTrades.has(o.id)) continue;
       this._seenTrades.add(o.id);
       play('notify');
+      noticeTrade(o.fromName || o.fromVillage);
       const m = modal([h('h2', 'Trade offer'), this.tradeCard(o, () => m.close())], { closeX: true, cls: 'trade-popup' });
     }
   }
@@ -2813,6 +2819,41 @@ export class HUD {
     return [this.head('items/crown_leader', 'Leaderboards'), tabs, body];
   }
 
+  /**
+   * The Notices row in Settings. The browser only lets us ask from a real tap, so there is a button; once you have
+   * said yes, invites, people joining, trades, messages and new versions reach you through the installed app.
+   */
+  noticeRow() {
+    if (!noticesSupported()) return h('div.faint', { style: { fontSize: '12px' } }, 'This browser cannot show notices.');
+    const wrap = h('div.col', { style: { gap: '6px' } });
+    const draw = () => {
+      if (noticesBlocked()) {
+        wrap.replaceChildren(h('div.faint', { style: { fontSize: '12px' } },
+          'Notices are blocked for Heartborn. Turn them back on in your browser settings for this site, then come back here.'));
+        return;
+      }
+      if (!noticesAllowed()) {
+        wrap.replaceChildren(
+          h('button.btn.primary.sm', { onclick: async () => {
+            const res = await askToNotify();
+            if (res === 'granted') { this.hint('Notices are on', 1800); registerForPush(this.user?.uid); }
+            else if (res === 'denied') this.hint('Your browser said no', 2400);
+            draw();
+          } }, 'Turn on notices'),
+          h('div.faint', { style: { fontSize: '12px' } },
+            'Be told when a friend invites you to their world, when someone joins yours, when a trade is waiting and when a new version is out. Install the app first and they reach your phone.'));
+        return;
+      }
+      wrap.replaceChildren(
+        h('label.set-toggle', h('input', { type: 'checkbox', checked: !noticesOff(), onchange: e => { setNoticesOff(!e.target.checked); draw(); } }),
+          h('span', 'Notices: invites, people joining, trades, messages and new versions')),
+        h('div.faint', { style: { fontSize: '12px' } }, 'They only appear when you are not looking at the game.'),
+        h('button.btn.sm.ghost', { onclick: () => sendNotice({ title: 'Heartborn', body: 'This is what a notice looks like.', tag: 'test', whenAway: false }) }, 'Send me a test'));
+    };
+    draw();
+    return wrap;
+  }
+
   settingsPanel() {
     const g = this.game;
     const body = h('div.side-body');
@@ -2842,6 +2883,8 @@ export class HUD {
         install,
         item('✥', 'Move controls (layout)', () => { this.closePanel(); setTimeout(() => openLayoutEditor(), 250); }),
         item('🚪', 'Sign out', this.onSignOut)),
+      h('h3', 'Notices'),
+      this.noticeRow(),
       h('h3', 'Gameplay'),
       h('label.set-toggle', h('input', { type: 'checkbox', checked: quickCraft(), onchange: e => setQuickCraft(e.target.checked) }), h('span', 'Quick craft: skip the minigames for tools and potions')),
       h('h3', 'Effects'),
@@ -4139,7 +4182,33 @@ export class HUD {
     el.classList.toggle('enraged', pct <= 0.3);
   }
 
+  /**
+   * Friends asking you into their worlds. This runs for as long as you are playing, so an invite reaches you
+   * through the installed app even when Heartborn is not the window you are looking at.
+   */
+  watchForInvites() {
+    if (!this.user?.uid || this.inviteWatch) return;
+    this._knownInvites = null;
+    try {
+      this.inviteWatch = watchInvites(this.user.uid, list => {
+        const ids = new Set(list.map(i => i.wid));
+        if (this._knownInvites) {
+          for (const inv of list) {
+            if (this._knownInvites.has(inv.wid)) continue;
+            this.toast({ text: `${inv.fromName || 'A friend'} invited you to ${inv.name}`, kind: 'good' });
+            this.addChatLine({ text: `${inv.fromName || 'A friend'} invited you to ${inv.name}`, kind: 'sys-in' });
+            noticeInvite(inv);
+          }
+        }
+        this._knownInvites = ids;
+      });
+    } catch { /* offline or solo: nothing to watch */ }
+    if (noticesAllowed()) registerForPush(this.user.uid);
+  }
+
   destroy() {
+    this.inviteWatch?.();
+    this.inviteWatch = null;
     window.removeEventListener('popstate', this.onBack);
     clearInterval(this.missionTimer);
     this.els.bossBar?.remove();

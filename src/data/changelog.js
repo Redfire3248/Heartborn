@@ -1,6 +1,17 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Phones on their side actually work, icon buttons, and notices',
+    changes: [
+      'Fixed, and this was the big one: the whole phone layout was written for tall screens only. Turn a phone sideways and the menu row shrank to a box in the middle of the world, the hotbar landed across the joystick, and on some phones the stick and Attack button did not appear at all',
+      'A phone on its side now has a layout of its own: menus as a small row of icons along the top, the hotbar centred at the bottom between your thumbs, the stick on the left and the buttons on the right, with nothing overlapping anything',
+      'The touch buttons are icons only now — a sword, a boot, a shield, a potion, an orb. No words, bigger pictures, glass highlight across the top and a ring of light in each button’s own colour that brightens when you press',
+      'Notices, through the installed app: a friend inviting you to their world, someone joining yours, a trade waiting, a message while you are away, and a new version being out. Settings has a Notices section with a switch and a test',
+      'Notices only appear when you are not looking at the game, and tapping one brings Heartborn to the front',
+      'A test now guards the sideways layout, so this cannot come back quietly',
+    ],
+  },
+  {
     title: 'The Hall of Bosses, kill streaks, and a phone layout worth using',
     changes: [
       'Hall of Bosses (H): a page for all 39 bosses. The ones you have felled hang in colour, the rest are dark shapes',
