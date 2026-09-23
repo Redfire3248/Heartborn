@@ -1,3 +1,5 @@
+import { bumpStreak, streakBonus } from './streak.js';
+import { noteBossKill } from './bossIndex.js';
 import { newBook, enchName } from './enchanting.js';
 import { giveEgg } from './pets.js';
 import { dailyProgress } from './journal.js';
@@ -572,7 +574,9 @@ export function onHeroKill(g, c, v) {
   const def = CREATURES[c.t];
   if (!def) return;
   const boss = !!def.boss || !!c.bounty;
-  gainXp(g, ((def.hp * (c.scale || 1)) / 3 * (boss ? 2 : 1) * (c.elite ? 2.5 : 1) + (def.hostile ? 5 : 1)) * lvlBonus, v);
+  if (def.hostile) { const n = bumpStreak(g, v); const rr = rpgOf(g); if (n > (rr.bestStreak || 0)) rr.bestStreak = n; }   // kill again quickly and the screen starts shouting
+  const hot = streakBonus(g);          // a hot streak is worth more gold and more experience
+  gainXp(g, ((def.hp * (c.scale || 1)) / 3 * (boss ? 2 : 1) * (c.elite ? 2.5 : 1) + (def.hostile ? 5 : 1)) * lvlBonus * hot, v);
   if (def.hostile) {
     // Zelda-style drops: hearts when you are hurt, now and then a potion
     if (v && v.hp < (g.hero?.maxHp || 100) && Math.random() < 0.3) dropPickup(g, 'heart', c.x - 8, c.y);
@@ -618,9 +622,10 @@ export function onHeroKill(g, c, v) {
       if (g.fx) g.fx.shake = Math.max(g.fx.shake, 1.4);
       g.float(c.x, c.y - TILE * 2, `${MATERIALS[bm].name} x${n}!`, '#ff4d6d');
     }
-    if (lucky(g, boss ? 0.6 : 0.02)) popResource(g, 'gold', 5 + Math.floor(Math.random() * (boss ? 60 : 10)), c.x, c.y);
+    if (lucky(g, boss ? 0.6 : 0.02)) popResource(g, 'gold', Math.round((5 + Math.floor(Math.random() * (boss ? 60 : 10))) * hot), c.x, c.y);
     questProgress(g, 'slayType', { type: c.t, v });
   }
+  if (boss) noteBossKill(g, c, v);   // the Boss Index: your time, your level, the blows you took
   if (c.bounty) questProgress(g, 'bounty', { v });
   const tier = lootTier(def, c);
   if (Math.random() < tier.chance) {

@@ -1,3 +1,4 @@
+import { bossFightStart } from './bossIndex.js';
 import { TILE, DAY_LENGTH } from '../core/constants.js';
 import { irange } from '../core/rng.js';
 import { CREATURES } from '../data/objects.js';
@@ -496,7 +497,10 @@ export function damageCreature(g, c, dmg, by) {
   // armoured beasts shrug off most blows from people; a real weapon cuts through better
   const heroArmed = by && g.hero?.id === by.id && g.state.rpg?.gear?.weapon;
   if (def.armor && by) dmg *= by.armed || heroArmed || by.inv?.pack?.sword || by.inv?.pack?.spear ? 1 - def.armor * 0.6 : 1 - def.armor;
-  if (def.boss) dmg = bossTakesHit(g, c, dmg, by);   // rolls, guards
+  if (def.boss) {
+    if (by && g.hero?.id === by.id) bossFightStart(g, c);   // the Index starts its clock on your first blow
+    dmg = bossTakesHit(g, c, dmg, by);   // rolls, guards
+  }
   c._lastDmg = dmg;
   if (!dmg) return;
   c.hp -= dmg;

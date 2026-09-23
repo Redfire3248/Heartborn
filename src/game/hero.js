@@ -1,3 +1,4 @@
+import { streakDamage, hurtStreak } from './streak.js';
 import { addHazard, hazardAt, UNDEAD as HAZARD_UNDEAD } from './hazards.js';
 import { updatePet } from './pets.js';
 import { doorOf } from './houses.js';
@@ -222,7 +223,7 @@ function attack(g, v, st) {
   const allTraits = [...(w.traits || []), ...enchantTraits(w)];   // forged traits and enchantments
   const traitSp = allTraits.length ? traitEffects([...new Set(allTraits)]) : null;
   const sp = traitSp ? { ...traitSp, ...(BLADE_SPECIALS[w.base] || {}) } : BLADE_SPECIALS[w.base];
-  let dmg = w.dmg * st.dmgMult * strengthMult(v) * (1 + (w.ench?.sharpness || 0) * 0.08) * (crit ? (promised ? 3 : 1.8) : 1) * (finisher ? 1.6 : 1) * (buffActive(g, 'strength') ? 1.5 : 1) * (w.ranged && buffActive(g, 'ammo') ? 1.3 : 1);
+  let dmg = w.dmg * st.dmgMult * streakDamage(g) * strengthMult(v) * (1 + (w.ench?.sharpness || 0) * 0.08) * (crit ? (promised ? 3 : 1.8) : 1) * (finisher ? 1.6 : 1) * (buffActive(g, 'strength') ? 1.5 : 1) * (w.ranged && buffActive(g, 'ammo') ? 1.3 : 1);
   if (promised) { h.promiseCrit = 0; g.float(v.x, v.y - TILE * 1.7, 'IAIDO CUT!', '#ff8a7a'); }
   if (sp?.riposte && h.riposte) { dmg *= sp.riposte; h.riposte = false; g.float(v.x, v.y - TILE * 1.6, 'RIPOSTE!', '#ffd76a'); }
   if (w.ranged) {
@@ -725,6 +726,8 @@ export function damageHero(g, v, dmg, from = null) {
     if (h.shield <= 0) h.shield = 0;
   }
   h.sinceHit = 0;
+  h.hitsTaken = (h.hitsTaken || 0) + 1;   // the Boss Index counts the blows you took in a fight
+  hurtStreak(g);                          // and a streak survives it, at half the size
   if (dmg > 0 && guarded) {   // behind your guard: no stun, only a small push
     if (from) { const a = Math.atan2(v.y - from.y, v.x - from.x); const push = TILE * Math.min(3, 1 + dmg * 0.05); h.kbx = Math.cos(a) * push; h.kby = Math.sin(a) * push; }
   } else if (dmg > 0) {   // you flash white, reel for a moment and are pushed back from the blow

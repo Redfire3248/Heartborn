@@ -1186,6 +1186,52 @@ const COMMANDS = {
       this.print(`✓ trade ${act === 'accept' ? 'accepted' : 'declined'}`, 'ok');
     },
   },
+  bosses: {
+    usage: 'bosses [*|clear]', desc: 'Open your Hall of Bosses, fill every page with a made-up run (*) or wipe every record (clear)',
+    async run([arg]) {
+      const g = this.game, r = rpgOf(g);
+      const B = await import('../game/bossIndex.js');
+      if (arg === 'clear') { r.bossLog = {}; r.rushBest = null; g.emit('change'); this.print('✓ every boss record wiped', 'ok'); return; }
+      if (arg === '*') {
+        const log = (r.bossLog ||= {});
+        for (const k of B.BOSS_KEYS) {
+          const run = { t: 12 + Math.random() * 90, lvl: 5 + Math.floor(Math.random() * 30), bossLvl: 10 + Math.floor(Math.random() * 40), hits: Math.floor(Math.random() * 6), floor: Math.floor(Math.random() * 12), when: Date.now() };
+          run.rank = B.rankOf(run);
+          log[k] = { kills: 1 + Math.floor(Math.random() * 9), first: Date.now() - 86400000 * 3, last: run, fast: run, low: run, clean: run, high: run, bestRank: run.rank };
+        }
+        g.emit('change'); this.print(`✓ all ${B.BOSS_KEYS.length} boss pages filled in`, 'ok'); return;
+      }
+      if (!this.hud) throw new Error('no game screen');
+      this.toggle();
+      const M = await import('./bossBook.js'); M.openBossBook(this.hud);
+    },
+  },
+  rematch: {
+    usage: 'rematch <boss> [level]', desc: 'Call a boss out beside you at any level (it must be one you have already felled)',
+    async run([boss, level]) {
+      if (!boss) throw new Error('which boss? try: rematch iron_warlord 40');
+      const B = await import('../game/bossIndex.js');
+      const g = this.hud?.dungeon || this.game;
+      const key = B.BOSS_KEYS.find(k => k === boss) || B.BOSS_KEYS.find(k => k.includes(boss));
+      if (!key) throw new Error(`no boss called ${boss}`);
+      const res = B.challengeBoss(g, key, level == null ? null : Number(level));
+      if (!res.ok) throw new Error(res.why);
+      this.toggle();
+      this.print(`✓ ${B.bossName(key)} at level ${res.level}`, 'ok');
+    },
+  },
+  bossrush: {
+    usage: 'bossrush [count] [level|stop]', desc: 'Start a gauntlet of bosses you have already felled, one after another on one clock',
+    async run([count = '5', level]) {
+      const B = await import('../game/bossIndex.js');
+      const g = this.hud?.dungeon || this.game;
+      if (count === 'stop') { if (!B.stopBossRush(g)) throw new Error('no gauntlet running'); this.print('✓ gauntlet abandoned', 'ok'); return; }
+      const res = B.startBossRush(g, { count: Math.max(2, Math.min(20, Number(count) || 5)), level: level == null ? null : Number(level) });
+      if (!res.ok) throw new Error(res.why);
+      this.toggle();
+      this.print(`✓ gauntlet of ${res.queue.length}`, 'ok');
+    },
+  },
   index: {
     usage: 'index [*|clear]', desc: 'Open your Index, fill it completely (*) or empty it (clear)',
     async run([arg]) {

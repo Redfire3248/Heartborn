@@ -1523,11 +1523,11 @@ export class Renderer {
     ctx.textBaseline = 'middle';
     let drawn = 0;
     const placed = [];   // bubbles already drawn this frame, so neighbours stack instead of overlapping
-    for (const v of g.state.villagers) {
+    for (const v of [...g.state.villagers, ...(g.livePlayers || []), ...(g.strangers || [])]) {
       const b = v._say;
       if (!b || v.away || t < (b.from || 0) || t > b.until) continue;
       const x = (v.x * s + ox) / this.dpr;
-      let y = ((v.y - TILE * (v.age < 12 ? 0.8 : 1.15)) * s + oy) / this.dpr;
+      let y = ((v.y - TILE * (v.age == null ? 1.15 : v.age < 12 ? 0.8 : 1.15)) * s + oy) / this.dpr;
       if (x < -80 || y < -40 || x > W + 80 || y > H + 40) continue;
       const alpha = Math.min(1, (t - (b.from || b.until - 4200)) / 180, (b.until - t) / 300);
       const w = Math.min(190, ctx.measureText(b.text).width + 14), h = 20;

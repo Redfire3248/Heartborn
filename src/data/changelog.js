@@ -1,6 +1,22 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'The Hall of Bosses, kill streaks, and a phone layout worth using',
+    changes: [
+      'Hall of Bosses (H): a page for all 39 bosses. The ones you have felled hang in colour, the rest are dark shapes',
+      'Every boss fight is timed from your first blow. When it falls you get a card: rank S to D, the clock, the level you did it at and the blows you took',
+      'Four records per boss are kept for ever and never overwritten by a worse run: your fastest, the lowest level you won at, the cleanest, and the strongest one you have felled. "Level 15 - 15.4s - no hits"',
+      'Rematch: call any boss you have beaten out again, at any level from 1 to 99, right where you stand',
+      'Boss Rush: a gauntlet of bosses you have already beaten, one after another on a single clock, with your best time kept',
+      'Kill streaks: kill again quickly and the screen starts shouting — DOUBLE KILL, RAMPAGE, GODLIKE. From three in a row you hit up to 35% harder and everything is worth more gold and experience. A blow that lands halves your streak instead of ending it',
+      'Eight new titles for the Hall: Bosshunter, Hallmaster, the Perfect, the Untouchable, Giantkiller, the Swift, the Relentless and the Relentless One',
+      'The middle of the screen now shows only what people type, for a few seconds, and over their head as well. The game no longer shouts its own news over the world',
+      'Phones: every touch control rebuilt in one style — a glass disc, a coloured ring, an icon over a label, and a press that sinks and glows. Laid out as a thumb arc so nothing overlaps the hotbar, in portrait or landscape',
+      'Phones: the floating chat log only appears when you open Chat, since what people say now floats in the middle',
+      'New admin commands: bosses, bosses *, bosses clear, rematch <boss> [level], bossrush [count] [level|stop]',
+    ],
+  },
+  {
     title: 'Ten hearts, points over levels, and the village game unhooked',
     changes: [
       'Your health is always ten hearts. Each one is a tenth of everything you have, so the row never wraps into a wall of hearts across the screen',

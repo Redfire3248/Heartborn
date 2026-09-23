@@ -503,6 +503,125 @@ export async function run() {
     H.endLead(g);
   });
 
+  await step('the Hall of Bosses: records, ranks, rematches and the gauntlet', async () => {
+    const H = await import('/src/game/hero.js');
+    const R = await import('/src/game/rpg.js');
+    const C = await import('/src/game/creatures.js');
+    const B = await import('/src/game/bossIndex.js');
+    const g = new Game(newState({ uid: 'bx', name: 'T', villageName: 'V' }));
+    const me = g.state.villagers[0];
+    H.startLead(g, me);
+    ok(B.BOSS_KEYS.length > 30, 'every boss has a page', `${B.BOSS_KEYS.length}`);
+    ok(B.bossProgress(g).found === 0, 'a new character has felled none of them');
+
+    // a first kill: the clock runs from your first blow, and the page is written
+    const fell = (type, { lvl = 10, secs = 30, hits = 0 } = {}) => {
+      const c = g.spawnCreature(type, me.x + 60, me.y, { _eliteRolled: true });
+      c.lvl = lvl; c.hp = null;
+      C.damageCreature(g, c, 1, me);
+      g.state.time += secs;
+      g.hero.hitsTaken = (g.hero.hitsTaken || 0) + hits;
+      const i = g.state.creatures.indexOf(c);
+      if (i >= 0) g.state.creatures.splice(i, 1);
+      R.onHeroKill(g, c, me);
+      return c;
+    };
+    R.rpgOf(g).level = 15;
+    fell('cave_troll', { lvl: 25, secs: 15, hits: 0 });
+    const rec = B.bossRecord(g, 'cave_troll');
+    ok(rec?.kills === 1 && Math.round(rec.fast.t) === 15 && rec.fast.lvl === 15 && rec.fast.bossLvl === 25 && !rec.fast.hits,
+      'a kill writes the run: level, clock, the boss level and the blows you took', `lv${rec?.fast.lvl} in ${Math.round(rec?.fast.t)}s`);
+    ok(rec.bestRank === 'S', 'fast, clean and above your level is an S', rec.bestRank);
+    ok(B.bossProgress(g).found === 1, 'the Hall counts it');
+
+    // a worse run never overwrites a better record, but its own best fields still land
+    R.rpgOf(g).level = 40;
+    fell('cave_troll', { lvl: 60, secs: 200, hits: 9 });
+    const rec2 = B.bossRecord(g, 'cave_troll');
+    ok(Math.round(rec2.fast.t) === 15 && rec2.low.lvl === 15 && !rec2.clean.hits, 'a slower, messier run leaves your records alone');
+    ok(rec2.high.bossLvl === 60 && rec2.kills === 2, 'but the strongest one you have felled is remembered');
+
+    // rematches: only what you have already beaten, at the level you name
+    ok(!B.challengeBoss(g, 'lich').ok, 'you cannot call out something you have never beaten');
+    const ch = B.challengeBoss(g, 'cave_troll', 33, me);
+    ok(ch.ok && ch.creature.lvl === 33 && ch.creature._challenge, 'a rematch arrives at the level you ask for', `lv${ch.creature?.lvl}`);
+    ok(!B.challengeBoss(g, 'cave_troll', 10, me).ok, 'only one challenge at a time');
+    g.state.creatures = g.state.creatures.filter(c => !c._challenge);
+
+    // the gauntlet needs three different bosses beaten, then runs them one after another
+    ok(!B.startBossRush(g).ok, 'a gauntlet needs three bosses on your wall first');
+    fell('slime_king', { lvl: 12, secs: 40 });
+    fell('spider_queen', { lvl: 12, secs: 40 });
+    const rush = B.startBossRush(g, { count: 3, v: me });
+    ok(rush.ok && rush.queue.length === 3 && R.rpgOf(g).rush, 'the gauntlet starts with its queue', `${rush.queue?.length}`);
+    const t0 = g.state.time;
+    for (let i = 0; i < 3; i++) {
+      const c = g.state.creatures.find(x => x._challenge) || g.spawnCreature(R.rpgOf(g).rush.queue[R.rpgOf(g).rush.i], me.x + 60, me.y, { _challenge: true });
+      g.state.time += 10;
+      g.state.creatures.splice(g.state.creatures.indexOf(c), 1);
+      R.onHeroKill(g, c, me);
+      if (i < 2) { const rr = R.rpgOf(g).rush; ok(rr && rr.i === i + 1, `the gauntlet moves on (${i + 1}/3)`); }
+    }
+    ok(!R.rpgOf(g).rush && R.rpgOf(g).rushBest?.n === 3, 'finishing the gauntlet keeps your best time');
+    ok(R.rpgOf(g).rushBest.t >= g.state.time - t0 - 1, 'and that time is the whole run');
+
+    // it all survives a save
+    const back = deserialize(serialize(g.state));
+    ok(back.rpg.bossLog.cave_troll.kills >= 2 && back.rpg.bossLog.cave_troll.fast && back.rpg.rushBest, 'every record is saved', `${back.rpg.bossLog.cave_troll?.kills} kills`);
+    H.endLead(g);
+  });
+
+  await step('the middle of the screen is only ever what people say', async () => {
+    const app = window.__hb.app, hud = app?.hud;
+    if (!hud) return ok(false, 'the game screen is up');
+    document.querySelectorAll('.say-banner').forEach(e => e.remove());
+    hud.announce('The village is on fire');
+    await sleep(60);
+    ok(!document.querySelector('.announce'), 'the game never shouts its own news over the world any more');
+    hud.saySomething({ name: 'Someone', text: 'meet me at the cave' });
+    await sleep(60);
+    const b = document.querySelector('.say-banner');
+    ok(b && b.textContent.includes('meet me at the cave') && b.textContent.includes('Someone'), 'what someone typed floats there instead');
+    hud.saySomething({ name: 'You', text: 'on my way', mine: true });
+    hud.saySomething({ name: 'A third', text: 'wait for me' });
+    hud.saySomething({ name: 'A fourth', text: 'and me' });
+    await sleep(60);
+    const rows = [...document.querySelectorAll('.say-banner')];
+    ok(rows.length === 3, 'never more than three at once', `${rows.length}`);
+    ok(rows.map(r => r.style.getPropertyValue('--row')).join() === '2,1,0', 'the newest sits on top', rows.map(r => r.style.getPropertyValue('--row')).join());
+    hud.saySomething({ text: '   ' });
+    await sleep(30);
+    ok(document.querySelectorAll('.say-banner').length === 3, 'an empty line shows nothing');
+    const me = app.game.state.villagers[0];
+    hud.saySomething({ name: 'You', text: 'over here', mine: true });
+    ok(!app.game.hero || me._say?.text === 'over here', 'and it goes over your own head as well');
+    document.querySelectorAll('.say-banner').forEach(e => e.remove());
+  });
+
+  await step('kill streaks: the screen shouts, and you hit harder for it', async () => {
+    const H = await import('/src/game/hero.js');
+    const R = await import('/src/game/rpg.js');
+    const S = await import('/src/game/streak.js');
+    const g = new Game(newState({ uid: 'st', name: 'T', villageName: 'V' }));
+    const me = g.state.villagers[0];
+    H.startLead(g, me);
+    const kill = type => { const c = g.spawnCreature(type, me.x + 40, me.y, { _eliteRolled: true }); g.state.creatures.splice(g.state.creatures.indexOf(c), 1); R.onHeroKill(g, c, me); };
+    ok(S.streakDamage(g) === 1 && !S.streakLeft(g), 'no streak, no bonus');
+    kill('wolf'); kill('wolf');
+    ok(g.hero.streak.n === 2 && S.streakDamage(g) === 1, 'two in a row counts, but the bonus starts at three');
+    kill('wolf');
+    ok(S.streakDamage(g) > 1 && S.streakBonus(g) > 1, 'from three you hit harder and earn more', `x${S.streakDamage(g).toFixed(2)}`);
+    for (let i = 0; i < 17; i++) kill('wolf');
+    ok(g.hero.streak.n === 20 && S.streakLeft(g).name === 'GODLIKE', 'twenty in a row is GODLIKE', S.streakLeft(g)?.name);
+    ok(S.streakDamage(g) <= 1 + S.STREAK_CAP + 0.001, 'the damage bonus is capped', `x${S.streakDamage(g).toFixed(2)}`);
+    ok((R.rpgOf(g).bestStreak || 0) >= 20, 'your best streak is remembered');
+    S.hurtStreak(g);
+    ok(g.hero.streak.n === 10, 'a blow that lands halves the streak instead of ending it', `${g.hero.streak?.n}`);
+    g.state.time += 30;
+    ok(!S.streakLeft(g) && !g.hero.streak, 'letting the window run out ends it');
+    H.endLead(g);
+  });
+
   await step('solo mode: only your ruler, you build it yourself', async () => {
     const H = await import('/src/game/hero.js');
     const g = new Game(newState({ uid: 's', name: 'Solo', villageName: 'Soloton' }));

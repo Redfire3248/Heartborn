@@ -19,6 +19,7 @@ export const ACTIONS = [
   { id: 'inventory', label: 'Inventory', group: 'Screens', def: 'i' },
   { id: 'index', label: 'Index', group: 'Screens', def: 'n' },
   { id: 'journal', label: 'Journal (daily and achievements)', group: 'Screens', def: 'o' },
+  { id: 'bosses', label: 'Hall of Bosses (records and rematches)', group: 'Screens', def: 'h' },
   { id: 'pets', label: 'Pets', group: 'Screens', def: 'p' },
   { id: 'map', label: 'World map', group: 'Screens', def: 'v' },
   { id: 'build', label: 'Build menu', group: 'Screens', def: 'b' },

@@ -164,7 +164,7 @@ export function makeDungeonGame(home, { depth = 1, entrance = null, seed = (Date
   Object.defineProperty(g, 'isNight', { get: () => true });
   Object.defineProperty(g, 'darkness', { get: () => 1 });
   const emit = g.emit.bind(g);
-  g.emit = (name, data) => { emit(name, data); if (name === 'change') home.emit('change'); };   // loot and level-ups refresh the screens
+  g.emit = (name, data) => { emit(name, data); if (name === 'change' || name === 'bossDown') home.emit(name, data); };   // loot, level-ups and felled bosses reach the screens
   Object.defineProperty(g, 'center', { get: () => center });
 
   const rc = a => ({ x: (a.x + a.w / 2) * TILE, y: (a.y + a.h / 2) * TILE });

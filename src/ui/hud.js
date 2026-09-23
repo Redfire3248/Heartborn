@@ -11,6 +11,9 @@ import { h, icon, avatar, RES_ICON, costChips, bar, clear, modal, confirmModal, 
 import { openEnchantMenu } from './enchantMenu.js';
 import { atEnchantTable, ENCHANTS, enchName } from '../game/enchanting.js';
 import { openIndex } from './indexBook.js';
+import { openBossBook } from './bossBook.js';
+import { RANKS, fmtRun } from '../game/bossIndex.js';
+import { streakLeft } from '../game/streak.js';
 import { openLayoutEditor, watchLayout } from './layoutEdit.js';
 import { quickCraft, setQuickCraft } from '../core/prefs.js';
 import { TRAITS as FORGE_TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
@@ -165,6 +168,7 @@ export class HUD {
     game.on('rareLoot', d => this.rareLootReveal(d));
     game.on('petEgg', () => this.toast({ text: 'You found a pet egg! Hatch it in Pets (P)', kind: 'good' }));
     game.on('challengeDone', c => this.toast({ text: `Challenge done: ${c.text}. Claim it in your Journal (O)`, kind: 'good' }));
+    game.on('bossDown', res => this.bossVictory(res));
     game.on('discover', () => { if (!this._indexToastAt || performance.now() - this._indexToastAt > 4000) { this._indexToastAt = performance.now(); this.toast({ text: 'New entry in your Index (N)', kind: 'event' }); } });
     if (mp) {
       // player vs player
@@ -174,7 +178,7 @@ export class HUD {
         const last = list[list.length - 1];
         if (last && last.id !== this._lastChatId) {
           this._lastChatId = last.id;
-          if (last.uid !== this.user?.uid) this.addChatLine({ name: last.name || 'Someone', text: last.text });
+          if (last.uid !== this.user?.uid) { this.addChatLine({ name: last.name || 'Someone', text: last.text }); this.saySomething({ name: last.name || 'Someone', text: last.text, uid: last.uid }); }
         }
         if (this.panel === 'world' && this.worldTab === 'chat') this.refreshPanel();
       });
@@ -301,6 +305,8 @@ export class HUD {
     this.els.hotName = h('div.hot-name');
     this.els.invPanel = h('div.card.inv-panel', { hidden: true });
     this.els.vitals = h('div.vitals-strip', { hidden: true });
+    this.els.streak = h('div.streak-chip', { hidden: true }, h('b.streak-n'), h('span.streak-name'), h('i.streak-bar'));
+    this.root.append(this.els.streak);
     this.els.skillChip = h('div.skill-chip', { hidden: true });
     this.root.append(this.els.heroBar, this.els.heroPad, this.els.vitals, this.els.skillChip, h('div.hotbar-wrap', this.els.invPanel, this.els.hotName, this.els.hotbar));   // the strip stands on its own: inside the hotbar it was trapped by its transform
     watchLayout();
@@ -387,6 +393,7 @@ export class HUD {
       { const me = heroOf(hg); const low = !!me && !this.houseEditor && me.hp > 0 && me.hp < (hg.hero.maxHp || 100) * 0.25; if (low !== this._lowHp) { this._lowHp = low; this.root.classList.toggle('low-hp', low); } }
       if (this.els.abilityBtn && hg.hero) { const left = Math.max(0, (hg.hero.abilityReady || 0) - hg.state.time), max = hg.hero.abilityMax || 1; this.els.abilityBtn.style.setProperty('--cd', String(left / max)); this.els.abilityBtn.classList.toggle('cooling', left > 0); const wpn = rpgOf(hg).gear.weapon; this.els.abilityBtn.hidden = !weaponAbility(wpn); }
       this.updateSkillChip(hg);
+      this.updateStreak(hg);
       if (hg === g && !this.houseEditor) {
         const biome = heroBiome(g);
         if (biome && biome !== this._biome) {
@@ -479,6 +486,7 @@ export class HUD {
     if (is(k, 'backpack') && !this.game.sail) { if (!this.useStation()) openBackpack(this); return; }
     if (is(k, 'index')) { openIndex(this); return; }
     if (is(k, 'journal')) { openJournal(this); return; }
+    if (is(k, 'bosses')) { openBossBook(this); return; }
     if (is(k, 'pets')) { openPets(this); return; }
     const slot = ACTIONS.findIndex(a => a.id.startsWith('hot') && is(k, a.id)) - ACTIONS.findIndex(a => a.id === 'hot1');
     // like Minecraft: hover something in the inventory and press a number to put it in that hotbar slot
@@ -920,6 +928,7 @@ export class HUD {
         h('button.btn.sm', { title: 'Your pets and eggs (P)', onclick: () => openPets(this) }, 'Pets'),
         h('button.btn.sm', { title: 'Daily chest, challenges and achievements (O)', onclick: () => openJournal(this) }, hasArt('items/token_crown') ? icon('items/token_crown', 16) : null, 'Journal'),
         h('button.btn.sm', { title: 'Everything you have found (N)', onclick: () => openIndex(this) }, hasArt('ui/index') ? icon('ui/index', 16) : null, 'Index'),
+        h('button.btn.sm', { title: 'Every boss you have felled, your records and rematches (H)', onclick: () => openBossBook(this) }, 'Bosses'),
         h('button.btn.sm.analyze-btn', { title: 'Analyze the item under your cursor (or what you hold). Tip: right-click a hotbar slot', onclick: () => this.analyzeKey(this._invHover || bar[r.hotSel]) }, 'Analyze'),
         h('button.btn.sm', { title: 'Ores, metals and boss materials', onclick: () => openBackpack(this, 'mats') }, 'Materials'),
         h('button.btn.sm', { title: 'Your gear, tools, items and stats (E)', onclick: () => openBackpack(this, 'gear') }, 'Gear'),
@@ -1096,6 +1105,7 @@ export class HUD {
     if (!this.mp) { this.hint('Chat is for worlds you share with others', 1600); return; }
     this.mp.sendChat(text).catch(err => this.hint(err.message, 1600));
     this.addChatLine({ name: this.username || 'You', text, mine: true });   // it shows at once, not when the server echoes it
+    this.saySomething({ name: this.username || 'You', text, mine: true });
     this.els.chatInput.focus();   // stay ready for the next line
   }
 
@@ -1169,6 +1179,7 @@ export class HUD {
       case 'say':
         this.toast({ text: `${who}: ${String(c.text || '').slice(0, 120)}`, kind: 'event' });
         this.addChatLine({ name: who, text: String(c.text || '').slice(0, 120) });
+        this.saySomething({ name: who, text: String(c.text || '').slice(0, 120) });
         break;
       default: break;
     }
@@ -2933,6 +2944,57 @@ export class HUD {
     if (n) btn.append(h('span.badge', n));
   }
 
+  /** The kill streak: the number, the name it has earned and the window running out. */
+  updateStreak(hg) {
+    const el = this.els.streak;
+    if (!el) return;
+    const s = streakLeft(hg);
+    if (!s) { if (!el.hidden) { el.hidden = true; this._streakN = 0; } return; }
+    el.hidden = false;
+    if (s.n !== this._streakN) {
+      this._streakN = s.n;
+      el.querySelector('.streak-n').textContent = `x${s.n}`;
+      el.querySelector('.streak-name').textContent = s.name;
+      el.style.setProperty('--sc', s.color);
+      el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+    }
+    el.querySelector('.streak-bar').style.width = `${Math.max(0, Math.min(1, s.left)) * 100}%`;
+  }
+
+  /**
+   * A boss just fell: the screen stops to tell you how it went. A rank, the clock, the level you did it at and
+   * the blows you took, and a ribbon for every one of your own records the run just broke.
+   */
+  bossVictory(res) {
+    if (!res) return;
+    this.els.bossWin?.remove();
+    const run = res.run;
+    const rank = run.rank || 'D';
+    const chips = [
+      ['Time', fmtRun(run.t)],
+      ['You', `Level ${run.lvl}`],
+      ['It', `Level ${run.bossLvl}`],
+      ['Hits taken', run.hits ? String(run.hits) : 'None'],
+    ];
+    const rush = res.rush;
+    const el = this.els.bossWin = h('div.boss-win',
+      h('div.boss-win-rank', { style: { color: RANKS[rank], borderColor: RANKS[rank] } }, rank),
+      h('div.boss-win-main',
+        h('div.boss-win-name', res.name),
+        h('div.boss-win-sub', res.first ? 'First time felled — a new page in your Hall of Bosses' : `Felled ${res.kills} times`),
+        h('div.boss-win-chips', ...chips.map(([k, val]) => h('span.boss-win-chip', h('span.faint', k), h('b', val)))),
+        ...(run.hits ? [] : [h('div.boss-win-flawless', 'UNTOUCHED')]),
+        ...res.beats.map(b => h('div.boss-win-record', b)),
+        rush?.finished
+          ? h('div.boss-win-rush', `Boss Rush done: ${rush.n} of them in ${fmtRun(rush.t)}${rush.record ? ' — a new best!' : ''}`)
+          : rush ? h('div.boss-win-rush', `Boss Rush ${rush.at}/${rush.total} — next up: ${rush.name}`) : null,
+        h('div.faint.boss-win-hint', 'Press H for your Hall of Bosses')));
+    el.onclick = () => { el.remove(); if (this.els.bossWin === el) this.els.bossWin = null; };
+    this.root.append(el);
+    play('reveal');
+    setTimeout(() => { el.classList.add('leaving'); setTimeout(() => { el.remove(); if (this.els.bossWin === el) this.els.bossWin = null; }, 600); }, res.beats.length || res.first ? 6500 : 4500);
+  }
+
   // ------------------------------------------------------------ inspector
   updateInspector(force = false) {
     const sel = this.game.selected;
@@ -3563,22 +3625,34 @@ export class HUD {
     setTimeout(() => el.remove(), 3600);
   }
 
-  announce(text) {
-    // one banner at a time: the rest wait their turn (and repeats are dropped)
-    this._announceQ ||= [];
-    if (this._announceQ.includes(text)) return;
-    this._announceQ.push(text);
-    if (this._announcing) return;
-    const next = () => {
-      const t = this._announceQ.shift();
-      if (t == null) { this._announcing = false; return; }
-      this._announcing = true;
-      const el = h('div.announce', h('div', t));
-      this.root.append(el);
-      setTimeout(() => el.remove(), 3000);
-      setTimeout(next, this._announceQ.length ? 2400 : 3000);
-    };
-    next();
+  /**
+   * The game used to shout its own news across the middle of the screen. It does not any more — that space is for
+   * what people actually say. Announcements still go to the log and to the places that show them properly
+   * (the Boss card, hints, toasts); nothing is drawn over the world for them.
+   */
+  announce() {}
+
+  /**
+   * Somebody typed something: it floats in the middle of the screen for a few seconds and, if they are standing
+   * in front of you, over their head as well. Only what people type ever shows here.
+   */
+  saySomething({ name, text, mine = false, uid = null } = {}) {
+    text = String(text || '').slice(0, 140).trim();
+    if (!text) return;
+    const el = h('div.say-banner', h('span.say-who', mine ? 'You' : name || 'Someone'), h('span.say-text', text));
+    this.root.append(el);
+    const rows = [...this.root.querySelectorAll('.say-banner')];
+    rows.slice(0, -3).forEach(r => r.remove());   // never more than three at a time
+    // the newest sits at the top of the stack and the older ones slide down behind it
+    [...this.root.querySelectorAll('.say-banner')].reverse().forEach((r, i) => { r.style.setProperty('--row', String(i)); r.style.opacity = String(1 - i * 0.25); });
+    setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 500); }, 4500);
+    // and a bubble over whoever said it
+    const until = performance.now() + 4500;
+    const bubble = { text: text.slice(0, 60), from: performance.now(), until };
+    const g = this.dungeon || this.game;
+    if (mine) { const me = heroOf(g); if (me) me._say = bubble; return; }
+    const who = [...(this.game.livePlayers || []), ...(this.game.strangers || [])].find(p => (uid && p.uid === uid) || p.name === name);
+    if (who) who._say = bubble;
   }
 
   showEvent(ev) {
@@ -4069,6 +4143,7 @@ export class HUD {
     window.removeEventListener('popstate', this.onBack);
     clearInterval(this.missionTimer);
     this.els.bossBar?.remove();
+    this.els.bossWin?.remove();
     this.houseEditor?.close();
     this.houseEditor = null;
     this.tutorial?.destroy();

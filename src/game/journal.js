@@ -2,6 +2,7 @@
  * The Journal: a free chest every day, three daily challenges, and achievements that give you a title to show
  * under your name. Days are real days (they reset at midnight on your device), so there is a reason to come back.
  */
+import { BOSS_KEYS } from './bossIndex.js';
 import { giveEgg } from './pets.js';
 import { rpgOf, rollGear, takeGear, RARITY, CATALOG } from './rpg.js';
 import { toolsOf, TOOLS } from './tools.js';
@@ -9,6 +10,9 @@ import { giveItem } from './consumables.js';
 import { gameTheme } from './worldTypes.js';
 import { ORE_RESOURCE } from './loot.js';
 import { CREATURES, OBJECTS } from '../data/objects.js';
+
+const bossPages = r => Object.values(r.bossLog || {}).filter(b => b.kills).length;
+const bossAny = (r, test) => Object.values(r.bossLog || {}).some(b => { try { return b.kills && test(b); } catch { return false; } });
 
 const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -158,6 +162,15 @@ export const ACHIEVEMENTS = [
   { id: 'collector', name: 'Collector', desc: 'Find 100 things for your Index', title: 'the Collector', test: (g, r) => ['ore', 'mat', 'mob', 'gear', 'tool'].reduce((a, c) => a + indexCount(r, c), 0) >= 100 },
   { id: 'daily', name: 'Dedicated', desc: 'Finish 15 daily challenges', title: 'the Dedicated', test: (g, r) => (r.challengesDone || 0) >= 15 },
   { id: 'streak', name: 'Regular', desc: 'Open the daily chest 7 days in a row', title: 'the Regular', test: (g, r) => (r.daily?.streak || 0) >= 7 },
+  // the Hall of Bosses (H)
+  { id: 'hall10', name: 'Hall of Ten', desc: 'Fell 10 different bosses', title: 'Bosshunter', test: (g, r) => bossPages(r) >= 10 },
+  { id: 'hall_all', name: 'The Whole Hall', desc: 'Fell every boss in the game', title: 'Hallmaster', test: (g, r) => bossPages(r) >= BOSS_KEYS.length },
+  { id: 'rank_s', name: 'Perfect Run', desc: 'Earn an S rank against a boss', title: 'the Perfect', test: (g, r) => bossAny(r, b => b.bestRank === 'S') },
+  { id: 'untouched', name: 'Untouchable', desc: 'Fell a boss without taking a single blow', title: 'the Untouchable', test: (g, r) => bossAny(r, b => b.clean && !b.clean.hits) },
+  { id: 'giantkiller', name: 'Giantkiller', desc: 'Fell a boss ten levels above your own', title: 'Giantkiller', test: (g, r) => bossAny(r, b => b.high && b.high.bossLvl - b.high.lvl >= 10) },
+  { id: 'speedrun', name: 'Speedrunner', desc: 'Fell a boss in under 20 seconds', title: 'the Swift', test: (g, r) => bossAny(r, b => b.fast && b.fast.t < 20) },
+  { id: 'gauntlet', name: 'Gauntlet', desc: 'Finish a Boss Rush', title: 'the Relentless', test: (g, r) => !!r.rushBest },
+  { id: 'rampage', name: 'Rampage', desc: 'Kill 20 in a row without the streak dropping', title: 'the Relentless One', test: (g, r) => (r.bestStreak || 0) >= 20 },
 ];
 
 /** Check for new achievements; returns the ones just unlocked. */
