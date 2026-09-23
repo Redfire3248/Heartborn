@@ -1,6 +1,20 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Ten hearts, points over levels, and the village game unhooked',
+    changes: [
+      'Your health is always ten hearts. Each one is a tenth of everything you have, so the row never wraps into a wall of hearts across the screen',
+      'Levels change no stat at all any more: they only hand you points. Health, stamina, damage, speed and crit come from the points you spend and the gear you wear',
+      'Monsters now keep up with the health you have actually trained for, not with a level number, so levelling never quietly makes the world harder',
+      'Clicking a person no longer opens the old village life sheet (age, hunger, happiness, jobs, talents, marriages). That whole screen belongs to the game this used to be',
+      'Beast cards show its level, whether it is a boss and what it really hits for, instead of whether a hunter could bring it home for food',
+      'Trees and rocks tell you to swing at them, not which of your woodcutters chops them, and no longer list food or influence',
+      'Buildings no longer count workers who do not exist',
+      'The World panel: walking up to someone offers a real item trade, not a sack of village grain. Grain, gift and alliance offers, marching armies and spy missions are all unhooked',
+      'The "founded" banner no longer greets you when you start',
+    ],
+  },
+  {
     title: 'Skill on screen, and fixes',
     changes: [
       'A chip by your hotbar shows the skill your weapon holds, what it does and the key for it, and dims with a countdown while it recharges (on a computer: phones already have the SKILL button)',

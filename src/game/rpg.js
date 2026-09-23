@@ -241,7 +241,7 @@ export function shieldIcon(base, rarity) {
 
 export const xpToNext = level => Math.round(60 * Math.pow(level, 1.5));
 
-/** Everything derived from level, points and gear. */
+/** Everything you are made of. Levels only hand out points — nothing here grows on its own. */
 export function heroStats(g) {
   const r = rpgOf(g);
   const bonus = { dmg: 0, hp: 0, speed: 0 };
@@ -249,9 +249,9 @@ export function heroStats(g) {
   const ench = k => ['armor', 'helmet', 'shield'].reduce((a, s) => a + (r.gear[s]?.ench?.[k] || 0), 0);   // Protection and Vitality enchantments
   const armor = (r.gear.armor?.armor || 0) + (r.gear.helmet?.armor || 0) + (r.gear.shield?.armor || 0) + ench('protection') * 0.03;
   return {
-    maxHp: Math.round(100 + (r.level - 1) * 10 + r.vigor * 12 + bonus.hp + ench('vitality') * 10),
-    maxStamina: Math.round(100 + r.agility * 8 + (r.level - 1) * 3),
-    dmgMult: 1 + r.might * 0.08 + (r.level - 1) * 0.04 + bonus.dmg,
+    maxHp: Math.round(100 + r.vigor * 12 + bonus.hp + ench('vitality') * 10),
+    maxStamina: Math.round(100 + r.agility * 8),
+    dmgMult: 1 + r.might * 0.08 + bonus.dmg,
     speed: 1 + r.agility * 0.03 + bonus.speed,
     crit: 0.05 + r.agility * 0.012 + (r.gear.weapon ? WEAPONS[r.gear.weapon.base]?.crit || 0 : 0),
     armor: Math.min(0.7, armor),

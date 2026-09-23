@@ -680,9 +680,9 @@ export function damageHero(g, v, dmg, from = null) {
   if (g.state.rpg?.god) return 0;   // admin god mode
   if (h.inHouse) return 0;   // nothing can hurt you inside your home
   if (h.untargetable > g.state.time) { g.float(v.x, v.y - TILE * 1.3, 'Missed!', '#b06aff'); return 0; }   // your shadow took it
-  // monsters hit hard, and keep up as your health grows with your level
-  const lvl = rpgOf(g).level || 1;
-  dmg *= (1 + (ENEMY_DAMAGE - 1) * Math.min(1, (lvl - 1) / 8)) * (0.55 + 0.45 * heroStats(g).maxHp / 100);
+  // monsters hit hard, and keep up with the health you have trained for (your level alone changes nothing)
+  const mhp = heroStats(g).maxHp;
+  dmg *= (1 + (ENEMY_DAMAGE - 1) * Math.min(1, (mhp - 100) / 120)) * (0.55 + 0.45 * mhp / 100);
   if (g.state.time < DAY_LENGTH && !g.dungeon) dmg *= 0.5;   // your first day in a new world
   if (h.iframes > 0) { g.float(v.x, v.y - TILE * 1.3, 'Dodged!', '#9fd4ff'); return 0; }
   const facingIt = from ? angleDiff(Math.atan2(from.y - v.y, from.x - v.x), h.facing) < 1.8 : true;

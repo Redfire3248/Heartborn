@@ -236,9 +236,6 @@ function startGame(user, game, { online = true } = {}) {
   }
 
   game.on('extinct', () => extinctScreen(() => { document.querySelector('.modal-bg')?.remove(); restart(); }));
-  if (game.day === 0 && !game.state.buildings.length) {
-    game.announce(`${game.state.owner.villageName} is founded`);
-  }
 }
 
 async function visitRealm(uid) {

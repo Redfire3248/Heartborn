@@ -110,6 +110,8 @@ const MINI_COLORS = ['#1d4e89', '#3a9ad9', '#e3cd8c', '#5c9e3c', '#66a843', '#8a
 
 const MINI_SCALE = 4;   // minimap canvas pixels per tile
 
+const HEARTS = 10;   // your health is always ten hearts, however much health you have
+
 const DOCK_GROUPS = [
   { id: 'build', short: 'Build', icon: 'ui/build', tip: 'Build (B)', tabs: [['build', 'Build']] },
   { id: 'people', short: 'People', icon: 'items/population', tip: 'People & Court (J)', tabs: [['jobs', '👥 People & Jobs'], ['court', '👑 Court']] },
@@ -587,9 +589,9 @@ export class HUD {
           h('div.hero-meter.xp', { title: 'Experience' }, els.heroXp)));
       void bounty; void dist;   // no bounty card on the screen any more
     }
-    // health as hearts, Zelda style: one heart per 20 health, halves in between
-    const hearts = Math.ceil(st.maxHp / 20);
-    const heartState = Array.from({ length: hearts }, (_, i) => (v.hp >= (i + 1) * 20 ? 'full' : v.hp >= i * 20 + 10 ? 'half' : 'empty')).join();
+    // health as hearts: always ten of them, each worth a tenth of your health, halves in between
+    const per = Math.max(1, st.maxHp / HEARTS);
+    const heartState = Array.from({ length: HEARTS }, (_, i) => (v.hp >= (i + 1) * per - 0.001 ? 'full' : v.hp >= i * per + per / 2 ? 'half' : 'empty')).join();
     if (heartState !== this._heartsKey) {
       this._heartsKey = heartState;
       els.heroHp.replaceChildren(...heartState.split(',').map(s => icon(`gear/heart_${s}`, 18)));
@@ -1459,7 +1461,7 @@ export class HUD {
     if (bridge) { this.bridgePrompt(bridge); return; }
     // pick the closest thing under the cursor
     let best = null, bd = TILE * 0.7;
-    for (const v of g.state.villagers) {
+    if (on('people')) for (const v of g.state.villagers) {   // the old village sim is switched off: nobody has a life sheet
       if (v.away) continue;
       const d = Math.hypot(v.x - w.x, v.y - TILE * 0.4 - w.y);
       if (d < bd) { bd = d; best = { kind: 'villager', ref: v }; }
@@ -2488,7 +2490,7 @@ export class HUD {
           icon('ui/character', 24), h('div', h('div.pname', p.name || 'Player'), h('div.faint', `${Math.round(d)} tiles away${p.pvp ? ' · up for a fight' : ''}`)),
           h('div.row', { style: { gap: '4px' } },
             h('button.btn.sm.ghost', { title: 'Put a marker where they are', onclick: () => { addMarker(this.game, p.x / TILE, p.y / TILE, p.name || 'Player'); this.hint(`Marked ${p.name || 'them'} on your map`, 1600); } }, 'Mark'),
-            d < 6 ? h('button.btn.sm', { title: 'Offer them a deal', onclick: () => { const found = mp.players.find(x => x.uid === p.uid); if (found) this.offerModal(found); else this.hint('They are not listed yet', 1500); } }, 'Trade') : null))) :
+            d < 6 ? h('button.btn.sm', { title: 'Trade gear, tools and materials with them', onclick: () => { const found = mp.players.find(x => x.uid === p.uid); if (found) this.tradeModal(found); else this.hint('They are not listed yet', 1500); } }, 'Trade') : null))) :
           [h('div.faint', 'Nobody else is on this island right now.')])));
     }
     if (this.worldTab === 'friends') {
@@ -2516,8 +2518,8 @@ export class HUD {
       const online = mp.players.filter(p => p.online).length;
       const armies = mp.armies();
       const missions = mp.missions();
-      const homeSpies = (this.game.state.caravans || []).filter(c => this.game.state.villagers.some(v => v.away?.missionId === c.id));
-      if (missions.length || homeSpies.length) {
+      const homeSpies = on('spies') ? (this.game.state.caravans || []).filter(c => this.game.state.villagers.some(v => v.away?.missionId === c.id)) : [];
+      if (on('spies') && (missions.length || homeSpies.length)) {
         body.append(h('h3', 'Your agents'));
         for (const m of missions) {
           const total = Math.max(1, m.arrivesAt - (m.launchedAt || m.arrivesAt));
@@ -2531,7 +2533,7 @@ export class HUD {
           body.append(h('div.offer', h('div.row', icon('units/spy', 24), h('b', c.text), h('div.spacer'), h('span.faint', `home in ${fmtClock(Math.max(0, (c.at - Date.now()) / 1000))}`))));
         }
       }
-      if (armies.length) {
+      if (on('invasions') && armies.length) {
         body.append(h('h3', 'Your armies'));
         for (const a of armies) {
           const secs = Math.max(0, Math.round((a.arrivesAt - Date.now()) / 1000));
@@ -2590,10 +2592,12 @@ export class HUD {
       input.addEventListener('focus', () => { this.chatFocus = true; });
       input.addEventListener('blur', () => { this.chatFocus = false; });
     } else {
-      if (!mp.inbox.length) body.append(h('div.muted', 'No offers yet. Visit other villages to trade, gift or form alliances.'));
-      for (const o of mp.inbox) {
-        if (o.type === 'itemtrade') { body.append(this.tradeCard(o)); continue; }
-        const title = { trade: 'Trade offer', gift: 'Gift', alliance: 'Alliance proposal' }[o.type];
+      const trades = mp.inbox.filter(o => o.type === 'itemtrade');
+      if (!trades.length) body.append(h('div.muted', 'No offers yet. Walk up to another player and hit Trade to send them one.'));
+      for (const o of trades) {
+        body.append(this.tradeCard(o)); continue;
+        // the old village offers (grain, gifts, alliances) are switched off
+        const title = { trade: 'Trade offer', gift: 'Gift', alliance: 'Alliance proposal' }[o.type];   // eslint-disable-line no-unreachable
         body.append(h('div.offer',
           h('div.row', icon(o.type === 'alliance' ? 'items/alliance' : o.type === 'gift' ? 'items/relic' : 'items/trade', 24), h('b', `${title} from ${o.fromVillage}`), h('div.spacer'), h('span.faint', timeAgo(o.ts))),
           Object.keys(o.give || {}).length ? h('div.row', h('span.faint', 'They give:'), costChips(o.give)) : null,
@@ -2932,7 +2936,7 @@ export class HUD {
   // ------------------------------------------------------------ inspector
   updateInspector(force = false) {
     const sel = this.game.selected;
-    if (!sel) { this.inspector?.remove(); this.inspector = null; return; }
+    if (!sel || (sel.kind === 'villager' && !on('people'))) { this.game.selected = null; this.inspector?.remove(); this.inspector = null; return; }
     const stale = (sel.kind === 'villager' && !this.game.state.villagers.includes(sel.ref))
       || (sel.kind === 'creature' && !this.game.state.creatures.includes(sel.ref))
       || (sel.kind === 'building' && !this.game.state.buildings.includes(sel.ref))
@@ -2945,6 +2949,7 @@ export class HUD {
     // don't rebuild under the mouse: a rebuild between press and release swallows clicks
     if (!force && (this.inspector.matches(':hover') || (this.inspector.contains(document.activeElement) && document.activeElement.tagName === 'SELECT'))) return;
     const content = this[`inspect_${sel.kind}`](sel.ref);
+    if (!content.length) { this.game.selected = null; this.inspector.remove(); this.inspector = null; return; }
     this.inspector.replaceChildren(h('button.btn.icon.ghost.close', { onclick: () => this.select(null) }, '✕'), ...content.filter(x => x != null && x !== false));
   }
 
@@ -3009,6 +3014,8 @@ export class HUD {
 
   inspect_villager(v) {
     const g = this.game;
+    if (!on('people')) return [];   // village life sheets belong to the old game
+    // eslint-disable-next-line no-unreachable
     const role = displayRole(v);
     const partner = g.state.villagers.find(x => x.id === v.partner);
     const task = v._task ? TASK_TEXT[v._task.type] || v._task.type : 'Thinking';
@@ -3408,8 +3415,7 @@ export class HUD {
     const g = this.game;
     const def = BUILDINGS[b.type];
     const recipe = def.recipe;
-    // everyone working here, including those walking back between catches or harvests
-    const workers = g.state.villagers.filter(v => v._task?.building === b || (v._workAt?.id === b.id && g.state.time - v._workAt.t < 20)).length;
+    const workers = on('people') ? g.state.villagers.filter(v => v._task?.building === b || (v._workAt?.id === b.id && g.state.time - v._workAt.t < 20)).length : 0;
     return [
       h('div.row', { style: { gap: '12px' } },
         h('div.portrait', icon(buildingSprite(b.type), 72)),
@@ -3418,7 +3424,7 @@ export class HUD {
           b.built ? (b.blightUntil > g.state.time ? h('span.chip.bad', 'Blighted') : h('span.chip.good', 'Built')) : h('span.chip', `Building ${Math.floor(b.progress * 100)}%`))),
       !b.built ? bar(b.progress, '#ffd76a') : null,
       h('div.muted', def.desc),
-      def.slots ? h('span.chip', `👷 ${workers}/${def.slots} working now`) : null,
+      def.slots && on('people') ? h('span.chip', `👷 ${workers}/${def.slots} working now`) : null,
       def.housing && b.type !== 'campfire' && b.built ? this.homeCard(b) : null,
       this.abilityCard(b),
       b.type === 'shipyard' && b.built && on('sailing') ? this.shipyardCard() : null,
@@ -3438,15 +3444,17 @@ export class HUD {
   inspect_creature(c) {
     const g = this.game;
     const def = CREATURES[c.t];
-    const name = c.t.replace('_', ' ');
+    const name = c.t.replace(/_/g, ' ');
     return [
       h('div.row', { style: { gap: '12px' } },
         h('div.portrait', icon(def.sprite, 72)),
         h('div.col', { style: { gap: '4px' } },
           h('div.title', name[0].toUpperCase() + name.slice(1)),
-          def.hostile ? h('span.chip.bad', 'Hostile') : h('span.chip.good', def.tame ? 'Tame' : 'Wild'))),
+          h('div.row', { style: { gap: '4px', flexWrap: 'wrap' } },
+            c.lvl ? h('span.chip', `Level ${c.lvl}`) : null,
+            def.boss ? h('span.chip.bad', 'Boss') : def.hostile ? h('span.chip.bad', 'Hostile') : h('span.chip.good', def.tame ? 'Tame' : 'Wild')))),
       h('div.stat', h('span', 'Health'), bar((c.hp ?? maxHp(c)) / maxHp(c), '#ff5a4a'), h('span', Math.ceil(c.hp ?? maxHp(c)))),
-      def.hostile ? h('div.faint', `Deals ${def.damage} damage.`) : h('div.faint', def.food ? 'Hunters can bring it down for food.' : 'Harmless.'),
+      def.hostile ? h('div.faint', `Hits for ${Math.round(def.damage * (c.dmgMult || 1))}.`) : h('div.faint', 'Harmless.'),
       // no Divine Smite or Throw bomb buttons any more
     ];
   }
@@ -3454,14 +3462,16 @@ export class HUD {
   inspect_object(o) {
     const def = OBJECTS[o.t];
     const name = o.t.replace(/_/g, ' ');
-    const gives = ['wood', 'food', 'stone', 'coal', 'iron', 'gold', 'gems', 'influence'].filter(k => def[k]).map(k => `${def[k][0]}-${def[k][1]} ${k}`);
-    const workText = { chop: 'Woodcutters chop this.', gather: 'Gatherers collect this.', mine: 'Miners dig this.', explore: 'Explorers can search these ruins.' }[def.work];
+    const gives = ['wood', 'stone', 'coal', 'iron', 'gold', 'gems'].filter(k => def[k]).map(k => `${def[k][0]}-${def[k][1]} ${k}`);
+    const workText = on('people')
+      ? { chop: 'Woodcutters chop this.', gather: 'Gatherers collect this.', mine: 'Miners dig this.', explore: 'Explorers can search these ruins.' }[def.work]
+      : { chop: 'Swing an axe at it.', gather: 'Walk up and take it.', mine: 'Swing a pickaxe at it.', explore: 'Search these ruins.' }[def.work];
     return [
       h('div.row', { style: { gap: '12px' } },
         h('div.portrait', icon(def.sprite, 72)),
         h('div.col', { style: { gap: '2px' } },
           h('div.title', o.t === 'grave' ? 'Grave' : name[0].toUpperCase() + name.slice(1)),
-          o.t === 'grave' ? h('div.muted', `Here lies ${o.name || 'a villager'}.`) : null,
+          o.t === 'grave' ? h('div.muted', o.name ? `Here lies ${o.name}.` : 'An old grave.') : null,
           workText ? h('div.faint', workText) : null)),
       gives.length ? h('div.row', { style: { flexWrap: 'wrap' } }, gives.map(x => h('span.chip', x))) : null,
       def.charges ? h('div.faint', `Uses left: ${o.charges}/${def.charges}`) : null,

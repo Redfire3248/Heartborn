@@ -153,9 +153,14 @@ export async function run() {
     g.hero.inHouse = false;
     const Rr = await import('/src/game/rpg.js');
     const soft = H.damageHero(g, g.state.villagers[0], 10, null);
-    Rr.rpgOf(g).level = 9; g.state.time = 90 * 3; g.hero.iframes = 0;
+    Rr.rpgOf(g).vigor = 10; g.state.time = 90 * 3; g.hero.iframes = 0;   // trained health, not a level number
     const hard = H.damageHero(g, g.state.villagers[0], 10, null);
-    ok(soft <= 10 && hard > 14, 'monsters hit gently at first, then much harder as you grow', `${soft.toFixed(1)} then ${hard.toFixed(1)}`);
+    ok(soft <= 10 && hard > 14, 'monsters hit gently at first, then much harder as you train', `${soft.toFixed(1)} then ${hard.toFixed(1)}`);
+    Rr.rpgOf(g).vigor = 0; g.hero.iframes = 0;
+    const plain = H.damageHero(g, g.state.villagers[0], 10, null);
+    Rr.rpgOf(g).level = 40; g.hero.iframes = 0;
+    ok(Math.abs(H.damageHero(g, g.state.villagers[0], 10, null) - plain) < 0.01, 'a bare level never makes them hit harder', `${plain.toFixed(1)}`);
+    Rr.rpgOf(g).level = 1;
   });
 
   await step('saved while in a dungeon: you come back up on load', async () => {
@@ -482,7 +487,12 @@ export async function run() {
     ok(!g.state.creatures.includes(wolf) && R.rpgOf(g).xp > 0, 'swinging kills a beast and earns experience');
     R.gainXp(g, 500, me);
     ok(R.rpgOf(g).level > 1 && R.rpgOf(g).points >= 3, 'experience brings levels and points to spend');
-    ok(R.spendPoint(g, 'vigor') && R.heroStats(g).maxHp > 100 + (R.rpgOf(g).level - 1) * 10, 'points make you stronger');
+    const beforeHp = R.heroStats(g).maxHp;
+    ok(R.spendPoint(g, 'vigor') && R.heroStats(g).maxHp === beforeHp + 12, 'points make you stronger');
+    const lvlHp = R.heroStats(g).maxHp;
+    R.rpgOf(g).level += 20;
+    ok(R.heroStats(g).maxHp === lvlHp, 'levels alone change no stat, they only hand out points');
+    R.rpgOf(g).level -= 20;
     // loot: better gear goes straight on, the rest into the bag
     const epic = { ...R.rollGear(g, { slot: 'weapon' }), rarity: 2, dmg: 60 };
     R.takeGear(g, epic);
@@ -1680,12 +1690,16 @@ export async function run() {
     await sleep(100);
     ok(abilityBtn && campfire.abilityAt != null, 'ability button in the building card works');
     hud.select(null);
-    for (const sel of [{ kind: 'villager', ref: g.state.villagers[0] }, { kind: 'building', ref: campfire }, { kind: 'object', ref: g.state.objects[0] }, { kind: 'creature', ref: g.state.creatures[0] }]) {
+    for (const sel of [{ kind: 'building', ref: campfire }, { kind: 'object', ref: g.state.objects[0] }, { kind: 'creature', ref: g.state.creatures[0] }]) {
       if (!sel.ref) continue;
       try { hud.select(sel); await sleep(80); if (!hud.inspector?.children.length) failed.push(`${sel.kind} inspector empty`); } catch (e) { failed.push(`${sel.kind}: ${e.message}`); }
     }
     hud.select(null);
-    ok(!failed.length, 'inspectors open for villagers, buildings, objects and creatures', failed.join('; '));
+    ok(!failed.length, 'inspectors open for buildings, objects and creatures', failed.join('; '));
+    hud.select({ kind: 'villager', ref: g.state.villagers[0] });
+    await sleep(80);
+    ok(!hud.inspector && !g.selected, 'the old village life sheet never opens any more');
+    hud.select(null);
 
     const before = g.state.buildings.length;
     (hud.desktopPlace = true, hud).startBuild('tent');
