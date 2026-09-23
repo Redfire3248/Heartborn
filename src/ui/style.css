@@ -2237,3 +2237,53 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 
 .bp-head { padding-right: 42px; }   /* room for the close button */
 .bp-gold { flex: none; }
+
+/* ---------------------------------------------------------------- phones: one tidy layout, nothing on top of anything
+   Bottom up: the row of menus, then the hotbar, then the controls either side of it, and your hearts up at the top. */
+@media (pointer: coarse), (max-width: 820px) {
+  :root { --dock-h: 58px; --hot-h: 50px; --ui-floor: calc(var(--dock-h) + var(--hot-h) + env(safe-area-inset-bottom)); }
+
+  /* the hotbar sits right above the menu row, with room to breathe */
+  .hotbar-wrap { bottom: calc(var(--dock-h) + env(safe-area-inset-bottom) + 4px) !important; }
+  .hotbar { gap: 4px; padding: 3px 4px; overflow-x: auto; scrollbar-width: none; justify-content: flex-start; }
+  .hotbar::-webkit-scrollbar { display: none; }
+  .hot-slot { width: 44px !important; height: 44px !important; flex: 0 0 auto; }
+
+  /* your hearts and bars go up top, out of the way of your thumbs */
+  .vitals-strip { position: fixed; left: 8px; top: 52px; align-items: flex-start; z-index: 13; padding: 0; }
+  .vitals-strip .hero-hearts img, .vitals-strip .hero-hearts canvas { width: 16px; height: 16px; }
+  .vitals-strip .hero-meter { width: 104px; }
+  .leading .goals { display: none !important; }
+
+  /* the stick on the left, the buttons on the right, both clear of the hotbar */
+  .leading .hero-stick, .hero-stick { left: 14px !important; bottom: calc(var(--ui-floor) + 12px) !important; width: 124px; height: 124px; }
+  .leading .hero-act, .hero-act { right: 16px !important; bottom: calc(var(--ui-floor) + 16px) !important; width: 88px; height: 88px; }
+  .hero-dash { right: 118px !important; bottom: calc(var(--ui-floor) + 26px) !important; width: 58px; height: 58px; }
+  .hero-block { right: 30px !important; bottom: calc(var(--ui-floor) + 116px) !important; width: 58px; height: 58px; }
+  .hero-potion { right: 112px !important; bottom: calc(var(--ui-floor) + 100px) !important; width: 48px; height: 48px; }
+  .hero-ability { right: 30px !important; bottom: calc(var(--ui-floor) + 186px) !important; width: 54px; height: 54px; }
+
+  /* chat tucks under your hearts instead of floating in the middle of the world */
+  .chat-wrap { left: 8px !important; right: auto !important; top: 104px; bottom: auto !important; width: min(230px, 62vw); align-items: flex-start; }
+  .chat-live.open { max-height: 30vh; }
+  .chat-live:not(.open) { max-height: 22vh; overflow: hidden; }
+
+  /* the menu row: five even buttons, nothing cramped */
+  .dock { height: var(--dock-h); padding-bottom: env(safe-area-inset-bottom); }
+  .dock button { flex: 1 1 0; min-width: 0; }
+  .dock .dock-label { font-size: 10.5px; }
+  .dock hr { display: none; }
+}
+
+/* hearts, stamina and experience: their own layer, so no parent can drag them about */
+.vitals-strip { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(104px + env(safe-area-inset-bottom)); z-index: 13; }
+@media (pointer: coarse), (max-width: 820px) {
+  .vitals-strip { left: 8px; top: 52px; bottom: auto; transform: none; align-items: flex-start; }
+}
+
+/* on a phone the hotbar runs the full width and scrolls from the left, so slot 1 is never cut off */
+@media (pointer: coarse), (max-width: 820px) {
+  .hotbar-wrap { left: 0 !important; right: 0 !important; transform: none !important; width: 100%; align-items: stretch; }
+  .hotbar { justify-content: flex-start; scroll-padding-left: 6px; padding-left: 6px; padding-right: 6px; }
+  .hot-name { text-align: center; }
+}

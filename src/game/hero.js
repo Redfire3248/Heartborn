@@ -144,6 +144,14 @@ function attack(g, v, st) {
   const nearPerson = null;   // your avatar only fights beasts and raiders
   // another player you are allowed to hit counts as something to swing at
   const pvpTarget = (p) => (p.player ? g.state.pvp && p.pvp : !!p.from);
+  // swinging at someone who has fighting off: say so rather than nothing happening
+  if (!tool) for (const p of g.livePlayers || []) {
+    if (pvpTarget(p) || Math.hypot(p.x - v.x, p.y - v.y) > TILE * 2) continue;
+    if (g.state.time - (h._pvpWarnAt || -9) < 4) break;
+    h._pvpWarnAt = g.state.time;
+    g.float(p.x, p.y - TILE * 1.6, p.pvp ? 'Your fighting is off' : `${p.name || 'They'} has fighting off`, '#cfc6e0');
+    break;
+  }
   const nearPlayer = tool || !g.pvp ? null : [...(g.strangers || []), ...(g.livePlayers || [])]
     .filter(pvpTarget)
     .map(p => ({ p, d: Math.hypot(p.x - v.x, p.y - v.y) }))

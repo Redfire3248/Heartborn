@@ -283,7 +283,6 @@ export class HUD {
     // chat while you play: Enter opens the line, what people say floats above it for a while
     this.chatLines = [];   // what has been said and what has happened, newest last
     this.els.chatLog = h('div.chat-live');
-    this.els.chatBtn = h('button.chat-btn', { title: 'Chat (Enter). Click to keep it open', onclick: () => this.toggleChatPinned() }, icon('items/chat', 16), h('span', 'Chat'));
     this.els.chatInput = h('input.input.chat-line', { placeholder: 'Say something…', maxLength: 200 });
     this.els.chatSend = h('button.btn.sm.primary.chat-send', { onclick: () => this.sendChatLine() }, 'Send');
     this.els.chatRow = h('div.chat-row', { hidden: true }, this.els.chatInput, this.els.chatSend);
@@ -293,14 +292,14 @@ export class HUD {
       if (e.key !== 'Enter') return;
       this.sendChatLine();
     });
-    this.root.append(h('div.chat-wrap', this.els.chatBtn, this.els.chatLog, this.els.chatRow));
+    this.root.append(h('div.chat-wrap', this.els.chatLog, this.els.chatRow));
     this.els.heroBar = h('div.card.hero-bar', { hidden: true });
     this.els.heroPad = h('div.hero-pad', { hidden: true });
     this.els.hotbar = h('div.hotbar', { hidden: true });
     this.els.hotName = h('div.hot-name');
     this.els.invPanel = h('div.card.inv-panel', { hidden: true });
     this.els.vitals = h('div.vitals-strip', { hidden: true });
-    this.root.append(this.els.heroBar, this.els.heroPad, h('div.hotbar-wrap', this.els.invPanel, this.els.vitals, this.els.hotName, this.els.hotbar));
+    this.root.append(this.els.heroBar, this.els.heroPad, this.els.vitals, h('div.hotbar-wrap', this.els.invPanel, this.els.hotName, this.els.hotbar));   // the strip stands on its own: inside the hotbar it was trapped by its transform
     watchLayout();
     // sailing: status, Fire, Return to port, and a steering pad for touch screens
     this.sailInput = { throttle: 0, turn: 0, fire: false, wheel: 0 };
@@ -1070,7 +1069,7 @@ export class HUD {
   /** Keeps the chat open (or lets it fade again). */
   toggleChatPinned() {
     this.chatPinned = !this.chatPinned;
-    this.els.chatBtn.classList.toggle('on', this.chatPinned);
+    this.root.querySelector('.dock-chat')?.classList.toggle('on', this.chatPinned);
     this.root.classList.toggle('chat-open', this.chatPinned);
     if (this.chatPinned) this.openChat(); else this.closeChat();
   }
@@ -1250,11 +1249,16 @@ export class HUD {
       t.mx = Math.abs(dx) > 0.15 ? dx : 0; t.my = Math.abs(dy) > 0.15 ? dy : 0;
       knob.style.transform = `translate(${dx * 34}px, ${dy * 34}px)`;
     };
+    // letting go must always stop you: a lost touch used to leave you walking on your own
     const end = () => { id = null; t.mx = 0; t.my = 0; knob.style.transform = ''; };
-    stick.addEventListener('pointerdown', e => { e.preventDefault(); id = e.pointerId; stick.setPointerCapture?.(id); move(e); });
+    stick.addEventListener('pointerdown', e => { e.preventDefault(); id = e.pointerId; try { stick.setPointerCapture?.(id); } catch {} move(e); });   // capture can refuse: the stick must still work
     stick.addEventListener('pointermove', e => { if (e.pointerId === id) move(e); });
-    stick.addEventListener('pointerup', end);
-    stick.addEventListener('pointercancel', end);
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture', 'pointerleave']) stick.addEventListener(ev, end);
+    if (!this._stickGuards) {   // and if the window loses the touch altogether
+      this._stickGuards = true;
+      for (const ev of ['pointerup', 'pointercancel', 'blur']) window.addEventListener(ev, () => { if (id != null) end(); });
+      document.addEventListener('visibilitychange', () => { if (document.hidden) { end(); Object.assign(t, { act: false, dash: false, block: false, potion: false }); } });
+    }
     const hold = (cls, key, label, iconKey, size) => {
       const b = h(`button.${cls}`, {
         onpointerdown: e => { e.preventDefault(); t[key] = true; b.classList.add('down'); },
@@ -1270,8 +1274,9 @@ export class HUD {
     const potion = hold('hero-potion', 'potion', '', 'gear/health_potion', 26);
     this.els.potionCount = h('span.hero-potion-count', '0');
     potion.append(this.els.potionCount);
-    const ability = h('button.hero-btn.hero-ability', { title: 'Weapon ability (F)', onpointerdown: e => { e.preventDefault(); useWeaponAbility(this.dungeon || this.game); } }, icon('effects/magic_orb', 22), h('span', 'SKILL'), h('i.ability-cd'));
+    const ability = h('button.hero-btn.hero-ability', { hidden: true, title: 'Weapon ability (F)', onpointerdown: e => { e.preventDefault(); useWeaponAbility(this.dungeon || this.game); } }, icon('effects/magic_orb', 22), h('span', 'SKILL'), h('i.ability-cd'));
     this.els.abilityBtn = ability;
+    ability.hidden = !weaponAbility(rpgOf(this.dungeon || this.game).gear.weapon);   // set straight away, not a frame later
     this.els.heroPad.replaceChildren(stick, act, dash, block, potion, ability);
   }
 
@@ -2430,7 +2435,7 @@ export class HUD {
     this.friendsUnsub?.();
     this.friendsUnsub = null;
     if (!mp) this.worldTab = 'friends';   // solo: friends & profiles still work
-    const tabList = mp ? [['players', 'Villages'], ['chat', 'Chat'], ['offers', `Offers${pending ? ` (${pending})` : ''}`], ['friends', 'Friends']] : [['friends', 'Friends']];
+    const tabList = mp ? [['players', 'Players'], ['chat', 'Chat'], ['offers', `Offers${pending ? ` (${pending})` : ''}`], ['friends', 'Friends']] : [['friends', 'Friends']];
     const tabs = h('div.tabs', tabList.map(([id, label]) =>
       h(`button${this.worldTab === id ? '.on' : ''}`, { onclick: () => { this.worldTab = id; this.refreshPanel(); } }, label)));
     const body = h('div.side-body');
@@ -2514,20 +2519,18 @@ export class HUD {
           body.append(h('div.offer.raid', h('div.row', icon('items/war', 24), h('b', `${a.warriors} warriors → ${a.toVillage}`), h('div.spacer'), h('span.faint', status))));
         }
       }
-      body.append(h('div.faint', `${online} online · ${mp.players.length} villages in the world`));
+      body.append(h('div.faint', `${online} online · ${mp.players.length} player${mp.players.length === 1 ? '' : 's'} in this world`));
       for (const p of mp.players) {
         const me = p.uid === this.user.uid;
         const ally = mp.allies.has(p.uid);
         body.append(h(`div.player${p.online ? '.online' : ''}`,
           h('span', { style: { cursor: 'pointer' }, title: 'View profile', onclick: () => this.showProfile(p) }, avatar(p.name, 40)),
           h('div',
-            h('div.pname', p.villageName || 'Unnamed', me ? h('span.tag', { style: { marginLeft: '6px' } }, 'you') : null, ally ? h('span.tag', { style: { marginLeft: '6px', color: 'var(--info)' } }, 'ally') : null),
-            h('div.meta', h('span', h('span.dot' + (p.online ? '.on' : '')), ' ', p.name), me ? null : h('span', `🗺 ${fmtMinutes(travelMs(this.user.uid, p.uid))}`), h('span', `👥 ${p.pop}`), h('span', `☯ ${p.karma}`), h('span', ERAS[p.era || 0]?.name),
+            h('div.pname', p.name || 'Someone', me ? h('span.tag', { style: { marginLeft: '6px' } }, 'you') : null),
+            h('div.meta', h('span', h('span.dot' + (p.online ? '.on' : '')), ' ', p.online ? 'online' : 'offline'), h('span', `Lv ${p.level || 1}`), p.kills ? h('span', `${p.kills} kills`) : null,
               !p.online && p.lastSeen ? h('span', timeAgo(p.lastSeen)) : null)),
           me ? null : h('div.col', { style: { gap: '4px' } },
-            h('button.btn.sm.primary', { onclick: () => this.tradeModal(p) }, hasArt('ui/trade') ? icon('ui/trade', 16) : null, 'Trade'),
-            h('button.btn.sm', { onclick: () => this.offerModal(p) }, '🤝 Deal'),
-            ally ? h('button.btn.sm.ghost', { onclick: () => mp.breakAlliance(p.uid) }, 'Break') : h('button.btn.sm.danger', { onclick: () => this.raidModal(p) }, '⚔ Raid'))));
+            h('button.btn.sm.primary', { onclick: () => this.tradeModal(p) }, hasArt('ui/trade') ? icon('ui/trade', 16) : null, 'Trade'))));
       }
     } else if (this.worldTab === 'chat') {
       const list = h('div.chat');
@@ -3618,8 +3621,7 @@ export class HUD {
       onSpy: !me && this.mp && on('spies') ? () => this.spyModal(p) : null,
       user: this.user, username: this.username, world: this.world, village: p.villageName ? p : null,
       onVisit: !me && this.mp ? () => this.askToVisit(p.uid) : null,
-      onDeal: !me && this.mp ? () => this.offerModal(p) : null,
-      onMarch: !me && this.mp && !this.mp.allies.has(p.uid) ? () => this.raidModal(p) : null,
+      onDeal: null, onMarch: null,   // no caravan deals or marching armies in the hero game
     });
   }
 
@@ -3649,10 +3651,9 @@ export class HUD {
         h('h3', `Bridge to ${p.villageName || 'another land'}`),
         h('div.faint', `Ruled by ${p.name || 'someone'} · ${p.online ? 'online' : 'offline'} · army ${fmtMinutes(travelMs(this.user.uid, b.uid))} away`)),
         h('div.spacer'), h('button.btn.icon.ghost', { onclick: close, title: 'Close' }, '✕')),
-      h('div.muted', ally ? 'You are allies. Ask to cross and look around.' : 'This is their land. Ask permission to visit, or intrude uninvited.'),
+      h('div.muted', 'This is their land. Ask if you can come across.'),
       h('div.row',
         h('button.btn.sm.primary', { onclick: act(() => this.askToVisit(b.uid)) }, 'Ask to visit'),
-        ally ? null : h('button.btn.sm.danger', { onclick: act(() => this.raidModal(p)) }, 'Invade'),
         on('spies') ? h('button.btn.sm', { onclick: act(() => this.spyModal(p)) }, 'Send a spy') : null,
         h('button.btn.sm', { onclick: act(() => this.openMap()) }, 'World Map')));
     this.bridgeBox = box;
@@ -3691,8 +3692,6 @@ export class HUD {
       avatar(profile.name || '?', 34),
       h('div', h('div.visit-title', profile.spy ? `Infiltrating ${profile.villageName}` : `Visiting ${profile.villageName}`),
         h('div.faint', `Ruled by ${profile.name} · ${ERAS[profile.era || 0]?.name} · 👥 ${profile.pop} · ${fmtMinutes(travelMs(this.user.uid, profile.uid || ''))} from home`)),
-      profile.uid && !profile.spy ? h('button.btn.sm', { onclick: () => this.offerModal({ ...profile, uid: profile.uid }) }, '🤝 Deal') : null,
-      profile.uid && !profile.spy ? h('button.btn.sm.danger', { onclick: () => this.raidModal({ ...profile, uid: profile.uid }) }, '⚔ March') : null,
       profile.uid && this.mp && !profile.spy && on('spies') ? h('button.btn.sm', { onclick: () => this.spyModal({ ...profile, uid: profile.uid }) }, '🕵 Spy') : null,
       h('button.btn.sm.primary', { onclick: () => this.onReturnHome() }, '🏠 Return home'));
     this.root.append(this.visitBanner);

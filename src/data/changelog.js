@@ -1,6 +1,20 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'A phone layout that works, and a tidy-up',
+    changes: [
+      'Phones: hearts and bars moved to the top, chat under them, the stick bottom-left and Attack, Dash, Block, potion and Skill in a cluster bottom-right. Nothing sits on top of anything now',
+      'The hotbar runs the full width and scrolls, so slot 1 is never cut off',
+      'Fixed: letting go of the stick sometimes left you walking on your own. A lost touch, a hidden tab or a refused capture all stop you now',
+      'The Skill button no longer flashes up on weapons that have no skill',
+      'Swinging at someone with fighting switched off now says so instead of nothing happening',
+      'Raid, Deal, March and Invade are gone from the player cards, the profile and the bridge: this is not a village war game any more',
+      'The players list shows who they are, their level and their kills, not villages and karma',
+      'tp and troll now find anyone in your world by name, not only those walking the island',
+      'The floating Chat pill is gone: Chat lives on the button rail',
+    ],
+  },
+  {
     title: 'Weapon skills that change the fight, and a proper Backpack',
     changes: [
       'Judgement brands every foe it catches: they take a third more from everything for 8 seconds, and the ground stays hallowed against the undead',

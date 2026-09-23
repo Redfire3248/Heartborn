@@ -422,10 +422,19 @@ export class AdminConsole {
   }
 
   /** A player on your island, by name (any capitalisation, or the start of it). */
+  /**
+   * A player by name. Whoever is walking the island right now comes with a position; anyone else in the world
+   * is still found (so you can pull them to you or play a trick on them), just without one.
+   */
   playerSpot(name) {
-    const list = this.game?.livePlayers || [];
     const want = String(name || '').toLowerCase();
-    return list.find(p => (p.name || '').toLowerCase() === want) || list.find(p => (p.name || '').toLowerCase().startsWith(want)) || null;
+    if (!want) return null;
+    const match = list => list.find(p => (p.name || '').toLowerCase() === want) || list.find(p => (p.name || '').toLowerCase().startsWith(want));
+    const live = match(this.game?.livePlayers || []);
+    if (live) return live;
+    const mp = this.mp || this.hud?.mp;
+    const known = match((mp?.players || []).filter(p => p.uid !== mp?.uid));
+    return known ? { uid: known.uid, name: known.name, away: true, online: !!known.online } : null;
   }
 
   async run(line) {
@@ -1020,14 +1029,20 @@ const COMMANDS = {
       if (!mp) throw new Error('this only works in a world you share with others');
       const here = (g.livePlayers || []);
       if (!who || who === 'list') {
-        if (!here.length) this.print('nobody else is on this island right now');
         for (const p of here) this.print(`${p.name} · ${Math.round(Math.hypot(p.x - (heroOf(g)?.x || 0), p.y - (heroOf(g)?.y || 0)) / 32)} tiles away`);
+        const names = new Set(here.map(p => p.name));
+        for (const p of (mp.players || [])) {
+          if (p.uid === mp.uid || names.has(p.name)) continue;
+          this.print(`${p.name} · ${p.online ? 'in the world, not on the island' : 'offline'}`);
+        }
+        if (!here.length && (mp.players || []).length <= 1) this.print('nobody else is in this world right now');
         return;
       }
       const spot = this.playerSpot(who);
       if (!spot) throw new Error(`no player called "${who}" on this island (troll list)`);
       const me = heroOf(this.hud?.dungeon || g);
       if (what === 'bring') { mp.sendCommand(spot.uid, { t: 'tp', x: Math.round(me.x), y: Math.round(me.y) }); this.print(`✓ ${spot.name} is on their way to you`, 'ok'); return; }
+      if ((what === 'goto' || what === 'swap' || what === 'mobs') && spot.away) throw new Error(`${spot.name} is not on the island right now: bring, freeze, boom, spook and say still work`);
       if (what === 'goto') { me.x = spot.x; me.y = spot.y; if (this.hud) Object.assign(this.hud.renderer.camera, { x: me.x, y: me.y }); this.print(`✓ you are standing on ${spot.name}`, 'ok'); return; }
       if (what === 'swap') {
         const mx = me.x, my = me.y;
@@ -1309,11 +1324,13 @@ const COMMANDS = {
       if (other) {
         const me = heroOf(this.hud?.dungeon || this.game);
         if (!me) throw new Error('no hero');
+        const mp = this.mp || this.hud?.mp;
         if (y === 'here' || y === 'me') {
-          this.mp.sendCommand(other.uid, { t: 'tp', x: Math.round(me.x), y: Math.round(me.y) });
+          mp.sendCommand(other.uid, { t: 'tp', x: Math.round(me.x), y: Math.round(me.y) });
           this.print(`✓ pulled ${other.name} to you`, 'ok');
           return;
         }
+        if (other.away) throw new Error(`${other.name} is in this world but not walking the island right now (try: tp ${other.name} here)`);
         me.x = other.x; me.y = other.y;
         if (this.hud) Object.assign(this.hud.renderer.camera, { x: me.x, y: me.y });
         this.print(`✓ teleported to ${other.name}`, 'ok');
