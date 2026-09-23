@@ -1,6 +1,30 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Weapon skills that change the fight, and a proper Backpack',
+    changes: [
+      'Judgement brands every foe it catches: they take a third more from everything for 8 seconds, and the ground stays hallowed against the undead',
+      'Flame Wave leaves a wall of fire burning where it passed; Earthsplitter leaves a crater that slows them, leaves them open and shields you while you hold it',
+      'Frost Nova freezes them solid and the next blow shatters for triple; Thunderstorm arcs foe to foe, growing with each jump, and keeps striking',
+      'Shadow Step leaves a shadow of you that bursts, and nothing can find you for a moment; Iaido cuts arrows from the air and promises your next blow as a triple-damage cut',
+      'Soul Reap drags them in, and for six seconds every kill heals you and shortens the wait; Regrowth washes off poison, fire and frost and leaves a shield',
+      'Backpack: hover anything for a card telling you what it does and what it sells for',
+      'Training: put in 1, 5 or every point at once, and Forget training gives them all back for gold',
+      'Sell mode: mark gear and tools together and sell the lot in one go',
+      'Bag and Chat sit on the button rail; the old character card, bounty card and broken potion picture are gone',
+    ],
+  },
+  {
+    title: 'Player fights that actually work',
+    changes: [
+      'Fixed: swinging at another player with no monsters around just cut the grass. Other players now count as something to swing at, so the blow lands',
+      'Chat has a real box: click Chat, type, press Enter or Send, and it stays open for the next line',
+      'What you say shows on your own screen at once instead of waiting for the world to echo it back',
+      'No more name tag over your own head',
+      'Fighting can only be switched on or off out of a fight: eight seconds after the last blow either way',
+    ],
+  },
+  {
     title: 'One place for your character',
     changes: [
       'The Character button is gone from the screen: the Backpack already holds your character, gear, tools, items and materials',

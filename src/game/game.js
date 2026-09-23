@@ -1,3 +1,4 @@
+import { updateHazards } from './hazards.js';
 import { glideNetMobs } from './netMobs.js';
 import {
   TILE, DAY_LENGTH, SAFE_TILES, DAYS_PER_SEASON, SEASONS, DAYS_PER_YEAR, BASE_STORAGE, BASE_HOUSING, ADULT_AGE, MAP_W } from '../core/constants.js';
@@ -135,6 +136,7 @@ export class Game {
     this._frameAvg = this._frameAvg ? this._frameAvg * 0.95 + dt * 0.05 : dt;
     const fxCap = this._frameAvg > 0.028 ? 120 : 320;   // below about 36 frames a second, trim harder
     if (this.fx.particles.length > fxCap) this.fx.particles.splice(0, this.fx.particles.length - fxCap);
+    updateHazards(this, dt);   // fire on the ground, craters, hallowed earth
     if (this.mobGuest) glideNetMobs(this, dt);   // someone else runs the monsters: we slide them to where they are
     // like a chunk-loaded world: creatures near you live at full speed, far ones think in slower steps, very far ones wait
     const eye = this.heroSpot();

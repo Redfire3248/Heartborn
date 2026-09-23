@@ -124,7 +124,7 @@ export async function run() {
     ok(F.forge(g, { iron: 6 }, 'armour', { hero: me }).item?.slot !== 'weapon', 'the forge makes armour too');
     ok(Object.keys(F.BOSS_MATERIAL).length === 7 && F.BOSS_MATERIAL.lich === 'lich_soul' && F.BOSS_MATERIAL.ashen_knight === 'ashen_ember' && !F.BOSS_MATERIAL.cave_troll, 'every boss has its own material (Troll Hide is switched off)');
     R.equip(g, r.item.id);
-    ok(!!F.abilityOf(r.item) && F.abilityOf({ base: 'rapier', traits: ['holy'] }).name === 'Holy Light', 'holy weapons have Holy Light (special weapons keep their own)');
+    ok(!!F.abilityOf(r.item) && F.abilityOf({ base: 'rapier', traits: ['holy'] }).name === 'Judgement', 'holy weapons have Judgement (special weapons keep their own)');
     const sk = g.spawnCreature('skeleton', me.x + 30, me.y); sk._eliteRolled = true;
     const before = sk.hp ?? 999;
     ok(H.useAbility(g) && (!g.state.creatures.includes(sk) || sk.hp < before), 'using the ability hurts foes around you');

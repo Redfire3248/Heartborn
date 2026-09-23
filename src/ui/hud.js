@@ -172,7 +172,7 @@ export class HUD {
         const last = list[list.length - 1];
         if (last && last.id !== this._lastChatId) {
           this._lastChatId = last.id;
-          this.addChatLine({ name: last.name || 'Someone', text: last.text, mine: last.uid === this.user?.uid });
+          if (last.uid !== this.user?.uid) this.addChatLine({ name: last.name || 'Someone', text: last.text });
         }
         if (this.panel === 'world' && this.worldTab === 'chat') this.refreshPanel();
       });
@@ -249,6 +249,10 @@ export class HUD {
       for (const id of [...ids, ...(grp.alias || [])]) this.els.dock[id] = btn;
       dock.append(btn);
     }
+    // the two you reach for most: your Backpack and the chat, right on the rail
+    dock.append(h('hr'));
+    dock.append(h('button', { onclick: () => openBackpack(this) }, icon('ui/inventory', 34), h('span.dock-label', 'Bag'), h('span.tip', 'Backpack: gear, tools, items (E)')));
+    dock.append(h('button.dock-chat', { onclick: () => this.toggleChatPinned() }, icon('items/chat', 34), h('span.dock-label', 'Chat'), h('span.tip', 'Chat with the world (Enter)')));
     this.root.append(dock);
 
     this.els.feed = h('div.feed');
@@ -280,25 +284,23 @@ export class HUD {
     this.chatLines = [];   // what has been said and what has happened, newest last
     this.els.chatLog = h('div.chat-live');
     this.els.chatBtn = h('button.chat-btn', { title: 'Chat (Enter). Click to keep it open', onclick: () => this.toggleChatPinned() }, icon('items/chat', 16), h('span', 'Chat'));
-    this.els.chatInput = h('input.input.chat-line', { placeholder: 'Say something (Enter sends, Esc closes)', maxLength: 200, hidden: true });
+    this.els.chatInput = h('input.input.chat-line', { placeholder: 'Say something…', maxLength: 200 });
+    this.els.chatSend = h('button.btn.sm.primary.chat-send', { onclick: () => this.sendChatLine() }, 'Send');
+    this.els.chatRow = h('div.chat-row', { hidden: true }, this.els.chatInput, this.els.chatSend);
     this.els.chatInput.addEventListener('keydown', e => {
       e.stopPropagation();
       if (e.key === 'Escape') { this.closeChat(); return; }
       if (e.key !== 'Enter') return;
-      const text = this.els.chatInput.value.trim();
-      this.els.chatInput.value = '';
-      if (text) this.mp?.sendChat(text).catch(err => this.hint(err.message, 1600));
-      this.closeChat();
+      this.sendChatLine();
     });
-    this.root.append(h('div.chat-wrap', this.els.chatBtn, this.els.chatLog, this.els.chatInput));
+    this.root.append(h('div.chat-wrap', this.els.chatBtn, this.els.chatLog, this.els.chatRow));
     this.els.heroBar = h('div.card.hero-bar', { hidden: true });
     this.els.heroPad = h('div.hero-pad', { hidden: true });
     this.els.hotbar = h('div.hotbar', { hidden: true });
     this.els.hotName = h('div.hot-name');
     this.els.invPanel = h('div.card.inv-panel', { hidden: true });
     this.els.vitals = h('div.vitals-strip', { hidden: true });
-    this.els.questWrap = h('div.quest-wrap');
-    this.root.append(this.els.questWrap, this.els.heroBar, this.els.heroPad, h('div.hotbar-wrap', this.els.invPanel, this.els.vitals, this.els.hotName, this.els.hotbar));
+    this.root.append(this.els.heroBar, this.els.heroPad, h('div.hotbar-wrap', this.els.invPanel, this.els.vitals, this.els.hotName, this.els.hotbar));
     watchLayout();
     // sailing: status, Fire, Return to port, and a steering pad for touch screens
     this.sailInput = { throttle: 0, turn: 0, fire: false, wheel: 0 };
@@ -548,7 +550,7 @@ export class HUD {
     this.root.classList.toggle('leading', !!v);
     pad.classList.toggle('abroad', !!abroad && abroad.role === 'spy');
     if (!v) {
-      if (!bar.hidden) { bar.hidden = true; pad.hidden = true; this.els.vitals.hidden = true; this.els.vitals.replaceChildren(); this.els.questWrap.replaceChildren(); bar.replaceChildren(); pad.replaceChildren(); this._heroKey = null; Object.assign(this.leadInput, { mx: 0, my: 0, act: false, dash: false, block: false }); }
+      if (!bar.hidden) { bar.hidden = true; pad.hidden = true; this.els.vitals.hidden = true; this.els.vitals.replaceChildren(); bar.replaceChildren(); pad.replaceChildren(); this._heroKey = null; Object.assign(this.leadInput, { mx: 0, my: 0, act: false, dash: false, block: false }); }
       return;
     }
     bar.classList.toggle('card', !!abroad);   // abroad it is one card; at home it splits into small cards
@@ -573,13 +575,8 @@ export class HUD {
       els.heroXp = h('div');
       // split into small cards down the left side: you (health, stamina, level) and your quests
       const questsOpen = this._questsOpen ?? !matchMedia('(max-width: 760px), (max-height: 520px)').matches;
-      bar.replaceChildren(
-        h('div.card.hero-vitals', { title: 'Open your character (E)', onclick: () => openBackpack(this) },
-          h('div.hero-top',
-            h('span.hero-level', `Lv ${r.level}`), h('b', v.name),
-            gearIconKey(w) ? icon(gearIconKey(w), 16) : '',
-            r.points ? h('span.hero-points', `+${r.points}`) : '',
-            h('span.hero-potions', { title: 'Health potions: press T to drink' }, icon('gear/health_potion', 14), String(r.potions || 0)))));
+      bar.replaceChildren();   // nothing in the corner any more: your hearts and level live over the hotbar
+      bar.hidden = true;
       // hearts and bars over the hotbar, where you are already looking
       this.els.vitals.hidden = false;
       this.els.vitals.replaceChildren(
@@ -587,10 +584,7 @@ export class HUD {
         h('div.vitals-meters',
           h('div.hero-meter.st', { title: 'Stamina: attacks, dashes and blocking use it' }, els.heroSt),
           h('div.hero-meter.xp', { title: 'Experience' }, els.heroXp)));
-      // a bounty, when one is out there, out of the way on the right
-      this.els.questWrap.replaceChildren(bounty
-        ? h('div.card.hero-questcard', h('div.hero-bounty', icon('items/icon_gold', 14), `${bounty.bounty.name} · ${bounty.bounty.gold} gold · ${dist < 3 ? 'right here!' : `${dist} tiles ${compass(bounty.x - v.x, bounty.y - v.y)}`}`))
-        : '');
+      void bounty; void dist;   // no bounty card on the screen any more
     }
     // health as hearts, Zelda style: one heart per 20 health, halves in between
     const hearts = Math.ceil(st.maxHp / 20);
@@ -1078,24 +1072,35 @@ export class HUD {
     this.chatPinned = !this.chatPinned;
     this.els.chatBtn.classList.toggle('on', this.chatPinned);
     this.root.classList.toggle('chat-open', this.chatPinned);
-    this.showChat();
+    if (this.chatPinned) this.openChat(); else this.closeChat();
   }
 
-  /** Opens the chat line (Enter). */
+  /** Opens the chat: the log unrolls and the box is ready to type in. */
   openChat() {
     if (!this.mp) { this.hint('Chat is for worlds you share with others', 1600); return; }
-    this.els.chatInput.hidden = false;
+    this.els.chatRow.hidden = false;
     this.els.chatInput.focus();
     this.showChat(true);
   }
 
-  closeChat() { this.els.chatInput.hidden = true; this.els.chatInput.blur(); }
+  closeChat() { this.els.chatRow.hidden = true; this.els.chatInput.blur(); this.showChat(); }
+
+  /** Sends whatever is in the box (the button, or Enter). */
+  sendChatLine() {
+    const text = this.els.chatInput.value.trim();
+    this.els.chatInput.value = '';
+    if (!text) { this.closeChat(); return; }
+    if (!this.mp) { this.hint('Chat is for worlds you share with others', 1600); return; }
+    this.mp.sendChat(text).catch(err => this.hint(err.message, 1600));
+    this.addChatLine({ name: this.username || 'You', text, mine: true });   // it shows at once, not when the server echoes it
+    this.els.chatInput.focus();   // stay ready for the next line
+  }
 
   /** The chat log: everything while it is pinned open, or the last few lines while they are fresh. */
   showChat(keep = false) {
     const el = this.els.chatLog;
     if (!el) return;
-    const open = keep || this.chatPinned || !this.els.chatInput.hidden;
+    const open = keep || this.chatPinned || !this.els.chatRow.hidden;
     const now = Date.now();
     const lines = open ? this.chatLines.slice(-40) : this.chatLines.slice(-6).filter(m => now - m.at < 25_000);
     el.classList.toggle('open', !!open);
@@ -2438,8 +2443,15 @@ export class HUD {
       h('div.row', { style: { flexWrap: 'wrap' } },
         h('button.btn.sm', { onclick: () => this.onSwitchWorld?.() }, '🌍 Switch world'),
         mp ? h(`button.btn.sm${this.game.state.pvp ? '.danger' : ''}`, {
-          title: 'When you both have this on, your blows land on each other',
-          onclick: () => { this.game.state.pvp = !this.game.state.pvp; this.hint(this.game.state.pvp ? 'Other players can fight you now' : 'No more fighting other players', 1800); this.refreshPanel(); },
+          title: 'When you both have this on, your blows land on each other. It can only be changed out of a fight.',
+          onclick: () => {
+            const h2 = this.game.hero;
+            const fighting = h2 && (Math.min(h2.sinceHit ?? 99, h2.sinceAttack ?? 99) < 8);
+            if (fighting) { this.hint('Not in the middle of a fight: wait a few seconds', 2000); return; }
+            this.game.state.pvp = !this.game.state.pvp;
+            this.hint(this.game.state.pvp ? 'Other players can fight you now' : 'No more fighting other players', 1800);
+            this.refreshPanel();
+          },
         }, this.game.state.pvp ? 'Fighting: on' : 'Fighting: off') : null)));
     if (mp) {   // who is standing near you right now
       const near = (this.game.livePlayers || []).map(p => ({ p, d: Math.hypot(p.x - (heroOf(this.game)?.x || 0), p.y - (heroOf(this.game)?.y || 0)) / TILE })).sort((a, b) => a.d - b.d);

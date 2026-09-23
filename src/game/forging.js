@@ -304,15 +304,15 @@ export function forge(g, mix, kind = 'weapon', { score = 0.5, hero = null, base 
 
 /** Abilities: by weapon, or from a weapon's first trait. `cd` seconds. */
 export const ABILITIES = {
-  holy_light:   { name: 'Holy Light', cd: 12, color: '#fff3b0', desc: 'A burst of light: heals you, burns and dazes foes around you (double against the undead)' },
-  flame_wave:   { name: 'Flame Wave', cd: 8, color: '#ff9a3a', desc: 'A wave of fire in front of you that sets foes ablaze' },
-  frost_nova:   { name: 'Frost Nova', cd: 10, color: '#9fd4ff', desc: 'Freezes every foe around you' },
-  thunderstorm: { name: 'Thunderstorm', cd: 10, color: '#fff27a', desc: 'Lightning strikes up to 4 foes near you' },
-  shadow_step:  { name: 'Shadow Step', cd: 7, color: '#b06aff', desc: 'Vanish and strike the nearest foe from behind for triple damage' },
-  soul_reap:    { name: 'Soul Reap', cd: 9, color: '#8aff9a', desc: 'A sweeping spin that heals you for each foe it hits' },
-  iaido:        { name: 'Iaido Dash', cd: 7, color: '#ff8a7a', desc: 'Dash forward, cutting everything in your path' },
-  regrowth:     { name: 'Regrowth', cd: 16, color: '#7aff9a', desc: 'Heals 40% of your health over a few seconds' },
-  earthsplitter:{ name: 'Earthsplitter', cd: 10, color: '#c8a070', desc: 'Slam the ground: a shockwave hits and dazes everything near you' },
+  holy_light:   { name: 'Judgement', cd: 12, color: '#fff3b0', desc: 'Hallowed ground that sears the undead, and every foe caught is branded: they take a third more from everything for 8 seconds' },
+  flame_wave:   { name: 'Flame Wave', cd: 8, color: '#ff9a3a', desc: 'A wave of fire that rolls out and leaves a wall of flame burning on the ground for 6 seconds' },
+  frost_nova:   { name: 'Frost Nova', cd: 10, color: '#9fd4ff', desc: 'Freezes them solid: the next blow on a frozen foe shatters it for triple damage' },
+  thunderstorm: { name: 'Thunderstorm', cd: 10, color: '#fff27a', desc: 'Lightning arcs from foe to foe, growing by a tenth with every jump, and keeps striking for three seconds' },
+  shadow_step:  { name: 'Shadow Step', cd: 7, color: '#b06aff', desc: 'Vanish, strike from behind for triple, and leave a shadow of yourself: nothing can find you for a moment and the shadow bursts' },
+  soul_reap:    { name: 'Soul Reap', cd: 9, color: '#8aff9a', desc: 'Drags every foe towards you and cuts them. For six seconds each kill heals you and takes two seconds off the cooldown' },
+  iaido:        { name: 'Iaido Dash', cd: 7, color: '#ff8a7a', desc: 'Dash through everything, cutting arrows out of the air. Your next blow within two seconds is a guaranteed triple-damage cut' },
+  regrowth:     { name: 'Regrowth', cd: 16, color: '#7aff9a', desc: 'Washes off poison, fire and frost, heals you over a few seconds and leaves a shield that soaks the next blows' },
+  earthsplitter:{ name: 'Earthsplitter', cd: 10, color: '#c8a070', desc: 'Breaks the ground open: a crater that slows what stands in it, leaves them open, and shields you while you hold it' },
 };
 const BY_BASE = {
   holy_sword: 'holy_light', holy_scepter: 'holy_light', flame_sword: 'flame_wave', fire_staff: 'flame_wave', frost_sword: 'frost_nova', ice_staff: 'frost_nova',

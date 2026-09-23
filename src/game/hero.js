@@ -1,3 +1,4 @@
+import { addHazard, hazardAt, UNDEAD as HAZARD_UNDEAD } from './hazards.js';
 import { updatePet } from './pets.js';
 import { doorOf } from './houses.js';
 import { enchantTraits } from './enchanting.js';
@@ -141,6 +142,13 @@ function attack(g, v, st) {
   const tool = TOOLS[held] ? held : null;
   const nearFoe = tool ? null : nearestHostile(g, v, TILE * Math.max(3, w.ranged ? w.range : 3));   // tools do not fight
   const nearPerson = null;   // your avatar only fights beasts and raiders
+  // another player you are allowed to hit counts as something to swing at
+  const pvpTarget = (p) => (p.player ? g.state.pvp && p.pvp : !!p.from);
+  const nearPlayer = tool || !g.pvp ? null : [...(g.strangers || []), ...(g.livePlayers || [])]
+    .filter(pvpTarget)
+    .map(p => ({ p, d: Math.hypot(p.x - v.x, p.y - v.y) }))
+    .filter(x => x.d < TILE * Math.max(3, w.ranged ? w.range : 3))
+    .sort((a, b) => a.d - b.d)[0]?.p || null;
   const swingTime = Math.max(0.3, Math.min(0.45, w.speed * 0.8));
   // nothing to fight close by: you still swing (the animation always plays), and the swing chops, mines and gathers
   // a chest in reach and no foe close: the swing breaks it open
@@ -167,7 +175,7 @@ function attack(g, v, st) {
     openChest(g, chest, v);
     return;
   }
-  if (!nearFoe && !nearPerson && !(w.ranged && !tool)) {   // (bows, guns and staffs always shoot where you face)
+  if (!nearFoe && !nearPerson && !nearPlayer && !(w.ranged && !tool)) {   // (bows, guns and staffs always shoot where you face)
     if (h.actCd > 0) return;
     h.actCd = Math.max(ACT_COOLDOWN, swingTime);
     h.atkCd = swingTime;
@@ -193,9 +201,10 @@ function attack(g, v, st) {
   h.atkCd = Math.max(swingTime, w.speed / Math.max(0.6, st.speed));   // let the swing finish before the next
   h.swing = 0.22;
   // aim: where you are going, or straight at the closest foe when you stand still
-  const target = nearFoe || nearPerson;
+  const target = nearFoe || nearPerson || nearPlayer;
   if (target && (!h._movedAt || g.state.time - h._movedAt > 0.15 || angleDiff(h.facing, Math.atan2(target.y - v.y, target.x - v.x)) < 1.2)) h.facing = Math.atan2(target.y - v.y, target.x - v.x);
-  const crit = Math.random() < st.crit;
+  const promised = (h.promiseCrit || 0) > g.state.time;   // an Iaido dash leaves the next cut waiting
+  const crit = promised || Math.random() < st.crit;
   h.atkAnim = { t: 0, dur: swingTime };
   // combos: swing again soon after a swing to chain up to three; the third blow is a finisher
   h.combo = h.sinceAttackSwing != null && g.state.time - h.sinceAttackSwing < swingTime + 0.45 ? (h.combo % 3) + 1 : 1;
@@ -205,7 +214,8 @@ function attack(g, v, st) {
   const allTraits = [...(w.traits || []), ...enchantTraits(w)];   // forged traits and enchantments
   const traitSp = allTraits.length ? traitEffects([...new Set(allTraits)]) : null;
   const sp = traitSp ? { ...traitSp, ...(BLADE_SPECIALS[w.base] || {}) } : BLADE_SPECIALS[w.base];
-  let dmg = w.dmg * st.dmgMult * strengthMult(v) * (1 + (w.ench?.sharpness || 0) * 0.08) * (crit ? 1.8 : 1) * (finisher ? 1.6 : 1) * (buffActive(g, 'strength') ? 1.5 : 1) * (w.ranged && buffActive(g, 'ammo') ? 1.3 : 1);
+  let dmg = w.dmg * st.dmgMult * strengthMult(v) * (1 + (w.ench?.sharpness || 0) * 0.08) * (crit ? (promised ? 3 : 1.8) : 1) * (finisher ? 1.6 : 1) * (buffActive(g, 'strength') ? 1.5 : 1) * (w.ranged && buffActive(g, 'ammo') ? 1.3 : 1);
+  if (promised) { h.promiseCrit = 0; g.float(v.x, v.y - TILE * 1.7, 'IAIDO CUT!', '#ff8a7a'); }
   if (sp?.riposte && h.riposte) { dmg *= sp.riposte; h.riposte = false; g.float(v.x, v.y - TILE * 1.6, 'RIPOSTE!', '#ffd76a'); }
   if (w.ranged) {
     fireShots(g, v, h, w, dmg, crit);
@@ -296,7 +306,10 @@ export function useAbility(g) {
       ring(2.6, '#ffffff', { width: 3, life: 0.45 });
       v.hp = Math.min(st.maxHp, v.hp + st.maxHp * 0.25);
       g.float(v.x, v.y - TILE * 2.4, `+${Math.round(st.maxHp * 0.25)}`, '#8fe07a');
+      addHazard(g, 'hallow', v.x, v.y, { r: 4.5, life: 8, dps: base * 0.25, by: v.id });
       for (const c of foes(4)) {
+        c._brand = { until: now + 8, mult: 1.35 };   // branded: everything hurts them more
+        g.float(c.x, c.y - TILE * 1.6, 'Branded', '#fff3b0');
         hitCreature(g, v, c, base * (UNDEAD.has(c.t) ? 5 : 2.5), true, { stun: 0 });
         daze(c, 1.2);
         streak(c.x, c.y - TILE * 5, c.x, c.y - 6, '#fff3b0', { width: 7, life: 0.3 });   // a shaft of light on every foe
@@ -307,7 +320,8 @@ export function useAbility(g) {
     case 'flame_wave':
       flash(3, '#ff9a3a');
       tint('#ff6a20', 0.26, 0.3);
-      for (let i = 1; i <= 4; i++) {   // the wave rolls out in front of you
+      for (let i = 1; i <= 4; i++) {   // the wave rolls out in front of you, and the ground keeps burning
+        addHazard(g, 'fire', v.x + Math.cos(h.facing) * TILE * i * 1.1, v.y + Math.sin(h.facing) * TILE * i * 1.1, { r: 1.3, life: 6, dps: base * 0.35, by: v.id });
         const d = TILE * i * 1.1, x = v.x + Math.cos(h.facing) * d, y = v.y + Math.sin(h.facing) * d;
         ring(0.9 + i * 0.25, '#ff9a3a', { x, y, r0: 0.2, width: 5, life: 0.3 + i * 0.07 });
         spray('effects/flame', 5, { x, y: y - 6, a: h.facing, spread: 2.4, speed: 60, size: 13, life: 0.5 + i * 0.05, lift: 20 });
@@ -330,12 +344,29 @@ export function useAbility(g) {
         hitCreature(g, v, c, base * 1.3, false, { stun: 0 });
         if (!g.state.creatures.includes(c)) continue;
         c._chill = { k: 0.4, until: now + 4 };
-        if (!CREATURES[c.t]?.boss) { c._stunned = Math.max(c._stunned || 0, 2.5); c._frozen = now + 2.5; }
+        if (!CREATURES[c.t]?.boss) { c._stunned = Math.max(c._stunned || 0, 2.5); c._frozen = g.state.time + 2.5; g.float(c.x, c.y - TILE * 1.5, 'Frozen solid', '#9fd4ff'); }
       }
       break;
     case 'thunderstorm': {
       tint('#fff27a', 0.32, 0.25);
-      const targets = foes(7).slice(0, 4);
+      // it arcs: each jump lands harder than the last, and the storm keeps striking for a few seconds
+      const chain = foes(9).sort((a, b) => Math.hypot(a.x - v.x, a.y - v.y) - Math.hypot(b.x - v.x, b.y - v.y)).slice(0, 6);
+      chain.forEach((c, i) => {
+        const prev = i ? chain[i - 1] : v;
+        setTimeout(() => {
+          if (!g.state.creatures.includes(c)) return;
+          (g.fx.bolts ||= []).push({ x0: prev.x, y0: prev.y - 12, x1: c.x, y1: c.y - 10, life: 0.25 });
+          hitCreature(g, v, c, base * 1.6 * (1 + i * 0.1), true, { stun: 0 });
+          g.float(c.x, c.y - TILE * 1.5, `Chain x${i + 1}`, '#fff27a');
+        }, i * 90);
+      });
+      for (let s = 1; s <= 3; s++) setTimeout(() => {   // the storm lingers
+        const c = foes(7)[0];
+        if (!c || !g.state.creatures.includes(c)) return;
+        (g.fx.bolts ||= []).push({ x0: c.x + (Math.random() - 0.5) * 30, y0: c.y - 220, x1: c.x, y1: c.y - 10, life: 0.3 });
+        hitCreature(g, v, c, base * 1.2, true, { stun: 0 });
+      }, 700 + s * 700);
+      const targets = [];
       targets.forEach((c, i) => {
         const strike = () => {
           if (!g.state.creatures.includes(c)) return;
@@ -366,6 +397,16 @@ export function useAbility(g) {
       for (let i = 1; i <= 4; i++) g.puff({ x: ox + (v.x - ox) * (i / 5), y: oy + (v.y - oy) * (i / 5) - 8 }, 'effects/ghost_wisp', 2, 6);
       tint('#2a0d3f', 0.35, 0.3);
       hitCreature(g, v, c, base * 3, true, { stun: 0.5 });
+      h.untargetable = now + 1.5;   // your shadow holds their eyes
+      g.float(v.x, v.y - TILE * 1.8, 'Unseen', '#b06aff');
+      setTimeout(() => {   // and then it bursts
+        (g.fx.rings ||= []).push({ x: ox, y: oy - 8, r0: 4, r: TILE * 2.6, color: '#b06aff', width: 6, life: 0.5, max: 0.5, glow: true });
+        for (const f of g.state.creatures) {
+          if (!CREATURES[f.t]?.hostile || Math.hypot(f.x - ox, f.y - oy) > TILE * 2.6) continue;
+          damageCreature(g, f, base * 1.4, v);
+          g.float(f.x, f.y - TILE * 1.3, String(Math.round(base * 1.4)), '#b06aff');
+        }
+      }, 900);
       ring(1.8, '#b06aff', { x: c.x, y: c.y, width: 5, life: 0.4 });
       g.anim('combat/crit_slash', c.x, c.y - 10, { size: TILE * 3, dur: 0.3, rot: a });
       flash(1.5, '#b06aff');
@@ -373,6 +414,12 @@ export function useAbility(g) {
     }
     case 'soul_reap': {
       let n = 0;
+      h.reapUntil = now + 6;   // for a while every kill feeds you and shortens the wait
+      g.float(v.x, v.y - TILE * 2.1, 'REAPING', '#8aff9a');
+      for (const c of foes(5)) {   // everything nearby is dragged towards you first
+        const a = Math.atan2(v.y - c.y, v.x - c.x);
+        c._kbx = Math.cos(a) * TILE * 7; c._kby = Math.sin(a) * TILE * 7;
+      }
       for (const c of foes(3)) {
         hitCreature(g, v, c, base * 1.6, false, { stun: 0 });
         streak(c.x, c.y - 10, v.x, v.y - 12, '#8aff9a', { width: 4, life: 0.45 });   // the soul flies to you
@@ -391,6 +438,13 @@ export function useAbility(g) {
       const a = h.facing;
       const sx = v.x, sy = v.y;
       for (let s = 0; s < 8; s++) { const nx = v.x + Math.cos(a) * TILE * 0.6, ny = v.y + Math.sin(a) * TILE * 0.6; if (!g.world.walkable(nx, ny)) break; v.x = nx; v.y = ny; g.anim('combat/dust', v.x, v.y, { size: 16, dur: 0.25 }); for (const c of foes(1.2)) if (!c._iaido) { c._iaido = true; hitCreature(g, v, c, base * 2.4, true, { stun: 0.3 }); streak(c.x - Math.cos(a) * TILE, c.y - Math.sin(a) * TILE - 10, c.x + Math.cos(a) * TILE, c.y + Math.sin(a) * TILE - 10, '#fff', { width: 6, life: 0.3 }); } }
+      h.promiseCrit = now + 2;   // the next blow is a certainty
+      g.float(v.x, v.y - TILE * 1.9, 'Blade waits…', '#ff8a7a');
+      if (g.enemyShots?.length) {   // arrows in the way are cut out of the air
+        const before = g.enemyShots.length;
+        g.enemyShots = g.enemyShots.filter(s => Math.hypot(s.x - v.x, s.y - v.y) > TILE * 2.2);
+        if (g.enemyShots.length < before) g.float(v.x, v.y - TILE * 2.3, 'Cut them down!', '#fff1cf');
+      }
       streak(sx, sy - 12, v.x, v.y - 12, '#ff8a7a', { width: 12, life: 0.45 });
       g.anim('combat/crit_slash', v.x, v.y - 10, { size: TILE * 4, dur: 0.3, rot: a });
       tint('#ff8a7a', 0.2, 0.25);
@@ -400,12 +454,17 @@ export function useAbility(g) {
     }
     case 'regrowth':
       h.regrow = { per: st.maxHp * 0.1, left: 4, tick: 0 };
+      h.shield = Math.round(st.maxHp * 0.25);   // a shield that soaks the next blows
+      if (h.dot || h.burn || h.chill) { h.dot = null; h.burn = null; h.chill = null; g.float(v.x, v.y - TILE * 1.9, 'Cleansed', '#7aff9a'); }
+      g.float(v.x, v.y - TILE * 2.2, `Shield ${h.shield}`, '#7aff9a');
       ring(2.4, '#7aff9a', { width: 5, life: 0.6, spokes: 6, spin: -1.5 });
       spray('effects/leaf', 14, { speed: 45, lift: 55, size: 10, life: 1.1 });
       tint('#1b4d2a', 0.2, 0.4);
       flash(2, '#7aff9a');
       break;
     case 'earthsplitter':
+      addHazard(g, 'crater', v.x, v.y, { r: 3.2, life: 8, slow: 0.45, mult: 1.25, by: v.id });
+      g.float(v.x, v.y - TILE * 2.1, 'Broken ground', '#c8a070');
       g.anim('combat/poof', v.x, v.y - 6, { size: TILE * 6, dur: 0.45 });
       g.fx.shake = Math.max(g.fx.shake, 3.2);
       tint('#6b4a2a', 0.3, 0.45);
@@ -466,6 +525,7 @@ function bladeSpecial(g, v, c, dmg, sp, finisher) {
 }
 
 function hitCreature(g, v, c, dmg, crit, w) {
+  const reaping = (g.hero?.reapUntil || 0) > g.state.time;
   const had = g.state.creatures.includes(c);
   const hpBefore = c.hp;
   damageCreature(g, c, dmg, v);
@@ -480,6 +540,12 @@ function hitCreature(g, v, c, dmg, crit, w) {
   g.fx.shake = Math.max(g.fx.shake, (crit ? 1.1 : 0.5) + heavy * 1.4);
   const killed = had && !g.state.creatures.includes(c);
   if (killed) { g.hitStop = Math.max(g.hitStop || 0, boss ? 0.22 : 0.12); g.fx.shake = Math.max(g.fx.shake, boss ? 3 : 1.4); }
+  if (killed && reaping) {   // Soul Reap is still running: the kill feeds you and brings it back sooner
+    const st2 = heroStats(g);
+    v.hp = Math.min(st2.maxHp, v.hp + st2.maxHp * 0.08);
+    g.hero.abilityReady = Math.max(g.state.time, (g.hero.abilityReady || 0) - 2);
+    g.float(v.x, v.y - TILE * 1.6, 'Reaped!', '#8aff9a');
+  }
   void hpBefore;
   if (boss && !c._lastDmg) return;   // it rolled out of the way
   if (boss) dmg = c._lastDmg;
@@ -605,6 +671,7 @@ export function damageHero(g, v, dmg, from = null) {
   if (!h || h.id !== v.id) return dmg;
   if (g.state.rpg?.god) return 0;   // admin god mode
   if (h.inHouse) return 0;   // nothing can hurt you inside your home
+  if (h.untargetable > g.state.time) { g.float(v.x, v.y - TILE * 1.3, 'Missed!', '#b06aff'); return 0; }   // your shadow took it
   // monsters hit hard, and keep up as your health grows with your level
   const lvl = rpgOf(g).level || 1;
   dmg *= (1 + (ENEMY_DAMAGE - 1) * Math.min(1, (lvl - 1) / 8)) * (0.55 + 0.45 * heroStats(g).maxHp / 100);
@@ -642,6 +709,13 @@ export function damageHero(g, v, dmg, from = null) {
     g.float(v.x, v.y - TILE * 1.3, 'Blocked', '#d9d4c7');
   }
   dmg *= 1 - heroStats(g).armor;
+  if (hazardAt(g, 'crater', v.x, v.y)) dmg *= 0.7;   // fighting from your own broken ground
+  if (h.shield > 0) {   // Regrowth's shield soaks what it can
+    const soaked = Math.min(h.shield, dmg);
+    h.shield -= soaked; dmg -= soaked;
+    g.float(v.x, v.y - TILE * 1.5, 'Shielded', '#7aff9a');
+    if (h.shield <= 0) h.shield = 0;
+  }
   h.sinceHit = 0;
   if (dmg > 0 && guarded) {   // behind your guard: no stun, only a small push
     if (from) { const a = Math.atan2(v.y - from.y, v.x - from.x); const push = TILE * Math.min(3, 1 + dmg * 0.05); h.kbx = Math.cos(a) * push; h.kby = Math.sin(a) * push; }

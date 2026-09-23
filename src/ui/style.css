@@ -2191,3 +2191,49 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .chat-msg.sys-in b, .chat-msg.sys-in span { color: #8fe07a; }
 .chat-msg.sys-out span { color: #ffb3aa; }
 .chat-msg.sys-in, .chat-msg.sys-out { font-style: italic; }
+
+/* the line you type in */
+.chat-row { display: flex; gap: 5px; align-items: center; pointer-events: auto; width: 100%; }
+.chat-row .chat-line { flex: 1; min-width: 0; }
+.chat-send { flex: none; }
+
+/* ---------------------------------------------------------------- the Backpack, second pass */
+.backpack-modal { width: min(820px, 96vw) !important; }
+.bp-head { align-items: center; gap: 10px; }
+.bp-head-text { flex: 1; min-width: 0; }
+.bp-gold { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: rgba(255,215,106,.12); border: 1px solid rgba(255,215,106,.35); color: #ffe9b0; font-variant-numeric: tabular-nums; }
+.bp-tab { padding: 6px 13px; }
+.bp-hero { gap: 16px; align-items: stretch; }
+.bp-figure { display: grid; place-items: center; min-width: 132px; }
+.bp-hero-name { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.bp-lvl { padding: 1px 9px; border-radius: 999px; background: rgba(255,215,106,.16); border: 1px solid rgba(255,215,106,.4); color: #ffe9b0; font-size: 12px; }
+.bp-xp { width: 100%; }
+.bp-xp-bar { height: 10px; }
+.bp-doll-slot { width: 50px; height: 50px; transition: transform .08s ease; }
+.bp-doll-slot:hover { transform: translateY(-2px); }
+/* training: a row per attribute with +1, +5 and Max */
+.bp-attr { display: grid; grid-template-columns: 140px 1fr auto; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 10px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.06); }
+.bp-attr + .bp-attr { margin-top: 5px; }
+.bp-attr-left { display: flex; align-items: baseline; gap: 8px; }
+.bp-attr-name { color: #ffe9b0; font-weight: bold; }
+.bp-attr-val { font-size: 17px; font-variant-numeric: tabular-nums; }
+.bp-attr-desc { font-size: 12px; }
+.bp-attr-btns { display: flex; gap: 4px; }
+.bp-attr-head { gap: 10px; }
+@media (max-width: 620px) { .bp-attr { grid-template-columns: 1fr auto; } .bp-attr-desc { grid-column: 1 / -1; } }
+/* cells: a little life on hover, and a tick when marked for selling */
+.bp-cell { transition: transform .08s ease, box-shadow .08s ease; }
+.bp-cell:not(.empty):hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.45); }
+.bp-cell.marked { border-color: #ff6b5b; box-shadow: 0 0 0 2px rgba(255,107,91,.4); }
+.bp-tick { position: absolute; right: 2px; top: 2px; font-size: 10px; color: #ff6b5b; background: rgba(0,0,0,.7); border-radius: 5px; padding: 0 3px; }
+/* the bar that appears while you pick things to sell */
+.bp-sellbar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: rgba(255,107,91,.12); border: 1px solid rgba(255,107,91,.45); }
+/* the card that follows your cursor */
+.bp-tip { position: fixed; z-index: 120; max-width: 260px; padding: 8px 10px; border-radius: 10px; background: rgba(14,10,24,.97); border: 1px solid rgba(255,215,106,.35); box-shadow: 0 8px 24px rgba(0,0,0,.55); color: var(--text); font-size: 12.5px; line-height: 1.45; pointer-events: none; opacity: 0; transition: opacity .09s ease; display: flex; flex-direction: column; gap: 3px; }
+.bp-tip.on { opacity: 1; }
+.bp-tip-head { display: flex; flex-direction: column; }
+.bp-tip-head b { font-size: 13.5px; }
+.dock-chat.on { color: #ffe9b0; }
+
+.bp-head { padding-right: 42px; }   /* room for the close button */
+.bp-gold { flex: none; }

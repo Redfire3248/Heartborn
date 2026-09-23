@@ -292,13 +292,36 @@ export function gainXp(g, n, v = null) {
   return levels;
 }
 
-export function spendPoint(g, stat) {
+export const STATS = ['might', 'vigor', 'agility'];
+
+export function spendPoint(g, stat, n = 1) {
   const r = rpgOf(g);
-  if (r.points <= 0 || !['might', 'vigor', 'agility'].includes(stat)) return false;
-  r.points--;
-  r[stat]++;
+  if (r.points <= 0 || !STATS.includes(stat)) return false;
+  const put = Math.max(0, Math.min(n, r.points));   // "+5" with three left puts in three
+  if (!put) return false;
+  r.points -= put;
+  r[stat] += put;
   g.emit('change');
-  return true;
+  return put;
+}
+
+/** What it costs to forget your training and take every point back. */
+export const resetStatsCost = g => {
+  const r = rpgOf(g);
+  const spent = STATS.reduce((a, k) => a + (r[k] || 0), 0);
+  return { gold: Math.round(40 + spent * 25), spent };
+};
+
+/** Take every point back so you can build your hero another way (gold, like a re-spec potion). */
+export function resetStats(g) {
+  const r = rpgOf(g);
+  const { gold, spent } = resetStatsCost(g);
+  if (!spent) return { ok: false, why: 'You have not spent any points yet' };
+  if ((g.state.resources.gold || 0) < gold) return { ok: false, why: `Needs ${gold} gold` };
+  g.state.resources.gold -= gold;
+  for (const k of STATS) { r.points += r[k] || 0; r[k] = 0; }
+  g.emit('change');
+  return { ok: true, points: r.points, gold };
 }
 
 // ------------------------------------------------------------------ loot

@@ -479,6 +479,13 @@ export function updateEnemyShots(g, dt) {
 
 export function damageCreature(g, c, dmg, by) {
   const def = CREATURES[c.t];
+  if (c._brand && c._brand.until > g.state.time) dmg *= c._brand.mult;   // marked: everything hurts it more
+  if (c._frozen && c._frozen > g.state.time) {   // frozen solid: the blow that lands shatters it
+    dmg *= 3;
+    c._frozen = 0;
+    g.float(c.x, c.y - TILE * 1.4, 'SHATTER!', '#9fd4ff');
+    g.puff({ x: c.x, y: c.y - 10 }, 'effects/ice_crystal', 8, 14);
+  }
   if (c.net) {   // the host runs this one: send the blow, and show it landing here straight away
     c._hurtFlash = 0.25;
     c._lastDmg = dmg;

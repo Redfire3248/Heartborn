@@ -190,6 +190,7 @@ export class Renderer {
       }
       g.fx.flashes = g.fx.flashes.filter(f => f.life > 0);
     }
+    this.drawHazards(g);
     this.drawAbilityFx(g, dt);
     this.drawParticles(g);
     this.drawBeams(g);
@@ -627,6 +628,38 @@ export class Renderer {
     }
   }
 
+  /** Fire left burning on the ground, broken craters and hallowed earth from your weapon skills. */
+  drawHazards(g) {
+    const { ctx } = this;
+    for (const z of g.hazards || []) {
+      const k = Math.max(0, Math.min(1, z.life / z.max));
+      ctx.save();
+      if (z.kind === 'fire') {
+        ctx.globalCompositeOperation = 'lighter';
+        const flick = 1 + Math.sin(this.time * 12 + z.x) * 0.08;
+        const gr = ctx.createRadialGradient(z.x, z.y, 0, z.x, z.y, z.r * flick);
+        gr.addColorStop(0, `rgba(255,170,60,${0.55 * k})`); gr.addColorStop(1, 'rgba(255,80,20,0)');
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r * flick, z.r * 0.6 * flick, 0, 0, Math.PI * 2); ctx.fill();
+        if (Math.random() < 0.25) g.fx.particles.push({ x: z.x + (Math.random() - 0.5) * z.r, y: z.y, vx: 0, vy: -26, sprite: 'effects/flame', size: 9, life: 0.5, max: 0.5, rot: 0 });
+      } else if (z.kind === 'crater') {
+        ctx.globalAlpha = 0.5 * k;
+        ctx.fillStyle = '#2a1d12';
+        ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.8 * k; ctx.strokeStyle = '#c8a070'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+      } else if (z.kind === 'hallow') {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.28 * k;
+        const gr = ctx.createRadialGradient(z.x, z.y, 0, z.x, z.y, z.r);
+        gr.addColorStop(0, 'rgba(255,243,176,0.8)'); gr.addColorStop(1, 'rgba(255,243,176,0)');
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.7 * k; ctx.strokeStyle = '#fff3b0'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r * (0.9 + Math.sin(this.time * 2) * 0.03), z.r * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
   /** A warm glow that flickers, drawn over a flame. */
   flameGlow(x, y, r, color = '255,170,70') {
     const { ctx } = this;
@@ -1013,7 +1046,7 @@ export class Renderer {
     if (load) drawSprite(ctx, load, v.x + (v._flip ? 3 : -3), v.y - size * 0.92 + Math.abs(Math.sin(t * stepRate)) * -2, TILE * 0.42);
     if (v.hp < 99) bar(ctx, v.x - 8, v.y - size - 4, 16, v.hp / 100, v.hp > 40 ? '#6fdc5a' : '#ff5a4a');
     if (v._emote) drawSprite(ctx, v._emote.key, v.x + 6, v.y - size - 2 + Math.sin(this.time * 4) * 1.5, 12);
-    if (hero || g.selected?.ref === v || this.camera.zoom >= 3.2) label(ctx, v.name, v.x, v.y + 7);
+    if (!hero && (g.selected?.ref === v || this.camera.zoom >= 3.2)) label(ctx, v.name, v.x, v.y + 7);   // no tag over your own head
     if (hero && !g.visiting) { const t = titleOf(g); if (t) titleLabel(ctx, t, v.x, v.y + 13); }
   }
 

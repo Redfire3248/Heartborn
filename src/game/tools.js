@@ -100,6 +100,25 @@ export function giveTool(g, key, n = 1) {
   return true;
 }
 
+/** What a tool fetches at market: better metal, better price. */
+export const toolValue = key => {
+  const t = TOOLS[key];
+  if (!t) return 0;
+  const p = t.power || 1;
+  return Math.round(6 + p * p * 1.6 + (t.mythic ? 120 : 0));
+};
+
+/** Sell a tool for gold (you always keep the last one of a kind you are holding). */
+export function sellTool(g, key, n = 1) {
+  const t = toolsOf(g);
+  if (!t[key]) return 0;
+  const sold = Math.min(n, t[key]);
+  const gold = toolValue(key) * sold;
+  dropTool(g, key, sold);
+  g.addResource('gold', gold);
+  return gold;
+}
+
 export function dropTool(g, key, n = 1) {
   const t = toolsOf(g);
   if (!t[key]) return false;

@@ -1,19 +1,21 @@
 /*
- * The Backpack: one screen for everything you carry, opened with E (or from the Character button).
- * Tabs like the Forge: Character (your figure, stats and attributes), Gear (what you wear and your bag),
- * Tools, Items and Materials. Anything you tap can go straight into your hotbar.
+ * The Backpack: one screen for everything you carry, opened with E.
+ * Tabs like the Forge: Character (your figure, stats and training), Gear (what you wear and your bag),
+ * Tools, Items and Materials. Anything you tap goes into your hotbar, and anything you do not want can be sold.
+ *
+ * Hovering anything shows a card with its name, what it does and what it is worth.
  */
 import { h, icon, modal, closeIfOpen, rarityFrame, smallIcon } from './dom.js';
 import { play } from '../core/sound.js';
 import { spriteAvailable } from '../core/assets.js';
 import { hasArt, gearIconKey } from '../render/gearArt.js';
-import { rpgOf, heroStats, xpToNext, spendPoint, equip, equipBest, unequip, scrapGear, gearScore, RARITY } from '../game/rpg.js';
-import { TOOLS, toolsOf, hotbarOf, setSlot, selectSlot, toolRarity } from '../game/tools.js';
+import { rpgOf, heroStats, xpToNext, spendPoint, resetStats, resetStatsCost, equip, equipBest, unequip, scrapGear, gearScore, RARITY } from '../game/rpg.js';
+import { TOOLS, toolsOf, hotbarOf, setSlot, selectSlot, toolRarity, toolValue, sellTool } from '../game/tools.js';
 import { CONSUMABLES, itemsOf } from '../game/consumables.js';
 import { MATERIALS, MATERIAL_KEYS, abilityOf as weaponAbility } from '../game/forging.js';
 import { TRAITS } from '../data/traits.js';
 import { matIcon } from './tableMenu.js';
-import { ENCHANTS, enchName, peekEnchants } from '../game/enchanting.js';
+import { ENCHANTS, enchName } from '../game/enchanting.js';
 import { AVATARS, avatarId, avatarArt, setLook } from '../game/avatars.js';
 import { heroOf, avatarOf } from '../game/hero.js';
 
@@ -21,16 +23,18 @@ const TABS = [
   { key: 'char', name: 'Character', icon: 'ui/character' },
   { key: 'gear', name: 'Gear', icon: 'ui/tab_gear' },
   { key: 'tools', name: 'Tools', icon: 'items/hammer' },
-  { key: 'items', name: 'Items', icon: 'items/potion_health' },
+  { key: 'items', name: 'Items', icon: 'gear/health_potion' },
   { key: 'mats', name: 'Materials', icon: 'ui/tab_ore' },
 ];
 
 const fmtN = n => (n >= 10000 ? `${Math.round(n / 1000)}k` : String(n));
 const toolIcon = k => (hasArt(TOOLS[k]?.icon) ? TOOLS[k].icon : TOOLS[k]?.fallbackIcon || 'items/relic');
+const itemIcon = def => (hasArt(def?.icon) ? def.icon : 'gear/health_potion');
 const gearText = it => (it.slot === 'shield' ? `blocks ${Math.round((it.block || 0) * 100)}%${it.armor ? ` · +${Math.round(it.armor * 100)}% armour` : ''}`
   : it.slot === 'weapon' ? `${it.dmg} damage`
   : it.slot === 'armor' || it.slot === 'helmet' ? `${Math.round(it.armor * 100)}% armour`
   : Object.entries(it.bonus || {}).map(([k, n]) => (k === 'hp' ? `+${n} health` : `+${Math.round(n * 100)}% ${k === 'dmg' ? 'damage' : k}`)).join(', '));
+const gearValue = it => 8 * (1 + it.rarity * it.rarity * 2);
 
 /** The enchantments on a piece of gear, as little chips. */
 const enchChips = ench => Object.entries(ench || {}).map(([k, l]) => h('span.bp-ench', { style: { color: ENCHANTS[k]?.color, borderColor: ENCHANTS[k]?.color } }, smallIcon(`ui/ench_${k}`, 13), enchName(k, l)));
@@ -45,82 +49,153 @@ function toHotbar(g, key) {
   return slot;
 }
 
+// ------------------------------------------------------------------ the card that follows your cursor
+
+let tipEl = null;
+function showTip(target, parts) {
+  if (!tipEl) { tipEl = h('div.bp-tip'); document.body.append(tipEl); }
+  tipEl.replaceChildren(...parts.filter(Boolean));
+  tipEl.classList.add('on');
+  const place = e => {
+    const r = tipEl.getBoundingClientRect();
+    const x = Math.min(window.innerWidth - r.width - 8, (e.clientX || 0) + 14);
+    const y = Math.max(8, Math.min(window.innerHeight - r.height - 8, (e.clientY || 0) - r.height - 10));
+    tipEl.style.left = `${Math.max(8, x)}px`;
+    tipEl.style.top = `${y}px`;
+  };
+  target._tipMove = place;
+  target.addEventListener('mousemove', place);
+}
+function hideTip(target) {
+  tipEl?.classList.remove('on');
+  if (target?._tipMove) { target.removeEventListener('mousemove', target._tipMove); target._tipMove = null; }
+}
+/** Gives an element a hover card: `parts()` builds it when the pointer arrives. */
+function withTip(el, parts) {
+  el.addEventListener('mouseenter', e => { showTip(el, parts()); el._tipMove?.(e); });
+  el.addEventListener('mouseleave', () => hideTip(el));
+  el.addEventListener('pointerdown', () => hideTip(el));
+  return el;
+}
+const tipHead = (name, sub, color) => h('div.bp-tip-head', h('b', { style: color ? { color } : null }, name), sub ? h('span.faint', sub) : null);
+
 export function openBackpack(hud, tab = null) {
   if (!tab && closeIfOpen('backpack-modal')) return null;
   if (hud.els?.invPanel) hud.els.invPanel.hidden = true;   // the little hotbar panel would sit under this one
   const g = hud.game;
   const m = modal([], { cls: 'backpack-modal', closeX: true });
   hud._bpTab = tab || hud._bpTab || 'char';
+  hud._sell ||= null;   // { gear: Set, tools: Map } while you are picking things to sell
   const body = h('div.bp-body');
+  m.el.addEventListener('pointerleave', () => hideTip(null));
 
   const render = () => {
     const r = rpgOf(g);
     const bar = hotbarOf(g);
     const t = hud._bpTab;
     const refresh = () => { g.emit?.('change'); render(); };
+    const sell = hud._sell;
 
     // ---------------------------------------------------------------- Character
     const charTab = () => {
       const st = heroStats(g);
       const v = heroOf(g) || avatarOf(g);
       const xpK = Math.min(1, r.xp / xpToNext(r.level));
-      const bar2 = (label, value, k, color) => h('div.bp-stat',
+      const statRow = (label, value, k, color, tip) => withTip(h('div.bp-stat',
         h('span.bp-stat-name', label), h('b', value),
-        h('div.bp-stat-bar', h('i', { style: { width: `${Math.max(3, Math.min(100, k * 100))}%`, background: color } })));
-      const attr = (id, label, desc) => h('div.bp-attr', { title: desc },
-        h('span.bp-attr-name', label), h('b', String(r[id])), h('span.faint.bp-attr-desc', desc),
-        h('button.btn.sm.primary', { disabled: !r.points, onclick: () => { spendPoint(g, id); refresh(); } }, '+'));
-      const worn = ['weapon', 'armor', 'helmet', 'shield', 'trinket'].map(slot => {
-        const it = r.gear[slot];
-        return h(`button.bp-doll-slot${it ? '' : '.empty'}`, {
-          title: it ? `${it.name}: ${gearText(it)} (tap for the Gear tab)` : `${slot}: empty`,
-          style: it ? { borderColor: RARITY[it.rarity].color, boxShadow: `inset 0 0 14px ${RARITY[it.rarity].color}55` } : null,
-          onclick: () => { hud._bpTab = 'gear'; hud._bpSel = it?.id || null; play('click'); render(); },
-        }, it ? icon(gearIconKey(it) || 'items/relic', 30) : h('span.bp-doll-label', slot));
-      });
+        h('div.bp-stat-bar', h('i', { style: { width: `${Math.max(3, Math.min(100, k * 100))}%`, background: color } }))),
+      () => [tipHead(label, null, color), h('div', tip), h('div.faint', `Now: ${value}`)]);
+
+      const STAT_TIP = {
+        might: ['Might', 'Every point: +8% damage on everything you swing, shoot or cast.'],
+        vigor: ['Vigor', 'Every point: +12 health. The plainest way to survive a deep floor.'],
+        agility: ['Agility', 'Every point: +8 stamina, a little speed and +1.2% critical hits.'],
+      };
+      const attr = (id) => {
+        const [name, tip] = STAT_TIP[id];
+        const put = n => { const done = spendPoint(g, id, n); if (done) { play('click'); refresh(); } };
+        return withTip(h('div.bp-attr',
+          h('div.bp-attr-left', h('span.bp-attr-name', name), h('b.bp-attr-val', String(r[id] || 0))),
+          h('div.bp-attr-desc.faint', tip),
+          h('div.bp-attr-btns',
+            h('button.btn.sm.primary', { disabled: !r.points, onclick: () => put(1) }, '+1'),
+            h('button.btn.sm', { disabled: r.points < 1, onclick: () => put(5) }, '+5'),
+            h('button.btn.sm', { disabled: !r.points, title: 'Put every point you have into this', onclick: () => put(r.points) }, 'Max'))),
+        () => [tipHead(name, `${r[id] || 0} points`), h('div', tip)]);
+      };
+      const cost = resetStatsCost(g);
       return [
         h('div.bp-hero',
-          h('div.bp-figure', spriteAvailable(avatarArt(avatarId(g))) ? icon(avatarArt(avatarId(g)), 112) : icon('items/crown_leader', 72)),
+          h('div.bp-figure', spriteAvailable(avatarArt(avatarId(g))) ? icon(avatarArt(avatarId(g)), 108) : icon('items/crown_leader', 72)),
           h('div.bp-hero-right',
-            h('h3', v?.name || 'You'),
-            h('div.bp-xp', h('span', `Level ${r.level}`), h('div.bp-xp-bar', h('i', { style: { width: `${xpK * 100}%` } })), h('span.faint', `${r.xp} / ${xpToNext(r.level)} XP`)),
-            h('div.bp-worn', ...worn),
-            spriteAvailable(avatarArt('king')) ? h('button.btn.sm.ghost', { onclick: () => { hud._bpLook = !hud._bpLook; render(); } }, hud._bpLook ? 'Done' : 'Change look') : null)),
-        hud._bpLook ? h('div.bp-avatars', ...AVATARS.map(a => h(`button.bp-avatar${avatarId(g) === a.id ? '.on' : ''}`, { title: a.name, onclick: () => { setLook(g, a.id); hud._bpLook = false; render(); } }, icon(avatarArt(a.id), 40), h('span', a.name)))) : null,
+            h('div.bp-hero-name', h('h3', hud.username || v?.name || 'You'), h('span.bp-lvl', `Level ${r.level}`)),
+            h('div.bp-xp', h('div.bp-xp-bar', h('i', { style: { width: `${xpK * 100}%` } })), h('span.faint', `${Math.round(r.xp)} / ${xpToNext(r.level)} XP`)),
+            h('div.bp-worn', ...['weapon', 'armor', 'helmet', 'shield', 'trinket'].map(slot => {
+              const it = r.gear[slot];
+              return withTip(h(`button.bp-doll-slot${it ? '' : '.empty'}`, {
+                style: it ? { borderColor: RARITY[it.rarity].color, boxShadow: `inset 0 0 14px ${RARITY[it.rarity].color}55` } : null,
+                onclick: () => { hud._bpTab = 'gear'; hud._bpSel = it?.id || null; play('click'); render(); },
+              }, it ? icon(gearIconKey(it) || 'items/relic', 30) : h('span.bp-doll-label', slot)),
+              () => (it
+                ? [tipHead(it.name, `${RARITY[it.rarity].name} ${it.slot}`, RARITY[it.rarity].color), h('div', gearText(it)), ...enchChips(it.ench), h('div.faint', 'Click to open it in Gear')]
+                : [tipHead(slot, 'empty'), h('div.faint', `Nothing on your ${slot} yet`)]));
+            })),
+            h('div.row', { style: { gap: '5px', flexWrap: 'wrap' } },
+              spriteAvailable(avatarArt('king')) ? h('button.btn.sm.ghost', { onclick: () => { hud._bpLook = !hud._bpLook; render(); } }, hud._bpLook ? 'Done' : 'Change look') : null))),
+        hud._bpLook ? h('div.bp-avatars', ...AVATARS.map(a => h(`button.bp-avatar${avatarId(g) === a.id ? '.on' : ''}`, { onclick: () => { setLook(g, a.id); hud._bpLook = false; render(); } }, icon(avatarArt(a.id), 40), h('span', a.name)))) : null,
         h('div.bp-stats',
-          bar2('Health', st.maxHp, st.maxHp / 400, '#ff5b6b'),
-          bar2('Stamina', st.maxStamina, st.maxStamina / 260, '#8fe07a'),
-          bar2('Damage', `x${st.dmgMult.toFixed(2)}`, (st.dmgMult - 1) / 2, '#ffae3d'),
-          bar2('Crit', `${Math.round(st.crit * 100)}%`, st.crit / 0.6, '#ffd76a'),
-          bar2('Armour', `${Math.round(st.armor * 100)}%`, st.armor / 0.7, '#5aa9ff'),
-          bar2('Speed', `x${st.speed.toFixed(2)}`, (st.speed - 1) / 1, '#c77dff')),
-        h('div.bp-attr-head', h('b', 'Attributes'), r.points ? h('span.bp-points', `${r.points} point${r.points === 1 ? '' : 's'} to spend`) : h('span.faint', 'Earned by levelling up')),
-        attr('might', 'Might', '+8% damage'),
-        attr('vigor', 'Vigor', '+12 health'),
-        attr('agility', 'Agility', 'stamina, speed and crits'),
+          statRow('Health', st.maxHp, st.maxHp / 400, '#ff5b6b', 'How much you can take before you are knocked out.'),
+          statRow('Stamina', st.maxStamina, st.maxStamina / 260, '#8fe07a', 'Swings, dashes and holding a guard all spend it.'),
+          statRow('Damage', `x${st.dmgMult.toFixed(2)}`, (st.dmgMult - 1) / 2, '#ffae3d', 'Everything you hit with is multiplied by this.'),
+          statRow('Crit', `${Math.round(st.crit * 100)}%`, st.crit / 0.6, '#ffd76a', 'The chance a blow lands for nearly double.'),
+          statRow('Armour', `${Math.round(st.armor * 100)}%`, st.armor / 0.7, '#5aa9ff', 'Taken off every blow that reaches you. Caps at 70%.'),
+          statRow('Speed', `x${st.speed.toFixed(2)}`, (st.speed - 1) / 1, '#c77dff', 'How fast you walk and run.')),
+        h('div.bp-attr-head',
+          h('b', 'Training'),
+          r.points ? h('span.bp-points', `${r.points} point${r.points === 1 ? '' : 's'} to spend`) : h('span.faint', 'Level up to earn points'),
+          h('div.spacer'),
+          withTip(h('button.btn.sm.ghost', {
+            disabled: !cost.spent || (g.state.resources.gold || 0) < cost.gold,
+            onclick: () => { const res = resetStats(g); if (!res.ok) { hud.hint(res.why, 1800); return; } hud.hint(`All ${res.points} points are yours again`, 2200); play('complete'); refresh(); },
+          }, `Forget training · ${cost.gold} gold`),
+          () => [tipHead('Forget your training'), h('div', 'Every point you have spent comes back, so you can build your hero another way.'), h('div.faint', `Costs ${cost.gold} gold (${cost.spent} points spent)`)])),
+        attr('might'), attr('vigor'), attr('agility'),
       ].filter(Boolean);
     };
 
     // ---------------------------------------------------------------- Gear
     const gearTab = () => {
-      const sel = hud._bpSel;
-      const wornPair = Object.entries(r.gear).find(([, it]) => it && it.id === sel);
-      const picked = wornPair ? wornPair[1] : r.bag.find(x => x.id === sel);
+      const selId = hud._bpSel;
+      const wornPair = Object.entries(r.gear).find(([, it]) => it && it.id === selId);
+      const picked = wornPair ? wornPair[1] : r.bag.find(x => x.id === selId);
       const cell = (it, isWorn) => {
         const fr = rarityFrame(it.rarity);
         const better = !isWorn && gearScore(it) > gearScore(r.gear[it.slot]);
-        return h(`button.bp-cell${sel === it.id ? '.sel' : ''}${fr.cls}`, { style: fr.style, title: `${it.name}: ${gearText(it)}`, onclick: () => { hud._bpSel = sel === it.id ? null : it.id; play('click'); render(); } },
-          icon(gearIconKey(it) || 'items/relic', 34),
-          better ? h('span.bp-up', '▲') : null,
-          isWorn ? h('span.bp-on', 'ON') : null,
-          it.slot === 'weapon' && weaponAbility(it) ? h('span.ability-badge', { title: 'Has a special ability (F)' }, 'SKILL') : null);
+        const marked = sell?.gear.has(it.id);
+        return withTip(h(`button.bp-cell${selId === it.id ? '.sel' : ''}${marked ? '.marked' : ''}${fr.cls}`, {
+          style: fr.style,
+          onclick: () => {
+            if (sell && !isWorn) { if (marked) sell.gear.delete(it.id); else sell.gear.add(it.id); play('click'); render(); return; }
+            if (sell && isWorn) { hud.hint('Take it off first', 1400); return; }
+            hud._bpSel = selId === it.id ? null : it.id; play('click'); render();
+          },
+        }, icon(gearIconKey(it) || 'items/relic', 34),
+        better ? h('span.bp-up', '▲') : null,
+        isWorn ? h('span.bp-on', 'ON') : null,
+        marked ? h('span.bp-tick', '✓') : null,
+        it.slot === 'weapon' && weaponAbility(it) ? h('span.ability-badge', 'SKILL') : null),
+        () => [tipHead(it.name, `${RARITY[it.rarity].name} ${it.slot}`, RARITY[it.rarity].color),
+          h('div', gearText(it)),
+          ...enchChips(it.ench),
+          isWorn ? h('div.faint', 'Worn right now') : better ? h('div', { style: { color: '#7ee06a' } }, 'Better than what you wear') : null,
+          h('div.faint', `Sells for ${gearValue(it)} gold`)]);
       };
-      const junk = r.bag.filter(it => it.rarity <= 1 && gearScore(it) <= gearScore(r.gear[it.slot]));
+      const worn = Object.values(r.gear).filter(Boolean);
       return [
         h('div.bp-row-head', h('b', 'Worn'), h('div.spacer'),
-          r.bag.length ? h('button.btn.sm.primary', { title: 'Put on the best piece you own for every slot', onclick: () => { const n = equipBest(g); hud.hint(n ? `Equipped ${n} better piece${n === 1 ? '' : 's'}` : 'You already wear your best gear', 1800); hud._bpSel = null; refresh(); } }, 'Equip best') : null,
-          junk.length ? h('button.btn.sm', { title: 'Scrap every Common and Rare piece that is no better than what you wear', onclick: () => { let gold = 0; for (const it of junk) gold += scrapGear(g, it.id); hud.hint(`Scrapped ${junk.length}: +${gold} gold`, 1800); hud._bpSel = null; refresh(); } }, 'Scrap junk') : null),
-        h('div.bp-grid', ...Object.values(r.gear).filter(Boolean).map(it => cell(it, true)), ...(Object.values(r.gear).filter(Boolean).length ? [] : [h('div.faint', 'Nothing on yet')])),
+          r.bag.length ? h('button.btn.sm.primary', { onclick: () => { const n = equipBest(g); hud.hint(n ? `Put on ${n} better piece${n === 1 ? '' : 's'}` : 'You already wear your best', 1800); hud._bpSel = null; refresh(); } }, 'Equip best') : null,
+          h(`button.btn.sm${sell ? '.danger' : ''}`, { onclick: () => { hud._sell = sell ? null : { gear: new Set(), tools: new Map() }; play('click'); render(); } }, sell ? 'Stop selling' : 'Sell…')),
+        h('div.bp-grid', ...worn.map(it => cell(it, true)), ...(worn.length ? [] : [h('div.faint', 'Nothing on yet')])),
         picked ? h('div.bp-detail', { style: { borderColor: RARITY[picked.rarity].color } },
           icon(gearIconKey(picked) || 'items/relic', 40),
           h('div.bp-detail-text',
@@ -131,9 +206,9 @@ export function openBackpack(hud, tab = null) {
             wornPair
               ? h('button.btn.sm', { onclick: () => { unequip(g, wornPair[0]); hud._bpSel = null; refresh(); } }, 'Take off')
               : h('button.btn.sm.primary', { onclick: () => { equip(g, picked.id); hud._bpSel = null; refresh(); } }, 'Equip'),
-            wornPair ? null : h('button.btn.sm', { title: 'Break it down for gold', onclick: () => { const gold = scrapGear(g, picked.id); hud.hint(`+${gold} gold`, 1500); hud._bpSel = null; refresh(); } }, 'Scrap'))) : null,
-        h('div.bp-row-head', h('b', `Bag (${r.bag.length})`)),
-        h('div.bp-grid', ...r.bag.map(it => cell(it, false)), ...Array.from({ length: Math.max(0, 18 - r.bag.length) }, () => h('div.bp-cell.empty'))),
+            wornPair ? null : h('button.btn.sm', { onclick: () => { const gold = scrapGear(g, picked.id); hud.hint(`+${gold} gold`, 1500); hud._bpSel = null; refresh(); } }, `Sell · ${gearValue(picked)}g`))) : null,
+        h('div.bp-row-head', h('b', `Bag (${r.bag.length})`), sell ? h('span.faint', 'Tap what you want to sell') : null),
+        h('div.bp-grid', ...r.bag.map(it => cell(it, false)), ...Array.from({ length: Math.max(0, 12 - r.bag.length) }, () => h('div.bp-cell.empty'))),
       ].filter(Boolean);
     };
 
@@ -142,24 +217,38 @@ export function openBackpack(hud, tab = null) {
       const owned = toolsOf(g);
       const keys = Object.keys(owned).filter(k => TOOLS[k] && owned[k] > 0);
       const KIND_NAME = { sword: 'Swords', weapon: 'Weapons', pickaxe: 'Pickaxes', axe: 'Axes', shovel: 'Shovels', hoe: 'Hoes', sickle: 'Sickles', hammer: 'Hammers', fishing_rod: 'Fishing rods' };
-      const groups = [
-        ...Object.entries(KIND_NAME).map(([kind, name]) => ({ name, of: k => TOOLS[k].kind === kind && !TOOLS[k].utility })),
-        { name: 'Useful things', of: k => TOOLS[k].utility },
-      ];
+      const groups = [...Object.entries(KIND_NAME).map(([kind, name]) => ({ name, of: k => TOOLS[k].kind === kind && !TOOLS[k].utility })), { name: 'Useful things', of: k => TOOLS[k].utility }];
       const seen = new Set();
       const cell = k => {
-        const at = bar.indexOf(k), fr = rarityFrame(toolRarity(k));
-        return h(`button.bp-cell${at === r.hotSel ? '.held' : at >= 0 ? '.inbar' : ''}${fr.cls}`, {
-          style: fr.style, title: `${TOOLS[k].name}${TOOLS[k].does ? ` — ${TOOLS[k].does}` : ''}`,
-          onclick: () => { const slot = toHotbar(g, k); hud.hint(`${TOOLS[k].name} in slot ${slot + 1}`, 1200); play('click'); refresh(); },
-        }, icon(toolIcon(k), 34), owned[k] > 1 ? h('span.hot-count', String(owned[k])) : null, at >= 0 ? h('span.hot-num', String(at + 1)) : null);
+        const at = bar.indexOf(k), fr = rarityFrame(toolRarity(k)), def = TOOLS[k];
+        const marked = (sell?.tools.get(k) || 0) > 0;
+        return withTip(h(`button.bp-cell${at === r.hotSel ? '.held' : at >= 0 ? '.inbar' : ''}${marked ? '.marked' : ''}${fr.cls}`, {
+          style: fr.style,
+          onclick: () => {
+            if (sell) {
+              const have = owned[k] || 0, now = sell.tools.get(k) || 0;
+              if (now >= have) sell.tools.delete(k); else sell.tools.set(k, now + 1);
+              play('click'); render(); return;
+            }
+            const slot = toHotbar(g, k); hud.hint(`${def.name} in slot ${slot + 1}`, 1200); play('click'); refresh();
+          },
+        }, icon(toolIcon(k), 34),
+        owned[k] > 1 ? h('span.hot-count', String(owned[k])) : null,
+        at >= 0 ? h('span.hot-num', String(at + 1)) : null,
+        marked ? h('span.bp-tick', `✓${sell.tools.get(k) > 1 ? sell.tools.get(k) : ''}`) : null),
+        () => [tipHead(def.name, RARITY[toolRarity(k)].name, RARITY[toolRarity(k)].color),
+          def.does ? h('div', def.does) : null,
+          def.power ? h('div.faint', `Power ${def.power}`) : null,
+          h('div.faint', `Sells for ${toolValue(k)} gold`),
+          h('div.faint', sell ? 'Tap to mark one for selling' : 'Tap to hold it')]);
       };
-      const out = [h('div.faint', 'Tap a tool to put it in your hotbar.')];
+      const out = [h('div.bp-row-head', h('span.faint', sell ? 'Tap tools to mark them for selling' : 'Tap a tool to put it in your hotbar'), h('div.spacer'),
+        h(`button.btn.sm${sell ? '.danger' : ''}`, { onclick: () => { hud._sell = sell ? null : { gear: new Set(), tools: new Map() }; play('click'); render(); } }, sell ? 'Stop selling' : 'Sell…'))];
       for (const grp of groups) {
         const ks = keys.filter(k => !seen.has(k) && grp.of(k)).sort((a, b) => (TOOLS[b].power || 0) - (TOOLS[a].power || 0));
         ks.forEach(k => seen.add(k));
         if (!ks.length) continue;
-        out.push(h('div.bp-row-head', h('b', grp.name), h('span.faint', `${ks.length}`)), h('div.bp-grid', ...ks.map(cell)));
+        out.push(h('div.bp-row-head', h('b', grp.name), h('span.faint', String(ks.length))), h('div.bp-grid', ...ks.map(cell)));
       }
       const rest = keys.filter(k => !seen.has(k));
       if (rest.length) out.push(h('div.bp-row-head', h('b', 'Other')), h('div.bp-grid', ...rest.map(cell)));
@@ -173,17 +262,19 @@ export function openBackpack(hud, tab = null) {
       const keys = Object.keys(items).filter(k => CONSUMABLES[k] && items[k] > 0);
       const cell = key => {
         const def = CONSUMABLES[key], slotKey = `item:${key}`, at = bar.indexOf(slotKey);
-        return h(`button.bp-cell${at === r.hotSel ? '.held' : at >= 0 ? '.inbar' : ''}`, {
-          title: `${def.name}${def.desc ? ` — ${def.desc}` : ''}`,
+        return withTip(h(`button.bp-cell${at === r.hotSel ? '.held' : at >= 0 ? '.inbar' : ''}`, {
           onclick: () => { const slot = toHotbar(g, slotKey); hud.hint(`${def.name} in slot ${slot + 1}`, 1200); play('click'); refresh(); },
-        }, icon(hasArt(def.icon) ? def.icon : 'items/relic', 34), h('span.hot-count', String(items[key])), at >= 0 ? h('span.hot-num', String(at + 1)) : null);
+        }, icon(itemIcon(def), 34), h('span.hot-count', String(items[key])), at >= 0 ? h('span.hot-num', String(at + 1)) : null),
+        () => [tipHead(def.name, `${items[key]} in your bag`), def.desc ? h('div', def.desc) : null, h('div.faint', 'Tap to hold it')]);
       };
+      const potions = r.potions || 0;
       return [
-        h('div.faint', 'Potions, food and anything else you can use. Tap to hold it.'),
-        (r.potions || 0) > 0 ? h('div.bp-row-head', h('b', 'Healing potions'), h('span.faint', String(r.potions))) : null,
-        (r.potions || 0) > 0 ? h('div.bp-grid', h(`button.bp-cell${bar.indexOf('potion') === r.hotSel ? '.held' : bar.includes('potion') ? '.inbar' : ''}`, {
-          title: 'Healing potion', onclick: () => { const slot = toHotbar(g, 'potion'); hud.hint(`Potion in slot ${slot + 1}`, 1200); play('click'); refresh(); },
-        }, icon('items/potion_health', 34), h('span.hot-count', String(r.potions)))) : null,
+        h('div.faint', 'Potions and anything else you can use. Tap to hold it.'),
+        potions > 0 ? h('div.bp-row-head', h('b', 'Healing potions'), h('span.faint', String(potions))) : null,
+        potions > 0 ? h('div.bp-grid', withTip(h(`button.bp-cell${bar.indexOf('potion') === r.hotSel ? '.held' : bar.includes('potion') ? '.inbar' : ''}`, {
+          onclick: () => { const slot = toHotbar(g, 'potion'); hud.hint(`Potion in slot ${slot + 1}`, 1200); play('click'); refresh(); },
+        }, icon('gear/health_potion', 34), h('span.hot-count', String(potions))),
+        () => [tipHead('Healing potion', `${potions} in your bag`), h('div', 'Drink it to heal (T, or hold it and attack).')])) : null,
         keys.length ? h('div.bp-row-head', h('b', 'Other items'), h('span.faint', String(keys.length))) : null,
         keys.length ? h('div.bp-grid', ...keys.map(cell)) : h('div.faint', 'Nothing else to use yet.'),
       ].filter(Boolean);
@@ -192,23 +283,53 @@ export function openBackpack(hud, tab = null) {
     // ---------------------------------------------------------------- Materials
     const matsTab = () => {
       const owned = MATERIAL_KEYS.filter(k => (g.state.resources[k] || 0) > 0).sort((a, b) => MATERIALS[a].rarity - MATERIALS[b].rarity);
-      const info = h('div.faint.bp-mat-info', 'Everything you can forge with. Hover one to see what it does.');
       const cells = owned.map(k => {
         const mt = MATERIALS[k], color = RARITY[mt.rarity].color;
-        return h('div.bp-cell.bp-mat', {
-          style: { borderColor: color }, title: mt.name,
-          onmouseenter: () => info.replaceChildren(h('b', { style: { color } }, mt.name), h('span', ` · ${RARITY[mt.rarity].name} · power x${mt.mult}${mt.trait ? ` · ${TRAITS[mt.trait].name}: ${TRAITS[mt.trait].desc}` : ''}${mt.boss ? ' · dropped by a boss' : ''}`)),
-        }, icon(matIcon(k), 34), h('span.hot-count', fmtN(g.state.resources[k])));
+        return withTip(h('div.bp-cell.bp-mat', { style: { borderColor: color } }, icon(matIcon(k), 34), h('span.hot-count', fmtN(g.state.resources[k]))),
+          () => [tipHead(mt.name, RARITY[mt.rarity].name, color),
+            h('div', `Power x${mt.mult}`),
+            mt.trait ? h('div', { style: { color: TRAITS[mt.trait].color } }, `${TRAITS[mt.trait].name}: ${TRAITS[mt.trait].desc}`) : null,
+            mt.boss ? h('div.faint', 'Dropped by a boss') : null,
+            h('div.faint', `You have ${g.state.resources[k]}`)]);
       });
-      return [info, h('div.bp-grid', ...cells, ...Array.from({ length: Math.max(0, 18 - cells.length) }, () => h('div.bp-cell.empty')))];
+      return [
+        h('div.faint', 'Everything you can forge with. Hover one to see what it does.'),
+        h('div.bp-grid', ...cells, ...Array.from({ length: Math.max(0, 12 - cells.length) }, () => h('div.bp-cell.empty'))),
+      ];
     };
 
     const content = t === 'char' ? charTab() : t === 'gear' ? gearTab() : t === 'tools' ? toolsTab() : t === 'items' ? itemsTab() : matsTab();
     body.replaceChildren(...content);
+
+    // the bar along the bottom while you are picking things to sell
+    const sellBar = (() => {
+      if (!sell) return null;
+      let total = 0, n = 0;
+      for (const id of sell.gear) { const it = r.bag.find(x => x.id === id); if (it) { total += gearValue(it); n++; } }
+      for (const [k, count] of sell.tools) { total += toolValue(k) * count; n += count; }
+      return h('div.bp-sellbar',
+        h('b', n ? `${n} thing${n === 1 ? '' : 's'} · ${total} gold` : 'Pick what you want to sell'),
+        h('div.spacer'),
+        h('button.btn.sm.ghost', { onclick: () => { hud._sell = null; render(); } }, 'Cancel'),
+        h('button.btn.primary.sm', { disabled: !n, onclick: () => {
+          let gold = 0;
+          for (const id of [...sell.gear]) gold += scrapGear(g, id);
+          for (const [k, count] of sell.tools) gold += sellTool(g, k, count);
+          hud._sell = null;
+          hud.hint(`Sold ${n} for ${gold} gold`, 2200);
+          play('coin');
+          refresh();
+        } }, 'Sell them'));
+    })();
+
     m.el.replaceChildren(m.closeBtn,
-      h('div.bp-head', icon(hasArt('ui/inventory') ? 'ui/inventory' : 'ui/character', 30), h('div', h('h2', 'Backpack'), h('div.faint', `Level ${r.level}${r.points ? ` · ${r.points} point${r.points === 1 ? '' : 's'} to spend` : ''} · ${g.state.resources.gold || 0} gold`))),
+      h('div.bp-head',
+        icon(hasArt('ui/inventory') ? 'ui/inventory' : 'ui/character', 30),
+        h('div.bp-head-text', h('h2', 'Backpack'), h('div.faint', `Level ${r.level}${r.points ? ` · ${r.points} point${r.points === 1 ? '' : 's'} to spend` : ''}`)),
+        h('div.bp-gold', icon('items/icon_gold', 18), String(g.state.resources.gold || 0))),
       h('div.bp-tabs', ...TABS.map(tb => h(`button.bp-tab${t === tb.key ? '.on' : ''}`, { onclick: () => { hud._bpTab = tb.key; play('click'); render(); } }, hasArt(tb.icon) ? icon(tb.icon, 18) : null, tb.name))),
-      body);
+      body,
+      ...(sellBar ? [sellBar] : []));
   };
   render();
   return m;
