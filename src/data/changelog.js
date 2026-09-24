@@ -1,6 +1,19 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Races, ore attunement, and every new sprite in the game',
+    changes: [
+      'Races: twelve of them - Human, Elf, Dwarf, Orc, Demon, Arch Demon, Angel, Archangel, Demonic Angel, Skeleton, Zombie and Vampire - each with four faces, two men and two women',
+      'A race changes your health, damage, speed, stamina and crit, and gives you a passive that really happens: an Orc hits 35% harder below half health, a Vampire drinks 12% of what it deals, a Zombie walks away from one killing blow every two minutes, a Skeleton cannot be poisoned and dashes for free, an Arch Demon leaves the ground burning where it kills',
+      'Choose yours in the Backpack under Change character. Your points are untouched: a race multiplies what you have trained, it does not replace it',
+      'Ore attunement: carry enough of one rare ore and it works on you before you ever forge it. Frostite chills what strikes you, Magmite sets it on fire, Titanium thickens your hide, Mythril speeds you up, Moonstone shortens your skill, Voidstone makes it hit harder, Sunstone burns in daylight, Jade heals you, Cobalt gives your breath back, Obsidian sharpens your eye. Only your deepest hoard counts',
+      'Particles have life in them now: they burst outwards, spin, fall and shrink instead of drifting flatly up, and hits throw coloured beads of light - gold for a crit, a real shower when something dies',
+      'The touch buttons wear their real art at last: a winged boot for Dash, a sword, a shield, a potion, an orb and a crosshair',
+      'Everything in a slot stays in its slot: a tall sword no longer hangs out of its square',
+      'New admin commands: race, race list, attune, attune list',
+    ],
+  },
+  {
     title: 'Lock-on, no more auto-aim, and a tidy-up everywhere',
     changes: [
       'You cannot raise a guard without a shield any more, and the Block button hides itself when your shield slot is empty',

@@ -781,7 +781,7 @@ export class HUD {
         oncontextmenu: e => { e.preventDefault(); this.analyzeKey(slots[i]); },
         onpointerdown: e => k && this.startSlotDrag(e, { from: i, value: k, icon: info.icon }),
       }, h('span.hot-num', String(i + 1)), info ? icon(info.icon, 34) : null, info?.count != null ? h('span.hot-count', String(info.count)) : null, this.abilityBadge(k));
-    }), h('button.hot-bag', { title: 'Inventory (I)', onclick: () => this.inventory() }, icon(hasArt('ui/inventory') ? 'ui/inventory' : 'tools/backpack', 24)));
+    }), h('button.hot-bag', { title: 'Inventory (I)', onclick: () => this.inventory() }, icon(hasArt('ui/btn_bag') ? 'ui/btn_bag' : hasArt('ui/inventory') ? 'ui/inventory' : 'tools/backpack', 24)));
     const held = slots[r.hotSel];
     const info = this.slotInfo(held, v);
     this.els.hotName.textContent = info ? info.name : '';
@@ -1319,13 +1319,14 @@ export class HUD {
       }, iconKey ? icon(iconKey, size) : null, h('span', label));
       return b;
     };
-    const act = hold('hero-act', 'act', 'ATTACK', 'items/sword', 34, 'Attack');
-    const dash = hold('hero-dash', 'dash', 'DASH', null, 0, 'Dash');
-    dash.prepend(pxIcon('boot', 26));   // a boot: no word needed
-    const block = hold('hero-block', 'block', 'BLOCK', 'items/shield', 26, 'Block');
+    const btn = (key, fallback) => (hasArt(`ui/${key}`) ? `ui/${key}` : fallback);
+    const act = hold('hero-act', 'act', 'ATTACK', btn('btn_attack', 'items/sword'), 40, 'Attack');
+    const dash = hold('hero-dash', 'dash', 'DASH', hasArt('ui/btn_dash') ? 'ui/btn_dash' : null, 34, 'Dash');
+    if (!hasArt('ui/btn_dash')) dash.prepend(pxIcon('boot', 26));
+    const block = hold('hero-block', 'block', 'BLOCK', btn('btn_block', 'items/shield'), 32, 'Block');
     this.els.blockBtn = block;
     block.hidden = !rpgOf(this.dungeon || this.game).gear.shield;   // nothing to guard with, nothing to press
-    const potion = hold('hero-potion', 'potion', '', 'gear/health_potion', 26);
+    const potion = hold('hero-potion', 'potion', '', btn('btn_potion', 'gear/health_potion'), 30);
     this.els.potionCount = h('span.hero-potion-count', '0');
     potion.append(this.els.potionCount);
     const lock = h('button.hero-lock', { title: 'Lock on to the nearest foe', 'aria-label': 'Lock on', onpointerdown: e => {
@@ -1334,9 +1335,9 @@ export class HUD {
       const on = toggleLockOn(hg);
       lock.classList.toggle('on', !!on);
       this.hint(on ? `Locked on: ${(CREATURES[on.t]?.name || on.t.replace(/_/g, ' '))}` : 'Lock released', 1400);
-    } }, pxIcon('target', 26));
+    } }, hasArt('ui/btn_lock') ? icon('ui/btn_lock', 24) : pxIcon('target', 26));
     this.els.lockBtn = lock;
-    const ability = h('button.hero-btn.hero-ability', { hidden: true, title: 'Weapon ability (F)', onpointerdown: e => { e.preventDefault(); useWeaponAbility(this.dungeon || this.game); } }, icon('effects/magic_orb', 22), h('span', 'SKILL'), h('i.ability-cd'));
+    const ability = h('button.hero-btn.hero-ability', { hidden: true, title: 'Weapon ability (F)', onpointerdown: e => { e.preventDefault(); useWeaponAbility(this.dungeon || this.game); } }, icon(hasArt('ui/btn_skill') ? 'ui/btn_skill' : 'effects/magic_orb', 28), h('span', 'SKILL'), h('i.ability-cd'));
     this.els.abilityBtn = ability;
     ability.hidden = !weaponAbility(rpgOf(this.dungeon || this.game).gear.weapon);   // set straight away, not a frame later
     this.els.heroPad.replaceChildren(stick, act, dash, block, potion, lock, ability);

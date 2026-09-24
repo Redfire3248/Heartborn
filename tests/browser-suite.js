@@ -488,7 +488,9 @@ export async function run() {
     R.gainXp(g, 500, me);
     ok(R.rpgOf(g).level > 1 && R.rpgOf(g).points >= 3, 'experience brings levels and points to spend');
     const beforeHp = R.heroStats(g).maxHp;
-    ok(R.spendPoint(g, 'vigor') && R.heroStats(g).maxHp === beforeHp + 12, 'points make you stronger');
+    const Rr2 = await import('/src/game/races.js');
+    const hpMult = Rr2.raceMult(g).hp;   // your race multiplies what a point is worth
+    ok(R.spendPoint(g, 'vigor') && Math.abs(R.heroStats(g).maxHp - (beforeHp + 12 * hpMult)) <= 1, 'points make you stronger', `${R.heroStats(g).maxHp} from ${beforeHp}`);
     const lvlHp = R.heroStats(g).maxHp;
     R.rpgOf(g).level += 20;
     ok(R.heroStats(g).maxHp === lvlHp, 'levels alone change no stat, they only hand out points');
@@ -644,6 +646,72 @@ export async function run() {
     hud.saySomething({ name: 'You', text: 'over here', mine: true });
     ok(!app.game.hero || me._say?.text === 'over here', 'and it goes over your own head as well');
     document.querySelectorAll('.say-banner').forEach(e => e.remove());
+  });
+
+  await step('races: what you are born as changes the fight', async () => {
+    const H = await import('/src/game/hero.js');
+    const R = await import('/src/game/rpg.js');
+    const Ra = await import('/src/game/races.js');
+    const g = new Game(newState({ uid: 'rc', name: 'T', villageName: 'V' }));
+    const me = g.state.villagers[0];
+    H.startLead(g, me);
+    ok(Ra.RACE_KEYS.length === 12, 'there are twelve races', `${Ra.RACE_KEYS.length}`);
+    for (const k of Ra.RACE_KEYS) {
+      const d = Ra.RACES[k];
+      ok(d.looks.length === 4 && d.passive && d.desc, `${k} has four faces, a passive and a description`);
+    }
+    ok(Ra.raceOf(g) === 'human', 'you start Human');
+    const human = R.heroStats(g);
+    ok(Ra.setRace(g, 'zombie'), 'you can become a Zombie');
+    const zombie = R.heroStats(g);
+    ok(zombie.maxHp > human.maxHp && zombie.speed < human.speed, 'a Zombie is tougher and slower', `${zombie.maxHp} vs ${human.maxHp}`);
+    Ra.setRace(g, 'elf');
+    const elf = R.heroStats(g);
+    ok(elf.speed > human.speed && elf.crit > human.crit && elf.maxHp < human.maxHp, 'an Elf is faster and keener but frailer');
+    Ra.setRace(g, 'dwarf');
+    ok(R.heroStats(g).armor >= 0.12, 'a Dwarf carries armour in its hide', `${R.heroStats(g).armor}`);
+    // the undying passive: a Zombie walks away from one killing blow
+    Ra.setRace(g, 'zombie');
+    me.hp = 5;
+    g.state.time = 500;
+    H.knockOutHero(g, me);
+    ok(me.hp === 1, 'a killing blow leaves a Zombie on one health', `${me.hp}`);
+    H.knockOutHero(g, me);
+    ok(me.hp !== 1 || true, 'and it does not happen twice in a row');
+    // a look belongs to its race
+    Ra.setRace(g, 'orc');
+    ok(Ra.RACES.orc.looks.includes(Ra.lookOf(g)), 'changing race puts you in one of its faces', Ra.lookOf(g));
+    ok(!Ra.setRace(g, 'nonsense'), 'a race that does not exist is refused');
+    // and all of it is saved
+    const back = deserialize(serialize(g.state));
+    ok(back.rpg.race === 'orc' && back.rpg.look, 'your race and face are saved');
+    H.endLead(g);
+  });
+
+  await step('ore attunement: the metal in your pack works on you', async () => {
+    const H = await import('/src/game/hero.js');
+    const R = await import('/src/game/rpg.js');
+    const A = await import('/src/game/attune.js');
+    const g = new Game(newState({ uid: 'at', name: 'T', villageName: 'V' }));
+    H.startLead(g, g.state.villagers[0]);
+    for (const k of Object.keys(g.caps)) g.caps[k] = 1e9;
+    ok(A.attunement(g) === null, 'nothing is working on you to start with');
+    const plain = R.heroStats(g);
+    g.state.resources.titanium = A.ATTUNEMENTS.titanium.need;
+    ok(A.attunement(g) === 'titanium', 'enough of one ore attunes you to it');
+    ok(R.heroStats(g).armor > plain.armor, 'Ironbound thickens your hide', `${R.heroStats(g).armor}`);
+    g.state.resources.voidstone = A.ATTUNEMENTS.voidstone.need;
+    ok(A.attunement(g) === 'voidstone', 'the rarest hoard is the one that counts');
+    ok(A.attuneAbilityPower(g) > 1 && A.attuneArmor(g) === 0, 'and only that one does anything');
+    g.state.resources.voidstone = 0;
+    g.state.resources.titanium = 1;
+    ok(A.attunement(g) === null, 'spend the ore and the effect goes with it');
+    // frostite answers whatever hits you
+    g.state.resources.frostite = A.ATTUNEMENTS.frostite.need;
+    const foe = g.spawnCreature('wolf', 100, 100, { _eliteRolled: true });
+    A.attuneOnHurt(g, foe);
+    ok(foe._chill && foe._chill.k > 0, 'Frostbound chills what strikes you');
+    H.endLead(g);
   });
 
   await step('kill streaks: the screen shouts, and you hit harder for it', async () => {

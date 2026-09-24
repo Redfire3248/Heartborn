@@ -17,7 +17,7 @@ import { FIND_KINDS } from '../game/finds.js';
 import { ITEMS } from '../data/people.js';
 import { heroWeapon, rpgOf, WEAPONS, SHIELDS, RARITY } from '../game/rpg.js';
 import { gearIconKey, hasArt } from './gearArt.js';
-import { avatarId, avatarArt } from '../game/avatars.js';
+import { avatarId, avatarArt, heroLook } from '../game/avatars.js';
 import { trapUp } from '../game/dungeon.js';
 import { DESIGNS, doorOf, isHome, builderOf } from '../game/houses.js';
 import { TOOLS, lightBonus, heldSlot, hasTool as hasToolG, heroLight } from '../game/tools.js';
@@ -1017,7 +1017,7 @@ export class Renderer {
     const key = villagerSprite({ ...v, role });
     // zoomed far out (or a huge village): just the figure — shadows, tools, bars and emotes are too small to see
     if (this.camera.zoom < 1.1 || (g.state.villagers.length > 250 && this.camera.zoom < 1.8)) {
-      const look = g.hero?.id === v.id ? avatarArt(avatarId(g), 'front') : null;   // you keep the look you picked, even from far away
+      const look = g.hero?.id === v.id ? heroLook(g, 'front') : null;   // you keep the look you picked, even from far away
       drawSprite(ctx, look && hasArt(look) ? look : key, v.x, v.y, look && hasArt(look) ? size * 1.15 : size, { flip: look ? false : v._flip, offsetY });
       return;
     }
@@ -1072,7 +1072,7 @@ export class Renderer {
     const bx = v.x + dx * lunge - dx * hurt, by = v.y + dy * lunge * 0.5 - dy * hurt;
     // the weapon-free hero body (front, back or side) once that art is in; until then your avatar's own look
     const view = facing === 'up' ? 'back' : facing === 'down' ? 'front' : 'side';
-    const chosen = avatarArt(avatarId(g), 'front');   // the look you picked, always drawn facing straight ahead
+    const chosen = heroLook(g, 'front');   // the look you picked, always drawn facing straight ahead
     const bodyArt = `hero/${v.sex === 'f' ? 'girl' : 'boy'}_body_${view}`;
     const body = hasArt(chosen) ? chosen : hasArt(bodyArt) ? bodyArt : 'characters/king';
     const w = heroWeapon(g, v);
@@ -1295,7 +1295,7 @@ export class Renderer {
     // dash afterimages
     for (const tr of hero.trail || []) {
       ctx.globalAlpha = Math.max(0, tr.life / 0.25) * 0.35;
-      const look = avatarArt(avatarId(g), 'front');
+      const look = heroLook(g, 'front');
       const body = hasArt(look) ? look : 'characters/king';
       drawSprite(ctx, body, tr.x, tr.y, TILE * 0.92, { tint: '#9fd4ff' });
     }
@@ -1551,8 +1551,31 @@ export class Renderer {
   }
 
   drawParticles(g) {
+    const { ctx } = this;
     for (const p of g.fx.particles) {
-      drawSprite(this.ctx, p.sprite, p.x, p.y, p.size, { alpha: Math.min(1, p.life / p.max * 1.5), rot: p.rot });
+      const k = Math.max(0, p.life / p.max);          // 1 when new, 0 when gone
+      const alpha = Math.min(1, k * 1.6);
+      if (p.dot) {   // a bead of light: no sprite, just colour, and it glows
+        const r = p.size * (0.35 + k * 0.65) * 0.5;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = alpha;
+        const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, Math.max(1, r * 2.2));
+        grd.addColorStop(0, p.dot);
+        grd.addColorStop(0.45, p.dot + '88');
+        grd.addColorStop(1, p.dot + '00');
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(1, r * 2.2), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        continue;
+      }
+      // a sprite mote: it swells as it is born and shrinks away, turning as it goes
+      const pop = k > 0.82 ? 0.6 + (1 - k) / 0.18 * 0.4 : 0.55 + k * 0.45;
+      if (p.glow) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; }
+      drawSprite(ctx, p.sprite, p.x, p.y, p.size * pop, { alpha, rot: p.rot });
+      if (p.glow) ctx.restore();
     }
     // animated effects: slashes, hits, dust, parries, poofs
     for (const a of g.fx.anims || []) {

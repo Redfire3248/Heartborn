@@ -13,9 +13,11 @@ import { rpgOf, heroStats, xpToNext, spendPoint, resetStats, resetStatsCost, equ
 import { TOOLS, toolsOf, hotbarOf, setSlot, selectSlot, toolRarity, toolValue, sellTool } from '../game/tools.js';
 import { CONSUMABLES, itemsOf } from '../game/consumables.js';
 import { MATERIALS, MATERIAL_KEYS, TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
+import { RACES, RACE_KEYS, raceOf, raceDef, lookOf, raceArt, setRace } from '../game/races.js';
+import { ATTUNEMENTS, ATTUNE_KEYS, attunement } from '../game/attune.js';
 import { matIcon } from './tableMenu.js';
 import { ENCHANTS, enchName } from '../game/enchanting.js';
-import { AVATARS, avatarId, avatarArt, setLook } from '../game/avatars.js';
+import { AVATARS, avatarId, avatarArt, setLook, heroLook } from '../game/avatars.js';
 import { heroOf, avatarOf } from '../game/hero.js';
 
 const TABS = [
@@ -123,9 +125,34 @@ export function openBackpack(hud, tab = null) {
         () => [tipHead(name, `${r[id] || 0} points`), h('div', tip)]);
       };
       const cost = resetStatsCost(g);
+
+      /**
+       * Who you are: a race down the left, its four faces and what it does for you on the right. Picking a face
+       * picks the race with it, so there is never a half-made choice.
+       */
+      const raceChooser = () => {
+        const cur = raceOf(g);
+        const sel = hud._bpRace || cur;
+        const def = RACES[sel];
+        return h('div.bp-races',
+          h('div.bp-race-list', ...RACE_KEYS.map(k => h(`button.bp-race${k === sel ? '.on' : ''}${k === cur ? '.worn' : ''}`,
+            { style: { '--rc': RACES[k].color }, onclick: () => { hud._bpRace = k; render(); } },
+            icon(raceArt(RACES[k].looks[0]), 26), h('span', RACES[k].name)))),
+          h('div.bp-race-detail',
+            h('div.bp-race-head', h('h4', { style: { color: def.color } }, def.name), cur === sel ? h('span.bp-race-now', 'you') : null),
+            h('div.faint', def.desc),
+            h('div.bp-race-stats', ...[['Health', def.mult.hp], ['Damage', def.mult.dmg], ['Speed', def.mult.speed], ['Stamina', def.mult.stamina], ['Crit', def.mult.crit]]
+              .filter(([, m]) => m !== 1)
+              .map(([label, m]) => h(`span.bp-race-stat${m > 1 ? '.up' : '.down'}`, `${label} ${m > 1 ? '+' : ''}${Math.round((m - 1) * 100)}%`))),
+            h('div.bp-race-passive', def.passive),
+            h('div.bp-race-faces', ...def.looks.map(look => h(`button.bp-face${lookOf(g) === look && cur === sel ? '.on' : ''}`,
+              { title: 'Wear this one', onclick: () => { setRace(g, sel, look); hud._bpLook = false; play('reveal'); refresh(); } },
+              icon(raceArt(look), 56))))));
+      };
+
       return [
         h('div.bp-hero',
-          h('div.bp-figure', spriteAvailable(avatarArt(avatarId(g))) ? icon(avatarArt(avatarId(g)), 108) : icon('items/crown_leader', 72)),
+          h('div.bp-figure', spriteAvailable(heroLook(g)) ? icon(heroLook(g), 108) : icon('items/crown_leader', 72)),
           h('div.bp-hero-right',
             h('div.bp-hero-name', h('h3', hud.username || v?.name || 'You'), h('span.bp-lvl', `Level ${r.level}`)),
             h('div.bp-xp', h('div.bp-xp-bar', h('i', { style: { width: `${xpK * 100}%` } })), h('span.faint', `${Math.round(r.xp)} / ${xpToNext(r.level)} XP`)),
@@ -140,8 +167,9 @@ export function openBackpack(hud, tab = null) {
                 : [tipHead(slot, 'empty'), h('div.faint', `Nothing on your ${slot} yet`)]));
             })),
             h('div.row', { style: { gap: '5px', flexWrap: 'wrap' } },
-              spriteAvailable(avatarArt('king')) ? h('button.btn.sm.ghost', { onclick: () => { hud._bpLook = !hud._bpLook; render(); } }, hud._bpLook ? 'Done' : 'Change look') : null))),
-        hud._bpLook ? h('div.bp-avatars', ...AVATARS.map(a => h(`button.bp-avatar${avatarId(g) === a.id ? '.on' : ''}`, { onclick: () => { setLook(g, a.id); hud._bpLook = false; render(); } }, icon(avatarArt(a.id), 40), h('span', a.name)))) : null,
+              h('span.bp-race-chip', { style: { borderColor: raceDef(g).color, color: raceDef(g).color } }, raceDef(g).name),
+              h('button.btn.sm.ghost', { onclick: () => { hud._bpLook = !hud._bpLook; render(); } }, hud._bpLook ? 'Done' : 'Change character')))),
+        hud._bpLook ? raceChooser() : null,
         h('div.bp-stats',
           statRow('Health', st.maxHp, st.maxHp / 400, '#ff5b6b', 'How much you can take before you are knocked out.'),
           statRow('Stamina', st.maxStamina, st.maxStamina / 260, '#8fe07a', 'Swings, dashes and holding a guard all spend it.'),
@@ -289,10 +317,21 @@ export function openBackpack(hud, tab = null) {
             h('div', `Power x${mt.mult}`),
             mt.trait ? h('div', { style: { color: TRAITS[mt.trait].color } }, `${TRAITS[mt.trait].name}: ${TRAITS[mt.trait].desc}`) : null,
             mt.boss ? h('div.faint', 'Dropped by a boss') : null,
+            ATTUNEMENTS[k] ? h('div', { style: { color: ATTUNEMENTS[k].color } }, `${ATTUNEMENTS[k].name} (carry ${ATTUNEMENTS[k].need}): ${ATTUNEMENTS[k].desc}`) : null,
             h('div.faint', `You have ${g.state.resources[k]}`)]);
       });
+      // attunement: the rarest ore you are carrying enough of works on you directly, before you forge anything
+      const att = attunement(g);
+      const attCard = att
+        ? h('div.bp-attune', { style: { '--ac': ATTUNEMENTS[att].color } },
+            icon(matIcon(att), 34),
+            h('div', h('b', { style: { color: ATTUNEMENTS[att].color } }, ATTUNEMENTS[att].name), h('div.faint', ATTUNEMENTS[att].desc)),
+            h('span.bp-attune-n', `${fmtN(g.state.resources[att])} / ${ATTUNEMENTS[att].need}`))
+        : h('div.bp-attune.off',
+            h('div', h('b', 'No attunement'), h('div.faint', `Carry enough of one rare ore and it works on you on its own. ${ATTUNE_KEYS.filter(k => MATERIALS[k]).slice(0, 4).map(k => `${MATERIALS[k].name} ${ATTUNEMENTS[k].need}`).join(' · ')}…`)));
       return [
         h('div.faint', 'Everything you can forge with. Hover one to see what it does.'),
+        attCard,
         h('div.bp-grid', ...cells, ...Array.from({ length: Math.max(0, 12 - cells.length) }, () => h('div.bp-cell.empty'))),
       ];
     };

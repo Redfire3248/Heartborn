@@ -1,4 +1,7 @@
+import { attuneSpeed, attuneCrit, attuneArmor } from './attune.js';
+import { raceMult, has } from './races.js';
 import { bumpStreak, streakBonus } from './streak.js';
+import { addHazard } from './hazards.js';
 import { noteBossKill } from './bossIndex.js';
 import { newBook, enchName } from './enchanting.js';
 import { giveEgg } from './pets.js';
@@ -250,13 +253,14 @@ export function heroStats(g) {
   for (const it of Object.values(r.gear)) for (const [k, n] of Object.entries(it?.bonus || {})) bonus[k] = (bonus[k] || 0) + n;
   const ench = k => ['armor', 'helmet', 'shield'].reduce((a, s) => a + (r.gear[s]?.ench?.[k] || 0), 0);   // Protection and Vitality enchantments
   const armor = (r.gear.armor?.armor || 0) + (r.gear.helmet?.armor || 0) + (r.gear.shield?.armor || 0) + ench('protection') * 0.03;
+  const race = raceMult(g);   // what you were born as, on top of what you trained
   return {
-    maxHp: Math.round(100 + r.vigor * 12 + bonus.hp + ench('vitality') * 10),
-    maxStamina: Math.round(100 + r.agility * 8),
-    dmgMult: 1 + r.might * 0.08 + bonus.dmg,
-    speed: 1 + r.agility * 0.03 + bonus.speed,
-    crit: 0.05 + r.agility * 0.012 + (r.gear.weapon ? WEAPONS[r.gear.weapon.base]?.crit || 0 : 0),
-    armor: Math.min(0.7, armor),
+    maxHp: Math.round((100 + r.vigor * 12 + bonus.hp + ench('vitality') * 10) * race.hp),
+    maxStamina: Math.round((100 + r.agility * 8) * race.stamina),
+    dmgMult: (1 + r.might * 0.08 + bonus.dmg) * race.dmg,
+    speed: (1 + r.agility * 0.03 + bonus.speed) * race.speed * attuneSpeed(g),
+    crit: Math.min(0.9, (0.05 + r.agility * 0.012 + (r.gear.weapon ? WEAPONS[r.gear.weapon.base]?.crit || 0 : 0)) * race.crit + attuneCrit(g)),
+    armor: Math.min(0.75, armor + (has(g, 'tough') ? 0.12 : 0) + attuneArmor(g)),
   };
 }
 
@@ -273,7 +277,7 @@ export function heroWeapon(g, v) {
 
 export function gainXp(g, n, v = null) {
   const r = rpgOf(g);
-  n = Math.max(1, Math.round(n));
+  n = Math.max(1, Math.round(n * (has(g, 'learner') ? 1.1 : 1)));   // Humans pick things up quicker
   r.xp += n;
   if (v) g.float(v.x + 10, v.y - TILE * 1.5, `+${n} XP`, '#9fd4ff');
   let levels = 0;
@@ -574,7 +578,8 @@ export function onHeroKill(g, c, v) {
   const def = CREATURES[c.t];
   if (!def) return;
   const boss = !!def.boss || !!c.bounty;
-  if (def.hostile) { const n = bumpStreak(g, v); const rr = rpgOf(g); if (n > (rr.bestStreak || 0)) rr.bestStreak = n; }   // kill again quickly and the screen starts shouting
+  if (def.hostile) { const n = bumpStreak(g, v); const rr = rpgOf(g); if (n > (rr.bestStreak || 0)) rr.bestStreak = n; }
+  if (has(g, 'deathFlame') && def.hostile) addHazard(g, 'fire', c.x, c.y, { r: 1.6, life: 5, dps: 8 + (c.lvl || 1) * 0.6, by: v?.id });   // an Arch Demon leaves the ground burning   // kill again quickly and the screen starts shouting
   const hot = streakBonus(g);          // a hot streak is worth more gold and more experience
   gainXp(g, ((def.hp * (c.scale || 1)) / 3 * (boss ? 2 : 1) * (c.elite ? 2.5 : 1) + (def.hostile ? 5 : 1)) * lvlBonus * hot, v);
   if (def.hostile) {
@@ -611,6 +616,7 @@ export function onHeroKill(g, c, v) {
     const ores = (gameTheme(g).ores || []).filter(k => (OBJECTS[k]?.tier || 0) <= maxTier);
     if (ores.length && lucky(g, boss ? 1 : c.elite ? (md.ore || 0) * 2 : md.ore || 0)) {
       const res = ORE_RESOURCE[ores[Math.floor(Math.random() * ores.length)]];
+      if (has(g, 'richVeins')) popResource(g, res, 1, c.x, c.y);   // Dwarves always find one more
       const big = lucky(g, 0.03);
       const n = (1 + Math.floor(Math.random() * 3)) * (boss ? 5 : c.elite ? 2 : 1) * (big ? 3 : 1);
       if (res) for (let i = 0; i < Math.min(n, 5); i++) popResource(g, res, i === Math.min(n, 5) - 1 ? n - Math.min(n, 5) + 1 : 1, c.x, c.y);

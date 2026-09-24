@@ -23,6 +23,11 @@ ALPHA_CUT = 40     # pixels below this alpha count as background
 MIN_SPECK = 30     # connected blobs smaller than this (px) are dropped
 
 DEFAULT_FILES = {
+    "buttons": ["buttons.png"],
+    "seamonsters": ["seamonsters.png"],
+    "boatsheet": ["NewBoats.png"],
+    "races": ["races.png"],
+    "races2": ["races2.png"],
     "characters": ["Characters.png"],
     "buildings": ["Buildings.png"],
     "buildings2": ["Buildings2.png"],

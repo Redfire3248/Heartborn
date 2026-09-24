@@ -707,20 +707,51 @@ export class Game {
     (this.fx.anims ||= []).push({ prefix, x, y, size, rot, flip, t: 0, dur });
   }
 
-  puff(pos, spriteKey, n = 6, spread = 14) {
+  /** A shower of motes: thrown out in every direction, turning as they fly, falling back and fading. */
+  puff(pos, spriteKey, n = 6, spread = 14, o = {}) {
     if (this.offline) return;
     for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = (o.speed || 45) * (0.4 + Math.random());
+      const life = (o.life || 0.9) * (0.7 + Math.random() * 0.6);
       this.fx.particles.push({
         x: pos.x + (Math.random() - 0.5) * spread, y: pos.y - Math.random() * spread,
-        vx: (Math.random() - 0.5) * 30, vy: -20 - Math.random() * 30,
-        sprite: spriteKey, size: 8 + Math.random() * 8, life: 0.8 + Math.random() * 0.6, max: 1.4, rot: Math.random() * 6,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.6 - 30 - Math.random() * 40,
+        sprite: spriteKey, size: (o.size || 10) * (0.7 + Math.random() * 0.7),
+        life, max: life, rot: Math.random() * 6, spin: (Math.random() - 0.5) * 9,
+        grav: o.grav ?? 150, drag: o.drag ?? 1.6, glow: !!o.glow,
       });
     }
   }
+
+  /**
+   * A burst of coloured beads of light. No art needed: they are drawn as glowing dots, added on top of the world,
+   * so a critical hit, a kill or a pickup can have its own colour without a new sprite.
+   */
+  spark(x, y, color = '#ffd76a', n = 8, o = {}) {
+    if (this.offline) return;
+    for (let i = 0; i < n; i++) {
+      const a = o.dir != null ? o.dir + (Math.random() - 0.5) * (o.arc || 1.2) : Math.random() * Math.PI * 2;
+      const sp = (o.speed || 95) * (0.4 + Math.random());
+      const life = (o.life || 0.45) * (0.6 + Math.random() * 0.8);
+      this.fx.particles.push({
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7 - (o.lift ?? 20),
+        dot: color, size: (o.size || 9) * (0.6 + Math.random() * 0.8),
+        life, max: life, rot: 0, spin: 0, grav: o.grav ?? 200, drag: o.drag ?? 2.4,
+      });
+    }
+  }
+
   updateFx(dt) {
     const { floaters, particles } = this.fx;
     for (const f of floaters) { f.life -= dt; f.y -= 18 * dt; }
-    for (const p of particles) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 20 * dt; p.rot += dt * 2; }
+    for (const p of particles) {
+      p.life -= dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vy += (p.grav ?? 20) * dt;                      // they fall back down
+      const drag = 1 - Math.min(0.9, (p.drag ?? 0) * dt);   // and slow as they go
+      p.vx *= drag; p.vy *= drag;
+      p.rot += (p.spin ?? 2) * dt;
+    }
     this.fx.floaters = floaters.filter(f => f.life > 0);
     this.fx.particles = particles.filter(p => p.life > 0);
     for (const a of this.fx.anims || []) a.t += dt;

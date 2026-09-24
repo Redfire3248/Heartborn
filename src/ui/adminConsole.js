@@ -1186,6 +1186,46 @@ const COMMANDS = {
       this.print(`✓ trade ${act === 'accept' ? 'accepted' : 'declined'}`, 'ok');
     },
   },
+  race: {
+    usage: 'race [name|list] [look]', desc: 'Become another race, or list them all with what they give you',
+    async run([name, look]) {
+      const R = await import('../game/races.js');
+      const g = this.game;
+      if (!name || name === 'list') {
+        for (const k of R.RACE_KEYS) {
+          const d = R.RACES[k];
+          const mults = Object.entries(d.mult).filter(([, m]) => m !== 1).map(([s2, m]) => `${s2} ${m > 1 ? '+' : ''}${Math.round((m - 1) * 100)}%`).join(', ');
+          this.print(`${k.padEnd(11)} ${d.name.padEnd(14)} ${mults}`, k === R.raceOf(g) ? 'ok' : '');
+        }
+        this.print(`you are ${R.raceOf(g)} (${R.lookOf(g)})`, 'accent');
+        return;
+      }
+      const key = R.RACE_KEYS.find(k => k === name) || R.RACE_KEYS.find(k => k.includes(name));
+      if (!key) throw new Error(`no race called ${name}`);
+      if (!R.setRace(g, key, look)) throw new Error('could not change race');
+      this.print(`✓ you are ${R.RACES[key].name} (${R.lookOf(g)})`, 'ok');
+    },
+  },
+  attune: {
+    usage: 'attune [ore|list]', desc: 'Show what ore is working on you, list them all, or give yourself enough of one',
+    async run([ore]) {
+      const A = await import('../game/attune.js');
+      const g = this.game;
+      if (!ore || ore === 'list') {
+        for (const k of A.ATTUNE_KEYS) {
+          const a = A.ATTUNEMENTS[k];
+          this.print(`${k.padEnd(11)} need ${String(a.need).padEnd(3)} ${a.name.padEnd(14)} ${a.desc}`, A.attunedTo(g, k) ? 'ok' : '');
+        }
+        this.print(`attuned to: ${A.attunement(g) || 'nothing'}`, 'accent');
+        return;
+      }
+      const key = A.ATTUNE_KEYS.find(k => k === ore) || A.ATTUNE_KEYS.find(k => k.includes(ore));
+      if (!key) throw new Error(`no attunement for ${ore}`);
+      g.addResource(key, A.ATTUNEMENTS[key].need);
+      g.emit('change');
+      this.print(`✓ ${A.ATTUNEMENTS[key].need} ${key}: ${A.ATTUNEMENTS[key].name}`, 'ok');
+    },
+  },
   bosses: {
     usage: 'bosses [*|clear]', desc: 'Open your Hall of Bosses, fill every page with a made-up run (*) or wipe every record (clear)',
     async run([arg]) {

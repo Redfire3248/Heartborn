@@ -1,3 +1,5 @@
+import { attuneDamage, attuneDashCost, attuneOnHurt, attuneTick, attuneStamina, attuneCooldown, attuneAbilityPower } from './attune.js';
+import { has as hasRace } from './races.js';
 import { streakDamage, hurtStreak } from './streak.js';
 import { addHazard, hazardAt, UNDEAD as HAZARD_UNDEAD } from './hazards.js';
 import { updatePet } from './pets.js';
@@ -224,7 +226,8 @@ function attack(g, v, st) {
   const allTraits = [...(w.traits || []), ...enchantTraits(w)];   // forged traits and enchantments
   const traitSp = allTraits.length ? traitEffects([...new Set(allTraits)]) : null;
   const sp = traitSp ? { ...traitSp, ...(BLADE_SPECIALS[w.base] || {}) } : BLADE_SPECIALS[w.base];
-  let dmg = w.dmg * st.dmgMult * streakDamage(g) * strengthMult(v) * (1 + (w.ench?.sharpness || 0) * 0.08) * (crit ? (promised ? 3 : 1.8) : 1) * (finisher ? 1.6 : 1) * (buffActive(g, 'strength') ? 1.5 : 1) * (w.ranged && buffActive(g, 'ammo') ? 1.3 : 1);
+  const rageOn = hasRace(g, 'rage') && v.hp < st.maxHp * 0.5;   // an Orc cornered is an Orc at its worst
+  let dmg = w.dmg * st.dmgMult * attuneDamage(g) * (rageOn ? 1.35 : 1) * streakDamage(g) * strengthMult(v) * (1 + (w.ench?.sharpness || 0) * 0.08) * (crit ? (promised ? 3 : 1.8) : 1) * (finisher ? 1.6 : 1) * (buffActive(g, 'strength') ? 1.5 : 1) * (w.ranged && buffActive(g, 'ammo') ? 1.3 : 1);
   if (promised) { h.promiseCrit = 0; g.float(v.x, v.y - TILE * 1.7, 'IAIDO CUT!', '#ff8a7a'); }
   if (sp?.riposte && h.riposte) { dmg *= sp.riposte; h.riposte = false; g.float(v.x, v.y - TILE * 1.6, 'RIPOSTE!', '#ffd76a'); }
   if (w.ranged) {
@@ -287,10 +290,10 @@ export function useAbility(g) {
   const now = g.state.time;
   h.abilityReady ??= 0;
   if (now < h.abilityReady) { g.float(v.x, v.y - TILE * 1.4, `${ab.name}: ${Math.ceil(h.abilityReady - now)}s`, '#cfc6e0'); return false; }
-  h.abilityReady = now + ab.cd;
+  h.abilityReady = now + ab.cd * attuneCooldown(g);   // Moonstone brings your skill back sooner
   h.abilityMax = ab.cd;
   const st = heroStats(g);
-  const base = (w.dmg || 10) * st.dmgMult;
+  const base = (w.dmg || 10) * st.dmgMult * attuneAbilityPower(g);   // Voidstone makes every skill bite harder
   const foes = r => g.state.creatures.filter(c => CREATURES[c.t]?.hostile && Math.hypot(c.x - v.x, c.y - v.y) < TILE * r);
   const flash = (r, color) => (g.fx.flashes ||= []).push({ x: v.x, y: v.y - 10, r: TILE * r, color, life: 0.5, max: 0.5 });
   const daze = (c, s) => { if (!CREATURES[c.t]?.boss) c._stunned = Math.max(c._stunned || 0, s); };
@@ -536,6 +539,16 @@ function bladeSpecial(g, v, c, dmg, sp, finisher) {
 
 function hitCreature(g, v, c, dmg, crit, w) {
   const reaping = (g.hero?.reapUntil || 0) > g.state.time;
+  if (hasRace(g, 'burn')) {   // Demon-blooded: what you touch catches
+    const dps = dmg * (hasRace(g, 'bigBurn') ? 0.3 : 0.16);
+    c._burn = { dps: Math.max(dps, c._burn?.dps || 0), until: g.state.time + 3, by: v.id };
+  }
+  if (hasRace(g, 'smiteUndead') && UNDEAD.has(c.t)) { dmg *= 2; g.float(c.x, c.y - TILE * 1.5, 'JUDGED', '#fff3b0'); }
+  if (hasRace(g, 'lifesteal') && g.hero) {   // a Vampire drinks what it spills
+    const heal = dmg * 0.12;
+    v.hp = Math.min(heroStats(g).maxHp, v.hp + heal);
+    if ((g.hero._stealTick = (g.hero._stealTick || 0) + heal) > 12) { g.hero._stealTick = 0; g.float(v.x, v.y - TILE * 1.4, `+${Math.round(heal * 4)}`, '#ff5b6b'); }
+  }
   const had = g.state.creatures.includes(c);
   const hpBefore = c.hp;
   damageCreature(g, c, dmg, v);
@@ -548,8 +561,15 @@ function hitCreature(g, v, c, dmg, crit, w) {
     g.fx.particles.push({ x: c.x, y: c.y - 10, vx: Math.cos(sa) * (70 + heavy * 160), vy: Math.sin(sa) * (70 + heavy * 160) - 20, sprite: crit ? 'effects/hit_star' : 'effects/spark', size: crit ? 9 : 6, life: 0.35, max: 0.35, rot: 0 });
   }
   g.fx.shake = Math.max(g.fx.shake, (crit ? 1.1 : 0.5) + heavy * 1.4);
+  // every blow throws light: gold for a good one, white for a plain one, a burst when it dies
+  g.spark?.(c.x, c.y - TILE * 0.6, crit ? '#ffd76a' : '#fff1cf', crit ? 12 : 6,
+    { dir: Math.atan2(c.y - v.y, c.x - v.x), arc: 1.5, speed: crit ? 150 : 95, size: crit ? 11 : 8 });
   const killed = had && !g.state.creatures.includes(c);
-  if (killed) { g.hitStop = Math.max(g.hitStop || 0, boss ? 0.22 : 0.12); g.fx.shake = Math.max(g.fx.shake, boss ? 3 : 1.4); }
+  if (killed) {
+    g.hitStop = Math.max(g.hitStop || 0, boss ? 0.22 : 0.12);
+    g.fx.shake = Math.max(g.fx.shake, boss ? 3 : 1.4);
+    g.spark?.(c.x, c.y - TILE * 0.6, boss ? '#ff6b5b' : '#ffd76a', boss ? 30 : 14, { speed: boss ? 200 : 130, size: boss ? 14 : 10, life: boss ? 0.8 : 0.55 });
+  }
   if (killed && reaping) {   // Soul Reap is still running: the kill feeds you and brings it back sooner
     const st2 = heroStats(g);
     v.hp = Math.min(st2.maxHp, v.hp + st2.maxHp * 0.08);
@@ -718,6 +738,7 @@ export function damageHero(g, v, dmg, from = null) {
     dmg *= h.stamina > 0 ? through : Math.min(1, through + 0.4);
     g.float(v.x, v.y - TILE * 1.3, 'Blocked', '#d9d4c7');
   }
+  if (hasRace(g, 'sunburn') && !g.dungeon && !g.isNight) dmg *= 1.15;   // daylight and a Vampire do not agree
   dmg *= 1 - heroStats(g).armor;
   if (hazardAt(g, 'crater', v.x, v.y)) dmg *= 0.7;   // fighting from your own broken ground
   if (h.shield > 0) {   // Regrowth's shield soaks what it can
@@ -727,6 +748,7 @@ export function damageHero(g, v, dmg, from = null) {
     if (h.shield <= 0) h.shield = 0;
   }
   h.sinceHit = 0;
+  attuneOnHurt(g, from);   // the ore in your pack answers what struck you
   h.hitsTaken = (h.hitsTaken || 0) + 1;   // the Boss Index counts the blows you took in a fight
   hurtStreak(g);                          // and a streak survives it, at half the size
   if (dmg > 0 && guarded) {   // behind your guard: no stun, only a small push
@@ -741,6 +763,14 @@ export function damageHero(g, v, dmg, from = null) {
 
 /** The person you play never simply dies: they are knocked out and come to at home, a little poorer. */
 export function knockOutHero(g, v) {
+  // a Zombie does not stay down: once every two minutes a killing blow leaves one spark of life
+  if (hasRace(g, 'undying') && g.hero && (g.state.time - (g.hero._undyingAt || -999)) > 120) {
+    g.hero._undyingAt = g.state.time;
+    v.hp = 1;
+    g.float(v.x, v.y - TILE * 2, 'STILL STANDING', '#9ab87a');
+    g.fx.tint = { color: '#9ab87a', strength: 0.4, life: 0.6, max: 0.6 };
+    return;
+  }
   const h = g.hero;
   if (!h || h.id !== v.id) return false;
   if (g.state.rpg?.god) { v.hp = Math.max(v.hp, 1); return true; }
@@ -933,7 +963,7 @@ export function updateHero(g, dt, controls = {}) {
     h.iframes = 0.3;
     h.dashCd = 0.5;
     g.anim('combat/dust', v.x, v.y - 4, { size: 26, dur: 0.32, flip: Math.cos(a) > 0 });
-    h.stamina -= 22;
+    if (!hasRace(g, 'freeDash')) h.stamina -= 22 * attuneDashCost(g);   // Elves and Skeletons move for nothing
     (h.trail ||= []).length = 0;
   }
   if (h.dash) {
@@ -963,11 +993,13 @@ export function updateHero(g, dt, controls = {}) {
   if (Math.abs(Math.cos(h.facing)) > 0.2) v._flip = Math.cos(h.facing) < 0;
 
   // stamina comes back when you are not swinging or guarding; health slowly after a while out of harm
-  if (!blocking && h.sinceAttack > 0.4 && !h.dash) h.stamina = Math.min(st.maxStamina, h.stamina + 32 * dt * (buffActive(g, 'stamina') ? 2 : 1));
+  if (!blocking && h.sinceAttack > 0.4 && !h.dash) h.stamina = Math.min(st.maxStamina, h.stamina + 32 * dt * attuneStamina(g) * (buffActive(g, 'stamina') ? 2 : 1));
   updateBuffs(g, v, dt);
   if (h.sinceHit > 6 && v.hp < st.maxHp) v.hp = Math.min(st.maxHp, v.hp + 3 * dt);
   h.x = v.x; h.y = v.y;
   // poison and fire keep hurting for a few seconds
+  if (h.dot && hasRace(g, 'noPoison')) h.dot = null;   // nothing left in you to poison
+  if (h.burn && hasRace(g, 'fireproof')) h.burn = null;   // fire is your own element
   if (h.dot && !h.inHouse) {
     if (g.state.time >= h.dot.until) h.dot = null;
     else {
@@ -997,6 +1029,11 @@ export function updateHero(g, dt, controls = {}) {
 
   // items on the ground go into your pack as you walk over them
   updateDrops(g, dt);
+  if (hasRace(g, 'regen') && (h.sinceHit ?? 99) > 4 && v.hp < st.maxHp) {   // Angel blood closes what is left open
+    const per = st.maxHp * (hasRace(g, 'fastRegen') ? 0.02 : 0.012) * Math.min(3, 1 + (h.sinceHit - 4) / 6);
+    v.hp = Math.min(st.maxHp, v.hp + per * dt);
+  }
+  attuneTick(g, v, st, dt);   // Jade heals you quietly when nothing has touched you
   if (h.regrow && h.regrow.left > 0) { h.regrow.tick -= dt; if (h.regrow.tick <= 0) { h.regrow.tick = 1; h.regrow.left--; v.hp = Math.min(st.maxHp, v.hp + h.regrow.per); g.float(v.x, v.y - TILE * 1.3, `+${Math.round(h.regrow.per)}`, '#7aff9a'); } }
   for (const it of [...(g.state.groundItems || [])]) {
     if ((it.noPickUntil && g.state.time < it.noPickUntil) || it.pickIn > 0) continue;   // just dropped
