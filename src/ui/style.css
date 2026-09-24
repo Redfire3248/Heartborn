@@ -2613,3 +2613,27 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
   .hero-lock { right: calc(31px + env(safe-area-inset-right)) !important; bottom: calc(149px + env(safe-area-inset-bottom)) !important; }
 }
 .hero-block[hidden] { display: none !important; }
+
+/* ------------------------------------------------------------------ everything in a slot stays in its slot
+   Sprites are drawn at their own size, so a tall sword used to hang out of the top and bottom of its square.
+   One rule for every kind of slot: the picture is fitted inside, centred, and never larger than the box. */
+.hot-slot, .hot-bag, .inv-cell, .bag-cell, .bp-cell, .ench-item, .trade-cell {
+  overflow: hidden; display: grid; place-items: center;
+}
+.hot-slot > img, .hot-bag > img, .inv-cell > img, .bag-cell > img, .bp-cell > img, .ench-item > img, .trade-cell > img,
+.hot-slot > .sprite, .inv-cell > .sprite, .bag-cell > .sprite {
+  width: auto !important; height: auto !important; max-width: 78%; max-height: 78%; object-fit: contain;
+}
+/* the bag button belongs to the row, not floating off the end of it */
+.hot-bag { margin-left: 6px !important; border-style: solid !important; border-color: rgba(255,215,106,.4); }
+.hotbar { width: fit-content; }
+.hotbar-wrap { width: fit-content; }
+@media (pointer: coarse), (max-width: 820px) {
+  .hotbar-wrap { width: auto; }
+  .hot-bag { margin-left: 4px !important; }
+}
+
+/* the close cross sits at the same weight as the word "Inventory" beside it, not twice its size */
+.inv-head .inv-x { width: 22px; height: 22px; min-width: 22px; padding: 0; display: grid; place-items: center; font-size: 13px; line-height: 1; border-radius: 7px; }
+.inv-head .inv-x img { width: 14px !important; height: 14px !important; max-width: none; max-height: none; }
+.inv-head b { font-size: 14px; }

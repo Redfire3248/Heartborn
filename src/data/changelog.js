@@ -3,6 +3,10 @@ export const CHANGELOG = [
   {
     title: 'Lock-on, no more auto-aim, and a tidy-up everywhere',
     changes: [
+      'You cannot raise a guard without a shield any more, and the Block button hides itself when your shield slot is empty',
+      'Everything in a slot now stays in its slot: a tall sword no longer hangs out of the top and bottom of its square',
+      'The bag button sits with the hotbar instead of floating off the end, and the bar is only as wide as its slots',
+      'The close cross in your bag is the same size as the word beside it',
       'You can no longer pull the camera back until the island is a postage stamp. The world map (V) is what that is for',
       'No more auto-aim on a computer: your swing goes where you are pointing, and nothing turns you for you',
       'Lock-on, for thumbs: a button in the cluster grabs the nearest foe and keeps you facing it until it dies, runs or you let go',
