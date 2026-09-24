@@ -16,7 +16,7 @@ export const ACTIONS = [
   { id: 'ability', label: 'Weapon ability', group: 'Fighting', def: 'f' },
   { id: 'backpack', label: 'Backpack, and use what you stand at', group: 'Screens', def: 'e' },
   { id: 'character', label: 'Character', group: 'Screens', def: 'g' },
-  { id: 'inventory', label: 'Inventory', group: 'Screens', def: 'i' },
+  { id: 'inventory', label: 'Inventory (also on ~)', group: 'Screens', def: 'i' },
   { id: 'index', label: 'Index', group: 'Screens', def: 'n' },
   { id: 'journal', label: 'Journal (daily and achievements)', group: 'Screens', def: 'o' },
   { id: 'bosses', label: 'Hall of Bosses (records and rematches)', group: 'Screens', def: 'h' },

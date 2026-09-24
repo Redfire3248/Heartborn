@@ -336,7 +336,7 @@ export async function openProfile(uid, { user, username, world = null, village =
   }
   const me = uid === user.uid;
   const status = friendsSnap[uid];
-  const name = profile?.name || village?.name || 'Unknown ruler';
+  const name = profile?.name || village?.name || 'Unknown player';
   const st = profile?.stats || {};
   const friendBtn = me ? null
     : status === 'friend' ? h('button.btn.sm.ghost', { onclick: async () => { await social.removeFriend(user.uid, uid); m.close(); } }, 'Remove friend')
@@ -346,7 +346,7 @@ export async function openProfile(uid, { user, username, world = null, village =
 
   content.replaceChildren(...[
     h('div.row', { style: { gap: '14px' } }, avatar(name, 64),
-      h('div', h('h2', name), h('div.faint', profile?.joinedAt ? `Ruler since ${new Date(profile.joinedAt).toLocaleDateString()}` : ''),
+      h('div', h('h2', name), h('div.faint', profile?.joinedAt ? `Playing since ${new Date(profile.joinedAt).toLocaleDateString()}` : ''),
         status === 'friend' ? h('span.chip.good', 'Friend') : null)),
     h('div.stats-grid.profile-stats',
       stat('👥', st.bestPop ?? '—', 'Largest people'),

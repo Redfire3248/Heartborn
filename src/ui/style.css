@@ -2634,9 +2634,9 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 }
 
 /* the close cross sits at the same weight as the word "Inventory" beside it, not twice its size */
-.inv-head .inv-x { width: 22px; height: 22px; min-width: 22px; padding: 0; display: grid; place-items: center; font-size: 13px; line-height: 1; border-radius: 7px; }
-.inv-head .inv-x img { width: 14px !important; height: 14px !important; max-width: none; max-height: none; }
-.inv-head b { font-size: 14px; }
+.inv-head .inv-x { width: 34px; height: 34px; min-width: 34px; padding: 0; display: grid; place-items: center; font-size: 17px; line-height: 1; border-radius: 10px; }
+.inv-head .inv-x img { width: 22px !important; height: 22px !important; max-width: none; max-height: none; }
+.inv-head b { font-size: 15px; }
 
 /* ------------------------------------------------------------------ choosing who you are */
 .bp-race-chip { padding: 2px 10px; border-radius: 999px; border: 1px solid; background: rgba(0,0,0,.3); font-size: 12px; font-weight: 700; }
@@ -2669,3 +2669,69 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .bp-attune .faint { font-size: 12px; line-height: 1.35; }
 .bp-attune-n { margin-left: auto; font-family: var(--num); font-size: 13px; color: var(--ac); white-space: nowrap; }
 .bp-attune.off { border-style: dashed; opacity: .75; }
+
+/* ------------------------------------------------------------------ the Races screen and its wheel */
+.race-modal { width: min(760px, 96vw) !important; max-height: 92vh; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+.race-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-right: 42px; }
+.race-head h2 { margin: 0; }
+.race-stones { display: inline-flex; align-items: center; gap: 5px; padding: 3px 11px; border-radius: 999px; background: rgba(255,215,106,.14); border: 1px solid rgba(255,215,106,.4); color: #ffe9b0; font-size: 12.5px; }
+.race-stones b { font-family: var(--num); font-size: 15px; }
+.race-you { display: flex; gap: 14px; align-items: center; padding: 12px; border-radius: 14px; border: 1px solid var(--rc, rgba(255,255,255,.14)); background: linear-gradient(140deg, color-mix(in srgb, var(--rc, #888) 16%, transparent), rgba(0,0,0,.35)); }
+.race-you-art { flex: none; display: grid; place-items: center; width: 116px; height: 116px; }
+.race-you-art img { image-rendering: pixelated; max-width: 100%; max-height: 100%; width: auto; height: auto; filter: drop-shadow(0 4px 10px rgba(0,0,0,.6)); }
+.race-you-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.race-you-head { display: flex; align-items: baseline; gap: 9px; }
+.race-you-head h3 { margin: 0; font-size: 20px; }
+.race-tier { padding: 1px 9px; border-radius: 999px; border: 1px solid; background: rgba(0,0,0,.35); font-size: 11px; font-weight: 700; letter-spacing: .5px; }
+.race-stats { display: flex; flex-wrap: wrap; gap: 4px; }
+.race-stat { padding: 1px 8px; border-radius: 7px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.race-stat.up { background: rgba(138,255,154,.14); color: #8aff9a; }
+.race-stat.down { background: rgba(255,107,91,.14); color: #ff8a7a; }
+.race-passive { padding: 7px 10px; border-radius: 10px; background: rgba(192,138,255,.1); border: 1px solid rgba(192,138,255,.3); font-size: 12.5px; line-height: 1.4; }
+.race-faces { display: flex; gap: 5px; flex-wrap: wrap; }
+.race-face { width: 56px; height: 56px; display: grid; place-items: center; padding: 0; border-radius: 10px; border: 2px solid rgba(255,255,255,.12); background: rgba(0,0,0,.3); cursor: pointer; overflow: hidden; }
+.race-face img { image-rendering: pixelated; max-width: 88%; max-height: 88%; width: auto; height: auto; }
+.race-face.on { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255,215,106,.35); }
+
+/* the wheel */
+.race-roll { display: grid; grid-template-columns: 1fr 190px; gap: 10px; align-items: center; }
+.race-reel { position: relative; height: 110px; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,.14); background: linear-gradient(180deg, rgba(0,0,0,.45), rgba(20,14,30,.6)); }
+.race-reel::before, .race-reel::after { content: ''; position: absolute; top: 0; bottom: 0; width: 56px; z-index: 3; pointer-events: none; }
+.race-reel::before { left: 0; background: linear-gradient(90deg, rgba(14,10,22,.95), transparent); }
+.race-reel::after { right: 0; background: linear-gradient(270deg, rgba(14,10,22,.95), transparent); }
+.race-marker { position: absolute; left: 50%; top: 0; bottom: 0; width: 92px; transform: translateX(-50%); z-index: 2; border-left: 2px solid var(--gold); border-right: 2px solid var(--gold); background: rgba(255,215,106,.08); pointer-events: none; }
+.race-strip { display: flex; height: 100%; will-change: transform; }
+.race-cell { flex: 0 0 92px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-right: 1px solid rgba(255,255,255,.06); }
+.race-cell img { image-rendering: pixelated; max-width: 62px; max-height: 62px; width: auto; height: auto; }
+.race-cell span { font-size: 10px; color: var(--tc, #cfc6e0); font-weight: 700; white-space: nowrap; }
+.race-roll-side { display: flex; flex-direction: column; gap: 6px; }
+.race-roll-side .faint { font-size: 11.5px; line-height: 1.4; }
+.race-spin { width: 100%; }
+.race-wall-head { display: flex; align-items: baseline; gap: 10px; }
+.race-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
+.race-slot { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px 6px; border-radius: 11px; border: 2px solid rgba(255,255,255,.1); background: rgba(0,0,0,.28); color: var(--text); font: inherit; cursor: pointer; overflow: hidden; }
+.race-slot img { image-rendering: pixelated; max-width: 42px; max-height: 42px; width: auto; height: auto; }
+.race-slot span { font-size: 10.5px; font-weight: 700; }
+.race-slot.on { border-color: var(--tc, #ffd76a); box-shadow: 0 0 0 2px color-mix(in srgb, var(--tc, #ffd76a) 35%, transparent); }
+.race-slot.locked { cursor: default; }
+.race-slot.locked img { filter: brightness(0); opacity: .5; }
+.race-slot.locked span { color: #8a8098; }
+.race-slot-tier { position: absolute; left: 0; right: 0; top: 0; height: 3px; }
+.race-btn { position: relative; }
+.race-btn-n { margin-left: 5px; padding: 0 6px; border-radius: 999px; background: var(--gold); color: #241803; font-weight: 800; font-size: 11px; }
+.bp-attr-race { font-size: 12px; font-weight: 700; }
+@media (max-width: 620px) {
+  .race-roll { grid-template-columns: 1fr; }
+  .race-you { flex-direction: column; text-align: center; }
+  .race-you-head, .race-stats, .race-faces { justify-content: center; }
+}
+
+/* race slots, and the choice when the wheel lands with nowhere to put it */
+.race-wall { grid-template-columns: repeat(3, 1fr); }
+.race-slot.empty { display: grid; place-items: center; min-height: 92px; border-style: dashed; color: #8a8098; font-size: 11px; cursor: default; }
+.race-slot-drop { position: absolute; top: 2px; right: 4px; font-size: 11px; color: #ff8a7a; opacity: 0; transition: opacity .1s; }
+.race-slot:hover .race-slot-drop { opacity: 1; }
+.race-replace { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--rc, #ffd76a); background: linear-gradient(120deg, color-mix(in srgb, var(--rc, #888) 18%, transparent), rgba(0,0,0,.35)); }
+.race-replace img { image-rendering: pixelated; flex: none; }
+.race-replace .faint { font-size: 12px; }
+.race-replace-picks { display: flex; gap: 5px; flex-wrap: wrap; margin-left: auto; }

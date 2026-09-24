@@ -125,15 +125,21 @@ async function enterGame(user) {
     app.username = name;
   }
   ensureProfile(user.uid, app.username).catch(e => console.warn('profile', e));
+  // every step from here talks to the network. None of them may leave you on a blank screen:
+  // if one does not answer, we carry on with what we have.
+  const patient = (p, ms, fallback = null) => Promise.race([
+    Promise.resolve(p).catch(() => fallback),
+    new Promise(res => setTimeout(() => res(fallback), ms)),
+  ]);
   document.querySelectorAll('.screen.login, .vignette, .footer-note').forEach(e => e.remove());
 
   // pick a world (solo worlds and servers each keep their own save), then play in it
   const choice = await worldPicker({ user, username: app.username, lastWorld: lastWorld(user.uid), listWorldSaves, deleteWorldSave, oldVillage });
   if (choice.back) { location.reload(); return; }
   setWorld(choice.world);
-  app.world = choice.kind === 'server' ? (await getWorld(choice.world).catch(() => null)) || { wid: choice.world, name: choice.name } : { wid: choice.world, name: choice.name };
+  app.world = choice.kind === 'server' ? (await patient(getWorld(choice.world), 8000)) || { wid: choice.world, name: choice.name } : { wid: choice.world, name: choice.name };
   app.world.kind = choice.kind;
-  let state = choice.isNew ? null : await loadSave(user.uid);
+  let state = choice.isNew ? null : await patient(loadSave(user.uid), 15000);
   if (!state && choice.importOld) state = choice.importOld;   // an old village becomes this world
   if (!state) {
     const seed = choice.seed ?? app.world.seed ?? [...String(choice.world)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
@@ -340,6 +346,12 @@ window.addEventListener('keydown', e => {
     h('div.faint', { html: '<b>To unlock:</b><br>1. Firebase → <b>Firestore</b> → collection <b>admins</b> → add a document whose <b>Document ID</b> is the UID above (add any field, e.g. admin = true).<br>2. Firebase → <b>Realtime Database</b> → add <b>admins</b> → <b>UID</b> → <b>true</b>.<br>3. Publish both rules files (firestore.rules and database.rules.json).<br>4. Reload the game and press F2.' }),
     h('button.btn.primary', { onclick: () => m.close() }, 'OK'),
   ], { cls: 'admin-help', onClose: () => {} });
+});
+
+// right-click belongs to the game (dropping, aiming), not to the browser's own menu
+document.addEventListener('contextmenu', e => {
+  if (e.target.closest('input, textarea, [contenteditable="true"]')) return;   // typing keeps its menu
+  e.preventDefault();
 });
 
 document.addEventListener('visibilitychange', () => {

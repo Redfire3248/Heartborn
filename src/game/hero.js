@@ -993,7 +993,8 @@ export function updateHero(g, dt, controls = {}) {
   if (Math.abs(Math.cos(h.facing)) > 0.2) v._flip = Math.cos(h.facing) < 0;
 
   // stamina comes back when you are not swinging or guarding; health slowly after a while out of harm
-  if (!blocking && h.sinceAttack > 0.4 && !h.dash) h.stamina = Math.min(st.maxStamina, h.stamina + 32 * dt * attuneStamina(g) * (buffActive(g, 'stamina') ? 2 : 1));
+  // it comes back quickly: waiting on a blue bar is not a fight
+  if (!blocking && h.sinceAttack > 0.25 && !h.dash) h.stamina = Math.min(st.maxStamina, h.stamina + 62 * dt * attuneStamina(g) * (buffActive(g, 'stamina') ? 2 : 1));
   updateBuffs(g, v, dt);
   if (h.sinceHit > 6 && v.hp < st.maxHp) v.hp = Math.min(st.maxHp, v.hp + 3 * dt);
   h.x = v.x; h.y = v.y;

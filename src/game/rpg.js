@@ -1,5 +1,5 @@
 import { attuneSpeed, attuneCrit, attuneArmor } from './attune.js';
-import { raceMult, has } from './races.js';
+import { raceMult, has, addStones } from './races.js';
 import { bumpStreak, streakBonus } from './streak.js';
 import { addHazard } from './hazards.js';
 import { noteBossKill } from './bossIndex.js';
@@ -589,6 +589,13 @@ export function onHeroKill(g, c, v) {
     if (boss) chestsOf(g).push({ id: `boss${Date.now().toString(36)}`, x: c.x, y: c.y + 10, boss: true });
     if (boss && Math.random() < 0.3) { giveEgg(g, 1); g.float(c.x, c.y - TILE * 2.4, 'A pet egg!', '#ffd76a'); }
     if (boss && Math.random() < 0.25) { const bk = newBook(g); g.float(c.x, c.y - TILE * 2.8, `Book: ${ENCHANT_NAME(bk)}`, '#c08aff'); }
+    // a Race Stone: rare from a boss, rarer still from anything else
+    if (lucky(g, boss ? 0.2 : c.elite ? 0.02 : 0.002)) {
+      addStones(g, 1);
+      g.float(c.x, c.y - TILE * 3.2, 'A Race Stone!', '#ffd76a');
+      g.spark?.(c.x, c.y - TILE * 1.4, '#ffd76a', 20, { speed: 140, life: 0.8 });
+      g.announce?.('A Race Stone! Spend it in Races.');
+    }
     if (c.t === 'ashen_knight') {   // Varek always leaves his ember, a book, and the field goes quiet
       const bk = newBook(g);
       g.float(c.x, c.y - TILE * 3.2, `Book: ${ENCHANT_NAME(bk)}`, '#ffb347');

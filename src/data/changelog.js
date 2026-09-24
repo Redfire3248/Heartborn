@@ -1,6 +1,24 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'The sea has monsters, races are rolled for, and a pile of fixes',
+    changes: [
+      'Sailing is back on, and the pirate ships are gone. Eighteen sea creatures live out there instead: sharks and piranha packs in the shallows, divers that go under and surface beside you, sirens and squid that spit from range, and the Leviathan and the Kraken far out. The further you go and the longer you stay, the worse what comes up',
+      'Eight boats with real seats, from a raft to a war galley. You take the helm and the guns; everyone else aboard sits and looses at whatever comes close, on their own reload',
+      'Races are rolled for now, not picked. A Race Stone is a rare drop from bosses and elites; spending one spins a wheel of faces that slows and lands on what you get',
+      'You keep three races at a time and swap between them for nothing. A fourth roll has to push one out, and you choose which',
+      'The Races screen sits next to Change character, with your character, what it gives you, the wheel and your three slots',
+      'Training rows show what your race is already adding, in brackets',
+      'Gold is a currency: you cannot dig it up any more. Gold ore gives silver and gems, and gold comes from selling, fighting and treasure',
+      'Fixed: your shield was drawn behind you instead of in your hand',
+      'Stamina comes back roughly twice as fast, and starts sooner',
+      'The browser right-click menu no longer covers the game',
+      'The bag opens on ~ and E is the Backpack again; the close cross is a proper size',
+      'The sell bar only shows where the things you sell are',
+      'No more "ruler" on the way in, and claiming a name can no longer hang forever: it says when it is slow and gives up after 20 seconds instead of leaving you waiting',
+    ],
+  },
+  {
     title: 'Races, ore attunement, and every new sprite in the game',
     changes: [
       'Races: twelve of them - Human, Elf, Dwarf, Orc, Demon, Arch Demon, Angel, Archangel, Demonic Angel, Skeleton, Zombie and Vampire - each with four faces, two men and two women',

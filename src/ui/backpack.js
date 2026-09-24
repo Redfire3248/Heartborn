@@ -13,7 +13,7 @@ import { rpgOf, heroStats, xpToNext, spendPoint, resetStats, resetStatsCost, equ
 import { TOOLS, toolsOf, hotbarOf, setSlot, selectSlot, toolRarity, toolValue, sellTool } from '../game/tools.js';
 import { CONSUMABLES, itemsOf } from '../game/consumables.js';
 import { MATERIALS, MATERIAL_KEYS, TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
-import { RACES, RACE_KEYS, raceOf, raceDef, lookOf, raceArt, setRace } from '../game/races.js';
+import { RACES, RACE_KEYS, raceOf, raceDef, lookOf, raceArt, setRace, raceMult, stonesOf, unlockedRaces } from '../game/races.js';
 import { ATTUNEMENTS, ATTUNE_KEYS, attunement } from '../game/attune.js';
 import { matIcon } from './tableMenu.js';
 import { ENCHANTS, enchName } from '../game/enchanting.js';
@@ -112,11 +112,14 @@ export function openBackpack(hud, tab = null) {
         vigor: ['Health', 'Every point: +12 health. The plainest way to survive a deep floor.'],
         agility: ['Speed', 'Every point: +8 stamina, a little more speed and +1.2% critical hits.'],
       };
+      const RACE_FOR_STAT = { might: 'dmg', vigor: 'hp', agility: 'speed' };
       const attr = (id) => {
         const [name, tip] = STAT_TIP[id];
+        const rm = raceMult(g)[RACE_FOR_STAT[id]] || 1;
+        const bonus = rm !== 1 ? ` (${rm > 1 ? '+' : ''}${Math.round((rm - 1) * 100)}%)` : '';
         const put = n => { const done = spendPoint(g, id, n); if (done) { play('click'); refresh(); } };
         return withTip(h('div.bp-attr',
-          h('div.bp-attr-left', h('span.bp-attr-name', name), h('b.bp-attr-val', String(r[id] || 0))),
+          h('div.bp-attr-left', h('span.bp-attr-name', name), h('b.bp-attr-val', String(r[id] || 0)), bonus ? h('span.bp-attr-race', { style: { color: raceDef(g).color }, title: `${raceDef(g).name}: ${bonus.trim()}` }, bonus) : null),
           h('div.bp-attr-desc.faint', tip),
           h('div.bp-attr-btns',
             h('button.btn.sm.primary', { disabled: !r.points, onclick: () => put(1) }, '+1'),
@@ -132,10 +135,11 @@ export function openBackpack(hud, tab = null) {
        */
       const raceChooser = () => {
         const cur = raceOf(g);
-        const sel = hud._bpRace || cur;
+        const sel = unlockedRaces(g).includes(hud._bpRace) ? hud._bpRace : cur;
         const def = RACES[sel];
+        const mine = unlockedRaces(g);   // the wheel decides what you may be; this only picks among them
         return h('div.bp-races',
-          h('div.bp-race-list', ...RACE_KEYS.map(k => h(`button.bp-race${k === sel ? '.on' : ''}${k === cur ? '.worn' : ''}`,
+          h('div.bp-race-list', ...RACE_KEYS.filter(k => mine.includes(k)).map(k => h(`button.bp-race${k === sel ? '.on' : ''}${k === cur ? '.worn' : ''}`,
             { style: { '--rc': RACES[k].color }, onclick: () => { hud._bpRace = k; render(); } },
             icon(raceArt(RACES[k].looks[0]), 26), h('span', RACES[k].name)))),
           h('div.bp-race-detail',
@@ -145,9 +149,9 @@ export function openBackpack(hud, tab = null) {
               .filter(([, m]) => m !== 1)
               .map(([label, m]) => h(`span.bp-race-stat${m > 1 ? '.up' : '.down'}`, `${label} ${m > 1 ? '+' : ''}${Math.round((m - 1) * 100)}%`))),
             h('div.bp-race-passive', def.passive),
-            h('div.bp-race-faces', ...def.looks.map(look => h(`button.bp-face${lookOf(g) === look && cur === sel ? '.on' : ''}`,
-              { title: 'Wear this one', onclick: () => { setRace(g, sel, look); hud._bpLook = false; play('reveal'); refresh(); } },
-              icon(raceArt(look), 56))))));
+            cur === sel
+              ? h('div.faint', 'This is who you are.')
+              : h('button.btn.sm.primary', { onclick: () => { setRace(g, sel); hud._bpLook = false; play('reveal'); refresh(); } }, `Become ${def.name}`)));
       };
 
       return [
@@ -168,7 +172,9 @@ export function openBackpack(hud, tab = null) {
             })),
             h('div.row', { style: { gap: '5px', flexWrap: 'wrap' } },
               h('span.bp-race-chip', { style: { borderColor: raceDef(g).color, color: raceDef(g).color } }, raceDef(g).name),
-              h('button.btn.sm.ghost', { onclick: () => { hud._bpLook = !hud._bpLook; render(); } }, hud._bpLook ? 'Done' : 'Change character')))),
+              h('button.btn.sm.ghost', { onclick: () => { hud._bpLook = !hud._bpLook; render(); } }, hud._bpLook ? 'Done' : 'Change character'),
+              h('button.btn.sm.race-btn', { title: 'Races, and the stone that rolls a new one', onclick: async () => { const M = await import('./raceMenu.js'); M.openRaceMenu(hud); } },
+                icon('items/mat_star_shard', 16), 'Races', stonesOf(g) ? h('span.race-btn-n', String(stonesOf(g))) : null)))),
         hud._bpLook ? raceChooser() : null,
         h('div.bp-stats',
           statRow('Health', st.maxHp, st.maxHp / 400, '#ff5b6b', 'How much you can take before you are knocked out.'),
@@ -341,7 +347,7 @@ export function openBackpack(hud, tab = null) {
 
     // the bar along the bottom while you are picking things to sell
     const sellBar = (() => {
-      if (!sell) return null;
+      if (!sell || (t !== 'gear' && t !== 'tools')) return null;   // only where the things you sell are
       let total = 0, n = 0;
       for (const id of sell.gear) { const it = r.bag.find(x => x.id === id); if (it) { total += gearValue(it); n++; } }
       for (const [k, count] of sell.tools) { total += toolValue(k) * count; n += count; }

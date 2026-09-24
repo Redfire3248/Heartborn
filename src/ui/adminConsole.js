@@ -1186,6 +1186,29 @@ const COMMANDS = {
       this.print(`✓ trade ${act === 'accept' ? 'accepted' : 'declined'}`, 'ok');
     },
   },
+  stones: {
+    usage: 'stones [n]', desc: 'Give yourself Race Stones (default 5) for the wheel in Races',
+    async run([n = '5']) {
+      const R = await import('../game/races.js');
+      const total = R.addStones(this.game, Math.max(1, Math.min(999, Math.floor(Number(n) || 5))));
+      this.print(`✓ you have ${total} Race Stone${total === 1 ? '' : 's'}`, 'ok');
+    },
+  },
+  roll: {
+    usage: 'roll [n]', desc: 'Spend stones and roll that many times, printing what came up',
+    async run([n = '1']) {
+      const R = await import('../game/races.js');
+      const times = Math.max(1, Math.min(200, Math.floor(Number(n) || 1)));
+      const got = {};
+      for (let i = 0; i < times; i++) {
+        const res = R.rollRace(this.game);
+        if (res.error) { this.print(res.error, 'bad'); break; }
+        got[res.key] = (got[res.key] || 0) + 1;
+      }
+      for (const [k, c] of Object.entries(got).sort((a, b) => b[1] - a[1])) this.print(`${k.padEnd(12)} x${c}  (${R.RACE_TIERS[R.RACES[k].tier].name})`, R.RACES[k].tier >= 3 ? 'accent' : '');
+      this.print(`you are now ${R.raceOf(this.game)}`, 'ok');
+    },
+  },
   race: {
     usage: 'race [name|list] [look]', desc: 'Become another race, or list them all with what they give you',
     async run([name, look]) {

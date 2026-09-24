@@ -118,7 +118,7 @@ export function loginScreen({ user, onSignIn, onEmailSignIn, onCreateAccount, on
       card.append(
         h('div.user-pill',
           username ? avatar(username, 38) : icon('characters/king', 38),
-          h('div', h('div', { style: { fontWeight: 700 } }, username || 'New ruler'), h('div.faint', username ? 'Welcome back' : 'You will choose a name next')),
+          h('div', h('div', { style: { fontWeight: 700 } }, username || 'New here'), h('div.faint', username ? 'Welcome back' : 'You will choose a name next')),
           h('div.spacer'),
           h('button.btn.sm.ghost', { onclick: onSignOut }, 'Switch')),
         play, error);
@@ -141,12 +141,24 @@ export function chooseUsername(claim, { onBack } = {}) {
     const btn = h('button.btn.primary', { style: { padding: '12px' } }, 'Claim this name');
     const go = async () => {
       btn.disabled = true;
+      btn.textContent = 'Claiming…';
       err.textContent = '';
+      // a name is claimed against the server, and a bad connection must not leave you staring at a dead button
+      const slow = setTimeout(() => { err.textContent = 'Still trying… your connection is slow.'; }, 6000);
       try {
-        const name = await claim(input.value);
+        const name = await Promise.race([
+          claim(input.value),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('The server did not answer. Check your connection and try again.')), 20000)),
+        ]);
+        clearTimeout(slow);
         m.close();
         resolve(name);
-      } catch (e) { err.textContent = friendlyAuthError(e); btn.disabled = false; }
+      } catch (e) {
+        clearTimeout(slow);
+        err.textContent = friendlyAuthError(e);
+        btn.disabled = false;
+        btn.textContent = 'Claim this name';
+      }
     };
     btn.onclick = go;
     input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
@@ -154,7 +166,7 @@ export function chooseUsername(claim, { onBack } = {}) {
       onBack ? backBtn(() => { m.close(); resolve(null); onBack(); }) : null,
       h('div', { style: { textAlign: 'center' } }, icon('items/crown_leader', 64)),
       h('h2', { style: { textAlign: 'center' } }, 'What shall they call you?'),
-      h('div.muted', { style: { textAlign: 'center' } }, 'Your ruler name is how every other player will know you. 3–16 letters, numbers or _.'),
+      h('div.muted', { style: { textAlign: 'center' } }, 'This is the name every other player will know you by. 3–16 letters, numbers or _.'),
       h('div.field', h('label', 'Username'), input),
       err, btn,
     ].filter(Boolean));

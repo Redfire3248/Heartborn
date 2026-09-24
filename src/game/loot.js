@@ -18,7 +18,7 @@ export const lucky = (g, p) => Math.random() < p * (1 + luckOf(g) * 2);
 
 /** Which resource each ore gives (for monster drops of the local ore). */
 export const ORE_RESOURCE = {
-  coal_ore: 'coal', iron_ore: 'iron', gold_ore: 'gold', gem_ore: 'gems', crystal_cluster: 'gems', ruby_ore: 'gems', amethyst_ore: 'gems',
+  coal_ore: 'coal', iron_ore: 'iron', gold_ore: 'silver', gem_ore: 'gems',   // gold is a coin, not something you dig up crystal_cluster: 'gems', ruby_ore: 'gems', amethyst_ore: 'gems',
   copper_ore: 'copper', silver_ore: 'silver', obsidian_ore: 'obsidian', mythril_ore: 'mythril', frostite_ore: 'frostite', magmite_ore: 'magmite',
   jade_ore: 'jade', cobalt_ore: 'cobalt', moonstone_ore: 'moonstone', titanium_ore: 'titanium', sunstone_ore: 'sunstone', voidstone_ore: 'voidstone',
 };

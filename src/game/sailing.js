@@ -1,6 +1,7 @@
 import { TILE, MAP_W, MAP_H } from '../core/constants.js';
 import { clamp, chance, pick } from '../core/rng.js';
 import { CREATURES } from '../data/objects.js';
+import { SEA_MONSTERS, seaTier, pickMonster, spawnMonster, updateMonsters, damageMonster } from './seaMonsters.js';
 import { damageCreature } from './creatures.js';
 import { World, T } from './world.js';
 import { Game } from './game.js';
@@ -15,19 +16,22 @@ import { DEFAULT_LAWS } from '../data/laws.js';
 
 // better ships with every era: [era, sprite, name, cost, hull, top speed (tiles/s), guns]
 export const BOATS = {
-  rowboat: { era: 1, name: 'Rowboat', cost: { wood: 30 }, hull: 40, speed: 2.6, guns: 1, carries: 4, desc: 'Two oars and a crate of bombs. Quick and fragile.' },
-  longship: { era: 2, name: 'Longship', cost: { wood: 90, iron: 5 }, hull: 90, speed: 3.2, guns: 1, carries: 12, desc: 'A raider’s ship with a striped sail.' },
-  galleon: { era: 3, name: 'Galleon', cost: { wood: 180, iron: 30, gold: 40 }, hull: 170, speed: 3.0, guns: 2, carries: 25, desc: 'Rows of cannons fire two bombs at once.' },
-  ironclad: { era: 4, name: 'Ironclad', cost: { iron: 140, coal: 60, wood: 60 }, hull: 280, speed: 3.6, guns: 3, carries: 35, desc: 'Armoured steam warship.' },
-  battleship: { era: 5, name: 'Battleship', cost: { iron: 260, coal: 120, gold: 150 }, hull: 420, speed: 4.2, guns: 4, carries: 50, desc: 'Steel turrets. The sea is yours.' },
-  energy_battleship: { era: 6, name: 'Energy Battleship', cost: { iron: 400, science: 300, gems: 30 }, hull: 650, speed: 5.0, guns: 5, carries: 80, desc: 'Hovering warship of the future.' },
+  raft:      { era: 1, name: 'Raft', cost: { wood: 15 }, hull: 30, speed: 2.2, guns: 0, seats: 1, carries: 2, art: 'boats2/raft', desc: 'Lashed logs. It floats, and that is all it does.' },
+  rowboat:   { era: 1, name: 'Rowboat', cost: { wood: 30 }, hull: 45, speed: 2.8, guns: 1, seats: 1, carries: 4, art: 'boats2/rowboat', desc: 'One pair of oars and a crate of bombs. Quick and fragile.' },
+  skiff:     { era: 1, name: 'Fishing Skiff', cost: { wood: 45, iron: 2 }, hull: 65, speed: 2.9, guns: 1, seats: 2, carries: 6, art: 'boats2/skiff', desc: 'Room for a friend at the bow.' },
+  longboat:  { era: 2, name: 'Longboat', cost: { wood: 90, iron: 8 }, hull: 110, speed: 3.2, guns: 1, seats: 4, carries: 12, art: 'boats2/longboat', desc: 'Four benches. Bring the crew and their bows.' },
+  sloop:     { era: 2, name: 'Sloop', cost: { wood: 130, iron: 20, gold: 15 }, hull: 150, speed: 3.6, guns: 2, seats: 3, carries: 16, art: 'boats2/sloop', desc: 'A single sail and a wheel. Fast and handy.' },
+  cog:       { era: 3, name: 'Merchant Cog', cost: { wood: 180, iron: 30 }, hull: 210, speed: 2.8, guns: 1, seats: 4, carries: 30, art: 'boats2/cog', desc: 'Broad and slow, but it carries everything.' },
+  galley:    { era: 3, name: 'War Galley', cost: { wood: 200, iron: 60, gold: 40 }, hull: 260, speed: 3.2, guns: 3, seats: 4, carries: 25, art: 'boats2/galley', desc: 'Cannons down both sides and a ram at the bow.' },
+  cutter:    { era: 4, name: 'Corsair Cutter', cost: { wood: 160, iron: 90, gold: 90 }, hull: 300, speed: 4.2, guns: 3, seats: 3, carries: 20, art: 'boats2/cutter', desc: 'Black hull, red trim, a swivel gun at the bow.' },
 };
+
+/** The art for a boat, falling back to the old fleet sprites for a ship built before the new ones existed. */
+export const boatArt = type => BOATS[type]?.art || `boats/${type}`;
 
 const BOMB_RANGE = 9 * TILE;
 const BOMB_SPEED = 11 * TILE;
 export const RELOAD = 0.9;
-const PIRATE_HULL = [30, 60, 110, 180, 260, 360, 480];
-const PIRATE_SPRITE = ['boats/pirate_ship', 'boats/pirate_ship', 'boats/pirate_ship', 'boats/pirate_ship', 'boats/patrol_boat', 'boats/destroyer', 'boats/hover_boat'];
 
 export const fleetOf = g => (g.state.fleet ||= []);
 
@@ -83,7 +87,7 @@ export function setSail(g, boatId) {
   const spot = launchSpot(g);
   if (!spot) return { error: 'The shipyard has no open water' };
   g.hero = null;   // the ruler goes aboard
-  g.sail = { boatId, type: boat.type, x: spot.x, y: spot.y, angle: spot.angle, speed: 0, reload: 0, shots: [], pirates: [], loot: [], nextPirateAt: 20, time: 0, sunk: 0, gold: 0, wake: [], others: new Map() };
+  g.sail = { boatId, type: boat.type, x: spot.x, y: spot.y, angle: spot.angle, speed: 0, reload: 0, shots: [], monsters: [], loot: [], nextRiseAt: 14, time: 0, sunk: 0, gold: 0, wake: [], others: new Map(), seats: [], seatReload: [] };
   g.log(`The ${boat.name} sets sail!`, 'event');
   g.emit('change');
   return { ok: true };
@@ -135,6 +139,72 @@ export function fire(g) {
   return true;
 }
 
+/*
+ * Seats. The helm is yours; everyone else aboard sits and shoots. A seat holds a player who came aboard from the
+ * shore or from the Open Sea, and each one reloads on its own, so four bows put out far more than one set of guns.
+ * A seat with nobody in it is left empty rather than removed, so the boat always has the same shape.
+ */
+
+/** Everyone aboard, the helm first. */
+export const crewOf = g => (g.sail?.seats || []);
+export const seatsFree = g => Math.max(0, (BOATS[g.sail?.type]?.seats || 1) - 1 - crewOf(g).length);
+
+/** Someone climbs aboard. Returns why not, when there is no room. */
+export function boardBoat(g, who) {
+  const s = g.sail;
+  if (!s) return { error: 'No boat at sea' };
+  if (!who?.uid) return { error: 'Nobody to bring aboard' };
+  if (crewOf(g).some(c => c.uid === who.uid)) return { error: 'Already aboard' };
+  if (seatsFree(g) <= 0) return { error: 'Every seat is taken' };
+  s.seats.push({ uid: who.uid, name: who.name || 'Someone', reload: 0, aim: s.angle });
+  g.announce?.(`${who.name || 'Someone'} climbs aboard`);
+  g.emit?.('change');
+  return { ok: true };
+}
+
+export function leaveSeat(g, uid) {
+  const s = g.sail;
+  if (!s) return false;
+  const before = s.seats.length;
+  s.seats = s.seats.filter(c => c.uid !== uid);
+  if (s.seats.length !== before) g.emit?.('change');
+  return s.seats.length !== before;
+}
+
+/** A passenger looses a shot: lighter than a cannon, but there is no reloading the hold for it. */
+export function seatFire(g, uid, angle) {
+  const s = g.sail;
+  const seat = s?.seats.find(c => c.uid === uid);
+  if (!seat || seat.reload > 0) return false;
+  seat.reload = 0.75;
+  seat.aim = angle;
+  const sp = TILE * 13;
+  s.shots.push({
+    x: s.x + Math.cos(angle) * TILE * 0.6, y: s.y + Math.sin(angle) * TILE * 0.6,
+    vx: Math.cos(angle) * sp, vy: Math.sin(angle) * sp, left: BOMB_RANGE * 0.85,
+    dmg: 12, heavy: false, mine: true, sprite: 'combat/arrow', arrow: true,
+  });
+  return true;
+}
+
+/**
+ * Every passenger shoots for themselves. Anyone at a seat who is not being driven by a real player looses at the
+ * nearest monster on their own, so a crewed boat is never dead weight.
+ */
+function updateSeats(g, s, dt) {
+  for (const seat of s.seats) {
+    seat.reload = Math.max(0, seat.reload - dt);
+    if (seat.manual || seat.reload > 0) continue;
+    let best = null, bd = TILE * 11;
+    for (const m of s.monsters) {
+      if (m.under) continue;
+      const d = Math.hypot(m.x - s.x, m.y - s.y);
+      if (d < bd) { bd = d; best = m; }
+    }
+    if (best) seatFire(g, seat.uid, Math.atan2(best.y - s.y, best.x - s.x));
+  }
+}
+
 /** controls: { throttle: -1..1, turn: -1..1, fire: bool } */
 export function updateSailing(g, dt, controls = {}) {
   const s = g.sail;
@@ -158,54 +228,48 @@ export function updateSailing(g, dt, controls = {}) {
   for (const w of s.wake) w.life -= dt;
   s.wake = s.wake.filter(w => w.life > 0);
   if (controls.fire) fire(g);
+  s.seats ||= [];
+  updateSeats(g, s, dt);   // everyone else aboard looses at whatever is closest
   if (s.arena) {
     for (const o of s.others.values()) { o.x += (o.tx - o.x) * Math.min(1, dt * 6); o.y += (o.ty - o.y) * Math.min(1, dt * 6); const d = Math.atan2(Math.sin(o.ta - o.a), Math.cos(o.ta - o.a)); o.a += d * Math.min(1, dt * 6); }
     g.seaNet?.publish(s, boat);
   }
 
-  // pirates show up after a while, tougher in later eras
-  if (s.time >= s.nextPirateAt && s.pirates.length < 2 + Math.floor(g.state.era / 2)) {
-    // look all around for open water to come from (near the island, most directions are land)
-    let spawned = false;
-    const a0 = Math.random() * Math.PI * 2;
-    for (let k = 0; k < 16 && !spawned; k++) {
-      const a = a0 + (k / 16) * Math.PI * 2;
-      for (let r = 8; r < 18; r++) {
-        const px = s.x + Math.cos(a) * r * TILE, py = s.y + Math.sin(a) * r * TILE;
-        if (px < TILE || py < TILE || px > (MAP_W - 1) * TILE || py > (MAP_H - 1) * TILE || !waterAt(g, px, py)) continue;
-        const era = Math.min(6, g.state.era);
-        s.pirates.push({ id: Math.random(), x: px, y: py, angle: a + Math.PI, hull: PIRATE_HULL[era], max: PIRATE_HULL[era], reload: 2, sprite: PIRATE_SPRITE[era] });
-        g.log(chance(0.5) ? 'Pirates on the horizon!' : 'Black sails! Pirates are coming!', 'bad');
-        spawned = true;
-        break;
-      }
+  // the sea rises: the further out and the longer you stay, the worse what comes up
+  s.monsters ||= [];
+  if (s.time >= s.nextRiseAt) {
+    const tier = seaTier(g, s);
+    const cap = 3 + Math.floor(tier * 0.8);
+    if (s.monsters.length < cap) {
+      const key = pickMonster(tier);
+      const def = SEA_MONSTERS[key];
+      const n = def.pack || 1;
+      for (let i = 0; i < n; i++) spawnMonster(g, s, key, (x, y) => waterAt(g, x, y));
+      if (def.boss) g.fx.shake = Math.max(g.fx.shake || 0, 2.5);
     }
-    s.nextPirateAt = s.time + (spawned ? 25 + Math.random() * 25 : 3);
+    s.nextRiseAt = s.time + Math.max(6, 20 - seaTier(g, s) * 2) + Math.random() * 8;
   }
 
-  // pirates chase the player and fire when close
-  for (const p of s.pirates) {
-    const dx = s.x - p.x, dy = s.y - p.y, d = Math.hypot(dx, dy);
-    const want = Math.atan2(dy, dx) + (d < 4 * TILE ? Math.PI / 2 : 0);   // circle when close
-    const diff = Math.atan2(Math.sin(want - p.angle), Math.cos(want - p.angle));
-    p.angle += clamp(diff, -dt * 1.4, dt * 1.4);
-    const sp = TILE * (1.6 + g.state.era * 0.25);
-    const px = p.x + Math.cos(p.angle) * sp * dt, py = p.y + Math.sin(p.angle) * sp * dt;
-    if (waterAt(g, px, py)) { p.x = px; p.y = py; } else p.angle += dt * 2;
-    p.reload -= dt;
-    if (p.reload <= 0 && d < 8 * TILE) {
-      p.reload = 2.2 + Math.random();
-      const a = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.25;
-      s.shots.push({ x: p.x, y: p.y, vx: Math.cos(a) * BOMB_SPEED * 0.8, vy: Math.sin(a) * BOMB_SPEED * 0.8, left: BOMB_RANGE, dmg: 8 + g.state.era * 5, heavy: true, mine: false });
-    }
-  }
+  // they hunt you their own way, and what they throw lands in the water with everything else
+  updateMonsters(g, s, dt, {
+    waterAt: (x, y) => waterAt(g, x, y),
+    hit: (dmg) => {
+      boat.hull -= dmg;
+      g.fx.shake = Math.max(g.fx.shake || 0, 0.9);
+      g.puff({ x: s.x, y: s.y }, 'boats/big_splash', 5, 18);
+    },
+    shoot: (m, a, def) => s.shots.push({
+      x: m.x, y: m.y, vx: Math.cos(a) * TILE * (def.shotSpeed || 7), vy: Math.sin(a) * TILE * (def.shotSpeed || 7),
+      left: BOMB_RANGE, dmg: def.dmg, heavy: true, mine: false, sprite: def.shot,
+    }),
+  });
 
   // bombs fly, hit or splash
   for (const b of s.shots) {
     b.x += b.vx * dt; b.y += b.vy * dt; b.left -= Math.hypot(b.vx, b.vy) * dt;
     if (b.mine) {
-      const p = s.pirates.find(p => Math.hypot(p.x - b.x, p.y - b.y) < TILE * 0.9);
-      if (p) { p.hull -= b.dmg; b.left = -1; g.puff(p, 'effects/explosion', 6, 20); g.fx.shake = 0.4; continue; }
+      const m = s.monsters.find(m => Math.hypot(m.x - b.x, m.y - b.y) < TILE * (0.7 + (SEA_MONSTERS[m.t]?.size || 1) * 0.5) && !m.under);
+      if (m) { damageMonster(g, s, m, b.dmg); b.left = -1; g.puff({ x: b.x, y: b.y }, 'effects/explosion', 6, 20); g.fx.shake = 0.4; continue; }
       if (s.arena) {
         const o = [...s.others.values()].find(o => Math.hypot(o.x - b.x, o.y - b.y) < TILE * 0.9);
         if (o) { b.left = -1; g.puff({ x: o.x, y: o.y }, 'effects/explosion', 6, 20); continue; }
@@ -220,20 +284,9 @@ export function updateSailing(g, dt, controls = {}) {
       g.fx.shake = 0.8;
       continue;
     }
-    if (b.left <= 0) g.puff({ x: b.x, y: b.y }, 'boats/big_splash', 2, 8);
+    if (b.left <= 0 && !b.arrow) g.puff({ x: b.x, y: b.y }, 'boats/big_splash', 2, 8);
   }
   s.shots = s.shots.filter(b => b.left > 0);
-
-  // sunk pirates leave treasure behind
-  for (const p of s.pirates.filter(p => p.hull <= 0)) {
-    s.sunk++;
-    g.puff(p, 'boats/sinking_ship', 1, 2);
-    g.puff(p, 'effects/explosion', 10, 30);
-    s.loot.push({ x: p.x, y: p.y, gold: 20 + g.state.era * 25 + Math.floor(Math.random() * 30), life: 60 });
-    g.float(p.x, p.y - TILE, 'Pirates sunk!', '#ffd76a');
-    g.log('A pirate ship goes down!', 'good', p);
-  }
-  s.pirates = s.pirates.filter(p => p.hull > 0);
 
   // sail over treasure to collect it
   for (const l of s.loot) {
@@ -321,7 +374,7 @@ export function enterOpenSea(g, spawnAngle = 0) {
   // arrive on the side of the ocean that faces your island on the World Map
   let x = w.w / 2 + Math.cos(spawnAngle) * w.w * 0.38, y = w.h / 2 + Math.sin(spawnAngle) * w.h * 0.38;
   for (let r = 0; r < 20 && !w.isWater(Math.floor(x), Math.floor(y)); r++) { x += (w.w / 2 - x) * 0.1; y += (w.h / 2 - y) * 0.1; }
-  Object.assign(s, { arena: true, seaGame, x: x * TILE, y: y * TILE, angle: spawnAngle + Math.PI, speed: 0, shots: [], pirates: [], loot: [], wake: [], others: new Map(), nextPirateAt: s.time + 40, atEdge: false });
+  Object.assign(s, { arena: true, seaGame, x: x * TILE, y: y * TILE, angle: spawnAngle + Math.PI, speed: 0, shots: [], monsters: [], loot: [], wake: [], others: new Map(), nextRiseAt: s.time + 12, atEdge: false });
   g.log('You sail out onto the Open Sea. Other rulers\' ships may be out here...', 'event');
   return seaGame;
 }

@@ -3,7 +3,7 @@
 export const OBJECTS = {
   tree_oak:        { sprite: 'nature/tree_oak',        size: 1.7, work: 'chop', wood: [4, 7], stump: true },
   tree_pine:       { sprite: 'nature/tree_pine',       size: 1.8, work: 'chop', wood: [5, 8], stump: true },
-  tree_apple:      { sprite: 'nature/tree_apple',      size: 1.7, work: 'chop', wood: [3, 5], gold: [1, 3], stump: true },
+  tree_apple:      { sprite: 'nature/tree_apple',      size: 1.7, work: 'chop', wood: [4, 7], stump: true },
   tree_palm:       { sprite: 'nature/tree_palm',       size: 1.8, work: 'chop', wood: [3, 5], stump: true },
   tree_dead:       { sprite: 'nature/tree_dead',       size: 1.6, work: 'chop', wood: [2, 4] },
   tree_snowy_pine: { sprite: 'nature/tree_snowy_pine', size: 1.8, work: 'chop', wood: [5, 8], stump: true },
@@ -11,13 +11,13 @@ export const OBJECTS = {
   tree_stump:      { sprite: 'nature/tree_stump',      size: 0.8, growsInto: 'sapling', growDays: 1 },   // a stump sprouts a sapling after a day
   sapling:         { sprite: 'nature/stump_sprout',    size: 0.8, growsInto: 'tree_oak', growDays: 2 },  // and grows back into the tree it was
 
-  berry_bush:      { sprite: 'nature/berry_bush',      size: 0.9, work: 'gather', gold: [1, 3], charges: 4, regrowDays: 2 },
-  mushroom:        { sprite: 'nature/mushroom',        size: 0.6, work: 'gather', gold: [1, 2], charges: 1, poison: 0.25 },
-  pumpkin:         { sprite: 'nature/pumpkin',         size: 0.7, work: 'gather', gold: [2, 5], charges: 1 },
-  carrot:          { sprite: 'nature/carrot',          size: 0.7, work: 'gather', gold: [1, 3], charges: 1 },
-  wheat:           { sprite: 'nature/wheat',           size: 0.8, work: 'gather', gold: [1, 3], charges: 2 },
+  berry_bush:      { sprite: 'nature/berry_bush',      size: 0.9, work: 'gather', wood: [1, 2], charges: 4, regrowDays: 2 },
+  mushroom:        { sprite: 'nature/mushroom',        size: 0.6, work: 'gather', wood: [1, 1], charges: 1, poison: 0.25 },
+  pumpkin:         { sprite: 'nature/pumpkin',         size: 0.7, work: 'gather', wood: [1, 2], charges: 1 },
+  carrot:          { sprite: 'nature/carrot',          size: 0.7, work: 'gather', wood: [1, 1], charges: 1 },
+  wheat:           { sprite: 'nature/wheat',           size: 0.8, work: 'gather', wood: [1, 1], charges: 2 },
   // plants you cut down with a swing (your hands, a blade or a sickle)
-  tall_grass:      { sprite: 'nature/tall_grass',      size: 0.7, work: 'cut', gold: [1, 1], charges: 1 },
+  tall_grass:      { sprite: 'nature/tall_grass',      size: 0.7, work: 'cut', wood: [1, 1], charges: 1 },
   flowers:         { sprite: 'nature/flowers',         size: 0.7, work: 'cut', influence: [1, 2], charges: 1 },
   reeds:           { sprite: 'nature/reeds',           size: 0.8, work: 'cut', wood: [1, 2], charges: 1 },
   cactus:          { sprite: 'nature/cactus',          size: 0.9, work: 'cut', wood: [1, 2], charges: 1 },   // cactus gives a little wood, not food
@@ -25,7 +25,7 @@ export const OBJECTS = {
   rock:            { sprite: 'nature/rock',            size: 0.9, work: 'mine', stone: [2, 4], charges: 3 },
   coal_ore:        { sprite: 'nature/coal_ore',        size: 0.9, work: 'mine', stone: [1, 2], coal: [2, 4], charges: 3, tier: 1, rarity: 'Common' },
   iron_ore:        { sprite: 'nature/iron_ore',        size: 0.9, work: 'mine', stone: [1, 2], iron: [1, 3], charges: 3, tier: 2, rarity: 'Common' },
-  gold_ore:        { sprite: 'nature/gold_ore',        size: 0.9, work: 'mine', stone: [1, 2], gold: [1, 3], charges: 2, tier: 5, rarity: 'Uncommon' },
+  gold_ore:        { sprite: 'nature/gold_ore',        size: 0.9, work: 'mine', stone: [1, 2], silver: [1, 3], gems: [0, 1], charges: 2, tier: 5, rarity: 'Uncommon' },
   gem_ore:         { sprite: 'nature/gem_ore',         size: 0.9, work: 'mine', stone: [1, 2], gems: [1, 1], charges: 2, tier: 6, rarity: 'Rare' },
 // biome ores (placeholder art is recoloured iron ore until the real sheet is in)
   copper_ore:      { sprite: 'nature/copper_ore',      size: 0.9, work: 'mine', stone: [1, 2], copper: [2, 4], charges: 3, tier: 1, rarity: 'Common' },
@@ -38,10 +38,10 @@ export const OBJECTS = {
   cobalt_ore:      { sprite: 'nature/cobalt_ore',      size: 0.9, work: 'mine', stone: [1, 2], cobalt: [1, 3], charges: 3, tier: 5, rarity: 'Rare' },
   moonstone_ore:   { sprite: 'nature/moonstone_ore',   size: 0.9, work: 'mine', moonstone: [1, 2], charges: 2, tier: 5, rarity: 'Rare' },
   titanium_ore:    { sprite: 'nature/titanium_ore',    size: 0.9, work: 'mine', stone: [1, 2], titanium: [1, 2], charges: 2, tier: 6, rarity: 'Epic' },
-  sunstone_ore:    { sprite: 'nature/sunstone_ore',    size: 0.9, work: 'mine', sunstone: [1, 2], gold: [0, 2], charges: 2, tier: 6, rarity: 'Epic' },
+  sunstone_ore:    { sprite: 'nature/sunstone_ore',    size: 0.9, work: 'mine', sunstone: [1, 2], charges: 2, tier: 6, rarity: 'Epic' },
   voidstone_ore:   { sprite: 'nature/voidstone_ore',   size: 0.9, work: 'mine', voidstone: [1, 1], gems: [0, 1], charges: 1, tier: 9, rarity: 'Mythical' },
   amethyst_ore:    { sprite: 'nature/amethyst_ore',    size: 0.9, work: 'mine', stone: [1, 2], gems: [1, 3], charges: 2, tier: 5, rarity: 'Rare' },
-  ruby_ore:        { sprite: 'nature/ruby_ore',        size: 0.9, work: 'mine', gems: [2, 3], gold: [0, 2], charges: 2, tier: 7, rarity: 'Epic' },
+  ruby_ore:        { sprite: 'nature/ruby_ore',        size: 0.9, work: 'mine', gems: [2, 3], charges: 2, tier: 7, rarity: 'Epic' },
   crystal_cluster: { sprite: 'nature/crystal_cluster', size: 1.0, work: 'mine', gems: [1, 2], influence: [5, 10], charges: 1, tier: 8, rarity: 'Epic' },
 
   grave:           { sprite: 'buildings/grave',        size: 0.8 },

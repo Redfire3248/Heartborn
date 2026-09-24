@@ -70,7 +70,7 @@ import { computeBridges, bridgeAt } from '../game/bridges.js';
 import { talentLabel, fullName, EGO_PROUD } from '../game/talents.js';
 import { SPELLS, canCast, castSpell } from '../game/magic.js';
 import { UPGRADES, MAX_LEVEL, PER_LEVEL, jobLevel, upgradeCost, upgradeJob, OFFICE_UPGRADES, officeLevel, officeUpgradeCost, upgradeOffice } from '../game/upgrades.js';
-import { BOATS, fleetOf, buildBoat, setSail, returnToPort, repairBoat, updateSailing, fire, RELOAD, seaLift, enterOpenSea } from '../game/sailing.js';
+import { BOATS, fleetOf, buildBoat, setSail, returnToPort, repairBoat, updateSailing, fire, RELOAD, seaLift, enterOpenSea, boatArt } from '../game/sailing.js';
 import { TOPICS, talkTo } from '../game/talk.js';
 import { activeGoals, claimGoal, rewardText, goalsLeftInEra } from '../game/goals.js';
 import { findAt, collectFind } from '../game/finds.js';
@@ -488,7 +488,8 @@ export class HUD {
     if (k === 'escape' && this.visiting) { this.onReturnHome(); return; }
     if (is(k, 'character') && !this.game.sail) { this.toggleLead(); return; }
     if (is(k, 'inventory')) { this.inventory(); return; }
-    if (is(k, 'backpack') && !this.game.sail) { if (!this.useStation()) this.inventory(); return; }   // E opens your bag
+    if (is(k, 'backpack') && !this.game.sail) { if (!this.useStation()) openBackpack(this); return; }
+    if ((k === '`' || k === '~') && !this.game.sail) { this.inventory(); return; }   // the bag of loose things sits on the tilde key
     if (is(k, 'index')) { openIndex(this); return; }
     if (is(k, 'journal')) { openJournal(this); return; }
     if (is(k, 'bosses')) { openBossBook(this); return; }
@@ -3346,10 +3347,10 @@ export class HUD {
     const fleet = fleetOf(g);
     const eraName = e => ERAS[e]?.name || '';
     return h('div.ability',
-      h('div.ability-head', icon('boats/ship_wheel', 30), h('div', h('div.ability-name', 'Your fleet'), h('div.faint', 'Steer with W A S D (or the arrows), Space fires bombs, Esc returns to port'))),
+      h('div.ability-head', icon('boats/ship_wheel', 30), h('div', h('div.ability-name', 'Your fleet'), h('div.faint', 'Steer with W A S D (or the arrows), Space fires the guns, Esc returns to port. Anyone in a seat shoots at whatever comes close.'))),
       fleet.length ? h('div.fleet', fleet.map(b => {
         const def = BOATS[b.type];
-        return h('div.fleet-row', icon(`boats/${b.type}`, 34),
+        return h('div.fleet-row', icon(boatArt(b.type), 34),
           h('div.fleet-info', h('b', b.name), h('div.stat', h('span', 'Hull'), bar(b.hull / def.hull, '#6fdc5a'), h('span', `${Math.ceil(b.hull)}/${def.hull}`))),
           b.hull < def.hull ? h('button.btn.sm', { onclick: () => { const r = repairBoat(g, b.id); if (r.error) this.hint(r.error, 1800); this.updateInspector(true); } }, 'Repair') : null,
           b.awayUntil > Date.now() ? h('span.chip', 'Away on an invasion') : h('button.btn.sm.primary', { onclick: () => { const r = setSail(g, b.id); if (r.error) { this.hint(r.error, 2000); return; } play('ability'); this.select(null); this.closePanel(); this.renderer.camera.zoom = Math.max(this.renderer.camera.zoom, 1.8); this.hint('Set sail! Steer with W A S D, Space fires bombs, Esc returns to port.', 5000); } }, 'Set sail'));
@@ -3357,8 +3358,8 @@ export class HUD {
       h('div.boat-list', Object.entries(BOATS).map(([type, def]) => {
         const locked = def.era > g.state.era;
         return h(`div.boat-card${locked ? '.locked' : ''}`, { title: def.desc },
-          icon(`boats/${type}`, 40),
-          h('div.boat-info', h('b', def.name), h('span.faint', locked ? `${eraName(def.era)} era` : `Hull ${def.hull} · ${def.guns} gun${def.guns === 1 ? '' : 's'} · speed ${def.speed}`), locked ? null : costChips(def.cost, g.state.resources)),
+          icon(boatArt(type), 40),
+          h('div.boat-info', h('b', def.name), h('span.faint', locked ? `${eraName(def.era)} era` : `Hull ${def.hull} · ${def.guns} gun${def.guns === 1 ? '' : 's'} · ${def.seats} seat${def.seats === 1 ? '' : 's'} · speed ${def.speed}`), locked ? null : costChips(def.cost, g.state.resources)),
           locked ? null : h('button.btn.sm', { onclick: () => { const r = buildBoat(g, type); if (r.error) this.hint(r.error, 1800); else play('build'); this.updateInspector(true); } }, 'Build'));
       })));
   }
@@ -3371,17 +3372,18 @@ export class HUD {
     if (!s) { if (!bar2.hidden) { bar2.hidden = true; bar2.replaceChildren(); this._sailKey = null; this.els.helm?.remove(); this.els.helm = null; Object.assign(this.sailInput, { throttle: 0, turn: 0, fire: false, wheel: 0 }); } return; }
     const boat = fleetOf(g).find(b => b.id === s.boatId);
     const def = BOATS[s.type];
-    const key = [Math.ceil(boat?.hull || 0), Math.floor(g.state.resources.bombs || 0), s.pirates.length, s.gold, s.atEdge, !!s.arena, s.others?.size || 0].join('|');
+    const key = [Math.ceil(boat?.hull || 0), Math.floor(g.state.resources.bombs || 0), (s.monsters || []).length, (s.seats || []).length, s.gold, s.atEdge, !!s.arena, s.others?.size || 0].join('|');
     if (key === this._sailKey) return;
     const first = !this._sailKey;
     this._sailKey = key;
     bar2.hidden = false;
     const status = h('div.sail-status',
-      icon(`boats/${s.type}`, 34),
+      icon(boatArt(s.type), 34),
       h('div', h('b', boat?.name || def.name), h('div.stat', h('span', 'Hull'), bar((boat?.hull || 0) / def.hull, '#6fdc5a'), h('span', Math.ceil(boat?.hull || 0)))),
       h('span.chip', icon('boats/sea_bomb', 16), `${Math.floor(g.state.resources.bombs || 0)} bombs`),
       s.arena ? h('span.chip', { style: { borderColor: '#5aa9d6', color: '#9fd4ff' } }, `Open Sea · ${s.others.size} other ship${s.others.size === 1 ? '' : 's'}`) : null,
-      s.pirates.length ? h('span.chip.bad', `${s.pirates.length} pirate${s.pirates.length === 1 ? '' : 's'}`) : null,
+      (s.monsters || []).length ? h('span.chip.bad', `${s.monsters.length} in the water`) : null,
+      (s.seats || []).length ? h('span.chip', `${s.seats.length} aboard`) : (BOATS[s.type]?.seats > 1 ? h('span.chip.faint', `${BOATS[s.type].seats - 1} seat${BOATS[s.type].seats === 2 ? '' : 's'} free`) : null),
       s.gold ? h('span.chip.good', `+${s.gold} gold`) : null);
     const actions = h('div.sail-actions',
       s.atEdge && !s.arena ? h('button.btn.sm.primary', { onclick: () => this.enterSea() }, 'Enter the Open Sea') : null,

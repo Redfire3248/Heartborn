@@ -7,7 +7,7 @@ import { TILE } from '../core/constants.js';
 import { RES_ICON } from '../ui/dom.js';
 import { stackIcon } from '../game/groundItems.js';
 import { drawSprite, sprite } from '../core/assets.js';
-import { BOATS, fleetOf } from '../game/sailing.js';
+import { BOATS, fleetOf, boatArt } from '../game/sailing.js';
 import { TerrainPainter } from './terrain.js';
 import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
 import { BUILDINGS, sizeOf, buildingSprite } from '../data/buildings.js';
@@ -1124,10 +1124,10 @@ export class Renderer {
     // layering: facing away, your gear is in front of the body; otherwise the shield arm is behind and the sword in front
     // facing away the shield is on your back, but the sword stays in your hand, in view
     // your chosen avatar always faces the viewer, so the shield is carried in front of it
-    const front = body.startsWith('avatars/');
+    const front = body.startsWith('avatars/') || body.startsWith('races/');   // a chosen character always faces you, so its gear is carried in front
     if (!front && !hero.blocking) drawShield();
     if ((hero.buffs?.invis || 0) > g.state.time) ctx.globalAlpha = 0.35;
-    drawSprite(ctx, body, bx, by, size * (body.startsWith('hero/') ? 1.1 : body.startsWith('avatars/') ? 1.15 : 1), { flip: side < 0 && !body.startsWith('avatars/'), tint, solid: tint === '#ffffff', offsetY: bob, squash: sq, rot: lean });
+    drawSprite(ctx, body, bx, by, size * (body.startsWith('hero/') ? 1.1 : body.startsWith('avatars/') || body.startsWith('races/') ? 1.15 : 1), { flip: side < 0 && !front, tint, solid: tint === '#ffffff', offsetY: bob, squash: sq, rot: lean });
     drawWeapon();
     if (front || hero.blocking) drawShield();
     ctx.globalAlpha = 1;
@@ -1402,7 +1402,7 @@ export class Renderer {
     ctx.restore();
   }
 
-  /** Sailing: the player's boat, pirates, flying bombs, wake and floating treasure. */
+  /** Sailing: your boat and its crew, the things in the water with you, shots, wake and floating treasure. */
   drawSea(g) {
     const s = g.sail;
     if (!s || g.visiting) return;
@@ -1430,15 +1430,55 @@ export class Renderer {
       ctx.fillText(label, o.x, o.y - TILE * 1.3);
       ctx.restore();
     }
-    for (const p of s.pirates) {
-      this.drawShip(p.sprite, p.x, p.y, p.angle, TILE * 1.9);
-      bar(ctx, p.x - 14, p.y - TILE * 1.1, 28, p.hull / p.max, '#ff5a4a');
+    // what is in the water with you: a diving one is only a dark shadow and a trail of bubbles
+    for (const m of s.monsters || []) {
+      const def = SEA_MONSTERS[m.t];
+      if (!def) continue;
+      const size = TILE * 1.5 * (def.size || 1);
+      if (m.under) {
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = '#06131f';
+        ctx.beginPath(); ctx.ellipse(m.x, m.y, size * 0.4, size * 0.24, m.angle, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        if (Math.random() < 0.3) g.fx.particles.push({ x: m.x + (Math.random() - 0.5) * 14, y: m.y, vx: 0, vy: -12, dot: '#bfe8ff', size: 5, life: 0.5, max: 0.5, grav: -10, drag: 1 });
+        continue;
+      }
+      const bob = Math.sin(this.time * 2.6 + m.x * 0.05) * 1.6;
+      ctx.save();
+      if (m.flash > 0) { m.flash -= 0.016; ctx.filter = 'brightness(2.2)'; }
+      this.drawShip(def.sprite, m.x, m.y + bob, m.angle, size);
+      ctx.restore();
+      bar(ctx, m.x - 15, m.y - size * 0.55, 30, m.hull / m.max, def.boss ? '#ff4d6d' : '#ff9a4a');
+      if (def.boss) {
+        ctx.save();
+        ctx.font = '700 9px Rubik, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(10, 8, 16, .9)';
+        ctx.fillStyle = '#ff9a8a';
+        ctx.strokeText(def.name, m.x, m.y - size * 0.72);
+        ctx.fillText(def.name, m.x, m.y - size * 0.72);
+        ctx.restore();
+      }
     }
     const boat = fleetOf(g).find(b => b.id === s.boatId);
     const def = BOATS[s.type];
-    this.drawShip(`boats/${s.type}`, s.x, s.y + Math.sin(this.time * 2.5) * 1.2, s.angle, TILE * (1.5 + def.guns * 0.12));
+    this.drawShip(boatArt(s.type), s.x, s.y + Math.sin(this.time * 2.5) * 1.2, s.angle, TILE * (1.5 + (def.guns || 0) * 0.12));
+    // everyone in a seat, sitting around the deck
+    const crew = s.seats || [];
+    crew.forEach((c, i) => {
+      const off = (i - (crew.length - 1) / 2) * TILE * 0.42;
+      const px = s.x + Math.cos(s.angle + Math.PI / 2) * off - Math.cos(s.angle) * TILE * 0.28;
+      const py = s.y + Math.sin(s.angle + Math.PI / 2) * off - Math.sin(s.angle) * TILE * 0.28;
+      drawSprite(ctx, 'ui/character', px, py - 4, TILE * 0.5);
+      if (c.reload > 0.45) drawSprite(ctx, 'combat/arrow', px + Math.cos(c.aim) * 10, py - 6 + Math.sin(c.aim) * 10, TILE * 0.3, { rot: c.aim });
+    });
     if (boat) bar(ctx, s.x - 16, s.y - TILE * 1.1, 32, boat.hull / def.hull, '#6fdc5a');
-    for (const b of s.shots) drawSprite(ctx, b.heavy ? 'boats/sea_bomb' : 'nature/rock', b.x, b.y + 6, TILE * (b.heavy ? 0.45 : 0.3), { rot: this.time * 8 });
+    for (const b of s.shots) {
+      if (b.arrow) { drawSprite(ctx, 'combat/arrow', b.x, b.y, TILE * 0.38, { rot: Math.atan2(b.vy, b.vx) }); continue; }
+      drawSprite(ctx, b.sprite || (b.heavy ? 'boats/sea_bomb' : 'nature/rock'), b.x, b.y + 6, TILE * (b.heavy ? 0.45 : 0.3), { rot: this.time * 8 });
+    }
   }
 
   /** Falling missiles: a red target ring on the ground, the missile streaking down, then a white flash. */

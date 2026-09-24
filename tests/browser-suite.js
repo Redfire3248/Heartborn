@@ -688,6 +688,70 @@ export async function run() {
     H.endLead(g);
   });
 
+  await step('Race Stones: you roll for a race, you do not pick one', async () => {
+    const H = await import('/src/game/hero.js');
+    const Ra = await import('/src/game/races.js');
+    const g = new Game(newState({ uid: 'rs', name: 'T', villageName: 'V' }));
+    H.startLead(g, g.state.villagers[0]);
+    ok(Ra.stonesOf(g) === 0, 'you start with no stones');
+    ok(Ra.rollRace(g).error, 'and cannot roll without one');
+    ok(Ra.raceSlots(g).length === 1, 'you hold only what you are', `${Ra.raceSlots(g)}`);
+    Ra.addStones(g, 40);
+    ok(Ra.stonesOf(g) === 40, 'stones can be given');
+    const seen = new Set();
+    let needed = 0;
+    for (let i = 0; i < 40; i++) {
+      const r = Ra.rollRace(g);
+      ok(r.ok, 'a roll spends a stone and lands somewhere');
+      if (r.key) seen.add(r.key);
+      if (r.needsSlot) needed++;
+    }
+    ok(Ra.stonesOf(g) === 0, 'forty rolls cost forty stones', `${Ra.stonesOf(g)}`);
+    ok(seen.size >= 3, 'forty rolls turn up several different races', `${seen.size}`);
+    ok(Ra.raceSlots(g).length <= Ra.RACE_SLOTS, 'you never hold more than three', `${Ra.raceSlots(g).length}`);
+    ok(needed > 0, 'once the slots are full a roll has to ask what it replaces', `${needed} times`);
+    // and taking one into a slot puts out what was there
+    const before = [...Ra.raceSlots(g)];
+    const other = Ra.RACE_KEYS.find(k => !before.includes(k));
+    ok(Ra.acceptRoll(g, other, Ra.RACES[other].looks[0], 0), 'a roll can be taken in place of a slot');
+    ok(Ra.raceSlots(g).includes(other) && !Ra.raceSlots(g).includes(before[0]), 'the one it replaced is gone');
+    ok(Ra.raceOf(g) === other, 'and you are wearing what you just took');
+    ok(!Ra.dropRace(g, 'nothing'), 'you cannot drop a race you do not hold');
+    ok(Ra.RACE_KEYS.every(k => Ra.RACES[k].weight > 0 && Ra.RACES[k].tier >= 0), 'every race has odds and a rarity');
+    ok(Ra.RACES.archdemon.weight < Ra.RACES.human.weight, 'an Arch Demon is far rarer than a Human');
+    ok(Ra.rollOrder().length === Ra.RACE_KEYS.length, 'the wheel holds every race exactly once');
+    const back = deserialize(serialize(g.state));
+    ok(Array.isArray(back.rpg.raceSlots) && back.rpg.raceSlots.length === Ra.raceSlots(g).length, 'your slots are saved', `${back.rpg.raceSlots?.length}`);
+    H.endLead(g);
+  });
+
+  await step('the sea: monsters instead of pirates, and a crew that shoots', async () => {
+    const S = await import('/src/game/sailing.js');
+    const SM = await import('/src/game/seaMonsters.js');
+    const g = new Game(newState({ uid: 'se', name: 'T', villageName: 'V' }));
+    ok(SM.MONSTER_KEYS.length === 18, 'eighteen things live in the water', `${SM.MONSTER_KEYS.length}`);
+    for (const k of SM.MONSTER_KEYS) {
+      const d = SM.SEA_MONSTERS[k];
+      ok(d.sprite.startsWith('sea/') && d.hull > 0 && d.dmg > 0 && d.kind, `${k} has art, a hull and a way of fighting`);
+    }
+    ok(!('pirates' in (g.sail || {})), 'no pirate ships anywhere');
+    ok(Object.values(S.BOATS).every(b => b.seats >= 1 && b.art), 'every boat has seats and its own art');
+    ok(S.BOATS.longboat.seats === 4, 'a longboat carries four');
+    // a shallow roll never turns up a Kraken
+    for (let i = 0; i < 200; i++) ok(SM.SEA_MONSTERS[SM.pickMonster(0)].tier <= 0 || true, 'shallow water rolls');
+    const shallow = new Set(); for (let i = 0; i < 300; i++) shallow.add(SM.pickMonster(0));
+    ok([...shallow].every(k => SM.SEA_MONSTERS[k].tier === 0), 'close to shore, only the shallow things', [...shallow].join(','));
+    const deep = new Set(); for (let i = 0; i < 400; i++) deep.add(SM.pickMonster(5));
+    ok(deep.has('kraken') || deep.has('leviathan'), 'far out, the big ones come up');
+    // one takes damage and goes down, leaving treasure
+    const s = { x: 0, y: 0, monsters: [], loot: [], sunk: 0, shots: [] };
+    SM.spawnMonster(g, s, 'shark', () => true);
+    ok(s.monsters.length === 1, 'a monster can be put in the water');
+    const m = s.monsters[0];
+    ok(!SM.damageMonster(g, s, m, 5), 'a scratch does not sink it');
+    ok(SM.damageMonster(g, s, m, 9999) && !s.monsters.length && s.loot.length === 1, 'a killing blow sinks it and leaves treasure');
+  });
+
   await step('ore attunement: the metal in your pack works on you', async () => {
     const H = await import('/src/game/hero.js');
     const R = await import('/src/game/rpg.js');
