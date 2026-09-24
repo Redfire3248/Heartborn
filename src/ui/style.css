@@ -2735,3 +2735,45 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .race-replace img { image-rendering: pixelated; flex: none; }
 .race-replace .faint { font-size: 12px; }
 .race-replace-picks { display: flex; gap: 5px; flex-wrap: wrap; margin-left: auto; }
+
+/* ------------------------------------------------------------------ a phone on its side: the top of the screen
+   There is almost no height to spare, so the resource bar was wrapping onto a second row and the menu icons were
+   landing straight on top of it. Everything up here gets its own lane instead: resources on the left in one
+   scrolling row, the menus beside them, your hearts underneath, and the map in the corner. */
+@media (max-height: 560px) and (pointer: coarse), (max-height: 560px) and (max-width: 1100px) {
+  .topbar {
+    left: 6px !important; right: auto !important; top: calc(env(safe-area-inset-top) + 4px) !important;
+    max-width: 44vw; height: 30px; padding: 2px 8px;
+    flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  }
+  .topbar::-webkit-scrollbar { display: none; }
+  .topbar .res { flex: 0 0 auto; }
+  .topbar img, .topbar .px-icon { width: 18px !important; height: 18px !important; }
+  .topbar .v, .topbar .res .v { font-size: 12px; }
+
+  .dock {
+    left: calc(44vw + 14px) !important; right: 96px !important; top: calc(env(safe-area-inset-top) + 4px) !important;
+    transform: none !important; justify-content: flex-start; overflow-x: auto; scrollbar-width: none;
+  }
+  .dock::-webkit-scrollbar { display: none; }
+
+  .vitals-strip { top: calc(env(safe-area-inset-top) + 38px) !important; }
+  .chat-wrap { top: calc(env(safe-area-inset-top) + 74px) !important; }
+  .say-banner { top: calc(env(safe-area-inset-top) + 38px + var(--row, 0) * 26px); left: auto; right: 104px; transform: none; max-width: 42vw; }
+  .say-banner.leaving, .say-banner { animation-name: none; }
+  .minimap { top: calc(env(safe-area-inset-top) + 4px) !important; width: 84px !important; height: 84px !important; }
+  .save-banner, .update-bar { font-size: 11px; padding: 3px 8px; }
+
+  /* every window has to fit inside 390 pixels of height */
+  .modal { max-height: 88vh !important; overflow-y: auto; }
+  .backpack-modal, .race-modal, .boss-modal, .index-modal, .forge-modal, .enchant-modal { width: min(92vw, 860px) !important; max-height: 88vh !important; }
+  .bp-races { grid-template-columns: 150px 1fr; }
+  .bp-race-list { max-height: 150px; }
+  .race-you { padding: 8px; gap: 10px; }
+  .race-you-art { width: 78px; height: 78px; }
+  .race-you-head h3 { font-size: 16px; }
+  .race-reel { height: 84px; }
+  .race-cell img { max-width: 46px; max-height: 46px; }
+  .boss-grid { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
+  .bp-grid, .index-grid { max-height: 44vh; }
+}

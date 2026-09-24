@@ -35,12 +35,19 @@ export function dropFromPack(g, v, item, count, x, y) {
  * ground, and after a moment you (or anyone) can pick it up again by walking over it.
  */
 export function dropStack(g, v, key, count = 1) {
-  if (!v || !key || key === 'weapon') return null;
+  if (!v || !key) return null;
   const a = g.hero?.facing ?? Math.PI / 2;
   const x = v.x + Math.cos(a) * TILE * 2.2, y = v.y + Math.sin(a) * TILE * 2.2;
   const base = { id: `gi${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`, x, y, noPickUntil: g.state.time + 1.2 };
   let it = null;
-  if (key === 'potion') {
+  if (key === 'weapon') {   // the blade in your hand: unequipped and laid on the ground, keeping everything about it
+    const r = rpgOf(g);
+    const gear = r.gear?.weapon;
+    if (!gear) return null;
+    r.gear.weapon = null;
+    g.emit?.('change');
+    it = { ...base, gear, count: 1 };
+  } else if (key === 'potion') {
     const r = rpgOf(g);
     const n = Math.min(count, r.potions || 0);
     if (!n) return null;

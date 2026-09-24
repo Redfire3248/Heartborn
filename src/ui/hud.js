@@ -894,9 +894,12 @@ export class HUD {
     const g = this.dungeon || this.game;
     const bar = hotbarOf(this.game);
     key ||= bar[rpgOf(this.game).hotSel];
-    if (!key || key === 'weapon') { this.hint('Nothing to drop', 1000); return; }
+    if (!key) { this.hint('Nothing to drop', 1000); return; }
+    const name = this.slotInfo(key, heroOf(g))?.name || 'it';
     const it = dropStack(g, heroOf(g), key, 1);
     if (!it) { this.hint('Nothing to drop', 1000); return; }
+    this.hint(`Dropped ${name}`, 1400);
+    play('click');
     this._hotbarKey = null;
     if (!this.els.invPanel.hidden) this.renderInventory();
   }
@@ -946,6 +949,7 @@ export class HUD {
           tab('ui/search', 'Analyze', 'Analyze the item under your cursor (or what you hold). Tip: right-click a hotbar slot', () => this.analyzeKey(this._invHover || bar[r.hotSel]), '.analyze-btn'),
           tab('items/mat_star_shard', 'Materials', 'Ores, metals and boss materials', () => openBackpack(this, 'mats')),
           tab('items/sword', 'Gear', 'Your gear, tools, items and stats (E)', () => openBackpack(this, 'gear')),
+          tab(hasArt('ui/trash') ? 'ui/trash' : 'items/relic', 'Drop', 'Drop what you are holding (Z). Hover a slot first to drop that instead', () => this.dropHeld(this._invHover || null), '.drop-btn'),
           h('button.modal-x.inv-x', { title: 'Close (I)', onclick: () => { panel.hidden = true; } }, hasArt('ui/close') ? icon('ui/close', 16) : '✕'));
       })(),
       (() => {

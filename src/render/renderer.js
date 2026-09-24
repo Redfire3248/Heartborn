@@ -1079,14 +1079,23 @@ export class Renderer {
     const held = g.state.rpg ? heldSlot(g) : 'weapon';   // you hold what is selected in your hotbar
     const tool = TOOLS[held];
     const weaponKey = held?.startsWith?.('item:') ? CONSUMABLES[held.slice(5)]?.icon : held === 'potion' ? 'gear/health_potion' : tool ? (hasArt(tool.icon) ? tool.icon : tool.fallbackIcon) : w.base === 'fists' ? null : gearIconKey(w) || w.icon;
+    const front = body.startsWith('avatars/') || body.startsWith('races/');   // a chosen character always faces you, so its gear is carried in front
     const sh = rpgOf(g).gear.shield;
     const shieldKey = sh ? gearIconKey(sh) : v.inv?.pack?.shield ? 'gear/round_shield' : null;
     const shieldDef = sh ? SHIELDS[sh.base] : SHIELDS.round;
 
-    // where the hands are, relative to the body, for each way you can face
-    const hy = by - size * 0.38 + bob;
-    const weaponHand = { x: bx + (facing === 'up' ? -side : side) * size * (facing === 'right' || facing === 'left' ? 0.18 : 0.3), y: hy };
-    const shieldHand = { x: bx - (facing === 'up' ? -1 : 1) * side * size * (facing === 'right' || facing === 'left' ? 0.2 : 0.3), y: hy + 2 };
+    /*
+     * Where the hands are. A sprite is drawn standing on (bx, by), so every hand position is measured up from the
+     * feet. A chosen character is a whole figure a little over one tile tall and always faces you, so its hands sit
+     * about halfway up at the width of its shoulders; the old three-view hero art is shorter and turns, so it keeps
+     * its own numbers. Getting this wrong is what left the sword floating past the shoulder and the shield at the hip.
+     */
+    const tall = front;                                     // a full figure facing the viewer
+    const handY = tall ? 0.46 : 0.38;                       // how far up the body the hands are
+    const handX = tall ? 0.18 : (facing === 'right' || facing === 'left' ? 0.18 : 0.3);
+    const hy = by - size * handY + bob;
+    const weaponHand = { x: bx + (facing === 'up' && !tall ? -side : side) * size * handX, y: hy };
+    const shieldHand = { x: bx - (facing === 'up' && !tall ? -1 : 1) * side * size * handX, y: hy + (tall ? 1 : 2) };
 
     const drawWeapon = () => {
       if (!weaponKey) return;
@@ -1124,7 +1133,7 @@ export class Renderer {
     // layering: facing away, your gear is in front of the body; otherwise the shield arm is behind and the sword in front
     // facing away the shield is on your back, but the sword stays in your hand, in view
     // your chosen avatar always faces the viewer, so the shield is carried in front of it
-    const front = body.startsWith('avatars/') || body.startsWith('races/');   // a chosen character always faces you, so its gear is carried in front
+    // (front is worked out above the hands)
     if (!front && !hero.blocking) drawShield();
     if ((hero.buffs?.invis || 0) > g.state.time) ctx.globalAlpha = 0.35;
     drawSprite(ctx, body, bx, by, size * (body.startsWith('hero/') ? 1.1 : body.startsWith('avatars/') || body.startsWith('races/') ? 1.15 : 1), { flip: side < 0 && !front, tint, solid: tint === '#ffffff', offsetY: bob, squash: sq, rot: lean });

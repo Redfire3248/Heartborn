@@ -1,6 +1,16 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Held gear sits in your hands, a phone on its side is tidy, and you can drop anything',
+    changes: [
+      'Fixed: your sword and shield were placed for the old artwork, so on a chosen character the blade floated past the shoulder and the shield hung at the hip. Hands are now measured up from the feet, and both sit where the hands are',
+      'A phone on its side: the resource bar is one scrolling row on the left, the menu icons have a lane of their own beside it instead of sitting on top of it, your hearts are underneath and the map is in the corner',
+      'Every window fits inside a sideways phone now: the Backpack, Races, the Hall of Bosses, the Index and the Forge all keep to the height there is',
+      'You can drop the weapon in your hand at last. Z drops what you are holding, and the bag has a Drop button that drops whatever you are hovering',
+      'Dropping tells you what you dropped',
+    ],
+  },
+  {
     title: 'The sea has monsters, races are rolled for, and a pile of fixes',
     changes: [
       'Sailing is back on, and the pirate ships are gone. Eighteen sea creatures live out there instead: sharks and piranha packs in the shallows, divers that go under and surface beside you, sirens and squid that spit from range, and the Leviathan and the Kraken far out. The further you go and the longer you stay, the worse what comes up',
