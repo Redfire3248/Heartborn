@@ -398,6 +398,7 @@ export class HUD {
       this.updateStreak(hg);
       updateLockOn(hg);
       if (this.els.lockBtn) this.els.lockBtn.classList.toggle('on', !!hg.lockOn);
+      if (this.els.blockBtn) { const noShield = !rpgOf(hg).gear.shield; if (noShield !== this._noShield) { this._noShield = noShield; this.els.blockBtn.hidden = noShield; } }
       if (hg === g && !this.houseEditor) {
         const biome = heroBiome(g);
         if (biome && biome !== this._biome) {
@@ -1322,6 +1323,8 @@ export class HUD {
     const dash = hold('hero-dash', 'dash', 'DASH', null, 0, 'Dash');
     dash.prepend(pxIcon('boot', 26));   // a boot: no word needed
     const block = hold('hero-block', 'block', 'BLOCK', 'items/shield', 26, 'Block');
+    this.els.blockBtn = block;
+    block.hidden = !rpgOf(this.dungeon || this.game).gear.shield;   // nothing to guard with, nothing to press
     const potion = hold('hero-potion', 'potion', '', 'gear/health_potion', 26);
     this.els.potionCount = h('span.hero-potion-count', '0');
     potion.append(this.els.potionCount);

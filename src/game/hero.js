@@ -920,7 +920,8 @@ export function updateHero(g, dt, controls = {}) {
   }
 
   // block: hold to raise your guard (slow, drains stamina); a block right as the blow lands is a parry
-  const blocking = !!controls.block && h.stamina > 1 && !h.dash;
+  // a guard needs something to guard with: bare arms stop nothing
+  const blocking = !!controls.block && !!rpgOf(g).gear.shield && h.stamina > 1 && !h.dash;
   if (blocking && !h.blocking) h.blockAt = g.state.time;
   h.blocking = blocking;
   if (blocking) h.stamina -= 14 * dt;
