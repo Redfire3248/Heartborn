@@ -210,8 +210,15 @@ export class HouseEditor {
     this.designRow.replaceChildren(h('span.faint', 'Outside:'), ...DESIGNS.map((d, i) => h('button.house-design' + ((this.b.design || 0) === i ? '.active' : ''), {
       title: d.name, style: { background: d.tint || '#c8a878' }, onclick: () => { this.b.design = i; this.game.emit('change'); this.refreshUI(); this.hint?.(`Outside look: ${d.name}`, 1500); },
     })));
-    const TAB_ICONS = { storage: 'ui/storage', floors: 'ui/floors', walls: 'ui/wallpaper', stairs: 'ui/stairs' };
-    this.tabs.replaceChildren(...FURNITURE_CATS.map(([id, name]) => h('button.house-tab' + (this.cat === id ? '.active' : ''), { onclick: () => { this.cat = id; this.query = ''; this.search.value = ''; this.refreshUI(); } }, TAB_ICONS[id] ? uiIcon(TAB_ICONS[id]) : null, name)));
+    const TAB_ICONS = { storage: 'ui/storage', living: 'ui/tab_living', kitchen: 'ui/tab_kitchen', decor: 'ui/tab_decor', blocks: 'ui/tab_blocks', floors: 'ui/floors', walls: 'ui/wallpaper', stairs: 'ui/stairs' };
+    const FALLBACK = { living: 'interior/sofa', kitchen: 'interior/stove', decor: 'interior/painting', blocks: 'interior/block_stone' };
+    this.tabs.replaceChildren(...FURNITURE_CATS.map(([id, name]) => {
+      const art = TAB_ICONS[id] && spriteAvailable(TAB_ICONS[id]) ? TAB_ICONS[id] : FALLBACK[id];
+      const btn = h('button.house-tab.icon-tab' + (this.cat === id ? '.active' : ''), { title: name, onclick: () => { this.cat = id; this.query = ''; this.search.value = ''; this.refreshUI(); } },
+        art && spriteAvailable(art) ? icon(art, 26) : uiIcon(TAB_ICONS[id] || 'ui/storage'),
+        h('span.tab-name', name));
+      return btn;
+    }));
     this.renderPalette();
   }
 

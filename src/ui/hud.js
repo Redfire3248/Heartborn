@@ -31,7 +31,7 @@ import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
 import { TRAITS } from '../data/traits.js';
 import { JOBS, assignJob, displayRole } from '../game/villagers.js';
 import { DEEDS, runDeed, sacrificeVillager, exileVillager, smiteCreature } from '../game/deeds.js';
-import { maxHp } from '../game/creatures.js';
+import { maxHp, toggleLockOn, updateLockOn } from '../game/creatures.js';
 import { rulerOf, rulerTypeOf, rulerTitle, setHeir, setCalling, encourage, ENCOURAGE, inventory, equipment, isTrained, crown, addItem, takeItem } from '../game/dynasty.js';
 import { CALLINGS, RULER_TYPES, ITEMS } from '../data/people.js';
 import { accuse, punishTraitor, throwBomb, counterIntel, isSpy, hasMissiles, hasOrbital, MISSILE_COST, strikeOwnLand, strikeRadius } from '../game/intrigue.js';
@@ -396,6 +396,8 @@ export class HUD {
       if (this.els.abilityBtn && hg.hero) { const left = Math.max(0, (hg.hero.abilityReady || 0) - hg.state.time), max = hg.hero.abilityMax || 1; this.els.abilityBtn.style.setProperty('--cd', String(left / max)); this.els.abilityBtn.classList.toggle('cooling', left > 0); const wpn = rpgOf(hg).gear.weapon; this.els.abilityBtn.hidden = !weaponAbility(wpn); }
       this.updateSkillChip(hg);
       this.updateStreak(hg);
+      updateLockOn(hg);
+      if (this.els.lockBtn) this.els.lockBtn.classList.toggle('on', !!hg.lockOn);
       if (hg === g && !this.houseEditor) {
         const biome = heroBiome(g);
         if (biome && biome !== this._biome) {
@@ -485,7 +487,7 @@ export class HUD {
     if (k === 'escape' && this.visiting) { this.onReturnHome(); return; }
     if (is(k, 'character') && !this.game.sail) { this.toggleLead(); return; }
     if (is(k, 'inventory')) { this.inventory(); return; }
-    if (is(k, 'backpack') && !this.game.sail) { if (!this.useStation()) openBackpack(this); return; }
+    if (is(k, 'backpack') && !this.game.sail) { if (!this.useStation()) this.inventory(); return; }   // E opens your bag
     if (is(k, 'index')) { openIndex(this); return; }
     if (is(k, 'journal')) { openJournal(this); return; }
     if (is(k, 'bosses')) { openBossBook(this); return; }
@@ -926,15 +928,24 @@ export class HUD {
     const keys = Object.keys(owned).filter(k => TOOLS[k]).sort((a, b) => (TOOLS[a].kind > TOOLS[b].kind ? 1 : TOOLS[a].kind < TOOLS[b].kind ? -1 : TOOLS[b].power - TOOLS[a].power));
     const heldInfo = this.slotInfo(bar[r.hotSel], v);
     panel.replaceChildren(
-      h('div.inv-head', h('b', 'Inventory'), h('div.spacer'),
-        h('button.btn.sm', { title: 'Your pets and eggs (P)', onclick: () => openPets(this) }, 'Pets'),
-        h('button.btn.sm', { title: 'Daily chest, challenges and achievements (O)', onclick: () => openJournal(this) }, hasArt('items/token_crown') ? icon('items/token_crown', 16) : null, 'Journal'),
-        h('button.btn.sm', { title: 'Everything you have found (N)', onclick: () => openIndex(this) }, hasArt('ui/index') ? icon('ui/index', 16) : null, 'Index'),
-        h('button.btn.sm', { title: 'Every boss you have felled, your records and rematches (H)', onclick: () => openBossBook(this) }, 'Bosses'),
-        h('button.btn.sm.analyze-btn', { title: 'Analyze the item under your cursor (or what you hold). Tip: right-click a hotbar slot', onclick: () => this.analyzeKey(this._invHover || bar[r.hotSel]) }, 'Analyze'),
-        h('button.btn.sm', { title: 'Ores, metals and boss materials', onclick: () => openBackpack(this, 'mats') }, 'Materials'),
-        h('button.btn.sm', { title: 'Your gear, tools, items and stats (E)', onclick: () => openBackpack(this, 'gear') }, 'Gear'),
-        h('button.modal-x.inv-x', { title: 'Close (I)', onclick: () => { panel.hidden = true; } }, hasArt('ui/close') ? icon('ui/close', 16) : '✕')),
+      (() => {
+        // pictures, not a row of words: the name comes up when you rest on one, or hold it on a phone
+        const tab = (art, label, tip, onclick, cls = '') => {
+          const b = h(`button.btn.sm.inv-tab${cls}`, { title: tip, 'aria-label': label, onclick }, icon(art, 22), h('span.tab-name', label));
+          let held = null;
+          b.addEventListener('pointerdown', () => { held = setTimeout(() => { b.classList.add('naming'); held = null; }, 380); });
+          for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, () => { clearTimeout(held); held = null; setTimeout(() => b.classList.remove('naming'), 900); });
+          return b;
+        };
+        return h('div.inv-head', h('b', 'Inventory'), h('div.spacer'),
+          tab('pets/happy', 'Pets', 'Your pets and eggs (P)', () => openPets(this)),
+          tab(hasArt('items/token_crown') ? 'items/token_crown' : 'items/scroll', 'Journal', 'Daily chest, challenges and achievements (O)', () => openJournal(this)),
+          tab(hasArt('ui/index') ? 'ui/index' : 'items/scroll', 'Index', 'Everything you have found, and your Hall of Bosses (N)', () => openIndex(this)),
+          tab('ui/search', 'Analyze', 'Analyze the item under your cursor (or what you hold). Tip: right-click a hotbar slot', () => this.analyzeKey(this._invHover || bar[r.hotSel]), '.analyze-btn'),
+          tab('items/mat_star_shard', 'Materials', 'Ores, metals and boss materials', () => openBackpack(this, 'mats')),
+          tab('items/sword', 'Gear', 'Your gear, tools, items and stats (E)', () => openBackpack(this, 'gear')),
+          h('button.modal-x.inv-x', { title: 'Close (I)', onclick: () => { panel.hidden = true; } }, hasArt('ui/close') ? icon('ui/close', 16) : '✕'));
+      })(),
       (() => {
         // like Minecraft: what sits in your hotbar is not shown again in here
         const off = k => !bar.includes(k);
@@ -942,7 +953,7 @@ export class HUD {
         const size = Math.max(27, Math.ceil(filled.length / 9) * 9);   // a fixed grid of slots, like a chest
         return h('div.inv-cells', ...filled, ...Array.from({ length: size - filled.length }, () => h('div.inv-cell.empty')));
       })(),
-      h('div.faint.inv-hint', 'Click: to hotbar · drag a hotbar item here to put it back · right-click: drop'));
+    );
     void heldInfo;
   }
 
@@ -1314,10 +1325,18 @@ export class HUD {
     const potion = hold('hero-potion', 'potion', '', 'gear/health_potion', 26);
     this.els.potionCount = h('span.hero-potion-count', '0');
     potion.append(this.els.potionCount);
+    const lock = h('button.hero-lock', { title: 'Lock on to the nearest foe', 'aria-label': 'Lock on', onpointerdown: e => {
+      e.preventDefault();
+      const hg = this.dungeon || this.game;
+      const on = toggleLockOn(hg);
+      lock.classList.toggle('on', !!on);
+      this.hint(on ? `Locked on: ${(CREATURES[on.t]?.name || on.t.replace(/_/g, ' '))}` : 'Lock released', 1400);
+    } }, pxIcon('target', 26));
+    this.els.lockBtn = lock;
     const ability = h('button.hero-btn.hero-ability', { hidden: true, title: 'Weapon ability (F)', onpointerdown: e => { e.preventDefault(); useWeaponAbility(this.dungeon || this.game); } }, icon('effects/magic_orb', 22), h('span', 'SKILL'), h('i.ability-cd'));
     this.els.abilityBtn = ability;
     ability.hidden = !weaponAbility(rpgOf(this.dungeon || this.game).gear.weapon);   // set straight away, not a frame later
-    this.els.heroPad.replaceChildren(stick, act, dash, block, potion, ability);
+    this.els.heroPad.replaceChildren(stick, act, dash, block, potion, lock, ability);
   }
 
   /** Cancel / Done / Undo buttons while placing or demolishing: the on-screen right-click and Esc. */

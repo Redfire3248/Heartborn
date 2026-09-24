@@ -62,6 +62,7 @@ export const say = (v, text, delay = 0) => { v._say = { text, from: now() + dela
 
 /** Every so often, someone speaks up; a neighbour may answer. */
 export function updateTalk(g, dt) {
+  if (g.hero) return;   // your avatar is you: it has nothing to say to itself
   if (g.offline || g.visiting) return;
   g._talkT = (g._talkT || 0) + dt;
   if (g._talkT < 0.5) return;

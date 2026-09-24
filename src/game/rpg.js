@@ -8,7 +8,7 @@ import { on } from '../core/features.js';
 import { BOSS_MATERIAL, MATERIALS } from './forging.js';
 import { popResource, lucky, ORE_RESOURCE } from './loot.js';
 import { gameTheme } from './worldTypes.js';
-import { CREATURES } from '../data/objects.js';
+import { CREATURES, OBJECTS } from '../data/objects.js';
 import { dropPickup, chestsOf } from './treasure.js';
 
 /*
@@ -605,7 +605,10 @@ export function onHeroKill(g, c, v) {
       dropped = true;
     }
     void dropped;
-    const ores = gameTheme(g).ores || [];
+    // what it can be carrying is capped by how dangerous it is: a spider never drops titanium
+    const danger = (def.hp || 10) / 220 + (def.damage || 0) / 26;
+    const maxTier = boss ? 99 : c.elite ? Math.max(1, Math.round(danger * 2)) : Math.max(0, Math.round(danger * 1.6) - 1);
+    const ores = (gameTheme(g).ores || []).filter(k => (OBJECTS[k]?.tier || 0) <= maxTier);
     if (ores.length && lucky(g, boss ? 1 : c.elite ? (md.ore || 0) * 2 : md.ore || 0)) {
       const res = ORE_RESOURCE[ores[Math.floor(Math.random() * ores.length)]];
       const big = lucky(g, 0.03);

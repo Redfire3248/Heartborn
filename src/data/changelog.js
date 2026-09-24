@@ -1,6 +1,22 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Lock-on, no more auto-aim, and a tidy-up everywhere',
+    changes: [
+      'You can no longer pull the camera back until the island is a postage stamp. The world map (V) is what that is for',
+      'No more auto-aim on a computer: your swing goes where you are pointing, and nothing turns you for you',
+      'Lock-on, for thumbs: a button in the cluster grabs the nearest foe and keeps you facing it until it dies, runs or you let go',
+      'The bag header is pictures now instead of a row of words, with the name when you rest on one or hold it a moment. Same for the furniture tabs',
+      'The bag is properly sized: nine even columns of true squares that fit a phone on its side as well as a big screen',
+      'The Hall of Bosses lives inside the Index (N) now, as a tab, instead of having a button of its own',
+      'E opens your bag',
+      'The line of instructions under your bag is gone',
+      'Your own avatar no longer mutters villager lines to itself',
+      'The ring of quiet around home went from 16 tiles to 5: monsters can come to you now',
+      'Fixed: a spider could drop titanium. What a beast carries is capped by how dangerous it actually is',
+    ],
+  },
+  {
     title: 'Notices reach a closed phone, plain stat names, tidier hotbar',
     changes: [
       'The Web Push key is in, so a notice now reaches your phone with Heartborn completely closed, not only in the background',

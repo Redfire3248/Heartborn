@@ -6,6 +6,7 @@ import { PETS } from '../game/pets.js';
 import { h, icon, modal, rarityFrame, smallIcon, closeIfOpen } from './dom.js';
 import { OBJECTS, CREATURES } from '../data/objects.js';
 import { CATALOG, rpgOf, discover } from '../game/rpg.js';
+import { bossProgress } from '../game/bossIndex.js';
 import { TOOLS, toolsOf, toolRarity } from '../game/tools.js';
 import { MATERIALS, MATERIAL_KEYS } from '../game/forging.js';
 import { gearIconKey, hasArt } from '../render/gearArt.js';
@@ -60,7 +61,10 @@ export function openIndex(hud, tab = null) {
     });
     m.el.replaceChildren(m.closeBtn,
       h('div.index-head', hasArt('ui/index') ? icon('ui/index', 26) : null, h('h2', 'Index'), h('span.faint', `${found} / ${total} found`), h('div.index-bar', h('i', { style: { width: `${total ? (found / total) * 100 : 0}%` } }))),
-      h('div.tabs.index-tabs', ...counts.map(c => h(`button${c.s.id === cur.s.id ? '.on' : ''}`, { onclick: () => { hud._indexTab = c.s.id; render(); } }, smallIcon(c.s.tab, 16), `${c.s.name} ${c.found}/${c.all.length}`))),
+      h('div.tabs.index-tabs',
+        ...counts.map(c => h(`button${c.s.id === cur.s.id ? '.on' : ''}`, { onclick: () => { hud._indexTab = c.s.id; render(); } }, smallIcon(c.s.tab, 16), `${c.s.name} ${c.found}/${c.all.length}`)),
+        // the Hall of Bosses is part of the Index: the same book, its proudest pages
+        (() => { const p = bossProgress(g); return h('button.index-boss-tab', { onclick: async () => { m.close(); (await import('./bossBook.js')).openBossBook(hud); } }, smallIcon('ui/tab_mob', 16), `Bosses ${p.found}/${p.total}`); })()),
       h('div.index-grid', ...cells));
   };
   render();

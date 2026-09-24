@@ -209,9 +209,10 @@ function attack(g, v, st) {
   h.sinceAttack = 0;
   h.atkCd = Math.max(swingTime, w.speed / Math.max(0.6, st.speed));   // let the swing finish before the next
   h.swing = 0.22;
-  // aim: where you are going, or straight at the closest foe when you stand still
-  const target = nearFoe || nearPerson || nearPlayer;
-  if (target && (!h._movedAt || g.state.time - h._movedAt > 0.15 || angleDiff(h.facing, Math.atan2(target.y - v.y, target.x - v.x)) < 1.2)) h.facing = Math.atan2(target.y - v.y, target.x - v.x);
+  // a lock turns you at whatever you locked; otherwise you swing where you are pointing and nothing helps you
+  const locked = g.lockOn && g.state.creatures.includes(g.lockOn) ? g.lockOn : null;
+  if (locked) h.facing = Math.atan2(locked.y - v.y, locked.x - v.x);
+  const target = locked || nearFoe || nearPerson || nearPlayer;
   const promised = (h.promiseCrit || 0) > g.state.time;   // an Iaido dash leaves the next cut waiting
   const crit = promised || Math.random() < st.crit;
   h.atkAnim = { t: 0, dur: swingTime };

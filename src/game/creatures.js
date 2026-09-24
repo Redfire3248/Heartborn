@@ -478,6 +478,29 @@ export function updateEnemyShots(g, dt) {
   g.enemyShots = g.enemyShots.filter(s => s.left > 0);
 }
 
+/** Locks on to the closest hostile in front of you, or lets go of the one you have. Returns the new lock. */
+export function toggleLockOn(g) {
+  const v = g.state.villagers.find(x => x.id === g.hero?.id);
+  if (!v) return null;
+  if (g.lockOn) { g.lockOn = null; return null; }
+  let best = null, bd = TILE * 11;
+  for (const c of g.state.creatures) {
+    if (!CREATURES[c.t]?.hostile || (c.hp ?? 1) <= 0) continue;   // a fresh beast has hp null until it is hit
+    const d = Math.hypot(c.x - v.x, c.y - v.y);
+    if (d < bd) { bd = d; best = c; }
+  }
+  g.lockOn = best;
+  return best;
+}
+
+/** Drops the lock when what you locked dies, wanders off or you leave the world it was in. */
+export function updateLockOn(g) {
+  const c = g.lockOn;
+  if (!c) return;
+  const v = g.state.villagers.find(x => x.id === g.hero?.id);
+  if (!v || !g.state.creatures.includes(c) || (c.hp ?? 1) <= 0 || Math.hypot(c.x - v.x, c.y - v.y) > TILE * 16) g.lockOn = null;
+}
+
 export function damageCreature(g, c, dmg, by) {
   const def = CREATURES[c.t];
   if (c._brand && c._brand.until > g.state.time) dmg *= c._brand.mult;   // marked: everything hurts it more

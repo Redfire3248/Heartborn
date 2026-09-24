@@ -2536,3 +2536,51 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
   .boss-modal, .index-modal, .backpack-modal { max-height: 94vh; }
   .boss-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
 }
+
+/* ------------------------------------------------------------------ pictures instead of rows of words
+   The bag header and the furniture tabs used to be a wall of labels. They are pictures now; the name comes up
+   when you rest on one with a mouse, or hold it for a moment on a phone. */
+.inv-tab, .house-tab.icon-tab { position: relative; display: inline-flex; align-items: center; justify-content: center; padding: 5px 8px; }
+.inv-tab img, .house-tab.icon-tab img { image-rendering: pixelated; }
+.inv-tab .tab-name, .house-tab.icon-tab .tab-name {
+  position: absolute; left: 50%; top: calc(100% + 6px); transform: translateX(-50%);
+  padding: 2px 8px; border-radius: 7px; background: rgba(12,8,22,.96); border: 1px solid rgba(255,215,106,.35);
+  font-size: 11px; font-weight: 600; white-space: nowrap; color: var(--text);
+  opacity: 0; pointer-events: none; transition: opacity .1s ease .35s; z-index: 30;
+}
+.inv-tab:hover .tab-name, .house-tab.icon-tab:hover .tab-name,
+.inv-tab.naming .tab-name, .house-tab.icon-tab.naming .tab-name { opacity: 1; }
+.house-tab.icon-tab.active .tab-name { opacity: 1; transition-delay: 0s; }
+.house-tabs { flex-wrap: nowrap; }
+
+/* the lock-on button, in the thumb cluster with the rest */
+.hero-lock { position: fixed; z-index: 14; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
+  border: 2px solid rgba(255,140,120,.8); background: radial-gradient(circle at 34% 28%, #7a3a30, #2a1210);
+  right: calc(104px + env(safe-area-inset-right)); bottom: calc(var(--ui-floor, 130px) + 170px); touch-action: none;
+  box-shadow: 0 5px 14px rgba(0,0,0,.5), inset 0 -4px 10px rgba(0,0,0,.35); --glow: rgba(255,110,90,.7); }
+.hero-lock.on { border-color: #ff5a4a; background: radial-gradient(circle at 34% 28%, #d8483a, #5a120c); box-shadow: 0 0 20px rgba(255,90,70,.8); }
+.hero-lock .px-icon { width: 26px; height: 26px; }
+@media (max-height: 560px) and (pointer: coarse), (max-height: 560px) and (max-width: 1100px) {
+  .hero-lock { right: calc(148px + env(safe-area-inset-right)); bottom: calc(66px + env(safe-area-inset-bottom)); width: 46px; height: 46px; }
+}
+
+/* ------------------------------------------------------------------ the bag, properly sized
+   Nine columns that share the room evenly, every slot a true square, and the whole panel bounded so it never
+   runs off a small screen or leaves a wide empty margin on a big one. */
+.inv-panel { width: min(520px, calc(100vw - 20px)); max-height: min(78vh, 560px); overflow: auto; margin: 0 auto; }
+.inv-cells { display: grid !important; grid-template-columns: repeat(9, minmax(0, 1fr)) !important; gap: 5px !important; justify-content: stretch !important; max-height: none; overflow: visible; }
+.inv-cells > * { width: auto !important; height: auto !important; aspect-ratio: 1 !important; min-width: 0; }
+.inv-cells img { max-width: 76%; max-height: 76%; width: auto; height: auto; }
+.inv-head { gap: 5px; }
+@media (max-width: 560px) {
+  .inv-panel { width: calc(100vw - 16px); padding: 8px; }
+  .inv-cells { gap: 4px !important; }
+}
+/* on a phone held sideways there is very little height: fewer, smaller rows and the bag scrolls */
+@media (max-height: 560px) and (pointer: coarse), (max-height: 560px) and (max-width: 1100px) {
+  .inv-panel { width: min(560px, calc(100vw - 24px)); max-height: 82vh; padding: 7px; }
+  .inv-cells { gap: 3px !important; }
+  .inv-head { font-size: 12px; }
+  .inv-tab { padding: 3px 6px; }
+  .inv-tab img { width: 18px; height: 18px; }
+}
