@@ -981,7 +981,7 @@ export class HUD {
           h('div.char-stats',
             h('div.stat-chips', chip('Health', st.maxHp), chip('Stamina', st.maxStamina), chip('Damage', `x${st.dmgMult.toFixed(2)}`), chip('Crit', `${Math.round(st.crit * 100)}%`), chip('Armour', `${Math.round(st.armor * 100)}%`), chip('Speed', `x${st.speed.toFixed(2)}`)),
             h('div.attr-head', h('span', 'Attributes'), r.points ? h('span.points-badge', `${r.points} point${r.points === 1 ? '' : 's'}`) : ''),
-            attr('might', 'Might', '+8% damage'), attr('vigor', 'Vigor', '+12 health'), attr('agility', 'Agility', 'stamina, speed, crits'))),
+            attr('might', 'Damage', '+8% damage'), attr('vigor', 'Health', '+12 health'), attr('agility', 'Speed', 'stamina, speed, crits'))),
         this._showLook ? h('div.avatar-grid', AVATARS.map(a => h(`button.avatar-opt${avatarId(g) === a.id ? '.on' : ''}`, {
           title: a.name, dataset: { avatar: a.id },
           onclick: () => { setLook(g, a.id); this._showLook = false; render(); },

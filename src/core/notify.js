@@ -6,9 +6,9 @@
  * world, somebody joining yours, a trade waiting, or a new version being out. While you are actually playing it
  * stays quiet — everything already shows on screen.
  *
- * These are notices the game raises itself; they arrive whenever the app is running, including in the background
- * on a phone that has it installed. Notices sent while the app is fully closed need a push server; when one is set
- * up (see PUSH below) this file hands it the key, and until then everything here still works.
+ * There are two halves to this. The notices below are raised by the game itself and arrive whenever the app is
+ * running, including in the background on a phone that has it installed. For a phone with Heartborn fully closed
+ * there is Web Push: registerForPush() hands the device to Firebase, and functions/index.js sends to it.
  */
 
 const OFF_KEY = 'hb-notices-off';
@@ -76,13 +76,9 @@ export const noticeUpdate = version => sendNotice({ title: 'Heartborn updated', 
 /*
  * PUSH, for notices while the app is fully closed.
  * ------------------------------------------------
- * Everything above needs the app to be running (in the background counts). To reach a phone with the app closed,
- * Heartborn needs a Web Push key pair and something to send with it:
- *   1. Firebase console -> Project settings -> Cloud Messaging -> Web Push certificates -> Generate key pair.
- *   2. Put the public key in src/net/config.js as `vapidKey`.
- *   3. Add a Cloud Function that sends to the tokens saved under `pushTokens/<uid>`.
- * With those in place this registers the device and keeps its token fresh; without them it does nothing and the
- * notices above carry on working.
+ * This saves the device under pushTokens/<uid> so functions/index.js can reach it. The public Web Push key lives
+ * in net/config.js as `vapidKey`; with no key, or on a browser without Web Push, it quietly does nothing and every
+ * notice above carries on working. Called once when notices are switched on and again whenever you start playing.
  */
 export async function registerForPush(uid) {
   if (!uid || !noticesAllowed()) return null;
@@ -90,13 +86,15 @@ export async function registerForPush(uid) {
   try { cfg = (await import('../net/config.js')).firebaseConfig; } catch { return null; }
   if (!cfg?.vapidKey) return null;   // no key set up yet: nothing to register with
   try {
-    const { getMessaging, getToken } = await import('firebase/messaging');
-    const { app } = await import('../net/firebase.js');
+    const { getMessaging, getToken, isSupported } = await import('firebase/messaging');
+    if (!(await isSupported())) return null;   // iOS Safari before 16.4, and a few others
+    const { app, rtdb } = await import('../net/firebase.js');
     const reg = await navigator.serviceWorker.getRegistration();
     const token = await getToken(getMessaging(app), { vapidKey: cfg.vapidKey, serviceWorkerRegistration: reg });
     if (!token) return null;
-    const { getDatabase, ref, set } = await import('firebase/database');
-    await set(ref(getDatabase(app), `pushTokens/${uid}/${token.slice(0, 40)}`), { token, at: Date.now() });
+    const { ref, set } = await import('firebase/database');
+    // the id is a short, stable stub of the token, so re-opening the game updates this device instead of adding one
+    await set(ref(rtdb, `pushTokens/${uid}/${token.replace(/[.#$/[\]]/g, '').slice(0, 40)}`), { token, at: Date.now() });
     return token;
   } catch { return null; }
 }

@@ -46,7 +46,7 @@ self.addEventListener('notificationclick', e => {
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'Heartborn', body: e.data ? e.data.text() : '' }; }
-  const n = d.notification || d;
+  const n = d.notification || d.data || d;   // Heartborn sends data-only, so the browser never draws a second copy
   e.waitUntil(self.registration.showNotification(n.title || 'Heartborn', {
     body: n.body || '',
     tag: n.tag || 'heartborn',

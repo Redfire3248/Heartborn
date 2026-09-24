@@ -106,9 +106,9 @@ export function openBackpack(hud, tab = null) {
       () => [tipHead(label, null, color), h('div', tip), h('div.faint', `Now: ${value}`)]);
 
       const STAT_TIP = {
-        might: ['Might', 'Every point: +8% damage on everything you swing, shoot or cast.'],
-        vigor: ['Vigor', 'Every point: +12 health. The plainest way to survive a deep floor.'],
-        agility: ['Agility', 'Every point: +8 stamina, a little speed and +1.2% critical hits.'],
+        might: ['Damage', 'Every point: +8% damage on everything you swing, shoot or cast.'],
+        vigor: ['Health', 'Every point: +12 health. The plainest way to survive a deep floor.'],
+        agility: ['Speed', 'Every point: +8 stamina, a little more speed and +1.2% critical hits.'],
       };
       const attr = (id) => {
         const [name, tip] = STAT_TIP[id];

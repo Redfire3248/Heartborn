@@ -1,6 +1,17 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Notices reach a closed phone, plain stat names, tidier hotbar',
+    changes: [
+      'The Web Push key is in, so a notice now reaches your phone with Heartborn completely closed, not only in the background',
+      'Turn notices on in Settings and the device registers itself; the game sends for invites, trade offers and announcements',
+      'Notices are sent data-only, so you never get the same one drawn twice',
+      'A device that has been uninstalled or cleared is dropped from the list on the first failed send',
+      'Training reads in plain words now: Damage, Health and Speed instead of Might, Vigor and Agility',
+      'The name of what you hold sits in a proper pill above the hotbar instead of straddling its edge, and disappears when your hand is empty',
+    ],
+  },
+  {
     title: 'Phones on their side actually work, icon buttons, and notices',
     changes: [
       'Fixed, and this was the big one: the whole phone layout was written for tall screens only. Turn a phone sideways and the menu row shrank to a box in the middle of the world, the hotbar landed across the joystick, and on some phones the stick and Attack button did not appear at all',

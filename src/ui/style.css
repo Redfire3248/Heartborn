@@ -1227,7 +1227,8 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .hot-bag { margin-left: 4px; border-style: dashed; }
 .hot-num { position: absolute; top: 1px; left: 3px; font-size: 9px; opacity: .7; }
 .hot-count { position: absolute; bottom: 0; right: 3px; font-size: 11px; font-weight: 700; text-shadow: 0 1px 2px #000; }
-.hot-name { font-size: 12px; font-weight: 700; color: var(--gold); text-shadow: 0 1px 3px #000; min-height: 15px; }
+.hot-name { align-self: center; margin-bottom: 2px; padding: 2px 12px; border-radius: 999px; background: rgba(16,12,24,.9); border: 1px solid rgba(255,215,106,.35); box-shadow: 0 3px 10px rgba(0,0,0,.45); font-size: 12px; font-weight: 700; color: var(--gold); text-shadow: 0 1px 2px #000; line-height: 1.35; white-space: nowrap; max-width: 90vw; overflow: hidden; text-overflow: ellipsis; }
+.hot-name:empty { display: none; }   /* nothing held: no empty pill hanging over the bar */
 .inv-panel { width: min(560px, calc(100vw - 16px)); padding: 10px; display: flex; flex-direction: column; gap: 8px; background: rgba(20, 15, 30, .96); }
 .inv-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
 .inv-cells { display: flex; flex-wrap: wrap; gap: 4px; max-height: 40vh; overflow: auto; }
@@ -1735,7 +1736,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
   .hot-slot, .hot-bag { width: 34px; height: 34px; }
   .hot-slot img, .hot-bag img { width: 22px; height: 22px; }
   .hotbar { gap: 2px; padding: 3px; }
-  .hot-name { font-size: 11px; min-height: 13px; }
+  .hot-name { font-size: 11px; }
   .inv-cell { width: 38px; height: 38px; }
 
   /* stick bottom left, action buttons bottom right */
@@ -2444,7 +2445,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
   .hero-ability span { font-size: 9px; }
 
   /* the name of what you hold belongs on the hotbar, not floating in the sky */
-  .hot-name { align-self: center; padding: 1px 10px; border-radius: 999px; background: rgba(10,7,18,.7); font-size: 11px; }
+  .hot-name { font-size: 11px; padding: 1px 10px; }
 }
 
 /* landscape on a phone: everything is shorter, so the arc tightens and sits on the floor */
@@ -2520,7 +2521,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
   .hotbar-wrap { left: 50% !important; right: auto !important; transform: translateX(-50%) !important; width: auto !important; max-width: 62vw; bottom: calc(4px + env(safe-area-inset-bottom)) !important; align-items: center !important; }
   .hotbar { justify-content: center; gap: 3px; padding: 3px; }
   .hot-slot { width: 38px !important; height: 38px !important; }
-  .hot-name { font-size: 10px; min-height: 12px; padding: 0 8px; }
+  .hot-name { font-size: 10px; padding: 1px 8px; }
 
   /* your hearts up in the corner, chat under them, nothing in the middle */
   .vitals-strip { top: calc(env(safe-area-inset-top) + 4px) !important; left: 8px !important; bottom: auto !important; transform: none !important; align-items: flex-start !important; }

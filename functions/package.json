@@ -1,0 +1,12 @@
+{
+  "name": "heartborn-functions",
+  "description": "Push notices for Heartborn: invites, trades and announcements reach a phone with the app closed.",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "20" },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.1.0"
+  }
+}

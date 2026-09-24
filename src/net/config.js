@@ -8,6 +8,9 @@ export const firebaseConfig = {
   storageBucket: 'hearthborn-47548.firebasestorage.app',
   messagingSenderId: '613166713233',
   appId: '1:613166713233:web:f7cbe2cc4f37e429c27230',
+  // Web Push public key (Project settings -> Cloud Messaging -> Web Push certificates).
+  // Public by design: it only lets this site ask a browser for a push subscription.
+  vapidKey: 'BITbLEj1XRpkM6tx1khvXx0CrsGfCCNPb_er4CqTKzvPW_zW8SnI-fT83NmMQ9inVYQrIzGH6-Dn8PlU4-BvK0E',
 };
 
 // Admins are not listed in code. Add an account's UID in the Firebase console:
