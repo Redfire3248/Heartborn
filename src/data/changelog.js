@@ -1,6 +1,17 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'A stick that does not let go, a small sideways layout, and an admin panel for thumbs',
+    changes: [
+      'Fixed the big one: the stick let go the moment your thumb wandered outside the circle. It now follows your thumb anywhere on the screen until you actually lift off, and the smallest lean already walks you',
+      'The whole lower-left of the screen is the stick: put a thumb down anywhere there and it comes to you. No more hunting for a circle in the corner',
+      'A phone on its side is much smaller now: the resource bar is 24 pixels tall instead of 54, the menu icons 34 instead of 48, and the hearts, map, hotbar and buttons all shrank to match. Nothing overlaps anything, in either direction',
+      'Admins on a phone get a button, and it opens an admin panel made for tapping rather than typing: every command is a card, every list is a Select button with a grid of pictures to tap (creatures, bosses, races, ores, gear, players, with * for all), and numbers are steppers',
+      'Nine one-tap buttons up top for the things you want most: god mode, full health, clear the area, midday, midnight, fill the Hall, fill the Index, potions, stones',
+      'The panel builds the same command the console would and hands it over, so the two can never drift apart, and it shows you what ran and whether it worked',
+    ],
+  },
+  {
     title: 'Held gear sits in your hands, a phone on its side is tidy, and you can drop anything',
     changes: [
       'Fixed: your sword and shield were placed for the old artwork, so on a chosen character the blade floated past the shoulder and the shield hung at the hip. Hands are now measured up from the feet, and both sit where the hands are',

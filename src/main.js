@@ -234,6 +234,7 @@ function startGame(user, game, { online = true } = {}) {
     if (status !== 'admin' || app.hud !== hud) return;
     hud.isAdmin = true;
     app.console = new AdminConsole({ game, mp: app.mp, user, hud });
+    window.__hbConsole = app.console;   // the admin button on a phone reaches it through here
   });
   if (app.mp) {
     app.mp.on('reset', () => { clearLocalSave(user.uid); restart(); });

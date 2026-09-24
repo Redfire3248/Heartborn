@@ -309,6 +309,11 @@ export class HUD {
     this.els.vitals = h('div.vitals-strip', { hidden: true });
     this.els.streak = h('div.streak-chip', { hidden: true }, h('b.streak-n'), h('span.streak-name'), h('i.streak-bar'));
     this.root.append(this.els.streak);
+    // there is no F2 on a phone, so admins get a button. Nobody else ever sees it.
+    if (this.isAdmin) {
+      this.els.adminBtn = h('button.admin-btn', { title: 'Admin panel', 'aria-label': 'Admin panel', onclick: async () => { const M = await import('./adminPanel.js'); M.openAdminPanel(this, window.__hbConsole); } }, pxIcon('gear', 20));
+      this.root.append(this.els.adminBtn);
+    }
     this.els.skillChip = h('div.skill-chip', { hidden: true });
     this.root.append(this.els.heroBar, this.els.heroPad, this.els.vitals, this.els.skillChip, h('div.hotbar-wrap', this.els.invPanel, this.els.hotName, this.els.hotbar));   // the strip stands on its own: inside the hotbar it was trapped by its transform
     watchLayout();
@@ -1294,23 +1299,64 @@ export class HUD {
     const t = this.leadInput;
     const knob = h('div.hero-knob');
     const stick = h('div.hero-stick', knob);
-    let id = null;
+    /*
+     * The stick. Two things used to make it feel broken: a thumb that wandered outside the circle fired
+     * pointerleave and stopped you dead, and the stick only answered where it was drawn. Now the whole lower-left
+     * of the screen is the stick — put your thumb down anywhere there and it moves under it — and once it has your
+     * thumb it follows it across the entire window until you actually lift off.
+     */
+    let id = null, cx = 0, cy = 0;
+    const RADIUS = () => (stick.getBoundingClientRect().width || 118) / 2;
     const move = e => {
-      const r = stick.getBoundingClientRect();
-      let dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2), dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+      const r = RADIUS();
+      let dx = (e.clientX - cx) / r, dy = (e.clientY - cy) / r;
       const len = Math.hypot(dx, dy);
       if (len > 1) { dx /= len; dy /= len; }
-      t.mx = Math.abs(dx) > 0.15 ? dx : 0; t.my = Math.abs(dy) > 0.15 ? dy : 0;
-      knob.style.transform = `translate(${dx * 34}px, ${dy * 34}px)`;
+      t.mx = Math.abs(dx) > 0.08 ? dx : 0; t.my = Math.abs(dy) > 0.08 ? dy : 0;   // a small lean already walks you
+      knob.style.transform = `translate(${dx * r * 0.55}px, ${dy * r * 0.55}px)`;
     };
-    // letting go must always stop you: a lost touch used to leave you walking on your own
-    const end = () => { id = null; t.mx = 0; t.my = 0; knob.style.transform = ''; };
-    stick.addEventListener('pointerdown', e => { e.preventDefault(); id = e.pointerId; try { stick.setPointerCapture?.(id); } catch {} move(e); });   // capture can refuse: the stick must still work
-    stick.addEventListener('pointermove', e => { if (e.pointerId === id) move(e); });
-    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture', 'pointerleave']) stick.addEventListener(ev, end);
+    const end = () => {
+      if (id == null) return;
+      id = null;
+      t.mx = 0; t.my = 0;
+      knob.style.transform = '';
+      stick.classList.remove('grabbed');
+      stick.style.left = ''; stick.style.top = ''; stick.style.bottom = '';
+    };
+    const start = (e, moveTo) => {
+      id = e.pointerId;
+      if (moveTo) {   // the stick comes to your thumb rather than making you find it
+        const r = RADIUS();
+        cx = Math.max(r + 4, Math.min(window.innerWidth - r - 4, e.clientX));
+        cy = Math.max(r + 4, Math.min(window.innerHeight - r - 4, e.clientY));
+        stick.style.left = `${cx - r}px`;
+        stick.style.top = `${cy - r}px`;
+        stick.style.bottom = 'auto';
+      } else {
+        const b = stick.getBoundingClientRect();
+        cx = b.left + b.width / 2; cy = b.top + b.height / 2;
+      }
+      stick.classList.add('grabbed');
+      try { stick.setPointerCapture?.(id); } catch { /* capture can refuse; the window listeners cover it */ }
+      move(e);
+    };
+    stick.addEventListener('pointerdown', e => { e.preventDefault(); start(e, false); });
+    // once it has your thumb it follows it anywhere, and only a real lift-off lets go
+    window.addEventListener('pointermove', e => { if (e.pointerId === id) { e.preventDefault(); move(e); } }, { passive: false });
+    for (const ev of ['pointerup', 'pointercancel']) window.addEventListener(ev, e => { if (e.pointerId === id) end(); });
+    // the whole lower-left quarter is the stick, so your thumb never has to hunt for it
+    if (!this._stickZone) {
+      this._stickZone = h('div.stick-zone');
+      this._stickZone.addEventListener('pointerdown', e => {
+        if (id != null || this.els.heroPad?.hidden) return;
+        e.preventDefault();
+        start(e, true);
+      });
+      this.root.append(this._stickZone);
+    }
     if (!this._stickGuards) {   // and if the window loses the touch altogether
       this._stickGuards = true;
-      for (const ev of ['pointerup', 'pointercancel', 'blur']) window.addEventListener(ev, () => { if (id != null) end(); });
+      window.addEventListener('blur', () => end());
       document.addEventListener('visibilitychange', () => { if (document.hidden) { end(); Object.assign(t, { act: false, dash: false, block: false, potion: false }); } });
     }
     const hold = (cls, key, label, iconKey, size, title = null) => {
