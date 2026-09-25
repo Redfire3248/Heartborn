@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'A title bar you can grab, and a radar with a hard edge',
+    changes: [
+      'The Admin window has a real title bar across its top: who you are on the left, and the whole strip is the handle, so it can be picked up anywhere along it with a finger or a mouse',
+      'The radar is crisp again: the soft dark halo around it is gone, and the land inside it is drawn pixel by pixel instead of smeared',
+      'The Admin tabs are ready for drawn icons: the moment the art is in, the glyphs are replaced by it',
+    ],
+  },
+  {
     title: 'Two people, thirteen versions of them, and an Admin window in ember glass',
     changes: [
       'There are two characters in the game, and a race is a version of one of them: the zombie you is the human you, dead; the archangel you is the same person with wings. Your person never changes when your race does',

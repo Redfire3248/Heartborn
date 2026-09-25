@@ -4073,7 +4073,7 @@ export class HUD {
     ctx.setTransform(s, 0, 0, s, W / 2 - cx * s, W / 2 - cy * s);
     const terrain = this.renderer.terrain;
     const overview = terrain?.world === g.world && terrain.version === g.world.version ? terrain.overview : null;
-    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingEnabled = false;   // the radar stays pixel-crisp: no smeared land, no soft edge
     const base = overview?.width ? overview : this.miniBase;
     if (base?.width && base?.height) ctx.drawImage(base, 0, 0, g.world.w, g.world.h);
     const near = (x, y, r = R + 2) => Math.abs(x - cx) < r && Math.abs(y - cy) < r;

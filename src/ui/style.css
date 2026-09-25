@@ -583,7 +583,7 @@ ul.effects li.warn { color: #ffb4a8; }
 
 /* minimap + toasts */
 .minimap { border-radius: 14px; }
-.minimap canvas { image-rendering: auto; border-radius: 9px; }
+.minimap canvas { image-rendering: pixelated; border-radius: 9px; }
 .toast { background: rgba(22, 15, 32, .82); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-radius: 9px; }
 
 @media (max-width: 760px) and (min-height: 521px) {
@@ -2043,7 +2043,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 
 /* round radar minimap */
 .minimap { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
-.minimap canvas { border-radius: 50% !important; box-shadow: 0 4px 16px rgba(0,0,0,.5); }
+.minimap canvas { border-radius: 50% !important; box-shadow: none; image-rendering: pixelated; }
 /* the land map */
 .island-map-modal { width: min(1100px, 96vw) !important; max-height: 94vh; display: flex; flex-direction: column; gap: 8px; }
 .island-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -3100,3 +3100,27 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .ap-doc-row, .ap-log-row { border-radius: 11px; background: rgba(255,255,255,.04); }
 .ap-cell { border-radius: 13px; }
 @media (max-width: 720px), (max-height: 560px) { .ap-cards { grid-template-columns: 1fr; } }
+
+/* ------------------------------------------------------------------ Admin: a real title bar
+   The sidebar avatar was the only drag handle, which is a small target and left the top of the window
+   looking unfinished. There is a proper bar across the whole top now: grab it anywhere. */
+.ap-frame { display: flex; flex-direction: column; height: min(560px, 86vh); }
+.ap-frame > .ap-window { flex: 1; min-height: 0; height: auto; }
+.ap-bar {
+  display: flex; align-items: center; gap: 9px; flex: none;
+  padding: 8px 46px 8px 12px;
+  background: linear-gradient(180deg, rgba(255,150,90,.16), rgba(255,150,90,.04));
+  border-bottom: 1px solid rgba(255,150,90,.22);
+  cursor: grab; user-select: none; touch-action: none;
+}
+.ap-bar:active { cursor: grabbing; }
+.ap-bar-who { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.ap-bar-who b { font-size: 13px; color: #ffe6d2; }
+.ap-bar-hint { font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: rgba(255,230,210,.45); }
+.admin-panel > .modal-x { top: 6px; right: 8px; }
+.ap-side { padding-top: 10px; }
+@media (max-width: 720px), (max-height: 560px) {
+  .ap-frame { height: min(500px, 88vh); }
+  .ap-side { padding-right: 8px; }
+  .ap-bar-hint { display: none; }
+}

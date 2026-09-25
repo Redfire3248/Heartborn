@@ -589,6 +589,14 @@ window.SHEETS = {
     folder: "boats2", mode: "sprite", cols: 4,
     names: ["rowboat", "skiff", "longboat", "sloop", "galley", "raft", "cog", "cutter"]
   },
+  adminicons: {
+    title: "Admin panel tab icons, 8 in 2 rows",
+    folder: "ui", mode: "sprite", cols: 8,
+    names: [
+      "ap_home", "ap_players", "ap_spawn", "ap_items", "ap_character", "ap_world", "ap_troll", "ap_doctor",
+      "ap_logs", "ap_select", "ap_run", "ap_search", "ap_close", "ap_god", "ap_heal", "ap_console"
+    ]
+  },
   races: {
     title: "Race characters, 6 in 4 rows",
     folder: "races", mode: "sprite", cols: 6,

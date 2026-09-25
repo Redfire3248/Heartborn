@@ -17,6 +17,12 @@ import { CREATURES } from '../data/objects.js';
 import { spriteAvailable } from '../core/assets.js';
 import { pxIcon } from './pixelIcons.js';
 
+/*
+ * A tab's picture: the drawn sheet icon once it is in, the built-in glyph until then, so the panel is never
+ * missing an icon while the art is being made.
+ */
+const navIcon = (key, glyph) => (spriteAvailable(`ui/ap_${key}`) ? icon(`ui/ap_${key}`, 16) : pxIcon(glyph, 16));
+
 const nice = k => String(k).replace(/_/g, ' ').replace(/(^|\s)\w/g, m => m.toUpperCase());
 
 // ------------------------------------------------------------------ the lists you can pick from
@@ -369,7 +375,7 @@ export function openAdminPanel(hud, adminConsole) {
 
   const render = (keepSearch = false) => {
     nav.replaceChildren(...Object.entries(PAGES).map(([key, p]) => h(`button.ap-nav-item${page === key ? '.on' : ''}`,
-      { onclick: () => { page = key; play('click'); render(); } }, pxIcon(p.icon, 16), h('span', p.name))));
+      { onclick: () => { page = key; play('click'); render(); } }, navIcon(key, p.icon), h('span', p.name))));
     const content = page === 'home' ? homePage()
       : page === 'players' ? playersPage()
         : page === 'troll' ? trollPage()
@@ -381,11 +387,14 @@ export function openAdminPanel(hud, adminConsole) {
     if (!keepSearch) navSearch.value = '';
   };
 
-  const side = h('div.ap-side',
-    h('div.ap-me', avatar(hud.username || 'Admin', 34),
-      h('div', h('b', hud.username || 'Admin'), h('div.ap-rank', 'Admin'))),
-    navSearch, nav);
-  const m = modal([h('div.ap-window', side, body)], { cls: 'admin-panel', closeX: true });
+  // a real title bar across the whole top: something to grab, and a finished edge above the sidebar
+  const bar = h('div.ap-bar',
+    avatar(hud.username || 'Admin', 26),
+    h('div.ap-bar-who', h('b', hud.username || 'Admin'), h('span.ap-rank', 'Admin')),
+    h('div.spacer'),
+    h('span.ap-bar-hint', 'Drag me'));
+  const side = h('div.ap-side', navSearch, nav);
+  const m = modal([h('div.ap-frame', bar, h('div.ap-window', side, body))], { cls: 'admin-panel', closeX: true });
   render();
 
   /*
@@ -393,7 +402,7 @@ export function openAdminPanel(hud, adminConsole) {
    * with a finger or a mouse. Where you leave it is where it opens next time.
    */
   m.el.closest('.modal-bg')?.classList.add('no-dim');
-  const head = m.el.querySelector('.ap-me');
+  const head = m.el.querySelector('.ap-bar');
   head.style.touchAction = 'none';
   const place = (x, y) => {
     const b = m.el.getBoundingClientRect();
