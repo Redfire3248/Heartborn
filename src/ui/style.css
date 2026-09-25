@@ -3136,3 +3136,74 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 /* buttons in the Admin window carry their drawn icon beside the word, not instead of it */
 .admin-panel .btn .px-icon, .admin-panel .btn img { vertical-align: -2px; margin-right: 5px; image-rendering: pixelated; }
 .admin-panel .ap-nav-item img { image-rendering: pixelated; flex: none; }
+
+/* ------------------------------------------------------------------ sideways, settled
+   Everything above this line about short screens was layered on over many passes, each one adjusting the last,
+   and the result drifted: a 24px resource bar beside a 34px menu bar, a menu bar with a hand's width of empty
+   space at its end and not centred on anything, the hotbar two pixels off the bottom edge, and the lock button
+   floating on its own in the middle of the right side. This is the one arrangement for a phone on its side, stated
+   once, with the id in every selector so nothing earlier can pull it apart.
+
+   Top row, one height (36px), one top edge: resources on the left, the menu icons centred on the screen, the radar
+   on the right. Bottom row, one floor (6px): stick left, hotbar centred, fighting buttons right, and the hearts
+   centred just above the hotbar. A layout the player has made in Move controls still wins over all of it. */
+@media (max-height: 560px) {
+  :root { --side-top: calc(env(safe-area-inset-top) + 4px); --side-floor: calc(env(safe-area-inset-bottom) + 6px); --side-bar: 46px; }
+
+  #ui .topbar {
+    top: var(--side-top) !important; left: calc(env(safe-area-inset-left) + 8px) !important; right: auto !important;
+    transform: none !important; height: var(--side-bar) !important; max-width: 30vw !important;
+    padding: 0 !important; gap: 0 !important; align-items: stretch !important;
+  }
+  /* two rows, filling column by column, so every material shows at once: nine of them used to wrap into three
+     rows inside a one-row bar and six were simply cut off. If there are ever more than fit, it scrolls sideways
+     rather than clipping. */
+  #ui .topbar > .card:first-child {
+    height: 100%; box-sizing: border-box; display: grid !important;
+    grid-auto-flow: column !important; grid-template-rows: repeat(2, 18px) !important; grid-template-columns: none !important;
+    grid-auto-columns: max-content !important; align-content: center !important; justify-content: start !important;
+    column-gap: 10px !important; row-gap: 3px !important; padding: 0 10px !important; flex-wrap: nowrap !important;
+    border-radius: 11px !important; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  }
+  #ui .topbar > .card:first-child::-webkit-scrollbar { display: none; }
+  #ui .topbar .res { display: flex !important; align-items: center !important; gap: 3px !important; min-width: 0 !important; width: auto !important; height: 18px; }
+  #ui .topbar .res img, #ui .topbar .res .px-icon { width: 16px !important; height: 16px !important; }
+  #ui .topbar .res > div { font-size: 11.5px !important; line-height: 1 !important; white-space: nowrap; }
+  #ui .topbar { max-width: calc(50vw - 128px) !important; }
+
+  #ui .dock {
+    top: var(--side-top) !important; bottom: auto !important; left: 50% !important; right: auto !important;
+    transform: translateX(-50%) !important; width: auto !important; height: var(--side-bar) !important;
+    box-sizing: border-box; padding: 3px !important; gap: 3px !important; border-radius: 11px !important;
+    flex-direction: row !important; justify-content: center !important; align-items: center !important; overflow: visible !important;
+  }
+  #ui .dock button { width: 40px !important; height: 38px !important; flex: none !important; padding: 0 !important; border-radius: 9px !important; }
+  #ui .dock button img, #ui .dock button .px-icon { width: 24px !important; height: 24px !important; }
+
+  #ui .minimap { top: var(--side-top) !important; right: calc(env(safe-area-inset-right) + 8px) !important; bottom: auto !important; left: auto !important; width: 72px !important; height: 72px !important; }
+  #ui .minimap canvas { width: 72px !important; height: 72px !important; }
+
+  #ui .hotbar-wrap { bottom: var(--side-floor) !important; }
+  #ui .vitals-strip { bottom: calc(var(--side-floor) + var(--hot-h, 46px) + 16px) !important; }
+
+  /* the lock sits on top of the dash/potion column instead of floating on its own */
+  #ui .hero-lock { width: 38px !important; height: 38px !important; right: calc(env(safe-area-inset-right) + 82px) !important; bottom: calc(env(safe-area-inset-bottom) + 110px) !important; }
+  #ui .hero-lock .px-icon, #ui .hero-lock img { width: 20px !important; height: 20px !important; }
+}
+
+/* ------------------------------------------------------------------ what sits on top of what
+   A side panel (Build, World and the rest) is something you opened on purpose, so it covers the game's own
+   controls rather than having the stick, the fight buttons, the hearts and the hotbar drawn over it. Game
+   controls live on layers 10-16; panels now live on 30, under proper windows (60) and above everything you
+   play with. */
+#ui > .side { z-index: 30; }
+@media (max-height: 560px) {
+  /* sideways it hangs from under the top row, so the menu icons stay reachable and the panel covers the right
+     thumb's buttons; the radar it would half-cover steps aside while it is open */
+  #ui > .side { top: calc(var(--side-top) + var(--side-bar) + 4px) !important; bottom: 0 !important; right: 0 !important; left: auto !important; height: auto !important; animation-name: slideInR; border-radius: 14px 0 0 0 !important; }
+  #ui:has(> .side) .minimap { visibility: hidden; }
+}
+/* upright phones: the panel is a sheet that stops exactly at the menu bar, so the menu is never under it */
+@media (max-width: 760px) and (min-height: 561px) {
+  #ui > .side { bottom: var(--dock-h, 58px) !important; }
+}

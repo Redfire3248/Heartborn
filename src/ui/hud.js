@@ -15,7 +15,7 @@ import { openBossBook } from './bossBook.js';
 import { RANKS, fmtRun } from '../game/bossIndex.js';
 import { streakLeft } from '../game/streak.js';
 import { noticeInvite, noticeJoined, noticeChat, noticeTrade, noticesAllowed, noticesSupported, noticesBlocked, noticesOff, setNoticesOff, askToNotify, sendNotice, registerForPush } from '../core/notify.js';
-import { openLayoutEditor, watchLayout } from './layoutEdit.js';
+import { openLayoutEditor, watchLayout, isLaidOut } from './layoutEdit.js';
 import { quickCraft, setQuickCraft } from '../core/prefs.js';
 import { TRAITS as FORGE_TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
 import { openTableMenu, openMaterialsBag, matIcon } from './tableMenu.js';
@@ -31,7 +31,7 @@ import { OBJECTS, CREATURES, villagerSprite } from '../data/objects.js';
 import { TRAITS } from '../data/traits.js';
 import { JOBS, assignJob, displayRole } from '../game/villagers.js';
 import { DEEDS, runDeed, sacrificeVillager, exileVillager, smiteCreature } from '../game/deeds.js';
-import { maxHp, toggleLockOn, updateLockOn } from '../game/creatures.js';
+import { maxHp, toggleLockOn, updateLockOn, lockModeOn } from '../game/creatures.js';
 import { rulerOf, rulerTypeOf, rulerTitle, setHeir, setCalling, encourage, ENCOURAGE, inventory, equipment, isTrained, crown, addItem, takeItem } from '../game/dynasty.js';
 import { CALLINGS, RULER_TYPES, ITEMS } from '../data/people.js';
 import { accuse, punishTraitor, throwBomb, counterIntel, isSpy, hasMissiles, hasOrbital, MISSILE_COST, strikeOwnLand, strikeRadius } from '../game/intrigue.js';
@@ -398,7 +398,7 @@ export class HUD {
       this.updateSkillChip(hg);
       this.updateStreak(hg);
       updateLockOn(hg);
-      if (this.els.lockBtn) this.els.lockBtn.classList.toggle('on', !!hg.lockOn);
+      if (this.els.lockBtn) this.els.lockBtn.classList.toggle('on', lockModeOn());   // the button shows the mode, not whether anything is in reach
       if (this.els.blockBtn) { const noShield = !rpgOf(hg).gear.shield; if (noShield !== this._noShield) { this._noShield = noShield; this.els.blockBtn.hidden = noShield; } }
       if (hg === g && !this.houseEditor) {
         const biome = heroBiome(g);
@@ -1376,7 +1376,7 @@ export class HUD {
       this._stickZone.addEventListener('pointerdown', e => {
         if (id != null || this.els.heroPad?.hidden) return;
         e.preventDefault();
-        start(e, true);
+        start(e, !isLaidOut('.hero-stick'));   // a stick you have placed yourself stays where you put it
       });
       this.root.append(this._stickZone);
     }
@@ -1406,12 +1406,12 @@ export class HUD {
     const potion = hold('hero-potion', 'potion', '', btn('btn_potion', 'gear/health_potion'), 30);
     this.els.potionCount = h('span.hero-potion-count', '0');
     potion.append(this.els.potionCount);
-    const lock = h('button.hero-lock', { title: 'Lock on to the nearest foe', 'aria-label': 'Lock on', onpointerdown: e => {
+    const lock = h('button.hero-lock', { title: 'Lock-on: always aim at the nearest foe until you turn it off', 'aria-label': 'Lock on', onpointerdown: e => {
       e.preventDefault();
       const hg = this.dungeon || this.game;
       const on = toggleLockOn(hg);
-      lock.classList.toggle('on', !!on);
-      this.hint(on ? `Locked on: ${(CREATURES[on.t]?.name || on.t.replace(/_/g, ' '))}` : 'Lock released', 1400);
+      lock.classList.toggle('on', on);
+      this.hint(on ? 'Lock-on on: you will face the nearest foe until you turn it off' : 'Lock-on off', 1600);
     } }, hasArt('ui/btn_lock') ? icon('ui/btn_lock', 24) : pxIcon('target', 26));
     this.els.lockBtn = lock;
     const ability = h('button.hero-btn.hero-ability', { hidden: true, title: 'Weapon ability (F)', onpointerdown: e => { e.preventDefault(); useWeaponAbility(this.dungeon || this.game); } }, icon(hasArt('ui/btn_skill') ? 'ui/btn_skill' : 'effects/magic_orb', 28), h('span', 'SKILL'), h('i.ability-cd'));

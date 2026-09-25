@@ -573,6 +573,56 @@ export async function run() {
     H.endLead(g);
   });
 
+  await step('lock-on stays on until you turn it off, and always holds the nearest foe', async () => {
+    const Cr = await import('/src/game/creatures.js');
+    const H = await import('/src/game/hero.js');
+    const g = new Game(newState({ uid: 'lk', name: 'T', villageName: 'V' }));
+    g.state.creatures = [];
+    H.startLead(g, g.state.villagers[0]);
+    const me = H.heroOf(g);
+    if (Cr.lockModeOn()) Cr.toggleLockOn(g);                      // start from off
+    const saved = g.state.creatures;
+    const beast = (dx) => ({ id: 'lk' + dx, t: 'wolf', x: me.x + dx, y: me.y, hp: 20 });
+    const far = beast(TILE * 6), near = beast(TILE * 2);
+    g.state.creatures = [far];
+    ok(Cr.toggleLockOn(g) === true, 'turning it on turns the mode on');
+    ok(g.lockOn === far, 'it takes the only foe in reach');
+    g.state.creatures = [far, near];
+    Cr.updateLockOn(g);
+    ok(g.lockOn === near, 'a clearly closer foe takes the lock');
+    near.hp = 0;
+    Cr.updateLockOn(g);
+    ok(g.lockOn === far && Cr.lockModeOn(), 'when the target dies the lock moves on and the mode stays on');
+    g.state.creatures = [];
+    Cr.updateLockOn(g);
+    ok(g.lockOn === null && Cr.lockModeOn(), 'with nobody about it holds nothing, but it is still on');
+    g.state.creatures = [far];
+    Cr.updateLockOn(g);
+    ok(g.lockOn === far, 'and picks the next one up by itself');
+    ok(Cr.toggleLockOn(g) === false && g.lockOn === null, 'only you turn it off');
+    g.state.creatures = saved;
+    H.endLead(g);
+  });
+
+  await step('a layout you set is one stylesheet, and nothing can knock it back to the default', async () => {
+    const L = await import('/src/ui/layoutEdit.js');
+    const key = `hb-layout-${innerWidth > innerHeight ? 'land' : 'port'}`;
+    const was = localStorage.getItem(key);
+    localStorage.setItem(key, JSON.stringify({ '.topbar': { x: 0.5, y: 0.5 } }));
+    L.applyLayout();
+    const bar = document.querySelector('#ui .topbar');
+    const centre = () => { const r = bar.getBoundingClientRect(); return [Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2)]; };
+    const want = [Math.round(innerWidth / 2), Math.round(innerHeight / 2)];
+    ok(Math.abs(centre()[0] - want[0]) <= 1 && Math.abs(centre()[1] - want[1]) <= 1, 'the control is centred on its spot, whatever its size', `${centre()} vs ${want}`);
+    bar.style.left = ''; bar.style.top = ''; bar.style.transform = '';       // what used to wipe it
+    for (let i = 0; i < 3; i++) window.dispatchEvent(new Event('resize'));
+    ok(Math.abs(centre()[0] - want[0]) <= 1, 'wiping inline styles and resizing does not move it', `${centre()}`);
+    ok(!bar.hasAttribute('data-laid') && !bar.getAttribute('style')?.includes('important'), 'nothing is written on the control itself');
+    ok(L.isLaidOut('.topbar') && !L.isLaidOut('.minimap'), 'it knows which controls you have placed');
+    if (was == null) localStorage.removeItem(key); else localStorage.setItem(key, was);
+    L.applyLayout();
+  });
+
   await step('a phone on its side has controls, and they are not on top of each other', async () => {
     // the whole phone layout used to be written for tall screens only ((max-width: 760px) and (min-height: 521px)),
     // so turning a phone sideways left the menu row, the hotbar and the stick all in their computer places.

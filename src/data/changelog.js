@@ -1,6 +1,19 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Your layout stays put, a real sideways screen, and a lock-on that stays on',
+    changes: [
+      'Move controls no longer flickers between the default spots and yours. Your layout is now one stylesheet instead of styles re-written on a timer, so letting go of the stick, the address bar sliding, or a control being rebuilt can no longer knock anything back. Turning the phone switches between your upright and sideways layouts instantly',
+      'Health in Move controls moves your actual hearts and bars again (it had been pointing at an empty box)',
+      'A stick you have placed yourself stays where you put it instead of jumping to your thumb',
+      'Sideways, the top row is one height with one top edge: materials on the left, the menu icons centred on the screen, the radar on the right, inside the frame',
+      'The material bar shows every material. Nine of them were wrapping into three rows inside a one-row bar, so six were cut off; it is two rows now',
+      'The hotbar, stick and fight buttons all stand 6 pixels off the bottom edge, and the lock button sits on top of the potion instead of floating on its own',
+      'A side panel (Build, World and the rest) now covers the stick, fight buttons, hearts and hotbar instead of having them drawn over it. Sideways it hangs from under the top row so the menu stays reachable; upright it stops exactly at the menu bar',
+      'Lock-on is a mode: turn it on and it stays on until you turn it off, through kills and dungeons and even a reload. It always holds the nearest enemy, moving to the next when one dies and swapping when another comes clearly closer',
+    ],
+  },
+  {
     title: 'The Admin tabs fit a phone, and a sweep of every screen at every size',
     changes: [
       'On a phone or a short window the Admin tabs are the nine drawn icons and nothing else, sharing the width evenly, so the rail is exactly as wide as the window instead of running off the side',

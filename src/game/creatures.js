@@ -478,27 +478,45 @@ export function updateEnemyShots(g, dt) {
   g.enemyShots = g.enemyShots.filter(s => s.left > 0);
 }
 
-/** Locks on to the closest hostile in front of you, or lets go of the one you have. Returns the new lock. */
-export function toggleLockOn(g) {
-  const v = g.state.villagers.find(x => x.id === g.hero?.id);
-  if (!v) return null;
-  if (g.lockOn) { g.lockOn = null; return null; }
-  let best = null, bd = TILE * 11;
+/*
+ * Lock-on is a mode, not a single grab. Turn it on and it stays on - through kills, through a target running
+ * off, into and out of dungeons, even across a reload - until you turn it off yourself. While it is on it always
+ * holds the nearest hostile: when one dies it moves straight to the next, and when another comes clearly closer
+ * than the one you have (a full tile nearer, so two beasts side by side do not make it flicker) it swaps to that.
+ */
+const LOCK_RANGE = TILE * 11, LOCK_KEEP = TILE * 16;
+let lockMode = (() => { try { return localStorage.getItem('hb-lock') === '1'; } catch { return false; } })();
+export const lockModeOn = () => lockMode;
+
+function nearestFoe(g, v) {
+  let best = null, bd = LOCK_RANGE;
   for (const c of g.state.creatures) {
     if (!CREATURES[c.t]?.hostile || (c.hp ?? 1) <= 0) continue;   // a fresh beast has hp null until it is hit
     const d = Math.hypot(c.x - v.x, c.y - v.y);
     if (d < bd) { bd = d; best = c; }
   }
-  g.lockOn = best;
   return best;
 }
 
-/** Drops the lock when what you locked dies, wanders off or you leave the world it was in. */
+/** Turns lock-on mode on or off. Returns whether it is now on. */
+export function toggleLockOn(g) {
+  lockMode = !lockMode;
+  try { localStorage.setItem('hb-lock', lockMode ? '1' : '0'); } catch { /* private window */ }
+  g.lockOn = null;
+  if (lockMode) updateLockOn(g);
+  return lockMode;
+}
+
+/** Every frame: while the mode is on, hold the nearest hostile. The mode itself only ever changes by your hand. */
 export function updateLockOn(g) {
-  const c = g.lockOn;
-  if (!c) return;
   const v = g.state.villagers.find(x => x.id === g.hero?.id);
-  if (!v || !g.state.creatures.includes(c) || (c.hp ?? 1) <= 0 || Math.hypot(c.x - v.x, c.y - v.y) > TILE * 16) g.lockOn = null;
+  if (!lockMode || !v) { g.lockOn = null; return; }
+  const cur = g.lockOn;
+  const dist = c => Math.hypot(c.x - v.x, c.y - v.y);
+  const keep = cur && g.state.creatures.includes(cur) && (cur.hp ?? 1) > 0 && dist(cur) <= LOCK_KEEP;
+  const best = nearestFoe(g, v);
+  if (!keep) g.lockOn = best;
+  else if (best && best !== cur && dist(best) < dist(cur) - TILE) g.lockOn = best;
 }
 
 export function damageCreature(g, c, dmg, by) {
