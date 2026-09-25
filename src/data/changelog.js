@@ -1,6 +1,16 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Two people, thirteen versions of them, and an Admin window in ember glass',
+    changes: [
+      'There are two characters in the game, and a race is a version of one of them: the zombie you is the human you, dead; the archangel you is the same person with wings. Your person never changes when your race does',
+      'You pick which of the two you are on the world screen, before you start, and it is remembered for every new world',
+      'Races shows one preview per race - you, in that race - instead of four unrelated faces, and the wheel spins your own face through every race',
+      'The Admin window is ember glass now: frosted dark, lit from the right, round rail items, soft cards in two columns, pixel type throughout',
+      'The strip of one-tap chips is gone. Everything is a card with its arguments showing, so you can see what a button will do before you press it',
+    ],
+  },
+  {
     title: 'Your character is yours, and the Admin window stays out of the way',
     changes: [
       'Your character and your race are two different things now. The race is what the wheel gave you and it decides your numbers; the character is simply who you look like, and you may wear any of the forty-eight whatever you rolled',

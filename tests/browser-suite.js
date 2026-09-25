@@ -658,7 +658,7 @@ export async function run() {
     ok(Ra.RACE_KEYS.length === 12, 'there are twelve races', `${Ra.RACE_KEYS.length}`);
     for (const k of Ra.RACE_KEYS) {
       const d = Ra.RACES[k];
-      ok(d.looks.length === 4 && d.passive && d.desc, `${k} has four faces, a passive and a description`);
+      ok(d.looks.length === 2 && d.passive && d.desc, `${k} has its two people, a passive and a description`);
     }
     ok(Ra.raceOf(g) === 'human', 'you start Human');
     const human = R.heroStats(g);
@@ -679,15 +679,19 @@ export async function run() {
     H.knockOutHero(g, me);
     ok(me.hp !== 1 || true, 'and it does not happen twice in a row');
     // a look belongs to its race
-    // your face is yours: a race decides your numbers, never who you look like
+    // two people, and a race is a version of one of them: the zombie you is the human you
+    ok(Ra.BASES.length === 2, 'there are two people in the game');
+    Ra.setBase(g, 'f');
     Ra.setRace(g, 'zombie');
-    Ra.setLookOnly(g, 'vampire_f');
+    ok(Ra.lookOf(g) === 'zombie_f', 'your race puts your own person in it', Ra.lookOf(g));
+    Ra.setRace(g, 'archangel');
+    ok(Ra.lookOf(g) === 'archangel_f', 'and changing race keeps that person', Ra.lookOf(g));
+    Ra.setBase(g, 'm');
+    ok(Ra.lookOf(g) === 'archangel_m', 'switching person keeps the race', Ra.lookOf(g));
+    ok(Ra.previewOf(g, 'vampire') === 'races/vampire_m', 'a race previews as the person you are', Ra.previewOf(g, 'vampire'));
+    ok(Ra.RACE_KEYS.every(k => Ra.RACES[k].looks.length === 2), 'every race is exactly those two people');
+    ok(Ra.ALL_LOOKS.length === Ra.RACE_KEYS.length * 2, 'no strays in the roster', `${Ra.ALL_LOOKS.length}`);
     Ra.setRace(g, 'orc');
-    ok(Ra.lookOf(g) === 'vampire_f', 'changing race leaves your character alone', Ra.lookOf(g));
-    ok(Ra.setLookOnly(g, 'archangel_m'), 'you can wear any character in the game, whatever you rolled');
-    ok(!Ra.setLookOnly(g, 'nobody_at_all'), 'but not one that does not exist');
-    ok(Ra.ALL_LOOKS.length === 48 && Ra.allCharacters().length === 48, 'all forty-eight characters are on offer', `${Ra.ALL_LOOKS.length}`);
-    ok(Ra.characterName('vampire_f') === 'Lady Ysolde', 'and every one of them has a name', Ra.characterName('vampire_f'));
     ok(!Ra.setRace(g, 'nonsense'), 'a race that does not exist is refused');
     // and all of it is saved
     const back = deserialize(serialize(g.state));

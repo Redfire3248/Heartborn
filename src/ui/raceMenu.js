@@ -11,7 +11,7 @@ import { play } from '../core/sound.js';
 import {
   RACES, RACE_KEYS, RACE_TIERS, tierOf, raceOf, lookOf, raceArt, setRace, setLookOnly,
   stonesOf, rollRace, raceSlots, RACE_SLOTS, slotsFull, acceptRoll, dropRace, rollOrder,
-  allCharacters, characterName,
+  BASES, baseOf, setBase, previewOf,
 } from '../game/races.js';
 
 const pct = m => `${m > 1 ? '+' : ''}${Math.round((m - 1) * 100)}%`;
@@ -63,7 +63,7 @@ export function openRaceMenu(hud) {
     const landAt = cells.length - order.length + order.indexOf(res.key);   // a winner in the last lap
     strip.replaceChildren(...cells.map(k => {
       const d = RACES[k], t = RACE_TIERS[d.tier];
-      return h('div.race-cell', { style: { '--rc': d.color, '--tc': t.color } }, icon(raceArt(d.looks[0]), 60), h('span', d.name));
+      return h('div.race-cell', { style: { '--rc': d.color, '--tc': t.color } }, icon(previewOf(g, k), 60), h('span', d.name));
     }));
     const width = reel.clientWidth || 420;
     const offset = () => -(landAt * CELL) + width / 2 - CELL / 2;
@@ -101,7 +101,7 @@ export function openRaceMenu(hud) {
       if (!k) { cells.push(h('div.race-slot.empty', h('span', 'Empty slot'))); continue; }
       const d = RACES[k], t = RACE_TIERS[d.tier];
       cells.push(h(`button.race-slot${raceOf(g) === k ? '.on' : ''}`, { style: { '--tc': t.color }, title: `${d.name} · ${t.name}`, onclick: () => { setRace(g, k); play('click'); render(); } },
-        icon(raceArt(d.looks[0]), 46), h('span', d.name), h('i.race-slot-tier', { style: { background: t.color } }),
+        icon(previewOf(g, k), 46), h('span', d.name), h('i.race-slot-tier', { style: { background: t.color } }),
         held.length > 1 ? h('span.race-slot-drop', { title: 'Let this one go', onclick: e => { e.stopPropagation(); dropRace(g, k); play('click'); render(); } }, '✕') : null));
     }
     return h('div.race-wall', ...cells);
@@ -112,33 +112,25 @@ export function openRaceMenu(hud) {
     if (!pending) return null;
     const d = RACES[pending.key], t = RACE_TIERS[d.tier];
     return h('div.race-replace', { style: { '--rc': d.color } },
-      icon(raceArt(pending.look), 52),
+      icon(previewOf(g, pending.key), 52),
       h('div', h('b', { style: { color: d.color } }, `${d.name} — ${t.name}`), h('div.faint', 'Your slots are full. Which one does it take the place of?')),
       h('div.race-replace-picks', ...raceSlots(g).map((k, i) => h('button.btn.sm', { onclick: () => { acceptRoll(g, pending.key, pending.look, i); pending = null; play('complete'); render(); } }, RACES[k].name))),
       h('button.btn.sm.ghost', { onclick: () => { pending = null; render(); } }, 'Let it go'));
   };
 
   /**
-   * Who you look like. This has nothing to do with your race: the race is what the wheel gave you and what your
-   * numbers come from, and this is simply the character you want to be. Any of the forty-eight, always.
+   * Which of the two people you are. A race is a version of this person, so the same character runs all the way
+   * through: the zombie you is the human you, dead.
    */
-  const characters = () => {
-    const worn = lookOf(g);
-    const q = (hud._charQuery || '').trim().toLowerCase();
-    const all = allCharacters();
-    const list = all.filter(c => !q || c.name.toLowerCase().includes(q) || RACES[c.race].name.toLowerCase().includes(q));
-    const search = h('input.input.race-char-search', { placeholder: 'Search characters…', value: hud._charQuery || '', autocomplete: 'off' });
-    search.addEventListener('input', () => { hud._charQuery = search.value; render(true); });
-    return h('div.race-chars',
-      h('div.race-chars-head', h('b', 'Your character'), h('span.faint', `${characterName(worn)} · any of the ${all.length}, whatever you rolled`), h('div.spacer'), search),
-      h('div.race-char-grid', ...(list.length ? list.map(c => h(`button.race-char${c.look === worn ? '.on' : ''}`,
-        { style: { '--rc': RACES[c.race].color }, title: `${c.name} · ${RACES[c.race].name}`, onclick: () => { setLookOnly(g, c.look); play('click'); render(true); } },
-        icon(raceArt(c.look), 52),
-        h('b', c.name),
-        h('i', { style: { color: RACES[c.race].color } }, RACES[c.race].name))) : [h('div.faint', 'Nobody matches that')])));
-  };
+  const whoAmI = () => h('div.race-chars',
+    h('div.race-chars-head', h('b', 'Your character'), h('span.faint', 'Every race is a version of this person')),
+    h('div.race-bases', ...BASES.map(b => h(`button.race-base${baseOf(g) === b.id ? '.on' : ''}`,
+      { title: b.desc, onclick: () => { setBase(g, b.id); play('click'); render(); } },
+      icon(`races/${raceOf(g)}_${b.id}`, 64),
+      h('b', b.name),
+      h('i', b.id === baseOf(g) ? 'you' : 'switch')))));
 
-  const render = (keepSearch = false) => {
+  const render = () => {
     const stones = stonesOf(g);
     m.el.replaceChildren(m.closeBtn,
       h('div.race-head',
@@ -157,8 +149,7 @@ export function openRaceMenu(hud) {
       replacePrompt(),
       h('div.race-wall-head', h('b', `Your races (${raceSlots(g).length}/${RACE_SLOTS})`), h('span.faint', 'Click one to wear it, for nothing. A fourth roll pushes one out.')),
       wall(),
-      characters());
-    if (keepSearch) m.el.querySelector('.race-char-search')?.focus();
+      whoAmI());
   };
   render();
   return m;

@@ -19,96 +19,96 @@ export const RACES = {
     desc: 'Ordinary, and better for it: nothing to overcome and a little of everything.',
     mult: { hp: 1.05, dmg: 1.05, speed: 1.03, stamina: 1.05, crit: 1 },
     passive: 'Adaptable: you earn 10% more experience from everything.',
-    looks: ['human_m', 'human_f', 'human_m2', 'human_f2'],
-    names: ['Bren the Sellsword', 'Mira the Ashcaller', 'Colm the Ranger', 'Dame Ottilie'],
+    looks: ['human_m', 'human_f'],
+    names: ['Bren the Sellsword', 'Mira the Ashcaller'],
   },
   elf: {
     name: 'Elf', color: '#8aff9a', tier: 0, weight: 20,
     desc: 'Quick and keen-eyed, but slight of frame.',
     mult: { hp: 0.9, dmg: 1.05, speed: 1.14, stamina: 1.15, crit: 1.5 },
     passive: 'Keen Eye: half again as likely to land a critical hit, and your dash costs nothing.',
-    looks: ['elf_m', 'elf_f', 'elf_m2', 'elf_f2'],
-    names: ['Aeloth the Pale Sage', 'Sylvaen of the Green', 'Thirren Nightbough', 'Neryndel the Warden'],
+    looks: ['elf_m', 'elf_f'],
+    names: ['Aeloth the Pale Sage', 'Sylvaen of the Green'],
   },
   dwarf: {
     name: 'Dwarf', color: '#e0a35a', tier: 0, weight: 20,
     desc: 'Stone-boned and stubborn. Slow, and very hard to put down.',
     mult: { hp: 1.3, dmg: 1.05, speed: 0.88, stamina: 1.2, crit: 0.8 },
     passive: 'Stonehide: every blow that reaches you is cut by a further 12%, and ore veins give you one extra.',
-    looks: ['dwarf_m', 'dwarf_f', 'dwarf_m2', 'dwarf_f2'],
-    names: ['Durgan Ironbeard', 'Hilda Stonefoot', 'Bruni Keg-Heart', 'Vesta Emberhand'],
+    looks: ['dwarf_m', 'dwarf_f'],
+    names: ['Durgan Ironbeard', 'Hilda Stonefoot'],
   },
   orc: {
     name: 'Orc', color: '#7ac74f', tier: 0, weight: 18,
     desc: 'Born for the fight and worst when cornered.',
     mult: { hp: 1.2, dmg: 1.18, speed: 0.96, stamina: 1.1, crit: 0.9 },
     passive: 'Blood Rage: below half health you hit 35% harder.',
-    looks: ['orc_m', 'orc_f', 'orc_m2', 'orc_f2'],
-    names: ['Grum the Tusked', 'Zakka Spiritspeaker', 'Rukk One-Eye', 'Ghazra Bloodbraid'],
+    looks: ['orc_m', 'orc_f'],
+    names: ['Grum the Tusked', 'Zakka Spiritspeaker'],
   },
   demon: {
     name: 'Demon', color: '#ff6b5b', tier: 2, weight: 6,
     desc: 'Fire runs where blood should. It burns what you touch and what touches you.',
     mult: { hp: 1.05, dmg: 1.2, speed: 1.05, stamina: 1, crit: 1.1 },
     passive: 'Hellfire: everything you strike burns, and fire cannot hurt you.',
-    looks: ['demon_m', 'demon_f', 'demon_m2', 'demon_f2'],
-    names: ['Vharn the Red', 'Liressa Thornhorn', 'Ferrox the Chained', 'Sabreth Emberlash'],
+    looks: ['demon_m', 'demon_f'],
+    names: ['Vharn the Red', 'Liressa Thornhorn'],
   },
   archdemon: {
     name: 'Arch Demon', color: '#ff3a2a', tier: 4, weight: 1,
     desc: 'A crown of horns and a furnace for a heart. Terrible, and slow to move.',
     mult: { hp: 1.35, dmg: 1.3, speed: 0.85, stamina: 0.95, crit: 1 },
     passive: 'Cinder Crown: your blows burn fiercely, fire cannot hurt you, and every kill leaves a patch of flame.',
-    looks: ['archdemon_m', 'archdemon_f', 'archdemon_m2', 'archdemon_f2'],
-    names: ['Malgroth the Cinder King', 'Nyxareth the Cold Flame', 'Zhaugrin the Ninefold', 'Karrathyx the Silent Queen'],
+    looks: ['archdemon_m', 'archdemon_f'],
+    names: ['Malgroth the Cinder King', 'Nyxareth the Cold Flame'],
   },
   angel: {
     name: 'Angel', color: '#fff3b0', tier: 2, weight: 6,
     desc: 'Light in the veins. Slow to fall and quick to rise.',
     mult: { hp: 1.1, dmg: 1, speed: 1.08, stamina: 1.1, crit: 1 },
     passive: 'Grace: you heal steadily whenever nothing has hurt you for four seconds.',
-    looks: ['angel_m', 'angel_f', 'angel_m2', 'angel_f2'],
-    names: ['Tobiel the Mender', 'Serelis the Watcher', 'Ithuriel the Sentinel', 'Cassiel the Quiet'],
+    looks: ['angel_m', 'angel_f'],
+    names: ['Tobiel the Mender', 'Serelis the Watcher'],
   },
   archangel: {
     name: 'Archangel', color: '#ffe9a0', tier: 4, weight: 1,
     desc: 'Four wings and a judgement. Holy things obey you; the undead do not survive you.',
     mult: { hp: 1.2, dmg: 1.12, speed: 1.05, stamina: 1.15, crit: 1.1 },
     passive: 'Judgement: double damage against the undead, and you heal faster the longer you are unhurt.',
-    looks: ['archangel_m', 'archangel_f', 'archangel_m2', 'archangel_f2'],
-    names: ['Uriellon the Dawnblade', 'Sariah of the Silver Choir', 'Raziel of the Burning Word', 'Gavriela Stormcrown'],
+    looks: ['archangel_m', 'archangel_f'],
+    names: ['Uriellon the Dawnblade', 'Sariah of the Silver Choir'],
   },
   fallen: {
     name: 'Demonic Angel', color: '#c08aff', tier: 3, weight: 2,
     desc: 'One white wing, one black. Neither side will have you, and both gave you something.',
     mult: { hp: 1.1, dmg: 1.15, speed: 1.06, stamina: 1.05, crit: 1.2 },
     passive: 'Two Natures: your blows burn, you heal while unhurt, and fire cannot touch you.',
-    looks: ['fallen_m', 'fallen_f', 'fallen_m2', 'fallen_f2'],
-    names: ['Kaelith the Fallen', 'Vespera Ashwing', 'Sorreth Twice-Marked', 'Maleen the Unmade'],
+    looks: ['fallen_m', 'fallen_f'],
+    names: ['Kaelith the Fallen', 'Vespera Ashwing'],
   },
   skeleton: {
     name: 'Skeleton', color: '#e8e4d8', tier: 1, weight: 10,
     desc: 'Nothing left to poison, nothing left to drown. Also nothing to cushion a blow.',
     mult: { hp: 0.85, dmg: 1.08, speed: 1.1, stamina: 1.25, crit: 1.15 },
     passive: 'Bare Bones: poison, bleeding and hunger cannot touch you, and you never run out of breath dashing.',
-    looks: ['skeleton_m', 'skeleton_f', 'skeleton_m2', 'skeleton_f2'],
-    names: ['Rattle-Sir Orlan', 'Grell the Hollow', 'Bonefinger Quell', 'The Gilded Lady'],
+    looks: ['skeleton_m', 'skeleton_f'],
+    names: ['Rattle-Sir Orlan', 'Grell the Hollow'],
   },
   zombie: {
     name: 'Zombie', color: '#9ab87a', tier: 1, weight: 10,
     desc: 'Too stupid to stop. You keep walking long after you should not.',
     mult: { hp: 1.45, dmg: 0.95, speed: 0.82, stamina: 0.9, crit: 0.8 },
     passive: 'Undying: once every two minutes a killing blow leaves you on one health instead. Poison does nothing.',
-    looks: ['zombie_m', 'zombie_f', 'zombie_m2', 'zombie_f2'],
-    names: ['Old Marrek', 'Pale Annet', 'Drowned Halvard', 'Grave-Bride Isolde'],
+    looks: ['zombie_m', 'zombie_f'],
+    names: ['Old Marrek', 'Pale Annet'],
   },
   vampire: {
     name: 'Vampire', color: '#ff5b6b', tier: 2, weight: 5,
     desc: 'You take your health from other people. Daylight does not agree with you.',
     mult: { hp: 1, dmg: 1.15, speed: 1.1, stamina: 1.05, crit: 1.25 },
     passive: 'Bloodthirst: 12% of the damage you deal comes back as health. By day you take 15% more.',
-    looks: ['vampire_m', 'vampire_f', 'vampire_m2', 'vampire_f2'],
-    names: ['Count Dravik', 'Lady Ysolde', 'Strigor the Beast', 'Mistress Carmilla'],
+    looks: ['vampire_m', 'vampire_f'],
+    names: ['Count Dravik', 'Lady Ysolde'],
   },
 };
 
@@ -128,15 +128,45 @@ export const raceDef = g => RACES[raceOf(g)] || RACES.human;
 
 /** Which of that race's four looks you wear. */
 /*
- * Your look and your race are two different things. The race is what the wheel gave you and it decides your
- * numbers; the character is simply who you want to look like, and you may wear any of the forty-eight whatever
- * you rolled. A save from before this kept its race's own face, which is still a perfectly good one.
+ * There are two people in this game, and a race is a version of one of them. The zombie you is the same person
+ * as the human you, dead; the archangel you is the same person with wings. So your look is never chosen on its
+ * own: it is your base character (`m` or `f`, picked when you start a world) as whatever race you are wearing.
  */
-export function lookOf(g) {
+export const BASES = [
+  { id: 'm', name: 'Adam', desc: 'The first man. Broad, dark-haired, steady.' },
+  { id: 'f', name: 'Eve', desc: 'The first woman. Slighter, fair-haired, quick.' },
+];
+const LAST_BASE = 'hb_base';
+
+/** Which of the two people you are. Kept per world, and remembered for the next one. */
+export function baseOf(g) {
   const r = g?.state?.rpg;
-  if (r && !ALL_LOOKS.includes(r.look)) r.look = (RACES[raceOf(g)] || RACES.human).looks[0];
-  return r?.look || RACES.human.looks[0];
+  if (r && r.base !== 'm' && r.base !== 'f') r.base = lastBase();
+  return r?.base || lastBase();
 }
+export function setBase(g, id) {
+  if (id !== 'm' && id !== 'f') return false;
+  const r = (g.state.rpg ||= {});
+  r.base = id;
+  r.look = `${raceOf(g)}_${id}`;
+  try { localStorage.setItem(LAST_BASE, id); } catch { /* private window */ }
+  g.emit?.('change');
+  return true;
+}
+export function lastBase() {
+  try { const b = localStorage.getItem(LAST_BASE); return b === 'f' ? 'f' : 'm'; } catch { return 'm'; }
+}
+
+/** What you look like: your person, as your race. Never one without the other. */
+export function lookOf(g) {
+  const look = `${raceOf(g)}_${baseOf(g)}`;
+  const r = g?.state?.rpg;
+  if (r) r.look = look;
+  return look;
+}
+
+/** That race's art for the person you are: the preview a race shows you. */
+export const previewOf = (g, race) => `races/${race}_${baseOf(g)}`;
 
 export const raceArt = look => `races/${look}`;
 
@@ -148,15 +178,16 @@ export const allCharacters = () => RACE_KEYS.flatMap(k => RACES[k].looks.map((lo
 export function characterOf(look) {
   for (const key of RACE_KEYS) {
     const i = RACES[key].looks.indexOf(look);
-    if (i >= 0) return { race: key, name: RACES[key].names?.[i] || RACES[key].name, index: i };
+    if (i >= 0) return { race: key, name: RACES[key].names?.[i] || RACES[key].name, index: i, base: i === 1 ? 'f' : 'm' };
   }
-  return { race: 'human', name: 'Someone', index: 0 };
+  return { race: 'human', name: 'Someone', index: 0, base: 'm' };
 }
 export const characterName = look => characterOf(look).name;
 
 /** Every character you could be right now: the four faces of each race you are holding. */
 export function myCharacters(g) {
-  return raceSlots(g).flatMap(key => RACES[key].looks.map((look, i) => ({ look, race: key, name: RACES[key].names?.[i] || RACES[key].name })));
+  const i = baseOf(g) === 'f' ? 1 : 0;
+  return raceSlots(g).map(key => ({ look: `${key}_${baseOf(g)}`, race: key, name: RACES[key].names?.[i] || RACES[key].name }));
 }
 
 export function lastRace() {
@@ -171,23 +202,19 @@ export function setRace(g, id, look = null) {
   if (!validRace(id)) return false;
   const r = (g.state.rpg ||= {});
   r.race = id;
-  // a race never changes how you look: only an explicit pick does, and a brand new character needs a first face
-  if (look && ALL_LOOKS.includes(look)) r.look = look;
-  else if (!ALL_LOOKS.includes(r.look)) r.look = RACES[id].looks[0];
+  // the person stays the same person: a race only changes what they are
+  if (look === 'm' || look === 'f') r.base = look;
+  r.look = `${id}_${baseOf(g)}`;
   try { localStorage.setItem(LAST_RACE, id); localStorage.setItem(LAST_LOOK, r.look); } catch { /* private window */ }
   g.emit?.('change');
   return true;
 }
 
 /** Just the look, keeping the race. */
-/** Wear any character in the game. Your race, and everything it gives you, is untouched. */
+/** Kept for anything that still names a whole look: it sets the person, and the race decides the rest. */
 export function setLookOnly(g, look) {
-  const r = g.state.rpg;
-  if (!r || !ALL_LOOKS.includes(look)) return false;
-  r.look = look;
-  try { localStorage.setItem(LAST_LOOK, look); } catch { /* private window */ }
-  g.emit?.('change');
-  return true;
+  const base = String(look || '').endsWith('_f') ? 'f' : String(look || '').endsWith('_m') ? 'm' : null;
+  return base ? setBase(g, base) : false;
 }
 
 /** The multipliers heroStats folds in. Always a full set, so a missing race can never break a stat. */

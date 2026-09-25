@@ -3032,3 +3032,71 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .modal-bg.no-dim > .modal { pointer-events: auto; margin: 6vh auto; }
 .ap-me { cursor: grab; user-select: none; touch-action: none; }
 .ap-me:active { cursor: grabbing; }
+
+/* who you are, chosen before a world: the two people the whole game is built on */
+.wp-base { display: flex; align-items: center; gap: 6px; }
+.wp-base-cap { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.wp-base-btn { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 5px; border-radius: 10px; border: 2px solid rgba(255,255,255,.12); background: rgba(0,0,0,.3); color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; }
+.wp-base-btn img { image-rendering: pixelated; max-width: 34px; max-height: 34px; width: auto; height: auto; }
+.wp-base-btn:hover { border-color: rgba(255,215,106,.55); color: var(--text); }
+.wp-base-btn.on { border-color: var(--gold); background: rgba(255,215,106,.12); color: var(--text); }
+
+/* the two people, inside Races */
+.race-bases { display: flex; gap: 8px; }
+.race-base { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 14px; border-radius: 12px; border: 2px solid rgba(255,255,255,.12); background: rgba(0,0,0,.28); color: var(--text); font: inherit; cursor: pointer; }
+.race-base img { image-rendering: pixelated; max-width: 64px; max-height: 64px; width: auto; height: auto; }
+.race-base b { font-size: 13px; }
+.race-base i { font-style: normal; font-size: 10.5px; color: var(--muted); }
+.race-base:hover { border-color: rgba(255,215,106,.6); }
+.race-base.on { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255,215,106,.3); }
+.race-base.on i { color: var(--gold); }
+
+/* ------------------------------------------------------------------ Admin: Ember glass
+   Frosted dark glass lit from the right, round rail items, soft cards, pixel type throughout.
+   Two columns of cards, no strip of chips: everything is a card with its arguments showing. */
+.admin-panel {
+  border: 1px solid rgba(255, 150, 90, .3) !important;
+  box-shadow: 0 0 0 1px rgba(255, 150, 90, .1), 0 34px 80px rgba(0, 0, 0, .72) !important;
+  border-radius: 22px !important;
+  background: linear-gradient(150deg, rgba(48, 32, 40, .96), rgba(16, 12, 20, .97)) !important;
+  backdrop-filter: blur(14px);
+  font-family: var(--pixel, Silkscreen), var(--font, inherit);
+}
+.ap-side {
+  background: linear-gradient(180deg, rgba(255, 140, 80, .12), rgba(0, 0, 0, .28));
+  border-right: 1px solid rgba(255, 140, 80, .18);
+}
+.ap-me b { font-size: 12.5px; color: #ffe6d2; }
+.ap-rank { color: #ff9a5a; letter-spacing: 1px; font-size: 10px; }
+.ap-nav-search { border-radius: 11px; border: 1px solid rgba(255,255,255,.14); background: rgba(0,0,0,.42); color: #ffe6d2; }
+.ap-nav-item { padding: 10px 12px; border-radius: 13px; color: #a89aa4; letter-spacing: .5px; }
+.ap-nav-item:hover { background: rgba(255,255,255,.05); color: #ffe6d2; }
+.ap-nav-item.on {
+  background: linear-gradient(90deg, rgba(255,150,90,.24), rgba(255,150,90,.03));
+  border-color: rgba(255,150,90,.3); color: #ffe6d2;
+}
+.ap-page-head h2 { color: #ff9a5a; }
+.ap-fact { border-radius: 13px; border: 1px solid rgba(255,255,255,.09); background: linear-gradient(150deg, rgba(255,150,90,.09), rgba(255,255,255,.02)); }
+.ap-fact b { color: #ffe6d2; }
+.ap-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ap-card {
+  border-radius: 16px; border: 1px solid rgba(255,255,255,.09);
+  background: linear-gradient(150deg, rgba(255,150,90,.09), rgba(255,255,255,.02));
+}
+.ap-card-head b { color: #ffe6d2; }
+.ap-arg-name { text-transform: uppercase; letter-spacing: 1px; font-size: 10px; color: #a89aa4; }
+.ap-picked { color: #ff9a5a; }
+.ap-stepper button { border-radius: 11px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05); color: #ffe6d2; }
+.ap-num { color: #ffe6d2; }
+.ap-line { background: rgba(0,0,0,.45); color: #ffcf9a; border-radius: 11px; }
+.ap-run .btn.primary, .ap-card .btn.primary {
+  background: linear-gradient(140deg, #ff9a5a, #d1552c); color: #2a0f04; border: 0;
+  box-shadow: 0 6px 18px rgba(255, 120, 60, .38);
+}
+.ap-prank { border-radius: 14px; border: 1px solid rgba(255,255,255,.09); background: linear-gradient(150deg, rgba(255,150,90,.07), rgba(255,255,255,.02)); }
+.ap-prank:hover:not(:disabled) { border-color: rgba(255,150,90,.55); background: rgba(255,150,90,.12); }
+.ap-prank b { color: #ffe6d2; }
+.ap-row { border-radius: 14px; border: 1px solid rgba(255,255,255,.09); background: linear-gradient(150deg, rgba(255,150,90,.07), rgba(255,255,255,.02)); }
+.ap-doc-row, .ap-log-row { border-radius: 11px; background: rgba(255,255,255,.04); }
+.ap-cell { border-radius: 13px; }
+@media (max-width: 720px), (max-height: 560px) { .ap-cards { grid-template-columns: 1fr; } }

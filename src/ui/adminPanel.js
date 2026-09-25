@@ -180,6 +180,24 @@ const PAGES = {
   logs: { name: 'Logs', icon: 'scroll' },
 };
 
+/** The things you reach for most, as cards like everything else rather than a strip of chips. */
+const HOME_CARDS = [
+  { cmd: 'god', name: 'God mode', desc: 'Nothing can hurt you', runLabel: 'Toggle' },
+  { cmd: 'heal', name: 'Full health', desc: 'Back to the top of the bar', runLabel: 'Heal' },
+  { cmd: 'kill', name: 'Clear the area', desc: 'Everything hostile around you', args: [
+    { id: 'tiles', name: 'How far', kind: 'number', def: 14, min: 2, max: 60, big: 5 },
+  ] },
+  { cmd: 'time', name: 'Time of day', desc: 'Set the hour', args: [
+    { id: 'hour', name: 'Hour', kind: 'number', def: 12, min: 0, max: 23 },
+  ] },
+  { cmd: 'potions', name: 'Potions', desc: 'Fill your belt', args: [
+    { id: 'n', name: 'How many', kind: 'number', def: 10, min: 1, max: 99, big: 5 },
+  ] },
+  { cmd: 'stones', name: 'Race Stones', desc: 'For the wheel in Races', args: [
+    { id: 'n', name: 'How many', kind: 'number', def: 5, min: 1, max: 99, big: 5 },
+  ] },
+];
+
 /** Every prank, as a button. They all go through `troll <player> <prank>`. */
 const PRANKS = [
   ['spook', 'Spook', 'A fright and a noise'],
@@ -228,13 +246,6 @@ export function openAdminPanel(hud, adminConsole) {
   const cardsPage = key => h('div.ap-cards', ...PAGES[key].cards.map(def => cardFor(panel, def)));
 
   const homePage = () => {
-    const quick = [
-      ['god', 'God mode'], ['heal', 'Full health'], ['kill 14', 'Clear the area'],
-      ['time 12', 'Midday'], ['time 0', 'Midnight'],
-      ['potions 10', '10 potions'], ['stones 5', '5 Race Stones'],
-      ['bosses *', 'Fill the Hall'], ['index *', 'Fill the Index'],
-      ['map reveal', 'Reveal the map'],
-    ];
     const facts = [
       ['World', hud.world?.name || g.state.worldName || 'Solo'],
       ['Players here', String((g.livePlayers || []).length + 1)],
@@ -245,8 +256,7 @@ export function openAdminPanel(hud, adminConsole) {
     ];
     return h('div.ap-page',
       h('div.ap-facts', ...facts.map(([k, v]) => h('div.ap-fact', h('span.faint', k), h('b', v)))),
-      h('h3', 'Quick actions'),
-      h('div.ap-quick', ...quick.map(([line, label]) => h('button.btn.sm', { onclick: () => panel.send(line) }, label))));
+      h('div.ap-cards', ...HOME_CARDS.map(def => cardFor(panel, def))));
   };
 
   const playersPage = () => {
