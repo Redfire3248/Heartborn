@@ -311,7 +311,8 @@ export class HUD {
     this.root.append(this.els.streak);
     // there is no F2 on a phone, so admins get a button. Nobody else ever sees it.
     if (this.isAdmin) {
-      this.els.adminBtn = h('button.admin-btn', { title: 'Admin panel', 'aria-label': 'Admin panel', onclick: async () => { const M = await import('./adminPanel.js'); M.openAdminPanel(this, window.__hbConsole); } }, pxIcon('gear', 20));
+      this.els.adminBtn = h('button.admin-btn', { title: 'Admin panel (F3). The command line is F2.', 'aria-label': 'Admin panel', onclick: () => this.openAdminPanel() },
+        pxIcon('gear', 20), h('span.admin-btn-text', 'Admin'), h('span.admin-btn-key', 'F3'));
       this.root.append(this.els.adminBtn);
     }
     this.els.skillChip = h('div.skill-chip', { hidden: true });
@@ -2939,6 +2940,14 @@ export class HUD {
    * The Notices row in Settings. The browser only lets us ask from a real tap, so there is a button; once you have
    * said yes, invites, people joining, trades, messages and new versions reach you through the installed app.
    */
+  /** The admin panel, from the button or from F3. Only ever reachable by an admin account. */
+  async openAdminPanel() {
+    if (!this.isAdmin) return false;
+    const M = await import('./adminPanel.js');
+    M.openAdminPanel(this, window.__hbConsole);
+    return true;
+  }
+
   noticeRow() {
     if (!noticesSupported()) return h('div.faint', { style: { fontSize: '12px' } }, 'This browser cannot show notices.');
     const wrap = h('div.col', { style: { gap: '6px' } });

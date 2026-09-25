@@ -1,6 +1,16 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'The Admin panel is on every device now',
+    changes: [
+      'The Admin button is no longer a phone-only thing: it is there on a computer too, top right, reading Admin with the key beside it',
+      'F3 opens the panel on a keyboard, and F2 still opens the command line behind it',
+      'A new "panel" command opens it from the command line as well',
+      'On a computer it keeps its tall sidebar; on a phone or a sideways screen the sidebar folds into a strip along the top. Same panel, three shapes',
+      'Only an admin account ever sees any of it',
+    ],
+  },
+  {
     title: 'A proper Admin window, a Doctor, and fourteen new pranks',
     changes: [
       'The admin panel is a window now, not a takeover: a sidebar of sections down the left with who you are at the top, a page on the right, and the world still visible around it. Drag it out of the way by its name on a computer',

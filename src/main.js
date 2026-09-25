@@ -234,7 +234,6 @@ function startGame(user, game, { online = true } = {}) {
     if (status !== 'admin' || app.hud !== hud) return;
     hud.isAdmin = true;
     app.console = new AdminConsole({ game, mp: app.mp, user, hud });
-    window.__hbConsole = app.console;   // the admin button on a phone reaches it through here
   });
   if (app.mp) {
     app.mp.on('reset', () => { clearLocalSave(user.uid); restart(); });
@@ -322,6 +321,13 @@ async function save(force = false) {
     app.saving = false;
   }
 }
+
+// F3 opens the admin panel, F2 the command line behind it (admins only, on every device)
+window.addEventListener('keydown', e => {
+  if (e.key !== 'F3' || !app.game) return;
+  e.preventDefault();
+  app.hud?.openAdminPanel?.();
+});
 
 // F2 opens the admin command line (admins only)
 window.addEventListener('keydown', e => {

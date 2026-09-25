@@ -141,6 +141,7 @@ export class AdminConsole {
     this.sugIndex = 0;
     this.suggestions = [];
     this.build();
+    window.__hbConsole = this;   // the Admin button and F3 reach the console through here, wherever it was made
     this.print(`Welcome back, ${game.state.owner.name}.`, 'accent');
     this.print('Start typing — suggestions appear as you go. Tab completes · ↑↓ choose · Enter runs · Esc closes.', 'dim');
   }
@@ -1208,6 +1209,15 @@ const COMMANDS = {
       }
       for (const [k, c] of Object.entries(got).sort((a, b) => b[1] - a[1])) this.print(`${k.padEnd(12)} x${c}  (${R.RACE_TIERS[R.RACES[k].tier].name})`, R.RACES[k].tier >= 3 ? 'accent' : '');
       this.print(`you are now ${R.raceOf(this.game)}`, 'ok');
+    },
+  },
+  panel: {
+    usage: 'panel', desc: 'Open the Admin panel: the same commands laid out to click, on any device (also F3)',
+    async run() {
+      if (!this.hud) throw new Error('no game screen');
+      this.toggle();
+      const M = await import('./adminPanel.js');
+      M.openAdminPanel(this.hud, this);
     },
   },
   doctor: {
