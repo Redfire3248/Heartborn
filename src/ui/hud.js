@@ -1175,6 +1175,48 @@ export class HUD {
         puff();
         this.toast({ text: `${who} pulled you to them`, kind: 'event' });
         break;
+      case 'tiny': case 'huge':
+        g.hero.sizeUntil = g.state.time + Math.min(60, c.s || 20);
+        g.hero.sizeMult = c.t === 'tiny' ? 0.45 : 2.2;
+        this.toast({ text: `${who} made you ${c.t === 'tiny' ? 'tiny' : 'enormous'}`, kind: 'event' });
+        break;
+      case 'drunk':
+        g.hero.drunkUntil = g.state.time + Math.min(60, c.s || 20);
+        this.toast({ text: `${who} made the world spin`, kind: 'event' });
+        break;
+      case 'blind':
+        g.hero.blindUntil = g.state.time + Math.min(30, c.s || 8);
+        this.toast({ text: `${who} put out the lights`, kind: 'bad' });
+        break;
+      case 'confetti':
+        for (let i = 0; i < 60; i++) g.spark?.(v.x, v.y - 10, ['#ffd76a', '#ff6bd6', '#8aff9a', '#9fd4ff'][i % 4], 1, { speed: 180, life: 1.4, lift: 120, grav: 120 });
+        this.toast({ text: `${who} threw confetti at you`, kind: 'good' });
+        break;
+      case 'shake':
+        g.fx.shake = Math.max(g.fx.shake, Math.min(8, c.s || 4));
+        this.toast({ text: `${who} shook the ground`, kind: 'event' });
+        break;
+      case 'dance':
+        g.hero.danceUntil = g.state.time + Math.min(30, c.s || 6);
+        this.toast({ text: `${who} made you dance`, kind: 'event' });
+        break;
+      case 'strip': {
+        const r = rpgOf(g);
+        let n = 0;
+        for (const slot of ['weapon', 'shield', 'helmet', 'armor', 'trinket']) if (r.gear[slot]) { r.bag.push(r.gear[slot]); r.gear[slot] = null; n++; }
+        g.emit('change');
+        this.toast({ text: n ? `${who} took your gear off (it is in your bag)` : `${who} tried to strip you, but you wear nothing`, kind: 'bad' });
+        break;
+      }
+      case 'heal':
+        v.hp = heroStats(g).maxHp;
+        g.spark?.(v.x, v.y - 10, '#8aff9a', 18, { speed: 110 });
+        this.toast({ text: `${who} healed you`, kind: 'good' });
+        break;
+      case 'gift':
+        g.addResource('gold', Math.max(1, Math.min(9999, c.n || 100)));
+        this.toast({ text: `${who} gave you ${c.n || 100} gold`, kind: 'good' });
+        break;
       case 'freeze':
         g.hero.stagger = Math.max(g.hero.stagger || 0, Math.min(8, c.s || 4));   // rooted to the spot for a moment
         (g.fx.rings ||= []).push({ x: v.x, y: v.y - 8, r0: 4, r: 40, color: '#9fd4ff', width: 4, life: 0.6, max: 0.6, glow: true });

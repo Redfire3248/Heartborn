@@ -1026,7 +1026,7 @@ const COMMANDS = {
     },
   },
   troll: {
-    usage: 'troll <player> <freeze|launch|boom|spook|bring|goto|swap|mobs|say ...>', desc: 'Have a laugh with someone in your world: freeze them, launch them, spook them, pull them to you, swap places, or drop monsters on them. "troll list" shows who is here.',
+    usage: 'troll <player> <prank>', desc: 'Have a laugh with someone in your world. Pranks: freeze, launch, boom, spook, tiny, huge, drunk, blind, confetti, shake, dance, strip, heal, gift, bring, goto, swap, mobs, say. "troll list" shows who is here.',
     async run([who, what = 'spook', ...rest]) {
       const g = this.game;
       const mp = this.mp || this.hud?.mp;
@@ -1071,8 +1071,9 @@ const COMMANDS = {
         mp.sendCommand(spot.uid, { t: 'say', text });
         this.print(`✓ told ${spot.name}: ${text}`, 'ok'); return;
       }
-      if (!['freeze', 'launch', 'boom', 'spook'].includes(what)) throw new Error('troll <player> <freeze|launch|boom|spook|bring|goto|swap|mobs|say>');
-      mp.sendCommand(spot.uid, { t: what, s: Number(rest[0]) || undefined });
+      const PRANKS = ['freeze', 'launch', 'boom', 'spook', 'tiny', 'huge', 'drunk', 'blind', 'confetti', 'shake', 'dance', 'strip', 'heal', 'gift'];
+      if (!PRANKS.includes(what)) throw new Error(`troll <player> <${PRANKS.join('|')}|bring|goto|swap|mobs|say>`);
+      mp.sendCommand(spot.uid, { t: what, s: Number(rest[0]) || undefined, n: Number(rest[0]) || undefined });
       this.print(`✓ ${what} on ${spot.name}`, 'ok');
     },
   },
@@ -1207,6 +1208,82 @@ const COMMANDS = {
       }
       for (const [k, c] of Object.entries(got).sort((a, b) => b[1] - a[1])) this.print(`${k.padEnd(12)} x${c}  (${R.RACE_TIERS[R.RACES[k].tier].name})`, R.RACES[k].tier >= 3 ? 'accent' : '');
       this.print(`you are now ${R.raceOf(this.game)}`, 'ok');
+    },
+  },
+  doctor: {
+    usage: 'doctor', desc: 'Check the whole game over and report anything broken: art, saves, systems, the network and this world',
+    async run() {
+      const g = this.hud?.dungeon || this.game;
+      const out = [];
+      // a check returns true when it is fine, a string when something is worth a look, or { info } for a plain fact
+      const check = (name, fn) => {
+        try {
+          const r = fn();
+          if (r === true || r == null) out.push(['ok', name, '']);
+          else if (typeof r === 'object' && r.info != null) out.push(['info', name, String(r.info)]);
+          else out.push(['warn', name, String(r)]);
+        } catch (e) { out.push(['bad', name, e.message]); }
+      };
+      const A = await import('../core/assets.js');
+      const O = await import('../data/objects.js');
+      const R = await import('../game/rpg.js');
+      const Ra = await import('../game/races.js');
+      const At = await import('../game/attune.js');
+      const B = await import('../game/bossIndex.js');
+      const SM = await import('../game/seaMonsters.js');
+      const S = await import('../game/sailing.js');
+      const St = await import('../game/state.js');
+
+      // art: every creature, boss, race and boat must have a picture that actually loaded
+      const missing = [];
+      for (const [k, d] of Object.entries(O.CREATURES)) if (d.sprite && !A.spriteAvailable(d.sprite) && !d.fallback) missing.push(`creature ${k}`);
+      for (const k of Object.keys(SM.SEA_MONSTERS)) if (!A.spriteAvailable(SM.SEA_MONSTERS[k].sprite)) missing.push(`sea ${k}`);
+      for (const k of Ra.RACE_KEYS) for (const look of Ra.RACES[k].looks) if (!A.spriteAvailable(`races/${look}`)) missing.push(`race ${look}`);
+      for (const t of Object.keys(S.BOATS)) if (!A.spriteAvailable(S.boatArt(t))) missing.push(`boat ${t}`);
+      check(`art (${missing.length ? missing.length + ' missing' : 'all there'})`, () => (missing.length ? missing.slice(0, 6).join(', ') : true));
+
+      check('races are whole', () => {
+        for (const k of Ra.RACE_KEYS) {
+          const d = Ra.RACES[k];
+          if (!d.passive || !d.desc || d.looks.length !== 4) return `${k} is incomplete`;
+          if (!(d.weight > 0)) return `${k} has no odds`;
+        }
+        return true;
+      });
+      check('your race and slots', () => {
+        const held = Ra.raceSlots(g);
+        if (!held.length) return 'you hold no race at all';
+        if (!held.includes(Ra.raceOf(g))) return 'you are wearing a race you do not hold';
+        if (held.length > Ra.RACE_SLOTS) return `you hold ${held.length}, more than ${Ra.RACE_SLOTS}`;
+        return true;
+      });
+      check('your stats add up', () => {
+        const st = R.heroStats(g);
+        for (const [k, v] of Object.entries(st)) if (!Number.isFinite(v)) return `${k} is ${v}`;
+        if (st.maxHp <= 0) return 'no health';
+        return true;
+      });
+      check('attunement', () => {
+        for (const k of At.ATTUNE_KEYS) if (!At.ATTUNEMENTS[k].need || !At.ATTUNEMENTS[k].desc) return `${k} is incomplete`;
+        return At.attunement(g) ? { info: `attuned to ${At.attunement(g)}` } : true;
+      });
+      check('the Hall of Bosses', () => (B.BOSS_KEYS.length ? { info: `${B.bossProgress(g).found}/${B.BOSS_KEYS.length} felled` } : 'no bosses listed'));
+      check('the sea', () => (Object.keys(SM.SEA_MONSTERS).length === 18 ? true : `${Object.keys(SM.SEA_MONSTERS).length} monsters, expected 18`));
+      check('this world saves and loads', () => { St.deserialize(St.serialize(g.state)); return true; });
+      check('the hero', () => (g.hero ? true : 'you are not walking anyone'));
+      check('the world grid', () => (g.world?.tiles?.length ? true : 'no land'));
+      check('creatures alive', () => ({ info: `${g.state.creatures.length} in this world` }));
+      check('frame rate', () => { const f = this.hud?.renderer?.lastFps; return f == null ? { info: 'not measured' } : f < 30 ? `${Math.round(f)} fps, slow` : { info: `${Math.round(f)} fps` }; });
+      check('multiplayer', () => ({ info: this.mp ? `connected, ${(this.mp.players || []).length} players` : 'solo world' }));
+      const N = await import('../core/notify.js');
+      check('notices', () => (!N.noticesSupported() ? 'this browser cannot' : N.noticesBlocked() ? 'blocked by the browser' : N.noticesAllowed() ? true : 'not turned on yet'));
+      check('errors seen this session', () => { const n = (window.__hbErrors || []).length; return n ? `${n} — see "errors"` : true; });
+
+      const bad = out.filter(o => o[0] === 'bad').length, warn = out.filter(o => o[0] === 'warn').length;
+      this.print(`— doctor —`, 'accent');
+      for (const [state, name, note] of out) this.print(`${state === 'ok' ? '✓' : state === 'info' ? '·' : state === 'warn' ? '!' : '✗'} ${name}${note ? ` — ${note}` : ''}`, state === 'ok' ? 'ok' : state === 'bad' ? 'err' : '');
+      this.print(bad ? `${bad} broken, ${warn} worth a look` : warn ? `nothing broken, ${warn} worth a look` : 'everything checks out', bad ? 'err' : 'ok');
+      return out;
     },
   },
   race: {

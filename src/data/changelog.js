@@ -1,6 +1,19 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'A proper Admin window, a Doctor, and fourteen new pranks',
+    changes: [
+      'The admin panel is a window now, not a takeover: a sidebar of sections down the left with who you are at the top, a page on the right, and the world still visible around it. Drag it out of the way by its name on a computer',
+      'Nine sections: Home, Players, Spawn, Items, Character, World, Troll, Doctor and Logs. The sidebar has a search that jumps to whatever you type',
+      'Every list has its own search: creatures, bosses, races, ores, gear, resources and players all open a grid of pictures with a search box and a count, and a * cell where the command takes one',
+      'Players: search them, then Go to, Bring, Troll or Ban straight from the row',
+      'Doctor: one page that checks the whole game over — every sprite for every creature, sea monster, race and boat, whether the races and attunements are whole, whether your stats and slots add up, whether this world still saves and loads, the hero, the land, the frame rate, the network, notices and any errors seen this session. Green ticks, blue facts, amber warnings and a red cross for anything actually broken',
+      'Fourteen new pranks, all one tap once you have picked somebody: Tiny, Huge, Dizzy, Blind, Confetti, Earthquake, Dance, Disarm, Heal and Gift join Spook, Freeze, Launch, Boom, Zombies, Bring, Go to, Swap and Say',
+      'Logs: everything you have run, searchable, with an Again button on each',
+      'The panel builds the same command line the console would and hands it over, so the two can never drift apart',
+    ],
+  },
+  {
     title: 'A stick that does not let go, a small sideways layout, and an admin panel for thumbs',
     changes: [
       'Fixed the big one: the stick let go the moment your thumb wandered outside the circle. It now follows your thumb anywhere on the screen until you actually lift off, and the smallest lean already walks you',
