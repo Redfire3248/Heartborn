@@ -110,9 +110,20 @@ export const RACES = {
     looks: ['vampire_m', 'vampire_f'],
     names: ['Count Dravik', 'Lady Ysolde'],
   },
+  god: {
+    name: 'God', color: '#ffffff', tier: 4, weight: 0, admin: true,
+    desc: 'Two demon wings and two angel wings, and a crown that is not metal. Only the people who run this world wear it.',
+    mult: { hp: 2, dmg: 2, speed: 1.3, stamina: 2, crit: 2 },
+    passive: 'Almighty: every passive in the game at once, and nothing burns, poisons or drowns you.',
+    looks: ['god_m', 'god_f'],
+    names: ['The Maker', 'The Mother'],
+  },
 };
 
 export const RACE_KEYS = Object.keys(RACES);
+/** The races the wheel may land on. A race marked `admin` is handed out, never rolled. */
+export const ROLLABLE_RACES = RACE_KEYS.filter(k => !RACES[k].admin);
+export const isAdminRace = key => !!RACES[key]?.admin;
 export const UNDEAD_RACES = new Set(['skeleton', 'zombie', 'vampire']);
 
 const LAST_RACE = 'hb_race', LAST_LOOK = 'hb_look';
@@ -240,6 +251,8 @@ const TRAITS = {
   skeleton: ['noPoison', 'freeDash'],
   zombie: ['noPoison', 'undying'],
   vampire: ['lifesteal', 'sunburn'],
+  god: ['learner', 'freeDash', 'tough', 'richVeins', 'rage', 'burn', 'bigBurn', 'fireproof', 'deathFlame',
+    'regen', 'fastRegen', 'smiteUndead', 'noPoison', 'undying', 'lifesteal'],
 };
 
 // ------------------------------------------------------------------ Race Stones
@@ -307,13 +320,13 @@ export function dropRace(g, key) {
 }
 
 /** The whole wheel, rarest last, so the reel always reads the same way. */
-export const rollOrder = () => [...RACE_KEYS].sort((a, b) => (RACES[a].tier - RACES[b].tier) || (RACES[b].weight - RACES[a].weight));
+export const rollOrder = () => [...ROLLABLE_RACES].sort((a, b) => (RACES[a].tier - RACES[b].tier) || (RACES[b].weight - RACES[a].weight));
 
 /** Picks a race by weight. Rolling one you already have is a real outcome, not a bug. */
 export function rollWeighted() {
-  const total = RACE_KEYS.reduce((n, k) => n + (RACES[k].weight || 1), 0);
+  const total = ROLLABLE_RACES.reduce((n, k) => n + (RACES[k].weight || 1), 0);
   let x = Math.random() * total;
-  for (const k of RACE_KEYS) { x -= RACES[k].weight || 1; if (x <= 0) return k; }
+  for (const k of ROLLABLE_RACES) { x -= RACES[k].weight || 1; if (x <= 0) return k; }
   return 'human';
 }
 

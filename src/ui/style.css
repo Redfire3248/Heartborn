@@ -3124,3 +3124,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
   .ap-side { padding-right: 8px; }
   .ap-bar-hint { display: none; }
 }
+
+/* buttons in the Admin window carry their drawn icon beside the word, not instead of it */
+.admin-panel .btn .px-icon, .admin-panel .btn img { vertical-align: -2px; margin-right: 5px; image-rendering: pixelated; }
+.admin-panel .ap-nav-item img { image-rendering: pixelated; flex: none; }

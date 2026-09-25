@@ -598,13 +598,11 @@ window.SHEETS = {
     ]
   },
   races: {
-    title: "Race characters, 6 in 4 rows",
-    folder: "races", mode: "sprite", cols: 6,
+    title: "Race characters, 13 in 2 rows - every race as Adam, then every race as Eve",
+    folder: "races", mode: "sprite", cols: 13,
     names: [
-      "human_m", "human_f", "elf_m", "elf_f", "dwarf_m", "dwarf_f",
-      "orc_m", "orc_f", "demon_m", "demon_f", "archdemon_m", "archdemon_f",
-      "angel_m", "angel_f", "archangel_m", "archangel_f", "fallen_m", "fallen_f",
-      "skeleton_m", "skeleton_f", "zombie_m", "zombie_f", "vampire_m", "vampire_f"
+      "human_m", "elf_m", "dwarf_m", "orc_m", "demon_m", "archdemon_m", "angel_m", "archangel_m", "fallen_m", "skeleton_m", "zombie_m", "vampire_m", "god_m",
+      "human_f", "elf_f", "dwarf_f", "orc_f", "demon_f", "archdemon_f", "angel_f", "archangel_f", "fallen_f", "skeleton_f", "zombie_f", "vampire_f", "god_f"
     ]
   },
   races2: {

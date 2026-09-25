@@ -23,6 +23,9 @@ import { pxIcon } from './pixelIcons.js';
  */
 const navIcon = (key, glyph) => (spriteAvailable(`ui/ap_${key}`) ? icon(`ui/ap_${key}`, 16) : pxIcon(glyph, 16));
 
+/** The same idea for the buttons: the drawn icon beside the word, and nothing at all if the art is not in. */
+const apIcon = (name, size = 14) => (spriteAvailable(`ui/ap_${name}`) ? icon(`ui/ap_${name}`, size) : null);
+
 const nice = k => String(k).replace(/_/g, ' ').replace(/(^|\s)\w/g, m => m.toUpperCase());
 
 // ------------------------------------------------------------------ the lists you can pick from
@@ -119,14 +122,14 @@ function cardFor(panel, def) {
         val.textContent = nice(k);
         play('click');
         refresh();
-      } }, 'Select'));
+      } }, apIcon('select'), 'Select'));
   };
 
   refresh();
   return h('div.ap-card',
     h('div.ap-card-head', h('b', def.name), h('span.faint', def.desc)),
     (def.args || []).length ? h('div.ap-args', ...def.args.map(control)) : null,
-    h('div.ap-run', out, h('div.spacer'), h('button.btn.primary', { onclick: () => panel.send(line()) }, def.runLabel || 'Run')));
+    h('div.ap-run', out, h('div.spacer'), h('button.btn.primary', { onclick: () => panel.send(line()) }, apIcon('run'), def.runLabel || 'Run')));
 }
 
 // ------------------------------------------------------------------ the pages
@@ -383,7 +386,7 @@ export function openAdminPanel(hud, adminConsole) {
             : page === 'logs' ? logsPage()
               : cardsPage(page);
     body.replaceChildren(h('div.ap-page-head', h('h2', PAGES[page].name), h('div.spacer'),
-      h('button.btn.sm.ghost', { onclick: () => { m.close(); con.toggle(); } }, 'Command line')), content);
+      h('button.btn.sm.ghost', { onclick: () => { m.close(); con.toggle(); } }, apIcon('console'), 'Command line')), content);
     if (!keepSearch) navSearch.value = '';
   };
 

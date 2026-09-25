@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Everyone redrawn, a thirteenth race, and icons on the Admin tabs',
+    changes: [
+      'All twenty-six characters are redrawn from one sheet: every race as Adam and as Eve, at full detail, so a race really does read as the same person in another form',
+      'God is in: two demon wings, two angel wings and a crown of light. Every passive in the game at once and double the numbers. The wheel never lands on it - it is handed out by an admin and nothing else',
+      'The Admin window has drawn icons now. The nine tabs each have their own, and Select, Run and Command line carry theirs beside the word',
+    ],
+  },
+  {
     title: 'A title bar you can grab, and a radar with a hard edge',
     changes: [
       'The Admin window has a real title bar across its top: who you are on the left, and the whole strip is the handle, so it can be picked up anywhere along it with a finger or a mouse',

@@ -655,7 +655,8 @@ export async function run() {
     const g = new Game(newState({ uid: 'rc', name: 'T', villageName: 'V' }));
     const me = g.state.villagers[0];
     H.startLead(g, me);
-    ok(Ra.RACE_KEYS.length === 12, 'there are twelve races', `${Ra.RACE_KEYS.length}`);
+    ok(Ra.RACE_KEYS.length === 13, 'there are thirteen races', `${Ra.RACE_KEYS.length}`);
+    ok(Ra.ROLLABLE_RACES.length === 12 && !Ra.ROLLABLE_RACES.includes('god'), 'twelve of them can be rolled: God is handed out, never won');
     for (const k of Ra.RACE_KEYS) {
       const d = Ra.RACES[k];
       ok(d.looks.length === 2 && d.passive && d.desc, `${k} has its two people, a passive and a description`);
@@ -728,9 +729,10 @@ export async function run() {
     ok(Ra.raceSlots(g).includes(other) && !Ra.raceSlots(g).includes(before[0]), 'the one it replaced is gone');
     ok(Ra.raceOf(g) === other, 'and you are wearing what you just took');
     ok(!Ra.dropRace(g, 'nothing'), 'you cannot drop a race you do not hold');
-    ok(Ra.RACE_KEYS.every(k => Ra.RACES[k].weight > 0 && Ra.RACES[k].tier >= 0), 'every race has odds and a rarity');
+    ok(Ra.ROLLABLE_RACES.every(k => Ra.RACES[k].weight > 0 && Ra.RACES[k].tier >= 0), 'every race you can roll has odds and a rarity');
+    ok(Array.from({ length: 400 }, () => Ra.rollWeighted()).every(k => k !== 'god'), 'the wheel never lands on God');
     ok(Ra.RACES.archdemon.weight < Ra.RACES.human.weight, 'an Arch Demon is far rarer than a Human');
-    ok(Ra.rollOrder().length === Ra.RACE_KEYS.length, 'the wheel holds every race exactly once');
+    ok(Ra.rollOrder().length === Ra.ROLLABLE_RACES.length, 'the wheel holds every rollable race exactly once');
     const back = deserialize(serialize(g.state));
     ok(Array.isArray(back.rpg.raceSlots) && back.rpg.raceSlots.length === Ra.raceSlots(g).length, 'your slots are saved', `${back.rpg.raceSlots?.length}`);
     H.endLead(g);
