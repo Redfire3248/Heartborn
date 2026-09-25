@@ -322,17 +322,25 @@ async function save(force = false) {
   }
 }
 
-// F3 opens the admin panel, F2 the command line behind it (admins only, on every device)
+// F2 and F3 both open the Admin panel: it is what an admin wants nine times in ten, and the command line is one
+// button away inside it (or F4, for anyone who would rather type).
 window.addEventListener('keydown', e => {
-  if (e.key !== 'F3' || !app.game) return;
+  if ((e.key !== 'F2' && e.key !== 'F3') || !app.game) return;
   e.preventDefault();
-  app.hud?.openAdminPanel?.();
+  if (app.hud?.isAdmin) { app.hud.openAdminPanel(); return; }
+  openAdminHelp();
 });
 
-// F2 opens the admin command line (admins only)
+// F4 opens the command line straight away (admins only)
 window.addEventListener('keydown', e => {
-  if (e.key !== 'F2' || !app.game) return;
+  if (e.key !== 'F4' || !app.game) return;
   e.preventDefault();
+  if (app.console) { app.console.toggle(); return; }
+  openAdminHelp();
+});
+
+/** Why F2 did nothing: you are not an admin yet, and here is the UID to add in Firebase. */
+function openAdminHelp() {
   if (app.console) { app.console.toggle(); return; }
   if (document.querySelector('.admin-help')) return;
   // not an admin (yet): say exactly why, and show the UID to add in Firebase
@@ -353,7 +361,7 @@ window.addEventListener('keydown', e => {
     h('div.faint', { html: '<b>To unlock:</b><br>1. Firebase → <b>Firestore</b> → collection <b>admins</b> → add a document whose <b>Document ID</b> is the UID above (add any field, e.g. admin = true).<br>2. Firebase → <b>Realtime Database</b> → add <b>admins</b> → <b>UID</b> → <b>true</b>.<br>3. Publish both rules files (firestore.rules and database.rules.json).<br>4. Reload the game and press F2.' }),
     h('button.btn.primary', { onclick: () => m.close() }, 'OK'),
   ], { cls: 'admin-help', onClose: () => {} });
-});
+}
 
 // right-click belongs to the game (dropping, aiming), not to the browser's own menu
 document.addEventListener('contextmenu', e => {

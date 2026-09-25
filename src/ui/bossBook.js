@@ -5,7 +5,7 @@
  * or take on the gauntlet: five of them, one after another, on a single clock.
  */
 import { CREATURES } from '../data/objects.js';
-import { h, icon, modal, closeIfOpen } from './dom.js';
+import { h, icon, modal, toggleMenu } from './dom.js';
 import { hasArt } from '../render/gearArt.js';
 import { spriteAvailable } from '../core/assets.js';
 import { rpgOf } from '../game/rpg.js';

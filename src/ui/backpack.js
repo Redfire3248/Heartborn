@@ -5,7 +5,7 @@
  *
  * Hovering anything shows a card with its name, what it does and what it is worth.
  */
-import { h, icon, modal, closeIfOpen, rarityFrame, smallIcon, toggleMenu } from './dom.js';
+import { h, icon, modal, rarityFrame, smallIcon, toggleMenu } from './dom.js';
 import { play } from '../core/sound.js';
 import { spriteAvailable } from '../core/assets.js';
 import { hasArt, gearIconKey } from '../render/gearArt.js';
@@ -13,7 +13,7 @@ import { rpgOf, heroStats, xpToNext, spendPoint, resetStats, resetStatsCost, equ
 import { TOOLS, toolsOf, hotbarOf, setSlot, selectSlot, toolRarity, toolValue, sellTool } from '../game/tools.js';
 import { CONSUMABLES, itemsOf } from '../game/consumables.js';
 import { MATERIALS, MATERIAL_KEYS, TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
-import { RACES, raceOf, raceDef, lookOf, raceArt, setRace, raceMult, stonesOf, myCharacters } from '../game/races.js';
+import { raceDef, raceMult, stonesOf } from '../game/races.js';
 import { ATTUNEMENTS, ATTUNE_KEYS, attunement } from '../game/attune.js';
 import { matIcon } from './tableMenu.js';
 import { ENCHANTS, enchName } from '../game/enchanting.js';
@@ -129,39 +129,6 @@ export function openBackpack(hud, tab = null) {
       };
       const cost = resetStatsCost(g);
 
-      /**
-       * Who you are: a race down the left, its four faces and what it does for you on the right. Picking a face
-       * picks the race with it, so there is never a half-made choice.
-       */
-      /**
-       * Who you can be. The list is the characters themselves — every face of every race you are holding, by name —
-       * with the race it belongs to beside it, because a character is a person first and a race second.
-       */
-      const raceChooser = () => {
-        const mine = myCharacters(g);
-        const worn = lookOf(g);
-        const sel = mine.some(c => c.look === hud._bpLookSel) ? hud._bpLookSel : worn;
-        const chosen = mine.find(c => c.look === sel) || mine[0];
-        const def = RACES[chosen.race];
-        return h('div.bp-races',
-          h('div.bp-race-list', ...mine.map(c => h(`button.bp-race${c.look === sel ? '.on' : ''}${c.look === worn ? '.worn' : ''}`,
-            { style: { '--rc': RACES[c.race].color }, title: `${c.name} · ${RACES[c.race].name}`, onclick: () => { hud._bpLookSel = c.look; render(); } },
-            icon(raceArt(c.look), 30),
-            h('span.bp-race-who', h('b', c.name), h('i', { style: { color: RACES[c.race].color } }, RACES[c.race].name))))),
-          h('div.bp-race-detail',
-            h('div.bp-race-head',
-              h('h4', chosen.name),
-              h('span.bp-race-tag', { style: { color: def.color, borderColor: `${def.color}66` } }, def.name),
-              sel === worn ? h('span.bp-race-now', 'you') : null),
-            h('div.faint', def.desc),
-            h('div.bp-race-stats', ...[['Health', def.mult.hp], ['Damage', def.mult.dmg], ['Speed', def.mult.speed], ['Stamina', def.mult.stamina], ['Crit', def.mult.crit]]
-              .filter(([, m]) => m !== 1)
-              .map(([label, m]) => h(`span.bp-race-stat${m > 1 ? '.up' : '.down'}`, `${label} ${m > 1 ? '+' : ''}${Math.round((m - 1) * 100)}%`))),
-            h('div.bp-race-passive', def.passive),
-            sel === worn
-              ? h('div.faint', 'This is who you are.')
-              : h('button.btn.sm.primary', { onclick: () => { setRace(g, chosen.race, chosen.look); hud._bpLook = false; play('reveal'); refresh(); } }, `Play as ${chosen.name}`)));
-      };
 
       return [
         h('div.bp-hero',
@@ -181,10 +148,8 @@ export function openBackpack(hud, tab = null) {
             })),
             h('div.row', { style: { gap: '5px', flexWrap: 'wrap' } },
               h('span.bp-race-chip', { style: { borderColor: raceDef(g).color, color: raceDef(g).color } }, raceDef(g).name),
-              h('button.btn.sm.ghost', { onclick: () => { hud._bpLook = !hud._bpLook; render(); } }, hud._bpLook ? 'Done' : 'Change character'),
-              h('button.btn.sm.race-btn', { title: 'Races, and the stone that rolls a new one', onclick: async () => { const M = await import('./raceMenu.js'); M.openRaceMenu(hud); } },
-                icon('items/mat_star_shard', 16), 'Races', stonesOf(g) ? h('span.race-btn-n', String(stonesOf(g))) : null)))),
-        hud._bpLook ? raceChooser() : null,
+              h('button.btn.sm.race-btn', { title: 'Your race, your character, and the stone that rolls a new race', onclick: async () => { const M = await import('./raceMenu.js'); M.openRaceMenu(hud); } },
+                icon('items/mat_star_shard', 16), 'Races & Character', stonesOf(g) ? h('span.race-btn-n', String(stonesOf(g))) : null)))),
         h('div.bp-stats',
           statRow('Health', st.maxHp, st.maxHp / 400, '#ff5b6b', 'How much you can take before you are knocked out.'),
           statRow('Stamina', st.maxStamina, st.maxStamina / 260, '#8fe07a', 'Swings, dashes and holding a guard all spend it.'),

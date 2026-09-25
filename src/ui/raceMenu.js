@@ -6,11 +6,12 @@
  * What it lands on is yours for good, so the wall fills up over time and you can go back to anything you have
  * already rolled for nothing.
  */
-import { h, icon, modal, closeIfOpen } from './dom.js';
+import { h, icon, modal, toggleMenu } from './dom.js';
 import { play } from '../core/sound.js';
 import {
   RACES, RACE_KEYS, RACE_TIERS, tierOf, raceOf, lookOf, raceArt, setRace, setLookOnly,
   stonesOf, rollRace, raceSlots, RACE_SLOTS, slotsFull, acceptRoll, dropRace, rollOrder,
+  allCharacters, characterName,
 } from '../game/races.js';
 
 const pct = m => `${m > 1 ? '+' : ''}${Math.round((m - 1) * 100)}%`;
@@ -117,7 +118,27 @@ export function openRaceMenu(hud) {
       h('button.btn.sm.ghost', { onclick: () => { pending = null; render(); } }, 'Let it go'));
   };
 
-  const render = () => {
+  /**
+   * Who you look like. This has nothing to do with your race: the race is what the wheel gave you and what your
+   * numbers come from, and this is simply the character you want to be. Any of the forty-eight, always.
+   */
+  const characters = () => {
+    const worn = lookOf(g);
+    const q = (hud._charQuery || '').trim().toLowerCase();
+    const all = allCharacters();
+    const list = all.filter(c => !q || c.name.toLowerCase().includes(q) || RACES[c.race].name.toLowerCase().includes(q));
+    const search = h('input.input.race-char-search', { placeholder: 'Search characters…', value: hud._charQuery || '', autocomplete: 'off' });
+    search.addEventListener('input', () => { hud._charQuery = search.value; render(true); });
+    return h('div.race-chars',
+      h('div.race-chars-head', h('b', 'Your character'), h('span.faint', `${characterName(worn)} · any of the ${all.length}, whatever you rolled`), h('div.spacer'), search),
+      h('div.race-char-grid', ...(list.length ? list.map(c => h(`button.race-char${c.look === worn ? '.on' : ''}`,
+        { style: { '--rc': RACES[c.race].color }, title: `${c.name} · ${RACES[c.race].name}`, onclick: () => { setLookOnly(g, c.look); play('click'); render(true); } },
+        icon(raceArt(c.look), 52),
+        h('b', c.name),
+        h('i', { style: { color: RACES[c.race].color } }, RACES[c.race].name))) : [h('div.faint', 'Nobody matches that')])));
+  };
+
+  const render = (keepSearch = false) => {
     const stones = stonesOf(g);
     m.el.replaceChildren(m.closeBtn,
       h('div.race-head',
@@ -135,7 +156,9 @@ export function openRaceMenu(hud) {
             : 'Race Stones fall from bosses, elites and the chests on deep floors.'))),
       replacePrompt(),
       h('div.race-wall-head', h('b', `Your races (${raceSlots(g).length}/${RACE_SLOTS})`), h('span.faint', 'Click one to wear it, for nothing. A fourth roll pushes one out.')),
-      wall());
+      wall(),
+      characters());
+    if (keepSearch) m.el.querySelector('.race-char-search')?.focus();
   };
   render();
   return m;

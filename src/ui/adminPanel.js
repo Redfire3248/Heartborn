@@ -11,7 +11,7 @@
  * It is deliberately a small floating window (and draggable on a computer) so you can watch the world while you
  * work on it, which is the whole point of an admin tool.
  */
-import { h, icon, modal, closeIfOpen, avatar, toggleMenu } from './dom.js';
+import { h, icon, modal, avatar, toggleMenu } from './dom.js';
 import { play } from '../core/sound.js';
 import { CREATURES } from '../data/objects.js';
 import { spriteAvailable } from '../core/assets.js';
@@ -378,21 +378,38 @@ export function openAdminPanel(hud, adminConsole) {
   const m = modal([h('div.ap-window', side, body)], { cls: 'admin-panel', closeX: true });
   render();
 
-  // a window you can move out of the way on a computer
+  /*
+   * A real window: it never dims the world behind it, and you can pick it up by its header and put it anywhere,
+   * with a finger or a mouse. Where you leave it is where it opens next time.
+   */
+  m.el.closest('.modal-bg')?.classList.add('no-dim');
   const head = m.el.querySelector('.ap-me');
+  head.style.touchAction = 'none';
+  const place = (x, y) => {
+    const b = m.el.getBoundingClientRect();
+    const nx = Math.max(4, Math.min(window.innerWidth - b.width - 4, x));
+    const ny = Math.max(4, Math.min(window.innerHeight - b.height - 4, y));
+    Object.assign(m.el.style, { position: 'fixed', margin: '0', left: `${nx}px`, top: `${ny}px` });
+    try { localStorage.setItem('hb-admin-pos', JSON.stringify({ x: nx, y: ny })); } catch { /* private window */ }
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem('hb-admin-pos') || 'null');
+    if (saved) requestAnimationFrame(() => place(saved.x, saved.y));
+  } catch { /* nothing saved */ }
   let drag = null;
   head.addEventListener('pointerdown', e => {
-    if (matchMedia('(pointer: coarse)').matches) return;
     const b = m.el.getBoundingClientRect();
-    drag = { dx: e.clientX - b.left, dy: e.clientY - b.top };
-    m.el.style.position = 'fixed';
-    m.el.style.margin = '0';
+    drag = { dx: e.clientX - b.left, dy: e.clientY - b.top, id: e.pointerId };
+    head.style.cursor = 'grabbing';
+    try { head.setPointerCapture?.(e.pointerId); } catch { /* the window listeners cover it */ }
+    e.preventDefault();
   });
-  window.addEventListener('pointermove', e => {
-    if (!drag) return;
-    m.el.style.left = `${Math.max(0, Math.min(window.innerWidth - 120, e.clientX - drag.dx))}px`;
-    m.el.style.top = `${Math.max(0, Math.min(window.innerHeight - 60, e.clientY - drag.dy))}px`;
-  });
-  window.addEventListener('pointerup', () => { drag = null; });
+  const onMove = e => { if (drag && e.pointerId === drag.id) place(e.clientX - drag.dx, e.clientY - drag.dy); };
+  const onUp = e => { if (drag && e.pointerId === drag.id) { drag = null; head.style.cursor = 'grab'; } };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+  const origClose = m.close;
+  m.close = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onUp); origClose(); };
   return m;
 }

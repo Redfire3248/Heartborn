@@ -679,8 +679,15 @@ export async function run() {
     H.knockOutHero(g, me);
     ok(me.hp !== 1 || true, 'and it does not happen twice in a row');
     // a look belongs to its race
+    // your face is yours: a race decides your numbers, never who you look like
+    Ra.setRace(g, 'zombie');
+    Ra.setLookOnly(g, 'vampire_f');
     Ra.setRace(g, 'orc');
-    ok(Ra.RACES.orc.looks.includes(Ra.lookOf(g)), 'changing race puts you in one of its faces', Ra.lookOf(g));
+    ok(Ra.lookOf(g) === 'vampire_f', 'changing race leaves your character alone', Ra.lookOf(g));
+    ok(Ra.setLookOnly(g, 'archangel_m'), 'you can wear any character in the game, whatever you rolled');
+    ok(!Ra.setLookOnly(g, 'nobody_at_all'), 'but not one that does not exist');
+    ok(Ra.ALL_LOOKS.length === 48 && Ra.allCharacters().length === 48, 'all forty-eight characters are on offer', `${Ra.ALL_LOOKS.length}`);
+    ok(Ra.characterName('vampire_f') === 'Lady Ysolde', 'and every one of them has a name', Ra.characterName('vampire_f'));
     ok(!Ra.setRace(g, 'nonsense'), 'a race that does not exist is refused');
     // and all of it is saved
     const back = deserialize(serialize(g.state));

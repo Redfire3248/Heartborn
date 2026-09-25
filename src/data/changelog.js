@@ -1,6 +1,17 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Your character is yours, and the Admin window stays out of the way',
+    changes: [
+      'Your character and your race are two different things now. The race is what the wheel gave you and it decides your numbers; the character is simply who you look like, and you may wear any of the forty-eight whatever you rolled',
+      'Changing race no longer changes your face',
+      'Choosing a character moved out of the Backpack and into Races, with a search box: the Backpack has one button now, Races & Character',
+      'F2 opens the Admin panel, which is what you actually want. F3 does too, and F4 goes straight to the command line for anyone who would rather type',
+      'The Admin window no longer dims or blurs the world behind it: you can watch what you are changing',
+      'You can pick the Admin window up by its header with a finger or a mouse and put it anywhere, and it opens where you left it',
+    ],
+  },
+  {
     title: 'Characters by name, one screen at a time, and a proper hatch',
     changes: [
       'Change character now lists the characters themselves, by name, with the race each one belongs to beside it. All 48 of them have names: Bren the Sellsword, Mira the Ashcaller, Malgroth the Cinder King, Lady Ysolde and the rest',

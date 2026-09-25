@@ -3,7 +3,7 @@
  * with how many; what you have not shows as a dark shape and ???.
  */
 import { PETS } from '../game/pets.js';
-import { h, icon, modal, rarityFrame, smallIcon, closeIfOpen, toggleMenu } from './dom.js';
+import { h, icon, modal, rarityFrame, smallIcon, toggleMenu } from './dom.js';
 import { OBJECTS, CREATURES } from '../data/objects.js';
 import { CATALOG, rpgOf, discover } from '../game/rpg.js';
 import { bossProgress } from '../game/bossIndex.js';

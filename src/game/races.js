@@ -127,14 +127,22 @@ export function raceOf(g) {
 export const raceDef = g => RACES[raceOf(g)] || RACES.human;
 
 /** Which of that race's four looks you wear. */
+/*
+ * Your look and your race are two different things. The race is what the wheel gave you and it decides your
+ * numbers; the character is simply who you want to look like, and you may wear any of the forty-eight whatever
+ * you rolled. A save from before this kept its race's own face, which is still a perfectly good one.
+ */
 export function lookOf(g) {
   const r = g?.state?.rpg;
-  const looks = (RACES[raceOf(g)] || RACES.human).looks;
-  if (r && !looks.includes(r.look)) r.look = looks[0];
-  return r?.look || looks[0];
+  if (r && !ALL_LOOKS.includes(r.look)) r.look = (RACES[raceOf(g)] || RACES.human).looks[0];
+  return r?.look || RACES.human.looks[0];
 }
 
 export const raceArt = look => `races/${look}`;
+
+/** Every character in the game, in race order. Any of them can be worn by anybody. */
+export const ALL_LOOKS = RACE_KEYS.flatMap(k => RACES[k].looks);
+export const allCharacters = () => RACE_KEYS.flatMap(k => RACES[k].looks.map((look, i) => ({ look, race: k, name: RACES[k].names?.[i] || RACES[k].name })));
 
 /** The name of one character, and the race it belongs to. Every face in the game is somebody. */
 export function characterOf(look) {
@@ -163,16 +171,19 @@ export function setRace(g, id, look = null) {
   if (!validRace(id)) return false;
   const r = (g.state.rpg ||= {});
   r.race = id;
-  r.look = RACES[id].looks.includes(look) ? look : RACES[id].looks[0];
+  // a race never changes how you look: only an explicit pick does, and a brand new character needs a first face
+  if (look && ALL_LOOKS.includes(look)) r.look = look;
+  else if (!ALL_LOOKS.includes(r.look)) r.look = RACES[id].looks[0];
   try { localStorage.setItem(LAST_RACE, id); localStorage.setItem(LAST_LOOK, r.look); } catch { /* private window */ }
   g.emit?.('change');
   return true;
 }
 
 /** Just the look, keeping the race. */
+/** Wear any character in the game. Your race, and everything it gives you, is untouched. */
 export function setLookOnly(g, look) {
   const r = g.state.rpg;
-  if (!r || !RACES[raceOf(g)].looks.includes(look)) return false;
+  if (!r || !ALL_LOOKS.includes(look)) return false;
   r.look = look;
   try { localStorage.setItem(LAST_LOOK, look); } catch { /* private window */ }
   g.emit?.('change');

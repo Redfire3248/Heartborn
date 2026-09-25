@@ -4,7 +4,7 @@
  * The Books tab makes enchantment books (one random enchantment you can put on something later, keeping the rest).
  */
 import { toolRarity } from '../game/tools.js';
-import { h, icon, modal, costChips, rarityFrame, smallIcon, closeIfOpen, toggleMenu } from './dom.js';
+import { h, icon, modal, costChips, rarityFrame, smallIcon, toggleMenu } from './dom.js';
 import { hasArt, gearIconKey } from '../render/gearArt.js';
 import { heroOf } from '../game/hero.js';
 import { play } from '../core/sound.js';
