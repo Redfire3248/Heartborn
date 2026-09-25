@@ -23,7 +23,7 @@ const ago = ts => {
 const rankChip = r => h('span.boss-rank', { style: { color: RANKS[r], borderColor: `${RANKS[r]}66` } }, r);
 
 export function openBossBook(hud, focus = null) {
-  if (closeIfOpen('boss-modal')) return null;
+  if (toggleMenu('boss-modal', { sameView: true })) return null;
   const g = hud.game;
   const m = modal([], { cls: 'boss-modal', closeX: true });
   let picked = focus;

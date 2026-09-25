@@ -11,7 +11,7 @@
  * It is deliberately a small floating window (and draggable on a computer) so you can watch the world while you
  * work on it, which is the whole point of an admin tool.
  */
-import { h, icon, modal, closeIfOpen, avatar } from './dom.js';
+import { h, icon, modal, closeIfOpen, avatar, toggleMenu } from './dom.js';
 import { play } from '../core/sound.js';
 import { CREATURES } from '../data/objects.js';
 import { spriteAvailable } from '../core/assets.js';
@@ -203,7 +203,7 @@ const PRANKS = [
 ];
 
 export function openAdminPanel(hud, adminConsole) {
-  if (closeIfOpen('admin-panel')) return null;
+  if (toggleMenu('admin-panel', { sameView: true })) return null;
   const con = adminConsole || window.__hbConsole;
   if (!con) { hud.hint('The console is not loaded', 1800); return null; }
   const g = hud.game;

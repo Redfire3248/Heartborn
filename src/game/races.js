@@ -20,6 +20,7 @@ export const RACES = {
     mult: { hp: 1.05, dmg: 1.05, speed: 1.03, stamina: 1.05, crit: 1 },
     passive: 'Adaptable: you earn 10% more experience from everything.',
     looks: ['human_m', 'human_f', 'human_m2', 'human_f2'],
+    names: ['Bren the Sellsword', 'Mira the Ashcaller', 'Colm the Ranger', 'Dame Ottilie'],
   },
   elf: {
     name: 'Elf', color: '#8aff9a', tier: 0, weight: 20,
@@ -27,6 +28,7 @@ export const RACES = {
     mult: { hp: 0.9, dmg: 1.05, speed: 1.14, stamina: 1.15, crit: 1.5 },
     passive: 'Keen Eye: half again as likely to land a critical hit, and your dash costs nothing.',
     looks: ['elf_m', 'elf_f', 'elf_m2', 'elf_f2'],
+    names: ['Aeloth the Pale Sage', 'Sylvaen of the Green', 'Thirren Nightbough', 'Neryndel the Warden'],
   },
   dwarf: {
     name: 'Dwarf', color: '#e0a35a', tier: 0, weight: 20,
@@ -34,6 +36,7 @@ export const RACES = {
     mult: { hp: 1.3, dmg: 1.05, speed: 0.88, stamina: 1.2, crit: 0.8 },
     passive: 'Stonehide: every blow that reaches you is cut by a further 12%, and ore veins give you one extra.',
     looks: ['dwarf_m', 'dwarf_f', 'dwarf_m2', 'dwarf_f2'],
+    names: ['Durgan Ironbeard', 'Hilda Stonefoot', 'Bruni Keg-Heart', 'Vesta Emberhand'],
   },
   orc: {
     name: 'Orc', color: '#7ac74f', tier: 0, weight: 18,
@@ -41,6 +44,7 @@ export const RACES = {
     mult: { hp: 1.2, dmg: 1.18, speed: 0.96, stamina: 1.1, crit: 0.9 },
     passive: 'Blood Rage: below half health you hit 35% harder.',
     looks: ['orc_m', 'orc_f', 'orc_m2', 'orc_f2'],
+    names: ['Grum the Tusked', 'Zakka Spiritspeaker', 'Rukk One-Eye', 'Ghazra Bloodbraid'],
   },
   demon: {
     name: 'Demon', color: '#ff6b5b', tier: 2, weight: 6,
@@ -48,6 +52,7 @@ export const RACES = {
     mult: { hp: 1.05, dmg: 1.2, speed: 1.05, stamina: 1, crit: 1.1 },
     passive: 'Hellfire: everything you strike burns, and fire cannot hurt you.',
     looks: ['demon_m', 'demon_f', 'demon_m2', 'demon_f2'],
+    names: ['Vharn the Red', 'Liressa Thornhorn', 'Ferrox the Chained', 'Sabreth Emberlash'],
   },
   archdemon: {
     name: 'Arch Demon', color: '#ff3a2a', tier: 4, weight: 1,
@@ -55,6 +60,7 @@ export const RACES = {
     mult: { hp: 1.35, dmg: 1.3, speed: 0.85, stamina: 0.95, crit: 1 },
     passive: 'Cinder Crown: your blows burn fiercely, fire cannot hurt you, and every kill leaves a patch of flame.',
     looks: ['archdemon_m', 'archdemon_f', 'archdemon_m2', 'archdemon_f2'],
+    names: ['Malgroth the Cinder King', 'Nyxareth the Cold Flame', 'Zhaugrin the Ninefold', 'Karrathyx the Silent Queen'],
   },
   angel: {
     name: 'Angel', color: '#fff3b0', tier: 2, weight: 6,
@@ -62,6 +68,7 @@ export const RACES = {
     mult: { hp: 1.1, dmg: 1, speed: 1.08, stamina: 1.1, crit: 1 },
     passive: 'Grace: you heal steadily whenever nothing has hurt you for four seconds.',
     looks: ['angel_m', 'angel_f', 'angel_m2', 'angel_f2'],
+    names: ['Tobiel the Mender', 'Serelis the Watcher', 'Ithuriel the Sentinel', 'Cassiel the Quiet'],
   },
   archangel: {
     name: 'Archangel', color: '#ffe9a0', tier: 4, weight: 1,
@@ -69,6 +76,7 @@ export const RACES = {
     mult: { hp: 1.2, dmg: 1.12, speed: 1.05, stamina: 1.15, crit: 1.1 },
     passive: 'Judgement: double damage against the undead, and you heal faster the longer you are unhurt.',
     looks: ['archangel_m', 'archangel_f', 'archangel_m2', 'archangel_f2'],
+    names: ['Uriellon the Dawnblade', 'Sariah of the Silver Choir', 'Raziel of the Burning Word', 'Gavriela Stormcrown'],
   },
   fallen: {
     name: 'Demonic Angel', color: '#c08aff', tier: 3, weight: 2,
@@ -76,6 +84,7 @@ export const RACES = {
     mult: { hp: 1.1, dmg: 1.15, speed: 1.06, stamina: 1.05, crit: 1.2 },
     passive: 'Two Natures: your blows burn, you heal while unhurt, and fire cannot touch you.',
     looks: ['fallen_m', 'fallen_f', 'fallen_m2', 'fallen_f2'],
+    names: ['Kaelith the Fallen', 'Vespera Ashwing', 'Sorreth Twice-Marked', 'Maleen the Unmade'],
   },
   skeleton: {
     name: 'Skeleton', color: '#e8e4d8', tier: 1, weight: 10,
@@ -83,6 +92,7 @@ export const RACES = {
     mult: { hp: 0.85, dmg: 1.08, speed: 1.1, stamina: 1.25, crit: 1.15 },
     passive: 'Bare Bones: poison, bleeding and hunger cannot touch you, and you never run out of breath dashing.',
     looks: ['skeleton_m', 'skeleton_f', 'skeleton_m2', 'skeleton_f2'],
+    names: ['Rattle-Sir Orlan', 'Grell the Hollow', 'Bonefinger Quell', 'The Gilded Lady'],
   },
   zombie: {
     name: 'Zombie', color: '#9ab87a', tier: 1, weight: 10,
@@ -90,6 +100,7 @@ export const RACES = {
     mult: { hp: 1.45, dmg: 0.95, speed: 0.82, stamina: 0.9, crit: 0.8 },
     passive: 'Undying: once every two minutes a killing blow leaves you on one health instead. Poison does nothing.',
     looks: ['zombie_m', 'zombie_f', 'zombie_m2', 'zombie_f2'],
+    names: ['Old Marrek', 'Pale Annet', 'Drowned Halvard', 'Grave-Bride Isolde'],
   },
   vampire: {
     name: 'Vampire', color: '#ff5b6b', tier: 2, weight: 5,
@@ -97,6 +108,7 @@ export const RACES = {
     mult: { hp: 1, dmg: 1.15, speed: 1.1, stamina: 1.05, crit: 1.25 },
     passive: 'Bloodthirst: 12% of the damage you deal comes back as health. By day you take 15% more.',
     looks: ['vampire_m', 'vampire_f', 'vampire_m2', 'vampire_f2'],
+    names: ['Count Dravik', 'Lady Ysolde', 'Strigor the Beast', 'Mistress Carmilla'],
   },
 };
 
@@ -123,6 +135,21 @@ export function lookOf(g) {
 }
 
 export const raceArt = look => `races/${look}`;
+
+/** The name of one character, and the race it belongs to. Every face in the game is somebody. */
+export function characterOf(look) {
+  for (const key of RACE_KEYS) {
+    const i = RACES[key].looks.indexOf(look);
+    if (i >= 0) return { race: key, name: RACES[key].names?.[i] || RACES[key].name, index: i };
+  }
+  return { race: 'human', name: 'Someone', index: 0 };
+}
+export const characterName = look => characterOf(look).name;
+
+/** Every character you could be right now: the four faces of each race you are holding. */
+export function myCharacters(g) {
+  return raceSlots(g).flatMap(key => RACES[key].looks.map((look, i) => ({ look, race: key, name: RACES[key].names?.[i] || RACES[key].name })));
+}
 
 export function lastRace() {
   try { const id = localStorage.getItem(LAST_RACE); return validRace(id) ? id : 'human'; } catch { return 'human'; }

@@ -88,7 +88,7 @@ import { play, soundSettings, setVolume } from '../core/sound.js';
 import { cleanText, mutedPlayers, setMuted, reportMessage } from '../net/chatSafety.js';
 import { BUILD, LATEST_CHANGES, checkLatest } from '../core/version.js';
 
-const TOP_RES = ['wood', 'stone', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence'];   // food is out of the game   // ores, metals and boss materials are in the Materials bag
+const TOP_RES = ['gold', 'wood', 'stone', 'gems', 'weapons', 'bombs', 'science', 'influence'];   // gold first: it is the money   // food is out of the game   // ores, metals and boss materials are in the Materials bag
 // bombs and science only appear once they matter
 const SHOW_WHEN = {
   bombs: g => !g.solo && (g.state.resources.bombs > 0 || g.hasBuilding('powder_mill')), science: g => !g.solo && (g.state.resources.science > 0 || g.state.era >= 3),
@@ -309,12 +309,7 @@ export class HUD {
     this.els.vitals = h('div.vitals-strip', { hidden: true });
     this.els.streak = h('div.streak-chip', { hidden: true }, h('b.streak-n'), h('span.streak-name'), h('i.streak-bar'));
     this.root.append(this.els.streak);
-    // there is no F2 on a phone, so admins get a button. Nobody else ever sees it.
-    if (this.isAdmin) {
-      this.els.adminBtn = h('button.admin-btn', { title: 'Admin panel (F3). The command line is F2.', 'aria-label': 'Admin panel', onclick: () => this.openAdminPanel() },
-        pxIcon('gear', 20), h('span.admin-btn-text', 'Admin'), h('span.admin-btn-key', 'F3'));
-      this.root.append(this.els.adminBtn);
-    }
+    if (this.isAdmin) this.showAdminButton();   // admin status usually arrives later; setAdmin() puts it up then
     this.els.skillChip = h('div.skill-chip', { hidden: true });
     this.root.append(this.els.heroBar, this.els.heroPad, this.els.vitals, this.els.skillChip, h('div.hotbar-wrap', this.els.invPanel, this.els.hotName, this.els.hotbar));   // the strip stands on its own: inside the hotbar it was trapped by its transform
     watchLayout();
@@ -492,21 +487,15 @@ export class HUD {
     if (k === 'enter' && this.mp && !this.game.sail) { this.openChat(); return; }
     if (is(k, 'map')) { openIslandMap(this); return; }
     if (k === 'escape' && this.visiting) { this.onReturnHome(); return; }
-    if (is(k, 'character') && !this.game.sail) { this.toggleLead(); return; }
     if (is(k, 'inventory')) { this.inventory(); return; }
     if (is(k, 'backpack') && !this.game.sail) { if (!this.useStation()) openBackpack(this); return; }
     if ((k === '`' || k === '~') && !this.game.sail) { this.inventory(); return; }   // the bag of loose things sits on the tilde key
-    if (is(k, 'index')) { openIndex(this); return; }
-    if (is(k, 'journal')) { openJournal(this); return; }
-    if (is(k, 'bosses')) { openBossBook(this); return; }
-    if (is(k, 'pets')) { openPets(this); return; }
     const slot = ACTIONS.findIndex(a => a.id.startsWith('hot') && is(k, a.id)) - ACTIONS.findIndex(a => a.id === 'hot1');
     // like Minecraft: hover something in the inventory and press a number to put it in that hotbar slot
     if (slot >= 0 && this._invHover && !this.els.invPanel.hidden) { setSlot(this.game, slot, this._invHover); this._hotbarKey = null; this.renderInventory(); return; }
     if (slot >= 0 && (this.game.hero || this.dungeon)) { selectSlot(this.game, slot); this._hotbarKey = null; return; }
     if (is(k, 'drop') && (this.game.hero || this.dungeon)) { this.dropHeld(); return; }
     if (is(k, 'ability') && (this.game.hero || this.dungeon)) { useWeaponAbility(this.dungeon || this.game); return; }
-    if (is(k, 'craft') && this.game.hero) { this.openTable(); return; }
     if (this.game.hero) {   // walking your ruler: WASD move, Space strikes, Esc stops
       if (is(k, 'attack') || k === ' ' || k.startsWith('arrow')) e.preventDefault?.();
       if (k === 'escape' && !this.buildType && !this.demolishMode && !this.game.selected && !this.panel) return;
@@ -525,11 +514,6 @@ export class HUD {
     else if (is(k, 'rebuild') && this.lastBuild) { if (this.game.canAfford(BUILDINGS[this.lastBuild].cost)) this.startBuild(this.lastBuild); else this.hint(`Not enough resources for another ${BUILDINGS[this.lastBuild].name}`, 1500); }
     else if (k === '/') { e.preventDefault?.(); this.buildSearchFocused = true; if (this.panel === 'build') this.panelEl?.querySelector('.build-search')?.focus(); else this.openPanel('build'); }
     else if (is(k, 'build')) this.togglePanel('build');
-    else if (is(k, 'craft')) this.openTable();
-    else if (is(k, 'jobs') && on('people')) this.togglePanel('jobs');
-    else if (is(k, 'court') && on('court')) this.togglePanel('court');
-    else if (is(k, 'deeds') && on('laws')) this.togglePanel('deeds');
-    else if (is(k, 'log') && on('chronicle')) this.togglePanel('log');
     else if (is(k, 'world')) this.togglePanel('world');
     else if (k === 'h' && !this.game.hero) { this.follow = null; this.input.panTo(this.game.center.x, this.game.center.y); }
   }
@@ -953,7 +937,6 @@ export class HUD {
           tab(hasArt('items/token_crown') ? 'items/token_crown' : 'items/scroll', 'Journal', 'Daily chest, challenges and achievements (O)', () => openJournal(this)),
           tab(hasArt('ui/index') ? 'ui/index' : 'items/scroll', 'Index', 'Everything you have found, and your Hall of Bosses (N)', () => openIndex(this)),
           tab('ui/search', 'Analyze', 'Analyze the item under your cursor (or what you hold). Tip: right-click a hotbar slot', () => this.analyzeKey(this._invHover || bar[r.hotSel]), '.analyze-btn'),
-          tab('items/mat_star_shard', 'Materials', 'Ores, metals and boss materials', () => openBackpack(this, 'mats')),
           tab('items/sword', 'Gear', 'Your gear, tools, items and stats (E)', () => openBackpack(this, 'gear')),
           tab(hasArt('ui/trash') ? 'ui/trash' : 'items/relic', 'Drop', 'Drop what you are holding (Z). Hover a slot first to drop that instead', () => this.dropHeld(this._invHover || null), '.drop-btn'),
           h('button.modal-x.inv-x', { title: 'Close (I)', onclick: () => { panel.hidden = true; } }, hasArt('ui/close') ? icon('ui/close', 16) : '✕'));
@@ -2940,6 +2923,24 @@ export class HUD {
    * The Notices row in Settings. The browser only lets us ask from a real tap, so there is a button; once you have
    * said yes, invites, people joining, trades, messages and new versions reach you through the installed app.
    */
+  /**
+   * Admin rights are checked against the server, so they usually arrive a moment after the screen is built.
+   * main.js calls this when they do, and the button goes up then; nobody else ever gets one.
+   */
+  setAdmin(on) {
+    this.isAdmin = !!on;
+    if (this.isAdmin) this.showAdminButton();
+    else { this.els.adminBtn?.remove(); this.els.adminBtn = null; }
+  }
+
+  /** The button itself, on every device: a labelled one on a computer, an icon where there is no room. */
+  showAdminButton() {
+    if (this.els.adminBtn?.isConnected) return;
+    this.els.adminBtn = h('button.admin-btn', { title: 'Admin panel (F3). The command line is F2.', 'aria-label': 'Admin panel', onclick: () => this.openAdminPanel() },
+      pxIcon('gear', 20), h('span.admin-btn-text', 'Admin'), h('span.admin-btn-key', 'F3'));
+    this.root.append(this.els.adminBtn);
+  }
+
   /** The admin panel, from the button or from F3. Only ever reachable by an admin account. */
   async openAdminPanel() {
     if (!this.isAdmin) return false;

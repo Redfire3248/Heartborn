@@ -3,7 +3,7 @@
  * with how many; what you have not shows as a dark shape and ???.
  */
 import { PETS } from '../game/pets.js';
-import { h, icon, modal, rarityFrame, smallIcon, closeIfOpen } from './dom.js';
+import { h, icon, modal, rarityFrame, smallIcon, closeIfOpen, toggleMenu } from './dom.js';
 import { OBJECTS, CREATURES } from '../data/objects.js';
 import { CATALOG, rpgOf, discover } from '../game/rpg.js';
 import { bossProgress } from '../game/bossIndex.js';
@@ -40,7 +40,7 @@ function backfill(g) {
 }
 
 export function openIndex(hud, tab = null) {
-  if (closeIfOpen('index-modal')) return null;   // pressing N again closes it
+  if (toggleMenu('index-modal', { sameView: !tab || hud._indexTab === tab })) return null;
   const g = hud.game;
   backfill(g);
   const m = modal([], { cls: 'index-modal', closeX: true });

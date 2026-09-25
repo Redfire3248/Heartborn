@@ -28,7 +28,7 @@ export const MATERIALS = {
   iron:         { name: 'Iron', mult: 1, rarity: 0, trait: null, icon: 'items/icon_iron', pool: ['sword', 'longsword', 'mace', 'axe', 'spear', 'halberd'] },
   coal:         { name: 'Coal', mult: 0.9, rarity: 0, trait: null, icon: 'items/icon_coal', pool: ['club', 'hammer', 'flail'], filler: true },
   silver:       { name: 'Silver', mult: 1.15, rarity: 1, trait: 'holy', icon: 'items/icon_silver', pool: ['rapier', 'estoc', 'sabre', 'holy_scepter', 'holy_sword'] },
-  gold:         { name: 'Gold', mult: 1.1, rarity: 1, trait: 'luck', icon: 'items/icon_gold', pool: ['scimitar', 'cutlass', 'falchion'] },
+  gold:         { off: true, name: 'Gold', mult: 1.1, rarity: 1, trait: 'luck', icon: 'items/icon_gold', pool: ['scimitar', 'cutlass', 'falchion'] },   // switched off: gold is what you spend, not what you forge with
   gems:         { name: 'Gems', mult: 1.2, rarity: 2, trait: 'magic', icon: 'items/icon_gem', pool: ['crystal_orb', 'lightning_wand', 'spellbook', 'magic_staff'] },
   obsidian:     { name: 'Obsidian', mult: 1.35, rarity: 2, trait: 'crit', icon: 'items/icon_obsidian', pool: ['katana', 'war_pick', 'double_axe', 'wakizashi'] },
   frostite:     { name: 'Frostite', mult: 1.45, rarity: 3, trait: 'chill', icon: 'items/icon_frostite', pool: ['frost_sword', 'ice_staff', 'glaive', 'runic_blade'] },
@@ -86,7 +86,7 @@ export const TRAITS = {
 /** What a potion mix makes: the main ingredient decides the kind (food makes health potions). */
 export const POTION_BY_MATERIAL = {
   food: 'potion', wood: 'potion', stone: 'potion', coal: 'strength_potion', magmite: 'strength_potion', gems: 'mana_potion', mythril: 'mana_potion',
-  jade: 'antidote', spirit_bark: 'antidote', gold: 'golden_apple', sunstone: 'golden_apple', frostite: 'speed_potion', cobalt: 'speed_potion',
+  jade: 'antidote', spirit_bark: 'antidote', sunstone: 'golden_apple', frostite: 'speed_potion', cobalt: 'speed_potion',
   moonstone: 'invisibility_potion', voidstone: 'invisibility_potion', lich_soul: 'invisibility_potion', iron: 'med_kit', copper: 'med_kit', silver: 'med_kit',
 };
 export const POTION_NAMES = { potion: 'Health Potion', mana_potion: 'Mana Potion', strength_potion: 'Strength Potion', speed_potion: 'Speed Potion', antidote: 'Antidote', golden_apple: 'Golden Apple', invisibility_potion: 'Invisibility Potion', med_kit: 'Med Kit' };

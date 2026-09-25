@@ -117,6 +117,30 @@ export function closeIfOpen(cls) {
   return true;
 }
 
+/** Every full screen the game can put up. They are all one-at-a-time: opening one closes the rest. */
+export const GAME_MENUS = ['backpack-modal', 'index-modal', 'boss-modal', 'race-modal', 'pets-modal', 'journal-modal', 'admin-panel', 'enchant-modal', 'forge-modal'];
+
+/**
+ * Closes every game screen except the one named. Windows used to stack on top of each other when a screen was
+ * opened with an argument (a tab), which skipped the toggle; now there is only ever one.
+ */
+export function closeMenus(except = null) {
+  for (const cls of GAME_MENUS) {
+    if (cls === except) continue;
+    document.querySelector(`.modal.${cls}`)?.closest('.modal-bg')?.remove();
+  }
+}
+
+/**
+ * The standard way in for a game screen: pressing its key again closes it, asking for the tab you are already on
+ * closes it too, and anything else that was open gets out of the way. Returns true when the caller should stop.
+ */
+export function toggleMenu(cls, { sameView = false } = {}) {
+  const wasOpen = closeIfOpen(cls);
+  closeMenus();
+  return wasOpen && sameView;
+}
+
 export function confirmModal(title, text, { okLabel = 'Confirm', okClass = 'primary' } = {}) {
   return new Promise(resolve => {
     const m = modal([

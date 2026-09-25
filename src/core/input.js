@@ -1,7 +1,7 @@
 import { held } from './controls.js';
 import { TILE, MAP_W, MAP_H } from './constants.js';
 
-const MIN_ZOOM = 1.1, MAX_ZOOM = 5;   // the world map (V) is for looking at the whole island; the camera stays close
+const MIN_ZOOM = 0.7, MAX_ZOOM = 5;   // far enough back to read the land, not so far the island is a stamp
 
 /** Camera controls: drag to pan, wheel/pinch to zoom, WASD/arrows, click to act. */
 export class Input {

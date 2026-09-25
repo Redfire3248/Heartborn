@@ -332,11 +332,17 @@ export function resetStats(g) {
 
 // ------------------------------------------------------------------ loot
 
+/*
+ * How good a drop is. The rare end used to be far too generous — a levelled player saw a Legendary out of roughly
+ * one drop in five, and Mythic came off any boss one time in twenty-five. The curve is much meaner now and your
+ * level barely moves it: what makes a great drop great is what you killed, not how long you have been playing.
+ */
 const pickRarity = (g, boss, cap = MYTHIC) => {
   const lvl = rpgOf(g).level;
-  const roll = Math.random() * 100 - Math.min(20, lvl) - g.state.era * 2 - (boss ? 45 : 0);
-  if (boss && Math.random() < 0.04) return Math.min(cap, MYTHIC);
-  return Math.min(cap, roll < 2 ? 3 : roll < 12 ? 2 : roll < 38 ? 1 : 0);
+  const edge = Math.min(8, lvl * 0.25) + Math.min(4, g.state.era);   // was up to 20 + era x2
+  const roll = Math.random() * 100 - edge - (boss ? 26 : 0);
+  if (boss && Math.random() < 0.012) return Math.min(cap, MYTHIC);   // a Mythic is a story, not a Tuesday
+  return Math.min(cap, roll < 0.7 ? 3 : roll < 6 ? 2 : roll < 24 ? 1 : 0);
 };
 
 /**
@@ -346,12 +352,13 @@ const pickRarity = (g, boss, cap = MYTHIC) => {
 export function lootTier(def, c = {}) {
   if (def.boss || c.bounty) return { chance: 1, cap: MYTHIC };
   const danger = (def.hp || 10) / 220 + (def.damage || 0) / 26;   // wolf ~0.47, zombie ~0.65, golem ~2.7
-  if (c.elite) return { chance: 0.5, cap: danger > 1 ? 3 : 2 };
+  if (c.elite) return { chance: 0.45, cap: danger > 1 ? 3 : 2 };
   if (!def.hostile) return { chance: 0.02, cap: 0 };
-  if (danger < 0.55) return { chance: 0.06, cap: 0 };          // wolves, spiders, rats: scraps at best
-  if (danger < 0.9) return { chance: 0.12, cap: 1 };           // zombies, skeletons, bandits: the odd Rare
-  if (danger < 1.6) return { chance: 0.2, cap: 2 };            // the heavier monsters: up to Epic
-  return { chance: 0.3, cap: 3 };                              // the truly dangerous: up to Legendary
+  if (danger < 0.55) return { chance: 0.06, cap: 0 };          // wolves, spiders, rats: scraps, and only scraps
+  if (danger < 0.9) return { chance: 0.11, cap: 1 };           // zombies, skeletons, bandits: Uncommon at best
+  if (danger < 1.6) return { chance: 0.17, cap: 2 };           // the heavier monsters: up to Epic, rarely
+  return { chance: 0.26, cap: 2 };                             // even the worst ordinary beast stops at Epic;
+                                                               // Legendary and Mythic belong to bosses and elites
 }
 
 /** A piece of gear of a given kind (e.g. 'katana', 'tower', 'plate') and rarity (0 Common .. 4 Mythic; admin weapons are always 5 Admin). */

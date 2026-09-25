@@ -4,7 +4,7 @@
  * The Books tab makes enchantment books (one random enchantment you can put on something later, keeping the rest).
  */
 import { toolRarity } from '../game/tools.js';
-import { h, icon, modal, costChips, rarityFrame, smallIcon, closeIfOpen } from './dom.js';
+import { h, icon, modal, costChips, rarityFrame, smallIcon, closeIfOpen, toggleMenu } from './dom.js';
 import { hasArt, gearIconKey } from '../render/gearArt.js';
 import { heroOf } from '../game/hero.js';
 import { play } from '../core/sound.js';
@@ -73,7 +73,7 @@ export function rollReel(results, { title = 'Enchanting', pool = Object.keys(ENC
 }
 
 export function openEnchantMenu(hud) {
-  if (closeIfOpen('enchant-modal')) return null;
+  if (toggleMenu('enchant-modal', { sameView: true })) return null;
   const g = hud.game;
   const hero = heroOf(hud.dungeon || g) || heroOf(g);
   const m = modal([], { cls: 'enchant-modal', closeX: true });

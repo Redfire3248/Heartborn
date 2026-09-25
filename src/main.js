@@ -232,7 +232,7 @@ function startGame(user, game, { online = true } = {}) {
   adminStatus(user).then(status => {
     app.adminStatus = status;
     if (status !== 'admin' || app.hud !== hud) return;
-    hud.isAdmin = true;
+    hud.setAdmin(true);   // the Admin button goes up now that we know, on whatever device this is
     app.console = new AdminConsole({ game, mp: app.mp, user, hud });
   });
   if (app.mp) {

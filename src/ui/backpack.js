@@ -5,7 +5,7 @@
  *
  * Hovering anything shows a card with its name, what it does and what it is worth.
  */
-import { h, icon, modal, closeIfOpen, rarityFrame, smallIcon } from './dom.js';
+import { h, icon, modal, closeIfOpen, rarityFrame, smallIcon, toggleMenu } from './dom.js';
 import { play } from '../core/sound.js';
 import { spriteAvailable } from '../core/assets.js';
 import { hasArt, gearIconKey } from '../render/gearArt.js';
@@ -13,7 +13,7 @@ import { rpgOf, heroStats, xpToNext, spendPoint, resetStats, resetStatsCost, equ
 import { TOOLS, toolsOf, hotbarOf, setSlot, selectSlot, toolRarity, toolValue, sellTool } from '../game/tools.js';
 import { CONSUMABLES, itemsOf } from '../game/consumables.js';
 import { MATERIALS, MATERIAL_KEYS, TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
-import { RACES, RACE_KEYS, raceOf, raceDef, lookOf, raceArt, setRace, raceMult, stonesOf, unlockedRaces } from '../game/races.js';
+import { RACES, raceOf, raceDef, lookOf, raceArt, setRace, raceMult, stonesOf, myCharacters } from '../game/races.js';
 import { ATTUNEMENTS, ATTUNE_KEYS, attunement } from '../game/attune.js';
 import { matIcon } from './tableMenu.js';
 import { ENCHANTS, enchName } from '../game/enchanting.js';
@@ -81,7 +81,7 @@ function withTip(el, parts) {
 const tipHead = (name, sub, color) => h('div.bp-tip-head', h('b', { style: color ? { color } : null }, name), sub ? h('span.faint', sub) : null);
 
 export function openBackpack(hud, tab = null) {
-  if (!tab && closeIfOpen('backpack-modal')) return null;
+  if (toggleMenu('backpack-modal', { sameView: !tab || hud._bpTab === tab })) return null;
   if (hud.els?.invPanel) hud.els.invPanel.hidden = true;   // the little hotbar panel would sit under this one
   const g = hud.game;
   const m = modal([], { cls: 'backpack-modal', closeX: true });
@@ -133,25 +133,34 @@ export function openBackpack(hud, tab = null) {
        * Who you are: a race down the left, its four faces and what it does for you on the right. Picking a face
        * picks the race with it, so there is never a half-made choice.
        */
+      /**
+       * Who you can be. The list is the characters themselves — every face of every race you are holding, by name —
+       * with the race it belongs to beside it, because a character is a person first and a race second.
+       */
       const raceChooser = () => {
-        const cur = raceOf(g);
-        const sel = unlockedRaces(g).includes(hud._bpRace) ? hud._bpRace : cur;
-        const def = RACES[sel];
-        const mine = unlockedRaces(g);   // the wheel decides what you may be; this only picks among them
+        const mine = myCharacters(g);
+        const worn = lookOf(g);
+        const sel = mine.some(c => c.look === hud._bpLookSel) ? hud._bpLookSel : worn;
+        const chosen = mine.find(c => c.look === sel) || mine[0];
+        const def = RACES[chosen.race];
         return h('div.bp-races',
-          h('div.bp-race-list', ...RACE_KEYS.filter(k => mine.includes(k)).map(k => h(`button.bp-race${k === sel ? '.on' : ''}${k === cur ? '.worn' : ''}`,
-            { style: { '--rc': RACES[k].color }, onclick: () => { hud._bpRace = k; render(); } },
-            icon(raceArt(RACES[k].looks[0]), 26), h('span', RACES[k].name)))),
+          h('div.bp-race-list', ...mine.map(c => h(`button.bp-race${c.look === sel ? '.on' : ''}${c.look === worn ? '.worn' : ''}`,
+            { style: { '--rc': RACES[c.race].color }, title: `${c.name} · ${RACES[c.race].name}`, onclick: () => { hud._bpLookSel = c.look; render(); } },
+            icon(raceArt(c.look), 30),
+            h('span.bp-race-who', h('b', c.name), h('i', { style: { color: RACES[c.race].color } }, RACES[c.race].name))))),
           h('div.bp-race-detail',
-            h('div.bp-race-head', h('h4', { style: { color: def.color } }, def.name), cur === sel ? h('span.bp-race-now', 'you') : null),
+            h('div.bp-race-head',
+              h('h4', chosen.name),
+              h('span.bp-race-tag', { style: { color: def.color, borderColor: `${def.color}66` } }, def.name),
+              sel === worn ? h('span.bp-race-now', 'you') : null),
             h('div.faint', def.desc),
             h('div.bp-race-stats', ...[['Health', def.mult.hp], ['Damage', def.mult.dmg], ['Speed', def.mult.speed], ['Stamina', def.mult.stamina], ['Crit', def.mult.crit]]
               .filter(([, m]) => m !== 1)
               .map(([label, m]) => h(`span.bp-race-stat${m > 1 ? '.up' : '.down'}`, `${label} ${m > 1 ? '+' : ''}${Math.round((m - 1) * 100)}%`))),
             h('div.bp-race-passive', def.passive),
-            cur === sel
+            sel === worn
               ? h('div.faint', 'This is who you are.')
-              : h('button.btn.sm.primary', { onclick: () => { setRace(g, sel); hud._bpLook = false; play('reveal'); refresh(); } }, `Become ${def.name}`)));
+              : h('button.btn.sm.primary', { onclick: () => { setRace(g, chosen.race, chosen.look); hud._bpLook = false; play('reveal'); refresh(); } }, `Play as ${chosen.name}`)));
       };
 
       return [

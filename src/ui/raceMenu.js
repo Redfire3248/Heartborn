@@ -16,7 +16,7 @@ import {
 const pct = m => `${m > 1 ? '+' : ''}${Math.round((m - 1) * 100)}%`;
 
 export function openRaceMenu(hud) {
-  if (closeIfOpen('race-modal')) return null;
+  if (toggleMenu('race-modal', { sameView: true })) return null;
   const g = hud.game;
   const m = modal([], { cls: 'race-modal', closeX: true });
   let spinning = false;

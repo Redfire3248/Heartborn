@@ -1,6 +1,21 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Characters by name, one screen at a time, and a proper hatch',
+    changes: [
+      'Change character now lists the characters themselves, by name, with the race each one belongs to beside it. All 48 of them have names: Bren the Sellsword, Mira the Ashcaller, Malgroth the Cinder King, Lady Ysolde and the rest',
+      'Windows no longer stack on top of each other. Every screen is one at a time, pressing its key again closes it, and opening one closes the rest',
+      'Far fewer keys to remember: Backpack (E), the bag (~ or I), Map (V), Build (B), World (M), and the fighting keys. The Index, Journal, Pets, the Hall of Bosses, the Character sheet and crafting are all a button away inside those, so nothing is lost',
+      'Z drops what you are holding, your weapon included',
+      'Hatching an egg is an event now: the shell matches what is inside, wobbles, cracks three to seven times - the rarer the pet, the harder it fights - then bursts in a wheel of light and the pet rises out of it with its name and rarity',
+      'Great loot is great again. A wolf could never drop Mythic, but a levelled player was seeing Legendary out of roughly one drop in five; the curve is much meaner and your level barely moves it. Ordinary beasts stop at Epic, Mythic is boss-only and now about one boss drop in ninety instead of one in twenty-five',
+      'Gold cannot be forged with any more - it is money - and it sits first in the bar at the top',
+      'The camera can pull back much further again',
+      'The bag button sits flush with the hotbar, and Materials is gone from the bag header since it lives in the Backpack',
+      'The Admin button now appears for admins on every device: admin rights arrive a moment after the screen is built, and the button was only ever checked before they did',
+    ],
+  },
+  {
     title: 'Any short window gets the tidy layout, and hearts move above the hotbar',
     changes: [
       'Fixed: the compact layout was only used on screens narrower than 1100 pixels, so a wide but short window - a resized browser, or a big phone on its side - fell back to the tall layout and everything sat in the wrong place. Any short screen gets the tidy layout now, whatever its width',
