@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Any short window gets the tidy layout, and hearts move above the hotbar',
+    changes: [
+      'Fixed: the compact layout was only used on screens narrower than 1100 pixels, so a wide but short window - a resized browser, or a big phone on its side - fell back to the tall layout and everything sat in the wrong place. Any short screen gets the tidy layout now, whatever its width',
+      'A short window on a computer keeps its keyboard: the thumb stick and buttons only appear on a real touch screen or a narrow one',
+      'Fixed: the invisible patch that lets your thumb grab the stick was being laid over the lower left of a computer screen, where it could swallow clicks',
+      'Sideways: your hearts and the stamina and experience bars now sit centred just above the hotbar, where your eyes already are, instead of up in the corner',
+    ],
+  },
+  {
     title: 'The Admin panel is on every device now',
     changes: [
       'The Admin button is no longer a phone-only thing: it is there on a computer too, top right, reading Admin with the key beside it',
