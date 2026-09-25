@@ -2092,7 +2092,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 
 /* the map: layers, frame, tracked marker */
 .island-legend { display: flex; flex-wrap: wrap; gap: 5px; }
-.island-layer { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; border: 1px solid rgba(255,215,106,.35); background: rgba(0,0,0,.3); color: var(--muted, #a898bd); font: inherit; font-size: 12px; cursor: pointer; }
+.island-layer { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(255,215,106,.35); background: rgba(0,0,0,.3); color: var(--muted, #a898bd); font: inherit; font-size: 12px; cursor: pointer; }
 .island-layer.on { color: #ffe9b0; border-color: #ffd76a; background: rgba(255,215,106,.14); }
 .island-layer:not(.on) img, .island-layer:not(.on) canvas { opacity: .4; filter: grayscale(1); }
 .island-frame { position: relative; border-radius: 14px; padding: 5px; background: linear-gradient(145deg, #7a5530, #3e2814 60%, #6b4726); box-shadow: 0 6px 22px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,220,150,.25); min-width: 0; }
@@ -2930,23 +2930,31 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .ap-cell.ap-any b { font-size: 20px; color: var(--gold); line-height: 1; }
 .ap-noart { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; background: rgba(255,255,255,.08); font-size: 12px; font-weight: 700; }
 
+/*
+ * Narrow or short: the sidebar lies across the top as a rail of tabs. The names come off and the drawn icons
+ * carry them, so all nine fit the width of a phone without anyone having to scroll a row of tabs sideways.
+ */
 @media (max-width: 720px), (max-height: 560px) {
-  .ap-window { grid-template-columns: 1fr; height: min(480px, 84vh); }
-  .ap-side { flex-direction: row; align-items: center; gap: 6px; padding: 8px; border-right: 0; border-bottom: 1px solid rgba(255,255,255,.08); overflow-x: auto; }
-  .ap-me { flex: none; padding: 0; }
-  .ap-me b, .ap-rank { white-space: nowrap; }
-  .ap-nav-search { flex: 0 0 120px; }
-  .ap-nav { flex-direction: row; flex: none; }
-  .ap-nav-item { flex: none; white-space: nowrap; }
+  .ap-frame { height: min(520px, 88vh); }
+  .ap-window { grid-template-columns: 1fr; height: auto; }
+  .ap-side { flex-direction: row; align-items: center; gap: 6px; padding: 7px 8px; border-right: 0; border-bottom: 1px solid rgba(255,255,255,.08); overflow: visible; flex: none; min-width: 0; }
+  .ap-nav-search { flex: 1 1 90px; min-width: 0; }
+  /* the nine share the width evenly, so the rail is exactly as wide as the window whatever the screen */
+  .ap-nav { flex-direction: row; flex: 1; min-width: 0; gap: 2px; }
+  .ap-nav-item { flex: 1 1 0; min-width: 0; justify-content: center; white-space: nowrap; padding: 6px 2px; }
+  .ap-nav-item span { display: none; }
+  .ap-nav-item img, .ap-nav-item .px-icon { width: 20px; height: 20px; }
+  .ap-bar-hint { display: none; }
   .ap-cards { grid-template-columns: 1fr; }
   .ap-grid { max-height: 50vh; }
 }
+/* narrower still: the search box goes too, and the rail is nothing but the nine pictures */
+@media (max-width: 460px) {
+  .ap-nav-search { display: none; }
+}
 .ap-doc-row.info i { color: #9fd4ff; }
 .ap-doc-row.info { opacity: .9; }
-/* with the sidebar laid across the top, the close cross must not land on a tab */
-@media (max-width: 720px), (max-height: 560px) {
-  .ap-side { padding-right: 46px; }
-}
+
 
 /* A short window gets the compact bars, but only a real touch screen (or a narrow one) gets thumb controls:
    someone who has simply made their browser window short still has a keyboard. */

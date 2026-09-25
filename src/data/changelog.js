@@ -1,6 +1,13 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'The Admin tabs fit a phone, and a sweep of every screen at every size',
+    changes: [
+      'On a phone or a short window the Admin tabs are the nine drawn icons and nothing else, sharing the width evenly, so the rail is exactly as wide as the window instead of running off the side',
+      'Every screen in the game was measured at portrait, landscape, tablet and desktop sizes: nothing hangs off an edge, nothing scrolls sideways, and the map layer buttons are big enough for a thumb',
+    ],
+  },
+  {
     title: 'Everyone redrawn, a thirteenth race, and icons on the Admin tabs',
     changes: [
       'All twenty-six characters are redrawn from one sheet: every race as Adam and as Eve, at full detail, so a race really does read as the same person in another form',

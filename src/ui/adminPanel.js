@@ -378,7 +378,7 @@ export function openAdminPanel(hud, adminConsole) {
 
   const render = (keepSearch = false) => {
     nav.replaceChildren(...Object.entries(PAGES).map(([key, p]) => h(`button.ap-nav-item${page === key ? '.on' : ''}`,
-      { onclick: () => { page = key; play('click'); render(); } }, navIcon(key, p.icon), h('span', p.name))));
+      { title: p.name, onclick: () => { page = key; play('click'); render(); } }, navIcon(key, p.icon), h('span', p.name))));
     const content = page === 'home' ? homePage()
       : page === 'players' ? playersPage()
         : page === 'troll' ? trollPage()
