@@ -34,6 +34,28 @@ import { LAW_CATEGORIES, NO_LAW_EFFECTS, DEFAULT_LAWS, LAW_COST, lawOption } fro
 
 const CAPPED = ['food', 'wood', 'stone', 'coal', 'iron', 'weapons', 'bombs'];
 
+/*
+ * The clock. A day is still DAY_LENGTH seconds, but the hours do not all pass at the same speed: daylight
+ * (5:00 to 20:00) takes 82% of the day and the night only 18%, so days feel long and nights are short.
+ * The day starts at midnight, as before, so nothing that counts days changes.
+ */
+const DAY_SHARE = 0.82, NIGHT_SHARE = 1 - DAY_SHARE;
+const EARLY = NIGHT_SHARE * 5 / 9, LATE = NIGHT_SHARE * 4 / 9;   // the night's two ends: midnight to 5, and 20 to midnight
+/** Fraction of the day (0..1) to the hour on the clock (0..24). */
+export function hourAt(f) {
+  f = ((f % 1) + 1) % 1;
+  if (f < EARLY) return (f / EARLY) * 5;
+  if (f < EARLY + DAY_SHARE) return 5 + ((f - EARLY) / DAY_SHARE) * 15;
+  return 20 + ((f - EARLY - DAY_SHARE) / LATE) * 4;
+}
+/** The other way round: where in the day (0..1) a given hour falls. */
+export function dayFractionOf(hour) {
+  const hr = ((hour % 24) + 24) % 24;
+  if (hr < 5) return (hr / 5) * EARLY;
+  if (hr < 20) return EARLY + ((hr - 5) / 15) * DAY_SHARE;
+  return EARLY + DAY_SHARE + ((hr - 20) / 4) * LATE;
+}
+
 export class Game {
   constructor(state) {
     this.state = state;
@@ -98,7 +120,7 @@ export class Game {
   // ---------- time ----------
   get day() { return Math.floor(this.state.time / DAY_LENGTH); }
   /** On a server the sun follows one clock for everybody, so night falls on us all at once. */
-  get hour() { return (((this.state.time + (this.clockShift || 0)) / DAY_LENGTH) % 1) * 24; }
+  get hour() { return hourAt(((this.state.time + (this.clockShift || 0)) / DAY_LENGTH) % 1); }
   get isNight() { const h = this.hour; return h >= 20 || h < 5; }
   get season() { return SEASONS[Math.floor(this.day / DAYS_PER_SEASON) % SEASONS.length]; }
   get year() { return Math.floor(this.day / DAYS_PER_YEAR) + 1; }

@@ -3304,3 +3304,41 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 }
 .ap-stepper input.ap-num:focus { outline: none; border-color: rgba(255,154,90,.8); }
 .ap-run { justify-content: flex-end; }
+
+/* ------------------------------------------------------------------ side panels fill their space
+   They used to leave a band of the world showing above them: upright the sheet began a third of the way down,
+   sideways it hung under the top row with a strip of map beside the menu icons. Now upright the sheet runs from
+   just under the material bar to the menu bar; sideways it runs the full height, and while it is open the menu
+   icons move to the left edge (the material bar steps aside) so the panel never sits on top of them. */
+@media (max-width: 760px) and (min-height: 561px) {
+  #ui > .side { top: calc(env(safe-area-inset-top) + 44px) !important; height: auto !important; max-height: none !important; }
+}
+@media (max-height: 560px) {
+  #ui > .side { top: 0 !important; border-radius: 14px 0 0 14px !important; padding-top: env(safe-area-inset-top); }
+  #ui:has(> .side) .topbar { visibility: hidden !important; }
+  #ui:has(> .side) .dock { left: calc(env(safe-area-inset-left) + 8px) !important; transform: none !important; }
+}
+/* phones: no keyboard, so no key numbers on the hotbar slots or the skill chip */
+@media (pointer: coarse) and (not (any-pointer: fine)) {
+  .hot-num, .skill-chip-key, .admin-btn-key, .dock .tip, kbd { display: none !important; }
+}
+
+/* ------------------------------------------------------------------ touch feedback
+   A phone has no hover, so most buttons gave no sign they had been touched at all. Every button now presses in
+   and brightens under your finger. It uses `scale` rather than `transform`, so it adds to whatever a button is
+   already doing (centring, a placed layout) instead of replacing it. */
+* { -webkit-tap-highlight-color: transparent; }
+@media (pointer: coarse) {
+  button, .btn, .bag-cell, .hot-slot, .ap-cell, .wp-card, .ap-choose, .ap-nav-item, [role="button"] {
+    transition: scale .08s ease-out, filter .08s ease-out, box-shadow .12s ease-out;
+  }
+  button:active, .btn:active, .bag-cell:active, .hot-slot:active, .ap-cell:active, .wp-card:active,
+  .ap-choose:active, .ap-nav-item:active, [role="button"]:active {
+    scale: .93; filter: brightness(1.18);
+  }
+  .btn.primary:active, .dock button:active { box-shadow: 0 0 0 3px rgba(255,190,110,.35), 0 0 18px rgba(255,150,80,.45); }
+  /* the fight buttons already have their own pressed look (.down); make it land harder */
+  .hero-act.down, .hero-dash.down, .hero-block.down, .hero-potion.down, .hero-ability.down { scale: .9; filter: brightness(1.25); }
+  button:disabled:active, .btn:disabled:active { scale: 1; filter: none; }
+}
+@media (pointer: coarse) and (not (any-pointer: fine)) { .helm-key { display: none !important; } }

@@ -15,7 +15,6 @@ import { getProfile } from './net/save.js';
 import { signInWithGoogle, signInWithEmail, createAccount, resetPassword, signOut, onAuth, adminStatus } from './net/firebase.js';
 import { h, modal } from './ui/dom.js';
 import { loadSave, writeSave, writeProfile, writePrivate, getBan, clearLocalSave, getUsername, claimUsername, setWorld, currentWorld, listWorldSaves, deleteWorldSave, oldVillage } from './net/save.js';
-import { THEMES, themeOf } from './game/themeNames.js';
 import { ensureProfile, updateProfileStats, getWorld, leaveOrCloseWorld, SOLO_WORLD } from './net/social.js';
 import { worldPicker } from './ui/social.js';
 import { Multiplayer } from './net/multiplayer.js';
@@ -158,8 +157,7 @@ async function enterGame(user) {
 
   rememberWorld(user.uid, { wid: choice.world, name: app.world.name, kind: choice.kind });
   startGame(user, game, { online: choice.kind === 'server' });
-  const theme = THEMES[themeOf(state.seed)];
-  setTimeout(() => app.hud?.announce(`${state.worldName} · ${theme.name}`), 400);
+  setTimeout(() => app.hud?.announce(state.worldName || 'Your world'), 400);   // just its name: a world holds every biome, not one
   if (choice.code) setTimeout(() => app.hud?.hint(`Server created. Share its code: ${choice.code}`, 9000), 900);
   if (summary) offlineSummary(summary);
 }

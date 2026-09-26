@@ -1,6 +1,20 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Long days, short nights, more breath, and a phone that feels every tap',
+    changes: [
+      'Days last longer and nights are short: daylight now takes 82% of each day (about 74 seconds) and the night about 16. Nothing that counts days changes',
+      'A fresh hero has far more stamina: 140 instead of 100, and a swing, a dash and a raised shield all cost less, so you are not out of breath after a dozen swings',
+      'Every button on a phone presses in and brightens under your finger',
+      'Phones no longer show keyboard keys: no numbers on the hotbar, no "(X)" after button names',
+      'The ship’s wheel keeps hold of your thumb anywhere on the screen until you lift off, and turning takes a long pull instead of a 40-pixel flick',
+      'Worlds are no longer labelled as one biome ("Frozen Wastes") on the Worlds screen or when you arrive: every world holds all of them',
+      'Side panels fill their space: sideways they run the full height with the menu icons moved clear of them, upright they start right under the material bar',
+      'The lock-on button can be moved in Move controls',
+      'On the radar every monster is the same small dot',
+    ],
+  },
+  {
     title: 'The old village art no longer downloads',
     changes: [
       'The game downloaded every one of its 1,300 pictures when it started, including all the art of the old village game - villagers, kingdom buildings, units, house interiors - most of which nothing draws any more. Now it fetches only what the game uses up front, and anything else the first time something actually draws it',

@@ -205,7 +205,7 @@ function attack(g, v, st) {
     else nothingFor(g, v, tool);
     return;
   }
-  const cost = w.admin ? 0 : w.ranged ? (w.speed < 0.2 ? 1.5 : 6) : 8;
+  const cost = w.admin ? 0 : w.ranged ? (w.speed < 0.2 ? 1.2 : 5) : 6;
   if (h.stamina < cost) { if (!h._tiredAt || g.state.time - h._tiredAt > 1) { h._tiredAt = g.state.time; g.float(v.x, v.y - TILE * 1.3, 'Out of breath', '#ffb3aa'); } return; }
   h.stamina -= cost;
   h.sinceAttack = 0;
@@ -970,16 +970,16 @@ export function updateHero(g, dt, controls = {}) {
   const blocking = !!controls.block && !!rpgOf(g).gear.shield && h.stamina > 1 && !h.dash;
   if (blocking && !h.blocking) h.blockAt = g.state.time;
   h.blocking = blocking;
-  if (blocking) h.stamina -= 14 * dt;
+  if (blocking) h.stamina -= 11 * dt;
 
   // dash: a quick burst in the direction you move (or face) with a moment where nothing can touch you
-  if (controls.dash && !h.dash && h.dashCd <= 0 && h.stamina >= 22 && !g.visiting) {
+  if (controls.dash && !h.dash && h.dashCd <= 0 && h.stamina >= 18 && !g.visiting) {
     const a = len > 0.1 ? Math.atan2(my, mx) : h.facing;
     h.dash = { t: 0.18, dx: Math.cos(a), dy: Math.sin(a) };
     h.iframes = 0.3;
     h.dashCd = 0.5;
     g.anim('combat/dust', v.x, v.y - 4, { size: 26, dur: 0.32, flip: Math.cos(a) > 0 });
-    if (!hasRace(g, 'freeDash')) h.stamina -= 22 * attuneDashCost(g);   // Elves and Skeletons move for nothing
+    if (!hasRace(g, 'freeDash')) h.stamina -= 18 * attuneDashCost(g);   // Elves and Skeletons move for nothing
     (h.trail ||= []).length = 0;
   }
   if (h.dash) {

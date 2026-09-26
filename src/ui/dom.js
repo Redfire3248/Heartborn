@@ -27,11 +27,19 @@ export function h(sel, attrs = {}, ...children) {
   return el;
 }
 
+/*
+ * A phone has no keyboard, so "Demolish (X)", "Rotate (R)", "Admin F3" and the like only clutter it. On a touch
+ * screen the key in brackets is taken off every label as it is built; tooltips keep it for anyone with a mouse.
+ */
+const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+const KEY_HINT = /\s*\((?:[A-Z~`]|F\d{1,2}|Tab|Esc|Enter|Shift|Space|Ctrl\+\w+|[A-Z] or [A-Z~]|~ or I)\)/g;
+export const noKeys = s => (TOUCH ? s.replace(KEY_HINT, '') : s);
+
 function append(el, children, plain = false) {
   for (const c of children.flat(Infinity)) {
     if (c == null || c === false) continue;
     if (c instanceof Node) { el.append(c); continue; }
-    const s = String(c);
+    const s = noKeys(String(c));
     // no emojis anywhere: swap each for the game's own pixel icon (plain text where icons can't go)
     if (hasEmoji(s)) { if (plain) el.append(document.createTextNode(stripEmoji(s))); else el.append(...iconizeText(s)); continue; }
     el.append(document.createTextNode(s));
@@ -45,7 +53,7 @@ export function rarityFrame(r) {
   const k = FRAMES[Math.max(0, Math.min(4, r | 0))];
   if (!spriteAvailable(`ui/${k}`)) return { cls: '', style: {} };
   const i = Math.max(0, Math.min(4, r | 0));
-  return { cls: `.framed.rf${i}`, style: { '--rf': `url("${import.meta.env.BASE_URL}assets/ui/${k}.png")`, '--rc': RARITY_COLORS[i] } };
+  return { cls: `.framed.rf${i}`, style: { '--rf': `url("${spriteUrl(`ui/${k}`)}")`, '--rc': RARITY_COLORS[i] } };
 }
 
 /** Which icon each forge trait uses. */

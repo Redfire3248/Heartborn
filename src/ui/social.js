@@ -2,7 +2,6 @@ import { h, icon, avatar, modal, timeAgo, confirmModal } from './dom.js';
 import { BASES, lastBase } from '../game/races.js';
 import { ERAS } from '../data/buildings.js';
 import * as social from '../net/social.js';
-import { THEMES, themeOf } from '../game/themeNames.js';
 
 /*
  * World picker (shown after signing in), player profiles and friends.
@@ -50,7 +49,6 @@ export function worldPicker({ user, username, lastWorld = null, listWorldSaves, 
 
     const choose = c => { for (const u of unsubs) u(); root.remove(); resolve(c); };
     const tryAction = async fn => { err.textContent = ''; try { await fn(); } catch (e) { err.textContent = e.message; } };
-    const themeLine = seed => { const t = THEMES[themeOf(seed)]; return h('span.wp-theme', { style: { color: t.color } }, icon(t.icon, 16), t.name); };
 
     let saves = null, invites = [], old = null, rejoin = null;
     const load = async () => {
@@ -72,21 +70,16 @@ export function worldPicker({ user, username, lastWorld = null, listWorldSaves, 
     const newSeed = h('input.input', { placeholder: 'Seed (empty = random)', maxLength: 12, inputMode: 'numeric' });
     let randomSeed = Math.floor(Math.random() * 2 ** 31);
     const seedOf = () => { const v = newSeed.value.trim(); if (!v) return randomSeed; const n = Number(v); return Number.isFinite(n) ? Math.abs(Math.floor(n)) % 2 ** 31 : [...v].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % 2 ** 31; };
-    const preview = h('div.wp-preview');
-    const updatePreview = () => { const t = THEMES[themeOf(seedOf())]; preview.replaceChildren(icon(t.icon, 28), h('div', h('b', { style: { color: t.color } }, t.name), h('div.faint', t.desc))); };
-    newSeed.addEventListener('input', updatePreview);
-    updatePreview();
-    const reroll = h('button.btn.sm.ghost', { title: 'Another random world', onclick: () => { newSeed.value = ''; randomSeed = Math.floor(Math.random() * 2 ** 31); updatePreview(); } }, 'Reroll');
 
     // servers
     const serverName = h('input.input', { placeholder: 'Server name', maxLength: 28 });
     const code = h('input.input', { placeholder: 'Server code', maxLength: 6, style: { textTransform: 'uppercase' } });
 
     const worldCard = s => h('div.wp-card.world',
-      icon(THEMES[s.seed != null ? themeOf(s.seed) : s.theme]?.icon || 'nature/tree_oak', 44),
+      icon('nature/tree_oak', 44),   // every world holds every biome, so none is labelled as one of them
       h('div',
         h('div.wp-title', s.name || 'World'),
-        h('div.faint', themeLine(s.seed ?? 0), ` · ${s.hero ? `${s.hero} ` : ''}Lv ${s.level || 1} · Day ${s.day || 1}${s.updatedAt ? ` · played ${timeAgo(s.updatedAt)}` : ''}`)),
+        h('div.faint', `${s.hero ? `${s.hero} · ` : ''}Lv ${s.level || 1} · Day ${s.day || 1}${s.updatedAt ? ` · played ${timeAgo(s.updatedAt)}` : ''}`)),
       h('div.row',
         h('button.btn.sm.ghost', { title: 'Delete this world forever', onclick: () => tryAction(async () => {
           if (!(await confirmModal(`Delete ${s.name}?`, 'The world and everything you did in it are gone for good.', { okLabel: 'Delete', okClass: 'danger' }))) return;
@@ -111,9 +104,8 @@ export function worldPicker({ user, username, lastWorld = null, listWorldSaves, 
         ...solos.map(worldCard),
         !solos.length && !old ? h('div.faint', 'No worlds yet. Make your first one below.') : null,
         h('div.wp-new',
-          h('div.wp-new-head', h('b', 'New world'), h('div.spacer'), reroll),
+          h('div.wp-new-head', h('b', 'New world')),
           h('div.row.wrap', newName, newSeed),
-          preview,
           h('button.btn.primary', { onclick: () => tryAction(async () => {
             const name = newName.value.trim() || `${username}'s World`;
             choose({ world: `solo_${Date.now().toString(36)}`, name, kind: 'solo', seed: seedOf(), isNew: true });

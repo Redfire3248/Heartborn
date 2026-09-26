@@ -3507,18 +3507,22 @@ export class HUD {
     // --- the wheel: drag sideways (or hold a side) to steer; it springs back when you let go
     const wheelImg = icon('boats/ship_wheel', 120);
     const wheel = h('div.helm-wheel', { title: 'Drag to steer (A / D)' }, wheelImg, h('span.helm-key', 'A  ·  D'));
+    // Once it has your thumb it keeps it anywhere on the screen until you lift off, and a full turn takes a long
+    // pull (about the wheel's own width either side) rather than a flick of 40 pixels, so steering is gradual.
     let drag = null;
+    const reach = () => Math.max(120, wheel.offsetWidth * 1.1);
+    const steer = x => { t.turn = Math.max(-1, Math.min(1, (x - drag.cx) / reach())); };
     wheel.addEventListener('pointerdown', e => {
       e.preventDefault();
-      wheel.setPointerCapture?.(e.pointerId);
+      try { wheel.setPointerCapture?.(e.pointerId); } catch { /* the window listeners cover it */ }
       const r = wheel.getBoundingClientRect();
-      drag = { x: e.clientX, cx: r.left + r.width / 2 };
-      t.turn = Math.max(-1, Math.min(1, (e.clientX - drag.cx) / (r.width * 0.35)));
+      drag = { id: e.pointerId, cx: r.left + r.width / 2 };
+      steer(e.clientX);
     });
-    wheel.addEventListener('pointermove', e => { if (drag) t.turn = Math.max(-1, Math.min(1, (e.clientX - drag.cx) / (wheel.offsetWidth * 0.35))); });
-    const release = () => { drag = null; t.turn = 0; };
-    wheel.addEventListener('pointerup', release);
-    wheel.addEventListener('pointercancel', release);
+    window.addEventListener('pointermove', e => { if (drag && e.pointerId === drag.id) steer(e.clientX); });
+    const release = e => { if (drag && (!e || e.pointerId === drag.id)) { drag = null; t.turn = 0; } };
+    for (const ev of ['pointerup', 'pointercancel']) window.addEventListener(ev, release);
+    window.addEventListener('blur', () => release());
 
     // --- the engine telegraph: a brass lever with fixed speeds that stays where you set it
     const notches = h('div.telegraph-notches', TELEGRAPH.map(([label, value]) => h('button.telegraph-notch', { 'data-v': value, onpointerdown: e => { e.preventDefault(); t.throttle = value; } }, label)));
@@ -4088,13 +4092,13 @@ export class HUD {
     const mark = (x, y, color, r) => { ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x, y, (r + 1.2) * px, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r * px, 0, Math.PI * 2); ctx.fill(); };
     if (g.state.center) mark(g.state.center.x / TILE, g.state.center.y / TILE, '#ffd76a', 5);
     for (const e of g.state.dungeons || []) mark(e.x / TILE, e.y / TILE, '#b06aff', 5);
-    const pulse = 0.75 + 0.25 * Math.sin(performance.now() / 160);
     for (const c of g.state.creatures) {
       const def = CREATURES[c.t];
       if (!near(c.x / TILE, c.y / TILE)) continue;
-      if (c.bounty) { mark(c.x / TILE, c.y / TILE, '#ffcf3a', 5); continue; }
+      // every monster is the same small dot: the colour says what it is (gold a bounty, deep red a boss)
+      if (c.bounty) { mark(c.x / TILE, c.y / TILE, '#ffcf3a', 2.2); continue; }
       if (!def?.hostile) continue;
-      mark(c.x / TILE, c.y / TILE, def.boss ? '#ff2a1f' : '#ff6b5b', (def.boss ? 6 : 3.5) * (def.boss ? pulse : 1));
+      mark(c.x / TILE, c.y / TILE, def.boss ? '#ff2a1f' : '#ff6b5b', 2.2);
     }
     for (const o of [...(g.strangers || []), ...(g.livePlayers || [])]) mark(o.x / TILE, o.y / TILE, '#5aa9ff', 4);
     ctx.restore();

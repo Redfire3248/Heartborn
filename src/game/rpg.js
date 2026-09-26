@@ -256,7 +256,7 @@ export function heroStats(g) {
   const race = raceMult(g);   // what you were born as, on top of what you trained
   return {
     maxHp: Math.round((100 + r.vigor * 12 + bonus.hp + ench('vitality') * 10) * race.hp),
-    maxStamina: Math.round((100 + r.agility * 8) * race.stamina),
+    maxStamina: Math.round((140 + r.agility * 8) * race.stamina),   // 140 at no points: a fresh hero is not out of breath after a dozen swings
     dmgMult: (1 + r.might * 0.08 + bonus.dmg) * race.dmg,
     speed: (1 + r.agility * 0.03 + bonus.speed) * race.speed * attuneSpeed(g),
     crit: Math.min(0.9, (0.05 + r.agility * 0.012 + (r.gear.weapon ? WEAPONS[r.gear.weapon.base]?.crit || 0 : 0)) * race.crit + attuneCrit(g)),

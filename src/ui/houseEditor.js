@@ -1,3 +1,4 @@
+import { dayFractionOf } from '../game/game.js';
 import { TOOLS, toolsOf } from '../game/tools.js';
 import { h, icon, costChips, modal } from './dom.js';
 import { DAY_LENGTH } from '../core/constants.js';
@@ -387,7 +388,7 @@ export class HouseEditor {
     setTimeout(() => {
       const s = g.state;
       const day = Math.floor(s.time / DAY_LENGTH) + (hour >= 18 ? 1 : 0);
-      s.time = day * DAY_LENGTH + DAY_LENGTH * 6 / 24;   // 06:00
+      s.time = day * DAY_LENGTH + DAY_LENGTH * dayFractionOf(6);   // 06:00 (the clock's hours are not all the same length)
       const v = s.villagers.find(x => x.id === g.hero?.id);
       if (v) { v.hp = g.hero.maxHp || v.hp; g.hero.stamina = g.hero.maxStamina || g.hero.stamina; }
       g.emit?.('change');

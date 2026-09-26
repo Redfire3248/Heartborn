@@ -12,6 +12,7 @@ export const LAYOUT_ITEMS = [
   { sel: '.hero-block', name: 'Block' },
   { sel: '.hero-potion', name: 'Potion' },
   { sel: '.hero-ability', name: 'Skill' },
+  { sel: '.hero-lock', name: 'Lock-on' },
   { sel: '.hotbar-wrap', name: 'Hotbar' },
   { sel: '.vitals-strip', name: 'Health' },
   { sel: '.topbar', name: 'Resources' },

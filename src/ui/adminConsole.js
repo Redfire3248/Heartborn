@@ -16,6 +16,7 @@ import { CREATURES } from '../data/objects.js';
 import { ERAS } from '../data/buildings.js';
 import { LAW_CATEGORIES } from '../data/laws.js';
 import { DAY_LENGTH, RESOURCES } from '../core/constants.js';
+import { dayFractionOf } from '../game/game.js';
 import * as api from '../net/admin.js';
 import { BUILDINGS as BUILDING_DEFS } from '../data/buildings.js';
 import { BUILD, checkLatest } from '../core/version.js';
@@ -1631,7 +1632,7 @@ const COMMANDS = {
       const hr = Number(hour);
       if (Number.isNaN(hr)) throw new Error('usage: time 12');
       const s = this.game.state;
-      s.time = Math.floor(s.time / DAY_LENGTH) * DAY_LENGTH + (Math.max(0, Math.min(23.9, hr)) / 24) * DAY_LENGTH;
+      s.time = Math.floor(s.time / DAY_LENGTH) * DAY_LENGTH + dayFractionOf(Math.max(0, Math.min(23.9, hr))) * DAY_LENGTH;   // the clock's hours are not all the same length
       this.print(`✓ it is now ${hr}:00`, 'ok');
     },
   },

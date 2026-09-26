@@ -90,11 +90,11 @@ export async function run() {
     await sleep(400);
     const root = document.querySelector('.world-picker');
     ok(!!root, 'the world menu opens');
-    ok(root.textContent.includes('Alpha') && root.textContent.includes('Frozen Wastes'), 'solo worlds list with their type');
+    ok(root.textContent.includes('Alpha') && !root.textContent.includes('Frozen Wastes'), 'solo worlds list, without a single biome named for the whole world');
     ok(root.textContent.includes('Friends') && root.textContent.includes('Servers'), 'servers list separately');
     const seedInput = [...root.querySelectorAll('input')].find(i => i.placeholder.startsWith('Seed'));
     seedInput.value = String(frozenSeed); seedInput.dispatchEvent(new Event('input'));
-    ok(root.querySelector('.wp-preview').textContent.includes('Frozen'), 'typing a seed previews the world type');
+    ok(!root.querySelector('.wp-preview'), 'no world-type preview: every world holds every biome');
     [...root.querySelectorAll('input')].find(i => i.placeholder === 'World name').value = 'Icy';
     [...root.querySelectorAll('button')].find(b => b.textContent === 'Create world').click();
     const c = await pick;
@@ -248,7 +248,7 @@ export async function run() {
     const hero = gh.state.villagers[0];
     const ed = new HouseEditor({ game: gh, building: house, hero, onClose: () => {} });
     ok(ed.mode === 'use' && ed.el.textContent.includes('Built by'), 'the house view opens in Use mode and shows the builder');
-    gh.state.time = Math.floor(gh.state.time / 90) * 90 + 90 * 22 / 24;   // 22:00
+    gh.state.time = Math.floor(gh.state.time / 90) * 90 + 90 * (await import('/src/game/game.js')).dayFractionOf(22);   // 22:00
     const day = gh.day;
     ed.use(Ho.interiorOf(house).floors[0].items.find(i => i.type === 'bed'));
     await sleep(900);
