@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'A new race screen, with a slot-machine roll',
+    changes: [
+      'CURRENT RACE across the top in its colour, your character large in the middle on a lit stage, your three race slots and what your race does on the left, and the odds of every race on the right',
+      'Reroll is one big button under your character, with your Race Stones beside it',
+      'Rolling runs a reel through the middle: every race slides up past two lines, the one between them big and bright, the rest shrinking and fading, slowing until it stops on what you rolled - and only then is it yours',
+    ],
+  },
+  {
     title: 'Every Admin action tested and working, pranks that really send, and you look like yourself to others',
     changes: [
       'Trolls reach people: every prank was refused by the server because it carried an empty value; the empty ones are left out now',
