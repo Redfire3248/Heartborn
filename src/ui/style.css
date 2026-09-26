@@ -3579,3 +3579,12 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
   #ui:has(> .side) .dock { z-index: 31 !important; }
   #ui:has(> .side) .topbar { z-index: 31 !important; }
 }
+
+/* the tutorial draws over the game but never takes a touch: the ring round the joystick was eating every drag,
+   so you could not walk on the step that asks you to walk. Only its Skip button can be pressed. */
+#ui .tq-point, #ui .tq-point *, #ui .tq-beacon, #ui .tq-beacon *, #ui .tq-edge, #ui .tq-edge *, #ui .tq-pop, #ui .tq-pop *, #ui .tq-banner { pointer-events: none !important; }
+#ui .tq-banner .tq-skip { pointer-events: auto !important; }
+
+/* a phone keeps a tapped button "hovered", and the dock buttons slide 2px sideways on hover (a mouse effect):
+   on touch screens nothing moves sideways - a tap only presses in */
+@media (pointer: coarse) { #ui .dock button:hover, #ui .dock button:focus, .bp-cell:hover, .bp-doll-slot:hover { transform: none !important; } }

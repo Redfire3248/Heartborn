@@ -1,6 +1,13 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'You can walk in the tutorial again, and tapped buttons stay put',
+    changes: [
+      'The tutorial’s glowing ring round the joystick was catching every touch, so you could not walk on the very step that asks you to walk. Its markers never take a touch now',
+      'On a phone a tapped menu button no longer slides sideways: it kept a mouse-hover effect that phones leave switched on after a tap',
+    ],
+  },
+  {
     title: 'Updates download far less',
     changes: [
       'The update notes are fetched only when Settings shows them, not on every start',
