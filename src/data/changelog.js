@@ -1,6 +1,13 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Every race redrawn in the game’s own pixel style, and a real Race Stone',
+    changes: [
+      'All 26 characters - every race as Adam and as Eve - are redrawn as chunky pixel sprites that match the rest of the game, instead of the detailed paintings that stood out from it',
+      'The Race Stone has its own drawn rune stone',
+    ],
+  },
+  {
     title: 'The Race Stone looks like itself',
     changes: [
       'The Race Stone no longer borrows the Star Shard’s picture (which Ashen Ember also uses): it has its own, and switches to its own drawn stone as soon as that art is in',
