@@ -605,6 +605,28 @@ window.SHEETS = {
       "human_f", "elf_f", "dwarf_f", "orc_f", "demon_f", "archdemon_f", "angel_f", "archangel_f", "fallen_f", "skeleton_f", "zombie_f", "vampire_f", "god_f"
     ]
   },
+  heroes1: {
+    title: "Five more people, 6 races each (first half) - one person per row",
+    folder: "races", mode: "sprite", cols: 6,
+    names: [
+      "human_kai", "elf_kai", "dwarf_kai", "orc_kai", "demon_kai", "archdemon_kai",
+      "human_nia", "elf_nia", "dwarf_nia", "orc_nia", "demon_nia", "archdemon_nia",
+      "human_bram", "elf_bram", "dwarf_bram", "orc_bram", "demon_bram", "archdemon_bram",
+      "human_luna", "elf_luna", "dwarf_luna", "orc_luna", "demon_luna", "archdemon_luna",
+      "human_zed", "elf_zed", "dwarf_zed", "orc_zed", "demon_zed", "archdemon_zed"
+    ]
+  },
+  heroes2: {
+    title: "Five more people, 6 races each (second half) - one person per row",
+    folder: "races", mode: "sprite", cols: 6,
+    names: [
+      "angel_kai", "archangel_kai", "fallen_kai", "skeleton_kai", "zombie_kai", "vampire_kai",
+      "angel_nia", "archangel_nia", "fallen_nia", "skeleton_nia", "zombie_nia", "vampire_nia",
+      "angel_bram", "archangel_bram", "fallen_bram", "skeleton_bram", "zombie_bram", "vampire_bram",
+      "angel_luna", "archangel_luna", "fallen_luna", "skeleton_luna", "zombie_luna", "vampire_luna",
+      "angel_zed", "archangel_zed", "fallen_zed", "skeleton_zed", "zombie_zed", "vampire_zed"
+    ]
+  },
   races3: {
     title: "Race characters in the game's pixel style, 8 in 4 rows, then the Race Stones",
     folder: "races", mode: "sprite", cols: 8,
