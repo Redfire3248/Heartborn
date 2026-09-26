@@ -69,8 +69,19 @@ async function loadOne(key) {
   return null;
 }
 
-// What the title screen needs: ground, trees, a few people and homes. Everything else loads behind it.
-const PRIORITY = key => key.startsWith('nature/') || /^(characters\/(man|woman|child|elder)|buildings\/(tent|stockpile|campfire|castle)|items\/(scroll|war)|people\/)/.test(key);
+/*
+ * What gets downloaded, and when.
+ *
+ * Every one of ~1,300 pictures used to be downloaded at start, including all the art of the old village game -
+ * villagers, kingdom buildings, units, houses' insides - most of which nothing draws any more, and the title
+ * screen waited on the old villagers before it would open. Now:
+ *   FIRST  - the ground, your hero and the menus: awaited, it is what the first screen shows.
+ *   CORE   - items, gear, fighting, effects and creatures: fetched quietly straight after.
+ *   anything else is fetched the first time something actually draws it (see want()), so art nobody uses
+ *   is never downloaded at all.
+ */
+const FIRST = key => /^(nature|hero|races|ui)\//.test(key);
+const CORE = key => /^(items|gear|combat|effects|characters)\//.test(key);
 
 let restReady = Promise.resolve();
 /** Resolves once every sprite (not just the title-screen ones) has loaded. */
@@ -98,11 +109,29 @@ export async function loadAssets(onProgress) {
     images.set(key, entry(placeholder(key)));   // sheet not sliced yet: no network request
     return false;
   });
-  const first = wanted.filter(PRIORITY), rest = wanted.filter(k => !PRIORITY(k));
+  const first = wanted.filter(FIRST), core = wanted.filter(k => !FIRST(k) && CORE(k));
   let done = 0;
   await download(first, () => onProgress?.(++done / first.length), 16);
-  restReady = download(rest, null, ART_SET === 'lo' ? 6 : 10).then(() => { version++; });   // redraw cached terrain/icons once all art is in
+  restReady = download(core, null, ART_SET === 'lo' ? 6 : 10).then(() => { version++; });   // redraw cached terrain/icons once the core art is in
 }
+
+/** Fetches one picture the first time something asks for it. Nothing waits: it simply appears once it arrives. */
+const pending = new Set();
+let bumpTimer = 0;
+const bumpSoon = () => { if (!bumpTimer) bumpTimer = setTimeout(() => { bumpTimer = 0; version++; }, 200); };
+function want(key) {
+  if (!key || images.has(key) || pending.has(key) || !AVAILABLE.has(key)) return;
+  pending.add(key);
+  loadOne(key).then(img => {
+    pending.delete(key);
+    images.set(key, entry(img || placeholder(key)));
+    if (!img) retryLater(key);
+    if (/^(nature|dtiles|dungeon)\//.test(key)) bumpSoon();   // only the ground and dungeon floors are painted into caches; everything else is drawn fresh each frame
+  });
+}
+
+/** The address of a picture, fingerprint included, for anything that shows it as an <img>. */
+export const spriteUrl = key => url(key, 0);
 
 function retryLater(key, delay = 4000) {
   setTimeout(async () => {
@@ -115,12 +144,14 @@ function retryLater(key, delay = 4000) {
 }
 
 export function sprite(key) {
-  return images.get(key) || null;
+  const s = images.get(key);
+  if (!s) want(key);
+  return s || null;
 }
 
 export function iconUrl(key) {
   const s = images.get(key);
-  if (!s) return '';
+  if (!s) { want(key); return ''; }
   return s.img instanceof HTMLImageElement ? s.img.src : s.img.toDataURL();
 }
 
@@ -174,7 +205,7 @@ function tileColor(name) {
  */
 export function drawSprite(ctx, key, x, y, size, opts = {}) {
   const s = images.get(key);
-  if (!s) return;
+  if (!s) { want(key); return; }
   // animation frames use the whole image (every frame the same frame box, so nothing jitters)
   const box = opts.full ? { x: 0, y: 0, w: s.img.width, h: s.img.height } : s.box;
   const scale = size / Math.max(box.w, box.h);
@@ -196,6 +227,7 @@ export function drawSprite(ctx, key, x, y, size, opts = {}) {
 export function drawTile(ctx, key, x, y, size) {
   const s = images.get(key);
   if (s) ctx.drawImage(s.img, x, y, size, size);
+  else want(key);
 }
 
 /** A recoloured copy of a sprite: a light wash, or (solid) a flat silhouette like a hit flash. */

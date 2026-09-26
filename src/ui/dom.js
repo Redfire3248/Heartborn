@@ -1,4 +1,4 @@
-import { iconUrl, spriteAvailable } from '../core/assets.js';
+import { iconUrl, spriteAvailable, spriteUrl } from '../core/assets.js';
 import { hasEmoji, stripEmoji, iconizeText } from './pixelIcons.js';
 
 /** Tiny hyperscript: h('div.card#id', { onclick }, children...) */
@@ -62,7 +62,7 @@ export function icon(key, size = 24, cls = 'sprite') {
   // sprite not loaded yet (or only a placeholder): point straight at the real file
   if ((!loaded || loaded.startsWith('data:')) && spriteAvailable(key)) {
     img.onerror = () => { img.onerror = null; img.src = iconUrl(key); };
-    img.src = `${import.meta.env.BASE_URL}assets/${key}.png`;
+    img.src = spriteUrl(key);   // the right size for this device, with its fingerprint, so it is never a stale copy
   }
   return img;
 }

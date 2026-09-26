@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'The old village art no longer downloads',
+    changes: [
+      'The game downloaded every one of its 1,300 pictures when it started, including all the art of the old village game - villagers, kingdom buildings, units, house interiors - most of which nothing draws any more. Now it fetches only what the game uses up front, and anything else the first time something actually draws it',
+      'That is 4.4 MB up front instead of 17 MB on a computer, and 2.3 MB instead of 7.7 MB on a phone, so the game opens and gets into a world much sooner',
+      'Menu icons that had not loaded yet fell back to an address without a fingerprint, which could show a phone its old saved copy. They use the fingerprinted one now',
+    ],
+  },
+  {
     title: 'Pranks that work, gifts for anyone, messages for everyone, and one clean material bar',
     changes: [
       'Trolls work. The panel listed villages ("Infinity’s Hearth") where a prank needs a player, so nothing was ever found; it now picks people by their account and shows their player name. Tiny, huge, drunk, blind and dance also did nothing but show a message - now they shrink or grow you, walk you backwards, black out all but a circle around you, and spin you on the spot',
