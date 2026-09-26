@@ -3,6 +3,7 @@ export const CHANGELOG = [
   {
     title: 'Updates download far less',
     changes: [
+      'The update notes are fetched only when Settings shows them, not on every start',
       'The game’s code used to be one big file that changed with every update, so after each update everyone downloaded all of it again - on a slow connection that was most of the wait. It is split now: Firebase, the game’s rules, the screens and the update notes are separate files, and an update only downloads the ones it changed',
       'The admin tools are only ever downloaded by admins',
     ],

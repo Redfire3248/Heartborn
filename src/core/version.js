@@ -1,10 +1,10 @@
 /* global __BUILD__ */
-import { CHANGELOG } from '../data/changelog.js';
 
 /** The build this page is running: { version, commit, builtAt }. */
 export const BUILD = typeof __BUILD__ !== 'undefined' ? __BUILD__ : { version: 'dev', commit: 'dev', builtAt: new Date().toISOString() };
 
-export const LATEST_CHANGES = CHANGELOG[0];
+/** The newest entry of the update notes. They are fetched only when something shows them, never on every start. */
+export const latestChanges = () => import('../data/changelog.js').then(m => m.CHANGELOG[0]);
 
 /** Asks the live site which build is newest. Resolves { live, current, isLatest } or throws when offline. */
 export async function checkLatest() {

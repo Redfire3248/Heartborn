@@ -87,7 +87,7 @@ import { startItemDrag } from './itemDrag.js';
 import { pxIcon } from './pixelIcons.js';
 import { play, soundSettings, setVolume } from '../core/sound.js';
 import { cleanText, mutedPlayers, setMuted, reportMessage } from '../net/chatSafety.js';
-import { BUILD, LATEST_CHANGES, checkLatest } from '../core/version.js';
+import { BUILD, latestChanges, checkLatest } from '../core/version.js';
 
 const TOP_RES = ['gold', 'wood', 'stone', 'gems'];   // weapons, bombs, science and influence were the village game's   // gold first: it is the money   // food is out of the game   // ores, metals and boss materials are in the Materials bag
 // bombs and science only appear once they matter
@@ -3113,7 +3113,7 @@ export class HUD {
     return h('div.col', { style: { gap: '6px' } },
       h('div.row', { style: { flexWrap: 'wrap' } }, h('span.chip', `v${BUILD.version}`), h('span.chip', `#${BUILD.commit}`), btn),
       status,
-      h('div.faint', `Latest: ${LATEST_CHANGES.title} — ${LATEST_CHANGES.changes.join(' · ')}`));
+      (() => { const el = h('div.faint', 'Latest: …'); latestChanges().then(c => { el.textContent = `Latest: ${c.title} — ${c.changes.join(' · ')}`; }).catch(() => { el.textContent = ''; }); return el; })());
   }
 
   /**
