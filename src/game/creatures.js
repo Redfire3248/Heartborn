@@ -532,6 +532,15 @@ export function damageCreature(g, c, dmg, by) {
     c._hurtFlash = 0.25;
     c._lastDmg = dmg;
     g.mp?.sendMobHit?.(c.netId, dmg);
+    // a blow that must kill it takes it off your screen now, instead of leaving it standing until the host answers
+    if (c.hp != null) {
+      c.hp -= dmg;
+      if (c.hp <= 0) {
+        (g._netKilled ||= new Map()).set(c.netId, Date.now());   // and the host's next update does not bring it back
+        g.puff?.({ x: c.x, y: c.y - 10 }, 'combat/poof', 1, 10);
+        g.state.creatures = g.state.creatures.filter(x => x !== c);
+      }
+    }
     return;
   }
   if (c.hp == null) c.hp = maxHp(c);

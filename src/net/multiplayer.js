@@ -233,6 +233,7 @@ export class Multiplayer {
 
   stop() {
     this.leaveSea?.();
+    if (this.onHidden) document.removeEventListener('visibilitychange', this.onHidden);
     clearInterval(this.presenceTimer);
     clearInterval(this.warTimer);
     for (const u of this.unsubs) u();
@@ -980,10 +981,21 @@ export class Multiplayer {
         this.g.state.creatures = this.g.state.creatures.filter(c => !CREATURES[c.t]?.hostile || c.net);
       }
     }, () => {}));
+    // Only someone actually looking at the game may run the monsters. A hidden tab or a phone with its screen off
+    // stops drawing frames, so its monsters froze - and everything anyone killed stayed lying there - until it came
+    // back. So a hidden game never claims the job, and the moment it is hidden it hands the job straight back.
+    const visible = () => typeof document === 'undefined' || document.visibilityState === 'visible';
     this.mobLease = setInterval(() => {
+      if (!visible()) return;
       runTransaction(claim, cur => ((!cur || this.now() - (cur.ts || 0) > MOB_LEASE_MS || cur.uid === this.uid) ? { uid: this.uid, ts: this.now() } : undefined)).catch(() => {});
       if (this.g.mobHost) this.mobsAttackPlayers();
     }, 4000);
+    this.onHidden = () => {
+      if (visible() || !this.g.mobHost) return;
+      runTransaction(claim, cur => (cur?.uid === this.uid ? null : undefined)).catch(() => {});   // let go at once: someone else takes over
+      this.g.mobHost = false;
+    };
+    document.addEventListener('visibilitychange', this.onHidden);
     this.mobTimer = setInterval(() => {
       if (!this.g.mobHost) return;
       set(ref(rtdb, `${this.w}mobs`), mobsToSend(this.g, this.g.livePlayers || [])).catch(() => {});

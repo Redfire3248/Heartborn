@@ -46,8 +46,11 @@ export function mobsToSend(g, players = []) {
  */
 export function applyNetMobs(g, mobs) {
   const seen = new Set();
+  const killed = g._netKilled;
+  if (killed) for (const [id, at] of killed) if (Date.now() - at > 6000) killed.delete(id);   // the host has caught up by now
   for (const [id, m] of Object.entries(mobs || {})) {
     if (!CREATURES[m.t]) continue;
+    if (killed?.has(id) || (m.hp != null && m.hp <= 0)) continue;   // one we just killed here, or already dead
     seen.add(id);
     let c = g.state.creatures.find(x => x.netId === id);
     if (!c) {
