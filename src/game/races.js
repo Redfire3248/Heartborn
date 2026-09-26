@@ -267,6 +267,10 @@ export const RACE_TIERS = [
 ];
 export const tierOf = key => RACE_TIERS[RACES[key]?.tier || 0];
 
+/** The Race Stone's own picture: the drawn stone once its art is in, the dice of fate until then (never a material's icon). */
+export const STONE_ART = 'races/race_stone';
+export const stoneIcon = has => (has(STONE_ART) ? STONE_ART : 'items/dice_fate');
+
 export const stonesOf = g => Math.max(0, Math.floor(g?.state?.rpg?.raceStones || 0));
 export function addStones(g, n = 1) {
   const r = (g.state.rpg ||= {});

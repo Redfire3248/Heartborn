@@ -13,7 +13,7 @@ import { rpgOf, heroStats, xpToNext, spendPoint, resetStats, resetStatsCost, equ
 import { TOOLS, toolsOf, hotbarOf, setSlot, selectSlot, toolRarity, toolValue, sellTool } from '../game/tools.js';
 import { CONSUMABLES, itemsOf } from '../game/consumables.js';
 import { MATERIALS, MATERIAL_KEYS, TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
-import { raceDef, raceMult, stonesOf } from '../game/races.js';
+import { raceDef, raceMult, stonesOf, stoneIcon } from '../game/races.js';
 import { ATTUNEMENTS, ATTUNE_KEYS, attunement } from '../game/attune.js';
 import { matIcon } from './tableMenu.js';
 import { ENCHANTS, enchName } from '../game/enchanting.js';
@@ -149,7 +149,7 @@ export function openBackpack(hud, tab = null) {
             h('div.row', { style: { gap: '5px', flexWrap: 'wrap' } },
               h('span.bp-race-chip', { style: { borderColor: raceDef(g).color, color: raceDef(g).color } }, raceDef(g).name),
               h('button.btn.sm.race-btn', { title: 'Your race, your character, and the stone that rolls a new race', onclick: async () => { const M = await import('./raceMenu.js'); M.openRaceMenu(hud); } },
-                icon('items/mat_star_shard', 16), 'Races & Character', stonesOf(g) ? h('span.race-btn-n', String(stonesOf(g))) : null)))),
+                icon(stoneIcon(spriteAvailable), 16), 'Races & Character', stonesOf(g) ? h('span.race-btn-n', String(stonesOf(g))) : null)))),
         h('div.bp-stats',
           statRow('Health', st.maxHp, st.maxHp / 400, '#ff5b6b', 'How much you can take before you are knocked out.'),
           statRow('Stamina', st.maxStamina, st.maxStamina / 260, '#8fe07a', 'Swings, dashes and holding a guard all spend it.'),

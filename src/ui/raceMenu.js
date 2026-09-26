@@ -13,8 +13,9 @@ import { play } from '../core/sound.js';
 import {
   RACES, RACE_TIERS, tierOf, raceOf, lookOf, raceArt, setRace,
   stonesOf, decideRoll, applyRoll, raceSlots, RACE_SLOTS, acceptRoll, dropRace, rollOrder,
-  BASES, baseOf, setBase, previewOf,
+  BASES, baseOf, setBase, previewOf, stoneIcon,
 } from '../game/races.js';
+import { spriteAvailable } from '../core/assets.js';
 
 const pct = m => `${m > 1 ? '+' : ''}${Math.round((m - 1) * 100)}%`;
 const STATS = [['Health', 'hp'], ['Damage', 'dmg'], ['Speed', 'speed'], ['Stamina', 'stamina'], ['Crit', 'crit']];
@@ -180,7 +181,7 @@ export function openRaceMenu(hud) {
           h('div.rr-panel-head', 'Race chances'),
           chances()),
         h('div.rr-bottom',
-          h('span.rr-stones', icon('items/mat_star_shard', 18), `Stones: ${stones}`),
+          h('span.rr-stones', icon(stoneIcon(spriteAvailable), 20), `Stones: ${stones}`),
           h('button.btn.primary.rr-roll', { disabled: spinning || stones < 1, onclick: spin }, spinning ? 'Rolling…' : 'Reroll'),
           h('span.rr-hint.faint', stones ? 'What it lands on is yours' : 'Stones drop from bosses, elites and deep chests')),
         replacePrompt()));

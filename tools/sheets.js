@@ -605,6 +605,16 @@ window.SHEETS = {
       "human_f", "elf_f", "dwarf_f", "orc_f", "demon_f", "archdemon_f", "angel_f", "archangel_f", "fallen_f", "skeleton_f", "zombie_f", "vampire_f", "god_f"
     ]
   },
+  races3: {
+    title: "Race characters in the game's pixel style, 8 in 4 rows, then the Race Stones",
+    folder: "races", mode: "sprite", cols: 8,
+    names: [
+      "human_m", "human_f", "elf_m", "elf_f", "dwarf_m", "dwarf_f", "orc_m", "orc_f",
+      "demon_m", "demon_f", "archdemon_m", "archdemon_f", "angel_m", "angel_f", "archangel_m", "archangel_f",
+      "fallen_m", "fallen_f", "skeleton_m", "skeleton_f", "zombie_m", "zombie_f", "vampire_m", "vampire_f",
+      "god_m", "god_f", "race_stone", "race_stone_rare", "race_stone_epic", "race_stone_legendary", "race_stone_mythic", "race_stone_glow"
+    ]
+  },
   races2: {
     title: "Race characters, second set, 6 in 4 rows",
     folder: "races", mode: "sprite", cols: 6,

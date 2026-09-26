@@ -1,6 +1,12 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'The Race Stone looks like itself',
+    changes: [
+      'The Race Stone no longer borrows the Star Shard’s picture (which Ashen Ember also uses): it has its own, and switches to its own drawn stone as soon as that art is in',
+    ],
+  },
+  {
     title: 'A new race screen, with a slot-machine roll',
     changes: [
       'CURRENT RACE across the top in its colour, your character large in the middle on a lit stage, your three race slots and what your race does on the left, and the odds of every race on the right',

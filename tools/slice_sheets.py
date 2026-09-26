@@ -28,6 +28,7 @@ DEFAULT_FILES = {
     "boatsheet": ["NewBoats.png"],
     "races": ["races.png"],
     "races2": ["races2.png"],
+    "races3": ["races3.png", "Races3.png"],
     "characters": ["Characters.png"],
     "buildings": ["Buildings.png"],
     "buildings2": ["Buildings2.png"],
