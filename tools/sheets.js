@@ -606,14 +606,24 @@ window.SHEETS = {
     ]
   },
   heroes: {
-    title: "Five more people as every race - one person per row, one race per column",
+    title: "Kai, Nia, Bram and Luna as every race - one person per row (sliced by hand: drifted cells were left out)",
     folder: "races", mode: "sprite", cols: 13,
     names: [
       "human_kai", "elf_kai", "dwarf_kai", "orc_kai", "demon_kai", "archdemon_kai", "angel_kai", "archangel_kai", "fallen_kai", "skeleton_kai", "zombie_kai", "vampire_kai", "god_kai",
       "human_nia", "elf_nia", "dwarf_nia", "orc_nia", "demon_nia", "archdemon_nia", "angel_nia", "archangel_nia", "fallen_nia", "skeleton_nia", "zombie_nia", "vampire_nia", "god_nia",
       "human_bram", "elf_bram", "dwarf_bram", "orc_bram", "demon_bram", "archdemon_bram", "angel_bram", "archangel_bram", "fallen_bram", "skeleton_bram", "zombie_bram", "vampire_bram", "god_bram",
-      "human_luna", "elf_luna", "dwarf_luna", "orc_luna", "demon_luna", "archdemon_luna", "angel_luna", "archangel_luna", "fallen_luna", "skeleton_luna", "zombie_luna", "vampire_luna", "god_luna",
-      "human_zed", "elf_zed", "dwarf_zed", "orc_zed", "demon_zed", "archdemon_zed", "angel_zed", "archangel_zed", "fallen_zed", "skeleton_zed", "zombie_zed", "vampire_zed", "god_zed"
+      "human_luna", "elf_luna", "dwarf_luna", "orc_luna", "demon_luna", "archdemon_luna", "angel_luna", "archangel_luna", "fallen_luna", "skeleton_luna", "zombie_luna", "vampire_luna", "god_luna"
+    ]
+  },
+  heroes2: {
+    title: "Zed, Sable, Rook, Ivy and Taro as every race - one person per row",
+    folder: "races", mode: "sprite", cols: 13,
+    names: [
+      "human_zed", "elf_zed", "dwarf_zed", "orc_zed", "demon_zed", "archdemon_zed", "angel_zed", "archangel_zed", "fallen_zed", "skeleton_zed", "zombie_zed", "vampire_zed", "god_zed",
+      "human_sable", "elf_sable", "dwarf_sable", "orc_sable", "demon_sable", "archdemon_sable", "angel_sable", "archangel_sable", "fallen_sable", "skeleton_sable", "zombie_sable", "vampire_sable", "god_sable",
+      "human_rook", "elf_rook", "dwarf_rook", "orc_rook", "demon_rook", "archdemon_rook", "angel_rook", "archangel_rook", "fallen_rook", "skeleton_rook", "zombie_rook", "vampire_rook", "god_rook",
+      "human_ivy", "elf_ivy", "dwarf_ivy", "orc_ivy", "demon_ivy", "archdemon_ivy", "angel_ivy", "archangel_ivy", "fallen_ivy", "skeleton_ivy", "zombie_ivy", "vampire_ivy", "god_ivy",
+      "human_taro", "elf_taro", "dwarf_taro", "orc_taro", "demon_taro", "archdemon_taro", "angel_taro", "archangel_taro", "fallen_taro", "skeleton_taro", "zombie_taro", "vampire_taro", "god_taro"
     ]
   },
   races3: {

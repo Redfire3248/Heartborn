@@ -30,6 +30,7 @@ DEFAULT_FILES = {
     "races2": ["races2.png"],
     "races3": ["races3.png", "Races3.png"],
     "heroes": ["heroes.png", "Heroes.png"],
+    "heroes2": ["heroes2.png", "Heroes2.png"],
     "characters": ["Characters.png"],
     "buildings": ["Buildings.png"],
     "buildings2": ["Buildings2.png"],
