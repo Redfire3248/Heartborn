@@ -3207,3 +3207,48 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 @media (max-width: 760px) and (min-height: 561px) {
   #ui > .side { bottom: var(--dock-h, 58px) !important; }
 }
+
+/* ------------------------------------------------------------------ the Worlds header on a phone
+   On a narrow screen the header's five parts wrapped one per line - the castle alone, the title, an empty row
+   where the spacer landed, the Adam/Eve choice, then Back on its own - 248px of header before a single world.
+   Now it is two rows: castle, title and Back across the top, and the choice of person underneath at full width. */
+@media (max-width: 640px) {
+  .world-picker .wp-head {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "ico title back" "base base base";
+    align-items: center; gap: 8px 10px; padding: 12px 14px;
+  }
+  .world-picker .wp-head > :first-child { grid-area: ico; width: 32px !important; height: 32px !important; }
+  .world-picker .wp-head > div:nth-child(2) { grid-area: title; min-width: 0; }
+  .world-picker .wp-head > div:nth-child(2) h2 { margin: 0; font-size: 18px; }
+  .world-picker .wp-head > div:nth-child(2) .faint { font-size: 11px; line-height: 1.3; }
+  .world-picker .wp-head > .spacer { display: none; }
+  .world-picker .wp-head > .back-btn { grid-area: back; align-self: start; }
+  .world-picker .wp-head > .wp-base { grid-area: base; }
+  .world-picker .wp-base-btn { flex: 1 1 0; justify-content: center; }
+}
+/* sideways the header keeps one row but gives the height back: a short line of text, not two */
+@media (max-height: 560px) {
+  .world-picker .wp-head { padding: 8px 14px; gap: 10px; }
+  .world-picker .wp-head > :first-child { width: 32px !important; height: 32px !important; }
+  .world-picker .wp-head > div:nth-child(2) { min-width: 0; }
+  .world-picker .wp-head > div:nth-child(2) h2 { margin: 0; font-size: 17px; }
+  .world-picker .wp-head > div:nth-child(2) .faint { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .world-picker .wp-base-btn { padding: 2px 8px 2px 4px; }
+  .world-picker .wp-base-btn img { max-width: 28px; max-height: 28px; }
+  .world-picker .wp-body { padding: 10px 14px; }
+}
+/* sideways, a panel takes the right half: the hotbar and hearts centred under it would show half of themselves
+   sticking out of its edge, so while a panel is open they step away (the stick stays, so you can still walk) */
+@media (max-height: 560px) {
+  #ui:has(> .side) .hotbar-wrap, #ui:has(> .side) .vitals-strip,
+  #ui:has(> .side) .hero-act, #ui:has(> .side) .hero-dash, #ui:has(> .side) .hero-block,
+  #ui:has(> .side) .hero-potion, #ui:has(> .side) .hero-lock, #ui:has(> .side) .hero-ability { visibility: hidden !important; }
+  #ui > .side .side-head { padding: 8px 12px !important; gap: 8px !important; }
+  #ui > .side .side-head img { width: 26px !important; height: 26px !important; }
+  #ui > .side .side-head h2, #ui > .side .side-head h3 { font-size: 16px; margin: 0; }
+  #ui > .side .side-body { padding: 8px 12px 12px !important; }
+}
+/* notices (saving, updates) hang just under the top row sideways, never across it */
+@media (max-height: 560px) {
+  #ui .save-banner, #ui .update-bar { top: calc(var(--side-top) + var(--side-bar) + 4px) !important; }
+}

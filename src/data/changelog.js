@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'A tidy Worlds screen on phones, and side panels that sit cleanly sideways',
+    changes: [
+      'The Worlds screen header on a phone is two rows instead of five: castle, title and Back across the top, and Adam and Eve underneath at full width. It had been spending 248 pixels on an icon alone on a line, an empty row and a Back button on its own',
+      'Sideways the same header is one short row, giving the list of worlds back its height',
+      'Sideways, with a panel open, the hotbar, hearts and fight buttons step away instead of half of them sticking out from under the panel. The stick stays so you can still walk',
+      'Side panel headers are tighter sideways, and save and update notices hang under the top row instead of across it',
+    ],
+  },
+  {
     title: 'Your layout stays put, a real sideways screen, and a lock-on that stays on',
     changes: [
       'Move controls no longer flickers between the default spots and yours. Your layout is now one stylesheet instead of styles re-written on a timer, so letting go of the stick, the address bar sliding, or a control being rebuilt can no longer knock anything back. Turning the phone switches between your upright and sideways layouts instantly',
