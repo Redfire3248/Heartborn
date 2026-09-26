@@ -1,3 +1,4 @@
+import { RESET_AT, beforeReset } from '../core/constants.js';
 import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, orderBy, limit, runTransaction } from 'firebase/firestore';
 import { themeOf, THEMES } from '../game/themeNames.js';
 import { db } from './firebase.js';
@@ -47,7 +48,7 @@ export async function listWorldSaves(uid) {
     }
   } catch { /* ignore */ }
   for (const o of out) { o.kind ||= o.wid.startsWith('solo') ? 'solo' : 'server'; o.theme ||= o.seed != null ? themeOf(o.seed) : 'meadow'; }
-  return out.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  return out.filter(o => !beforeReset(o.updatedAt)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));   // nothing from before the reset
 }
 
 export async function deleteWorldSave(uid, wid) {
@@ -57,6 +58,7 @@ export async function deleteWorldSave(uid, wid) {
 
 /** A village from the old save slots (before worlds had their own saves), to carry into a first world. */
 export async function oldVillage(uid) {
+  if (Date.now() >= RESET_AT) return null;   // everything from the old save slots is from before the reset
   for (let n = 1; n <= SLOT_COUNT; n++) {
     const d = (await readDoc(slotDoc(uid, n))) || (n === 1 ? await readDoc(legacyDoc(uid)) : null);
     let raw = d?.data || null;
@@ -107,6 +109,8 @@ export async function loadSave(uid) {
     const raw = localStorage.getItem(LOCAL_KEY(uid));
     if (raw) local = deserialize(raw);
   } catch { /* ignore */ }
+  if (cloud && beforeReset(cloud.updatedAt)) cloud = null;   // a world from before the reset starts over
+  if (local && beforeReset(local.updatedAt)) local = null;
   if (cloud && local) return (local.updatedAt || 0) > (cloud.updatedAt || 0) ? local : cloud;
   return cloud || local;
 }
@@ -134,6 +138,7 @@ export function profileFor(user, g) {
   const warriors = s.villagers.filter(v => v.job === 'warrior');
   return {
     uid: user.uid,
+    updatedAt: Date.now(),   // when this profile was last written (leaderboards leave out anything from before the reset)
     name: s.owner.name || 'Chieftain',
     villageName: s.owner.villageName,
     pop: s.villagers.length,
@@ -219,8 +224,8 @@ export async function getBan(uid) {
 }
 
 export async function leaderboard(field, dir = 'desc', n = 20) {
-  const snap = await getDocs(query(playersCol(), orderBy(field, dir), limit(n)));
-  return snap.docs.map(d => d.data());
+  const snap = await getDocs(query(playersCol(), orderBy(field, dir), limit(n * 4)));
+  return snap.docs.map(d => d.data()).filter(p => !beforeReset(p.updatedAt)).slice(0, n);   // only people who have played since the reset
 }
 
 export async function getProfile(uid) {

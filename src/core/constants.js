@@ -42,3 +42,11 @@ export const OFFLINE_PROGRESS = false;
 export const NEW_PLAYER_SHIELD_MS = 3 * 24 * 3600 * 1000;
 export const RAID_SHIELD_MS = 12 * 3600 * 1000;
 export const SAVE_VERSION = 1;
+
+/*
+ * The full reset (26 September 2026, 12:49 UTC). Every world, server, save and leaderboard entry from before this
+ * moment is treated as if it never existed: nothing lists it, loads it, joins it or ranks it, and everyone starts
+ * fresh. The old records are only ignored, not destroyed, so a reset can never lose anything by accident.
+ */
+export const RESET_AT = 1790426941554;
+export const beforeReset = ts => !(Number(ts) >= RESET_AT);

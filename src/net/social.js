@@ -1,3 +1,4 @@
+import { beforeReset } from '../core/constants.js';
 import { ref, get, set, update, remove, onValue, push, serverTimestamp, onDisconnect } from 'firebase/database';
 import { doc, getDoc } from 'firebase/firestore';
 import { rtdb, db } from './firebase.js';
@@ -96,11 +97,13 @@ export async function createWorld(me, meName, name) {
 
 export async function getWorld(wid) {
   const snap = await get(ref(rtdb, `worlds/${wid}`));
-  return snap.exists() ? { wid, ...snap.val() } : null;
+  if (!snap.exists()) return null;
+  const w = { wid, ...snap.val() };
+  return beforeReset(w.createdAt) ? null : w;   // a server from before the reset no longer exists
 }
 
 export function watchInvites(uid, cb) {
-  return onValue(ref(rtdb, `worldInvites/${uid}`), snap => cb(Object.entries(snap.val() || {}).map(([wid, i]) => ({ wid, ...i }))));
+  return onValue(ref(rtdb, `worldInvites/${uid}`), snap => cb(Object.entries(snap.val() || {}).map(([wid, i]) => ({ wid, ...i })).filter(i => !beforeReset(i.ts))));   // no invites to servers from before the reset
 }
 
 export async function inviteToWorld(world, me, meName, friendUid) {

@@ -1,6 +1,12 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'A fresh start for everyone',
+    changes: [
+      'Every world, server, save and leaderboard entry from before today is cleared away: everyone starts a new world from scratch, on the game as it is now. Your username and account stay',
+    ],
+  },
+  {
     title: 'Dead monsters go away in shared worlds, and your tools show as they are',
     changes: [
       'In a shared world, killed monsters stayed standing for everyone else whenever the player running the monsters had the game hidden (another tab, or a phone with its screen off): their game stopped, so nothing they were in charge of moved or died. A hidden game now hands that job to someone who is playing, straight away',
