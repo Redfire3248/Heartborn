@@ -116,9 +116,9 @@ function arenaSpot(g, v) {
  * Call one out again: it appears in front of you at the level you name, and the clock starts when you swing.
  * You can only call back something you have already put down once.
  */
-export function challengeBoss(g, key, level = null, v = null) {
+export function challengeBoss(g, key, level = null, v = null, { any = false } = {}) {   // any: an admin may call out any boss
   if (!CREATURES[key]?.boss) return { ok: false, why: 'That is not a boss' };
-  if (!bossRecord(g, key)?.kills) return { ok: false, why: `You have never beaten ${bossName(key)}` };
+  if (!any && !bossRecord(g, key)?.kills) return { ok: false, why: `You have never beaten ${bossName(key)}` };
   const me = v || g.state.villagers.find(x => x.id === g.hero?.id);
   if (!me) return { ok: false, why: 'Only out in the world' };
   if (g.state.creatures.some(c => c._challenge)) return { ok: false, why: 'One challenge at a time' };
@@ -136,13 +136,13 @@ export function challengeBoss(g, key, level = null, v = null) {
 }
 
 /** The gauntlet: a line of bosses you have already beaten, one after another, on one clock. */
-export function startBossRush(g, { count = 5, level = null, v = null } = {}) {
-  const beaten = BOSS_KEYS.filter(k => bossLog(g)[k]?.kills);
+export function startBossRush(g, { count = 5, level = null, v = null, any = false } = {}) {
+  const beaten = any ? [...BOSS_KEYS] : BOSS_KEYS.filter(k => bossLog(g)[k]?.kills);   // an admin's gauntlet can draw on any boss
   if (beaten.length < 3) return { ok: false, why: 'Beat at least three different bosses first' };
   const pool = [...beaten].sort(() => Math.random() - 0.5).slice(0, Math.max(2, Math.min(count, beaten.length)));
   const r = rpgOf(g);
-  r.rush = { queue: pool, i: 0, at: g.state.time, level, hits0: g.hero?.hitsTaken || 0, done: false };
-  const first = challengeBoss(g, pool[0], level, v);
+  r.rush = { queue: pool, i: 0, at: g.state.time, level, hits0: g.hero?.hitsTaken || 0, done: false, any };
+  const first = challengeBoss(g, pool[0], level, v, { any });
   if (!first.ok) { r.rush = null; return first; }
   g.announce?.(`Boss Rush: ${pool.length} of them, one after another. Go!`);
   return { ok: true, queue: pool };
@@ -156,7 +156,7 @@ function advanceRush(g, key, v) {
   rush.i++;
   if (rush.i < rush.queue.length) {
     const next = rush.queue[rush.i];
-    setTimeout(() => { if (rpgOf(g).rush === rush && !rush.done) challengeBoss(g, next, rush.level, v); }, 2200);
+    setTimeout(() => { if (rpgOf(g).rush === rush && !rush.done) challengeBoss(g, next, rush.level, v, { any: !!rush.any }); }, 2200);
     return { left: rush.queue.length - rush.i, next, name: bossName(next), total: rush.queue.length, at: rush.i };
   }
   rush.done = true;

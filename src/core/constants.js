@@ -28,6 +28,10 @@ export const MAX_SKILL = 10;
 export const BASE_STORAGE = 100;
 export const BASE_HOUSING = 6;       // sleeping under the stars
 export const RESOURCES = ['food', 'wood', 'stone', 'coal', 'iron', 'weapons', 'bombs', 'gold', 'gems', 'science', 'influence', 'copper', 'silver', 'obsidian', 'mythril', 'frostite', 'magmite', 'troll_hide', 'slime_core', 'spider_silk', 'spirit_bark', 'golem_heart', 'lich_soul', 'dragon_scale', 'ashen_ember', 'jade', 'cobalt', 'moonstone', 'titanium', 'sunstone', 'voidstone'];
+/** Left over from the village game: still in old saves, never shown, given or used any more. */
+export const RETIRED_RESOURCES = ['food', 'weapons', 'bombs', 'science', 'influence'];
+/** What the hero actually gathers, spends and can be given. */
+export const HERO_RESOURCES = RESOURCES.filter(k => !RETIRED_RESOURCES.includes(k));
 
 // Saving / multiplayer
 export const AUTOSAVE_SECONDS = 30;

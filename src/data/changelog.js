@@ -1,6 +1,19 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Every Admin action tested and working, pranks that really send, and you look like yourself to others',
+    changes: [
+      'Trolls reach people: every prank was refused by the server because it carried an empty value; the empty ones are left out now',
+      'Other players see your race and your person, and see it change: the game was still sending an old avatar',
+      'Potions gives you potions and puts them back on your hotbar (once you had used them all, their slot was cleared and new ones never showed)',
+      'Forge gear lists only what can really be made (no more "fists") and makes it Legendary; the rarity choice is gone',
+      'Call out a boss and Boss Rush work with any boss for an admin, beaten or not',
+      'Food, weapons, bombs, science and influence - the village game’s resources - are gone from the material bar and from Give resources',
+      'The Doctor no longer calls races incomplete or God unrollable',
+      'Every card in the Admin panel was run and checked',
+    ],
+  },
+  {
     title: 'The wheel pays out when it lands, and no more white statues',
     changes: [
       'The race wheel gives you the race when it lands, not when you press Spin: you no longer change behind the spinning wheel. The result is kept safe if you close the window mid-spin, and handed over then',

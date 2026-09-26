@@ -811,7 +811,8 @@ export class Renderer {
     const v = st._v ||= { id: `s${st.id}`, age: 25, hp: 100, traits: [], skills: {}, inv: { pack: {} } };
     Object.assign(v, { name: st.name, sex: st.sex, job: st.job, profession: st.job, x: st.x, y: st.y, _walking: st._walking, _flip: st._flip });
     if (st._hitFlash > 0) { st._hitFlash -= 1 / 60; v._whiteFlash = st._hitFlash; } else v._whiteFlash = 0;
-    const look = st.avatar ? avatarArt(st.avatar, 'front') : null;   // the character they picked, not a stand-in villager
+    // how they look: their race as the person they are, drawn the way you see yourself (older games send only an avatar)
+    const look = st.look && hasArt(`races/${st.look}`) ? `races/${st.look}` : st.avatar ? avatarArt(st.avatar, 'front') : null;
     if (look && hasArt(look)) {
       const bob = st._walking ? Math.sin(this.time * 9 + st.x) * 1.5 : 0;
       this.shadow(st.x, st.y, TILE * 0.55);

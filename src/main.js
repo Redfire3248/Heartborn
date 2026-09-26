@@ -422,7 +422,7 @@ if (import.meta.env.DEV) {
       const user = { uid: 'dev', displayName: 'Dev Tester', email: 'dev@local', photoURL: '' };
       app.user = user;
       startGame(user, new Game(newState({ uid: 'dev', name: 'Dev', villageName })), { online: false });
-      app.console = new AdminConsole({ game: app.game, mp: null, user });
+      app.console = new AdminConsole({ game: app.game, mp: null, user, hud: app.hud });
     },
     /** Emulator only (?emu): sign in anonymously and stay on the title screen, so the rest can be clicked through. */
     async devSignIn() {

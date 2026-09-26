@@ -1,3 +1,4 @@
+import { lookOf } from '../game/races.js';
 import { avatarId } from '../game/avatars.js';
 import { CREATURES } from '../data/objects.js';
 import { damageCreature } from '../game/creatures.js';
@@ -1024,8 +1025,11 @@ export class Multiplayer {
    * It lands on their machine, which decides what to do with it.
    */
   sendCommand(uid, cmd) {
-    if (!uid || uid === this.uid) return;
-    push(ref(rtdb, `${this.w}cmds/${uid}`), { ...cmd, from: this.uid, name: this.name, ts: this.now() }).catch(() => {});
+    if (!uid || uid === this.uid) return Promise.resolve();
+    // Firebase refuses a whole message if any value in it is undefined (a prank sent without a number did exactly
+    // that, so every troll failed): leave the empty ones out
+    const clean = Object.fromEntries(Object.entries({ ...cmd, from: this.uid, name: this.name, ts: this.now() }).filter(([, v]) => v !== undefined));
+    return push(ref(rtdb, `${this.w}cmds/${uid}`), clean).catch(() => {});
   }
 
   /** A guest's blow, sent to whoever runs the monsters. */
@@ -1086,7 +1090,7 @@ export class Multiplayer {
     this._liveAt = now; this._liveX = v.x; this._liveY = v.y;
     set(ref(rtdb, `${this.w}live/${this.uid}`), {
       x: Math.round(v.x), y: Math.round(v.y), name: String(this.name || v.name || 'Player').slice(0, 40),
-      sex: v.sex === 'f' ? 'f' : 'm', walking: !!v._walking, flip: !!v._flip, dungeon: !!dungeon, a: avatarId(this.g),
+      sex: v.sex === 'f' ? 'f' : 'm', walking: !!v._walking, flip: !!v._flip, dungeon: !!dungeon, a: avatarId(this.g), lk: lookOf(this.g),   // lk: your race, as the person you are (what everyone else should see)
       level: Math.round(level) || 1, facing, title: String(this.titleText || '').slice(0, 30), ts: now, pvp: !!this.g.state.pvp, held: held ? String(held).slice(0, 48) : null,
       hp: hp == null ? null : Math.max(0, Math.round(hp)), maxHp: maxHp == null ? null : Math.max(1, Math.round(maxHp)),
     }).catch(() => {});
@@ -1097,7 +1101,7 @@ export class Multiplayer {
     const now = this.now();
     return Object.entries(all).filter(([uid, s]) => uid !== this.uid && Math.abs(now - (s.ts || 0)) < 25_000 && !s.dungeon).map(([uid, s]) => {
       const old = prev.get(uid);
-      return { id: uid, uid, player: true, pvp: !!s.pvp, held: s.held || null, hp: s.hp ?? null, maxHp: s.maxHp ?? null, avatar: s.a || null, title: s.title || '', name: s.name, sex: s.sex, job: 'idle', level: s.level || 1, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
+      return { id: uid, uid, player: true, pvp: !!s.pvp, held: s.held || null, hp: s.hp ?? null, maxHp: s.maxHp ?? null, avatar: s.a || null, look: s.lk || null, title: s.title || '', name: s.name, sex: s.sex, job: 'idle', level: s.level || 1, tx: s.x, ty: s.y, x: old ? old.x : s.x, y: old ? old.y : s.y, _walking: !!s.walking, _flip: !!s.flip, ts: s.ts };
     });
   }
 

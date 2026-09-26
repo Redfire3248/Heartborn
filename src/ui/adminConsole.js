@@ -15,7 +15,7 @@ import { EVENTS } from '../data/events.js';
 import { CREATURES } from '../data/objects.js';
 import { ERAS } from '../data/buildings.js';
 import { LAW_CATEGORIES } from '../data/laws.js';
-import { DAY_LENGTH, RESOURCES } from '../core/constants.js';
+import { DAY_LENGTH, RESOURCES, HERO_RESOURCES } from '../core/constants.js';
 import { dayFractionOf } from '../game/game.js';
 import * as api from '../net/admin.js';
 import { BUILDINGS as BUILDING_DEFS } from '../data/buildings.js';
@@ -553,7 +553,7 @@ const COMMANDS = {
       if (pairs[0] === '*' || pairs[0] === 'all') {   // give me * 200000 → every resource
         const n = Number(pairs[1]);
         if (Number.isNaN(n)) throw new Error('usage: give me * 200000');
-        for (const r of RESOURCES) res[r] = n;
+        for (const r of HERO_RESOURCES) res[r] = n;   // not the village game's leftovers
         pairs = [];
       }
       for (let i = 0; i < pairs.length; i += 2) {
@@ -1258,8 +1258,8 @@ const COMMANDS = {
       check('races are whole', () => {
         for (const k of Ra.RACE_KEYS) {
           const d = Ra.RACES[k];
-          if (!d.passive || !d.desc || d.looks.length !== 4) return `${k} is incomplete`;
-          if (!(d.weight > 0)) return `${k} has no odds`;
+          if (!d.passive || !d.desc || d.looks.length !== 2) return `${k} is incomplete`;   // two people, one version of each per race
+          if (!(d.weight > 0) && !d.admin) return `${k} has no odds`;   // an admin race (God) is handed out, never rolled
         }
         return true;
       });
@@ -1360,14 +1360,14 @@ const COMMANDS = {
     },
   },
   rematch: {
-    usage: 'rematch <boss> [level]', desc: 'Call a boss out beside you at any level (it must be one you have already felled)',
+    usage: 'rematch <boss> [level]', desc: 'Call any boss out beside you, at any level',
     async run([boss, level]) {
       if (!boss) throw new Error('which boss? try: rematch iron_warlord 40');
       const B = await import('../game/bossIndex.js');
       const g = this.hud?.dungeon || this.game;
       const key = B.BOSS_KEYS.find(k => k === boss) || B.BOSS_KEYS.find(k => k.includes(boss));
       if (!key) throw new Error(`no boss called ${boss}`);
-      const res = B.challengeBoss(g, key, level == null ? null : Number(level));
+      const res = B.challengeBoss(g, key, level == null ? null : Number(level), null, { any: true });   // an admin can call out any boss
       if (!res.ok) throw new Error(res.why);
       this.toggle();
       this.print(`✓ ${B.bossName(key)} at level ${res.level}`, 'ok');
@@ -1379,7 +1379,7 @@ const COMMANDS = {
       const B = await import('../game/bossIndex.js');
       const g = this.hud?.dungeon || this.game;
       if (count === 'stop') { if (!B.stopBossRush(g)) throw new Error('no gauntlet running'); this.print('✓ gauntlet abandoned', 'ok'); return; }
-      const res = B.startBossRush(g, { count: Math.max(2, Math.min(20, Number(count) || 5)), level: level == null ? null : Number(level) });
+      const res = B.startBossRush(g, { count: Math.max(2, Math.min(20, Number(count) || 5)), level: level == null ? null : Number(level), any: true });
       if (!res.ok) throw new Error(res.why);
       this.toggle();
       this.print(`✓ gauntlet of ${res.queue.length}`, 'ok');
@@ -1533,8 +1533,18 @@ const COMMANDS = {
     },
   },
   potions: {
-    usage: 'potions <n>', desc: 'Set how many health potions you carry',
-    run([n = '10']) { rpgOf(this.game).potions = Math.max(0, Math.floor(Number(n) || 0)); this.game.emit('change'); this.print(`✓ ${rpgOf(this.game).potions} potions`, 'ok'); },
+    usage: 'potions <n>', desc: 'Give yourself health potions (they go on your hotbar)',
+    async run([n = '10']) {
+      const r = rpgOf(this.game);
+      const add = Math.max(1, Math.floor(Number(n) || 1));
+      r.potions = Math.max(0, r.potions || 0) + add;
+      // once your potions ran out their hotbar slot was cleared, so new ones never showed: put the slot back
+      const T = await import('../game/tools.js');
+      T.addItemToHotbar(this.game, 'potion');
+      if (this.hud) this.hud._hotbarKey = null;
+      this.game.emit('change');
+      this.print(`✓ +${add} potions (${r.potions} now)`, 'ok');
+    },
   },
   tp: {
     usage: 'tp <cursor|home|cave|boss|key|exit|x y|player [here]>', desc: 'Teleport your hero, or tp <player> to jump to them, tp <player> here to pull them to you',

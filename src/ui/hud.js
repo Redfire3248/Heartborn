@@ -89,7 +89,7 @@ import { play, soundSettings, setVolume } from '../core/sound.js';
 import { cleanText, mutedPlayers, setMuted, reportMessage } from '../net/chatSafety.js';
 import { BUILD, LATEST_CHANGES, checkLatest } from '../core/version.js';
 
-const TOP_RES = ['gold', 'wood', 'stone', 'gems', 'weapons', 'bombs', 'science', 'influence'];   // gold first: it is the money   // food is out of the game   // ores, metals and boss materials are in the Materials bag
+const TOP_RES = ['gold', 'wood', 'stone', 'gems'];   // weapons, bombs, science and influence were the village game's   // gold first: it is the money   // food is out of the game   // ores, metals and boss materials are in the Materials bag
 // bombs and science only appear once they matter
 const SHOW_WHEN = {
   bombs: g => !g.solo && (g.state.resources.bombs > 0 || g.hasBuilding('powder_mill')), science: g => !g.solo && (g.state.resources.science > 0 || g.state.era >= 3),

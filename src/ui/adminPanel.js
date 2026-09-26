@@ -46,12 +46,15 @@ const oreItems = async () => {
 };
 const resourceItems = async () => {
   const F = await import('../game/forging.js');
-  const { RESOURCES } = await import('../core/constants.js');
-  return RESOURCES.map(k => ({ key: k, name: F.MATERIALS[k]?.name || nice(k), art: F.MATERIALS[k]?.icon }));
+  const { HERO_RESOURCES } = await import('../core/constants.js');   // not the village game's food, weapons, bombs, science or influence
+  return HERO_RESOURCES.map(k => ({ key: k, name: F.MATERIALS[k]?.name || nice(k), art: F.MATERIALS[k]?.icon }));
 };
 const gearItems = async () => {
   const R = await import('../game/rpg.js');
-  return Object.entries(R.CATALOG).flatMap(([slot, list]) => Object.entries(list).map(([k, d]) => ({ key: k, name: d.name || nice(k), art: d.icon, tag: nice(slot) })));
+  // only what the forge can really make: the same rule the gear command uses (no bare fists, nothing without a picture)
+  return Object.entries(R.CATALOG).flatMap(([slot, list]) => Object.entries(list)
+    .filter(([, d]) => d.icon !== null && (!d.noLoot || d.admin))
+    .map(([k, d]) => ({ key: k, name: d.name || nice(k), art: d.icon, tag: d.admin ? 'Admin' : nice(slot) })));
 };
 /*
  * Everybody you could pick, by their player name. The key is their account id, never a name: names used to be
@@ -122,7 +125,7 @@ function cardFor(panel, def) {
     cardLabels.set(def, {});
   }
   const values = cardValues.get(def), labels = cardLabels.get(def);
-  const line = () => [def.cmd, ...(def.args || []).map(a => String(values[a.id] ?? '').trim()).filter(Boolean)].join(' ');
+  const line = () => [def.cmd, ...(def.args || []).map(a => String(values[a.id] ?? '').trim()).filter(Boolean), def.tail].filter(Boolean).join(' ');   // tail: a fixed ending the card does not ask about
   const refresh = () => {};   // the card no longer prints its command line; the values are read when you press Run
 
   const control = a => {
@@ -183,7 +186,7 @@ const PAGES = {
       { id: 'where', name: 'Where', kind: 'choice', options: WHERE, def: 'here' },
       { id: 'level', name: 'Level', kind: 'number', def: 1, min: 1, max: 99, big: 5 },
     ] },
-    { cmd: 'rematch', name: 'Call out a boss', desc: 'One you have already felled', args: [
+    { cmd: 'rematch', name: 'Call out a boss', desc: 'Any boss, at any level', args: [
       { id: 'boss', name: 'Boss', kind: 'pick', items: bossItems },
       { id: 'level', name: 'Level', kind: 'number', def: 10, min: 1, max: 99, big: 5 },
     ] },
@@ -201,12 +204,8 @@ const PAGES = {
       { id: 'what', name: 'Resource', kind: 'pick', any: true, items: resourceItems },
       { id: 'n', name: 'How many', kind: 'number', def: 100, min: 1, max: 9999, big: 100 },
     ] },
-    { cmd: 'gear', name: 'Forge gear', desc: 'A weapon or a piece of armour', args: [
+    { cmd: 'gear', name: 'Forge gear', desc: 'A weapon or a piece of armour, Legendary', tail: 'legendary', args: [
       { id: 'what', name: 'Piece', kind: 'pick', items: gearItems },
-      { id: 'rarity', name: 'Rarity', kind: 'choice', def: '3', options: [
-        { key: '0', name: 'Common', color: '#d9d4c7' }, { key: '1', name: 'Rare', color: '#5aa9ff' }, { key: '2', name: 'Epic', color: '#c77dff' },
-        { key: '3', name: 'Legendary', color: '#ffb347' }, { key: '4', name: 'Mythic', color: '#ff4d6d' }, { key: '5', name: 'Admin', color: '#ff3cf0' },
-      ] },
     ] },
     { cmd: 'attune', name: 'Attune to an ore', desc: 'Gives you enough of it to work', args: [
       { id: 'ore', name: 'Ore', kind: 'pick', items: oreItems },

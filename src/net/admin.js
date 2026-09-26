@@ -36,7 +36,8 @@ export async function banPlayer(uid, reason) {
 
 export const unbanPlayer = uid => deleteDoc(doc(db, 'bans', uid));
 
-export const sendCommand = (uid, cmd) => push(ref(rtdb, `adminCommands/${uid}`), { ...cmd, ts: Date.now() });
+// Firebase refuses a message with an undefined value anywhere in it, so the empty ones are left out
+export const sendCommand = (uid, cmd) => push(ref(rtdb, `adminCommands/${uid}`), JSON.parse(JSON.stringify({ ...cmd, ts: Date.now() })));
 
 export const broadcast = text => set(ref(rtdb, 'announcements'), { text, ts: Date.now(), by: 'Admin' });
 
