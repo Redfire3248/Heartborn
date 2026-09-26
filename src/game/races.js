@@ -1,3 +1,5 @@
+import { CHARACTERS, characterById, isCharacter, hasCharacter } from './characters.js';
+import { spriteAvailable } from '../core/assets.js';
 /*
  * Races: what you were born as, and what it does for you.
  *
@@ -143,41 +145,55 @@ export const raceDef = g => RACES[raceOf(g)] || RACES.human;
  * as the human you, dead; the archangel you is the same person with wings. So your look is never chosen on its
  * own: it is your base character (`m` or `f`, picked when you start a world) as whatever race you are wearing.
  */
-export const BASES = [
-  { id: 'm', name: 'Adam', desc: 'The first man. Broad, dark-haired, steady.' },
-  { id: 'f', name: 'Eve', desc: 'The first woman. Slighter, fair-haired, quick.' },
-];
+export const BASES = CHARACTERS;   // Adam, Eve and everyone you can earn (characters.js)
 const LAST_BASE = 'hb_base';
+const validBase = id => isCharacter(id) && hasCharacter(id);
 
-/** Which of the two people you are. Kept per world, and remembered for the next one. */
+/** Which person you are. Kept per world, and remembered for the next one. */
 export function baseOf(g) {
   const r = g?.state?.rpg;
-  if (r && r.base !== 'm' && r.base !== 'f') r.base = lastBase();
+  if (r && !isCharacter(r.base)) r.base = lastBase();
   return r?.base || lastBase();
 }
 export function setBase(g, id) {
-  if (id !== 'm' && id !== 'f') return false;
+  if (!validBase(id)) return false;
   const r = (g.state.rpg ||= {});
   r.base = id;
-  r.look = `${raceOf(g)}_${id}`;
+  r.look = lookFor(raceOf(g), id);
   try { localStorage.setItem(LAST_BASE, id); } catch { /* private window */ }
   g.emit?.('change');
   return true;
 }
 export function lastBase() {
-  try { const b = localStorage.getItem(LAST_BASE); return b === 'f' ? 'f' : 'm'; } catch { return 'm'; }
+  try { const b = localStorage.getItem(LAST_BASE); return b && isCharacter(b) ? b : 'm'; } catch { return 'm'; }
+}
+/** Remember the person to start the next world as (the menu's Character page). */
+export function chooseBase(id) {
+  if (!validBase(id)) return false;
+  try { localStorage.setItem(LAST_BASE, id); } catch { /* private window */ }
+  return true;
+}
+
+/**
+ * The art for a race worn by a person. A person whose picture for that race is not drawn yet wears Adam's or
+ * Eve's (by their sex), so nobody is ever shown as a blank or a placeholder.
+ */
+export function lookFor(race, base) {
+  const own = `${race}_${base}`;
+  if (spriteAvailable(`races/${own}`)) return own;
+  return `${race}_${characterById(base).sex}`;
 }
 
 /** What you look like: your person, as your race. Never one without the other. */
 export function lookOf(g) {
-  const look = `${raceOf(g)}_${baseOf(g)}`;
+  const look = lookFor(raceOf(g), baseOf(g));
   const r = g?.state?.rpg;
   if (r) r.look = look;
   return look;
 }
 
 /** That race's art for the person you are: the preview a race shows you. */
-export const previewOf = (g, race) => `races/${race}_${baseOf(g)}`;
+export const previewOf = (g, race) => `races/${lookFor(race, baseOf(g))}`;
 
 export const raceArt = look => `races/${look}`;
 
@@ -198,7 +214,7 @@ export const characterName = look => characterOf(look).name;
 /** Every character you could be right now: the four faces of each race you are holding. */
 export function myCharacters(g) {
   const i = baseOf(g) === 'f' ? 1 : 0;
-  return raceSlots(g).map(key => ({ look: `${key}_${baseOf(g)}`, race: key, name: RACES[key].names?.[i] || RACES[key].name }));
+  return raceSlots(g).map(key => ({ look: lookFor(key, baseOf(g)), race: key, name: RACES[key].names?.[i] || RACES[key].name }));
 }
 
 export function lastRace() {
@@ -214,8 +230,8 @@ export function setRace(g, id, look = null) {
   const r = (g.state.rpg ||= {});
   r.race = id;
   // the person stays the same person: a race only changes what they are
-  if (look === 'm' || look === 'f') r.base = look;
-  r.look = `${id}_${baseOf(g)}`;
+  if (isCharacter(look) && hasCharacter(look)) r.base = look;
+  r.look = lookFor(id, baseOf(g));
   try { localStorage.setItem(LAST_RACE, id); localStorage.setItem(LAST_LOOK, r.look); } catch { /* private window */ }
   g.emit?.('change');
   return true;

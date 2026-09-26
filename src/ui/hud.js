@@ -76,6 +76,7 @@ import { activeGoals, claimGoal, rewardText, goalsLeftInEra } from '../game/goal
 import { findAt, collectFind } from '../game/finds.js';
 import { describeBuilding, effectBadges } from '../data/describe.js';
 import { Tutorial } from './tutorial.js';
+import { unlockForAchievement, unlockFromAchievements } from '../game/characters.js';
 import { HeroTutorial } from './heroTutorial.js';
 import { abilityOf, abilityCooldown, canUseAbility, useAbility } from '../game/abilities.js';
 import { canDoJob, isVersatile, professionLabel, PROFESSIONS } from '../game/professions.js';
@@ -338,6 +339,7 @@ export class HUD {
 
     this.tutorial = on('tutorial') ? new Tutorial(this) : null;   // the old village one, switched off
     this.quest = new HeroTutorial(this);   // the hero tutorial: objectives, arrows in the world, rewards
+    unlockFromAchievements(this.game.state.rpg?.achievements);   // anything this world already achieved counts
 
   }
 
@@ -451,7 +453,14 @@ export class HUD {
     // achievements: checked a few times a second is plenty
     if (!this._achAt || performance.now() - this._achAt > 1500) {
       this._achAt = performance.now();
-      for (const a of checkAchievements(g)) this.rareLootReveal({ achievement: a });
+      for (const a of checkAchievements(g)) {
+        this.rareLootReveal({ achievement: a });
+        // some achievements earn you a whole new character, for your account and every world
+        for (const c of unlockForAchievement(a.id)) setTimeout(() => {
+          this.announce?.(`New character: ${c.name}!`);
+          this.toast?.({ text: `${c.name} is yours: choose them on the Character page`, kind: 'good' });
+        }, 2200);
+      }
     }
     if (this.els.pop.textContent !== String(s.villagers.length)) this.els.pop.textContent = s.villagers.length;
     if (this.els.housing.textContent !== `/${g.housing}`) this.els.housing.textContent = `/${g.housing}`;

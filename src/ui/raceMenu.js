@@ -16,6 +16,7 @@ import {
   BASES, baseOf, setBase, previewOf, stoneIcon,
 } from '../game/races.js';
 import { spriteAvailable } from '../core/assets.js';
+import { hasCharacter } from '../game/characters.js';
 
 const pct = m => `${m > 1 ? '+' : ''}${Math.round((m - 1) * 100)}%`;
 const STATS = [['Health', 'hp'], ['Damage', 'dmg'], ['Speed', 'speed'], ['Stamina', 'stamina'], ['Crit', 'crit']];
@@ -79,7 +80,7 @@ export function openRaceMenu(hud) {
     stage.replaceChildren(
       h('div.rr-glow', { style: { '--rc': def.color } }),
       h('div.rr-char', icon(raceArt(lookOf(g)), 150)),
-      h('div.rr-bases', ...BASES.map(b => h(`button.rr-base${baseOf(g) === b.id ? '.on' : ''}`,
+      h('div.rr-bases', ...BASES.filter(b => hasCharacter(b.id)).map(b => h(`button.rr-base${baseOf(g) === b.id ? '.on' : ''}`,   // only the people you have unlocked
         { title: `${b.name}: ${b.desc}`, disabled: spinning, onclick: () => { setBase(g, b.id); play('click'); render(); } }, b.name))));
   };
 

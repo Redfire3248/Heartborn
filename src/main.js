@@ -3,6 +3,8 @@ import { setPeopleSprites } from './data/objects.js';
 import { setupPWA } from './core/pwa.js';
 import { watchForUpdates, requireLatest } from './core/updateWatch.js';
 import { dayFractionOf } from './game/game.js';
+import { setCharAdmin, onCharacterEarned, mergeCharacters } from './game/characters.js';
+import { mainMenu } from './ui/mainMenu.js';
 import { setupErrorReporting, reportError } from './net/errors.js';
 import { BUILD } from './core/version.js';
 import { setupSound } from './core/sound.js';
@@ -15,7 +17,7 @@ import { makeVisitGame, visitCenter } from './game/visit.js';
 import { getProfile } from './net/save.js';
 import { signInWithGoogle, signInWithEmail, createAccount, resetPassword, signOut, onAuth, adminStatus } from './net/firebase.js';
 import { h, modal } from './ui/dom.js';
-import { loadSave, writeSave, writeProfile, writePrivate, getBan, clearLocalSave, getUsername, claimUsername, setWorld, currentWorld, listWorldSaves, deleteWorldSave, oldVillage } from './net/save.js';
+import { loadSave, writeSave, writeProfile, writePrivate, loadAccountChars, saveAccountChars, getBan, clearLocalSave, getUsername, claimUsername, setWorld, currentWorld, listWorldSaves, deleteWorldSave, oldVillage } from './net/save.js';
 import { ensureProfile, updateProfileStats, getWorld, leaveOrCloseWorld, SOLO_WORLD } from './net/social.js';
 import { worldPicker } from './ui/social.js';
 import { Multiplayer } from './net/multiplayer.js';
@@ -110,13 +112,45 @@ function showTitle() {
       const name = await getUsername(user.uid);
       if (name && app.user?.uid === user.uid) app.username = name;   // never overwrite a name claimed meanwhile
     }
-    if (app.mode === 'title') screen.update(user, app.username);
+    if (user) syncCharacters(user);
+    if (app.mode !== 'title') return;
+    screen.update(user, app.username);
+    if (user) showMenu(user, screen);
+    else { app.menu?.remove(); app.menu = null; screen.show(); }
+  });
+}
+
+/**
+ * Characters you have earned belong to your account: bring down what you earned elsewhere, send up anything this
+ * device has that the cloud does not, and from now on send each new one up as it is earned. An admin has them all.
+ */
+async function syncCharacters(user) {
+  onCharacterEarned(all => saveAccountChars(user.uid, all).catch(() => {}));
+  const cloud = await loadAccountChars(user.uid);
+  mergeCharacters(cloud);
+  const { earnedCharacters } = await import('./game/characters.js');
+  const mine = earnedCharacters();
+  if (Object.keys(mine).some(k => !cloud[k])) saveAccountChars(user.uid, mine).catch(() => {});
+  adminStatus(user).then(st => { if (st === 'admin') { setCharAdmin(true); app.menu?.refresh?.(); } }).catch(() => {});
+  app.menu?.refresh?.();
+}
+
+/** Signed in: the main menu, over the world playing behind it. */
+function showMenu(user, loginScreen) {
+  loginScreen.hide();
+  if (app.menu) { app.menu.setUsername(app.username); app.menu.show(); return; }
+  app.menu = mainMenu({
+    user, username: app.username, listWorldSaves,
+    onPlay: async choice => {
+      try { await enterGame(app.user, choice); } catch (e) { console.warn(e); app.menu?.show(); }
+    },
+    onSignOut: async () => { app.menu?.remove(); app.menu = null; await signOut(); },
   });
 }
 
 // ------------------------------------------------------------------ entering the game
 
-async function enterGame(user) {
+async function enterGame(user, picked = null) {   // picked: a world chosen on the menu, straight in; none: the Worlds screen
   if (!user) throw new Error('Please sign in first');
   await requireLatest();   // an old build never gets into a world: it stops here behind the Reload screen
   await allAssetsReady();   // usually finished already: the rest of the art loads while you are on the title screen
@@ -126,6 +160,7 @@ async function enterGame(user) {
     return;
   }
   writePrivate(user).catch(e => console.warn('private profile', e));
+  app.menu?.hide();   // the name screen and the Worlds screen stand on their own
 
   if (!app.username) {
     const name = await chooseUsername(n => claimUsername(user.uid, n), { onBack: () => location.reload() });
@@ -139,11 +174,11 @@ async function enterGame(user) {
     Promise.resolve(p).catch(() => fallback),
     new Promise(res => setTimeout(() => res(fallback), ms)),
   ]);
-  document.querySelectorAll('.screen.login, .vignette, .footer-note').forEach(e => e.remove());
-
   // pick a world (solo worlds and servers each keep their own save), then play in it
-  const choice = await worldPicker({ user, username: app.username, lastWorld: lastWorld(user.uid), listWorldSaves, deleteWorldSave, oldVillage });
-  if (choice.back) { location.reload(); return; }
+  const choice = picked || await worldPicker({ user, username: app.username, lastWorld: lastWorld(user.uid), listWorldSaves, deleteWorldSave, oldVillage });
+  if (choice.back) { app.menu?.show(); return; }   // back to the menu, not a reload
+  document.querySelectorAll('.screen.login, .vignette, .footer-note').forEach(e => e.remove());
+  app.menu?.remove(); app.menu = null;
   setWorld(choice.world);
   app.world = choice.kind === 'server' ? (await patient(getWorld(choice.world), 8000)) || { wid: choice.world, name: choice.name } : { wid: choice.world, name: choice.name };
   app.world.kind = choice.kind;
@@ -240,6 +275,7 @@ function startGame(user, game, { online = true } = {}) {
     app.adminStatus = status;
     if (status !== 'admin' || app.hud !== hud) return;
     hud.setAdmin(true);   // the Admin button goes up now that we know, on whatever device this is
+    setCharAdmin(true);   // and every character is theirs
     loadAdminConsole().then(AdminConsole => { if (app.hud === hud) app.console = new AdminConsole({ game, mp: app.mp, user, hud }); });
   });
   if (app.mp) {

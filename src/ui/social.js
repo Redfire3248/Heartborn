@@ -1,5 +1,6 @@
 import { h, icon, avatar, modal, timeAgo, confirmModal } from './dom.js';
-import { BASES, lastBase } from '../game/races.js';
+import { BASES, lastBase, lookFor } from '../game/races.js';
+import { hasCharacter } from '../game/characters.js';
 import { ERAS } from '../data/buildings.js';
 import * as social from '../net/social.js';
 
@@ -22,10 +23,10 @@ function basePicker() {
     const now = lastBase();
     wrap.replaceChildren(
       h('span.wp-base-cap', 'Character'),
-      ...BASES.map(b => h(`button.wp-base-btn${now === b.id ? '.on' : ''}`, {
+      ...BASES.filter(b => hasCharacter(b.id)).map(b => h(`button.wp-base-btn${now === b.id ? '.on' : ''}`, {
         title: `${b.name} — ${b.desc}`,
         onclick: () => { try { localStorage.setItem('hb_base', b.id); } catch { /* private window */ } draw(); },
-      }, icon(`races/human_${b.id}`, 34), h('span', b.name))));
+      }, icon(`races/${lookFor('human', b.id)}`, 34), h('span', b.name))));
   };
   draw();
   return wrap;

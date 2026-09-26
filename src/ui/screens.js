@@ -128,6 +128,9 @@ export function loginScreen({ user, onSignIn, onEmailSignIn, onCreateAccount, on
   return {
     update: render,
     remove() { root.remove(); vignette.remove(); footer.remove(); },
+    // signed in, the main menu takes over: the sign-in card steps out of the way (and comes back on signing out)
+    hide() { for (const e of [root, vignette, footer]) e.style.display = 'none'; },
+    show() { for (const e of [root, vignette, footer]) e.style.display = ''; },
   };
 }
 

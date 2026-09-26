@@ -172,6 +172,14 @@ export async function writeProfile(user, g) {
   await setDoc(playerDoc(user.uid), profileFor(user, g), { merge: true });
 }
 
+/** The characters this account has earned (private: only you and admins can read it). */
+export async function loadAccountChars(uid) {
+  try { const snap = await getDoc(doc(db, 'private', uid)); return (snap.exists() && snap.data().chars) || {}; } catch { return {}; }
+}
+export async function saveAccountChars(uid, chars) {
+  await setDoc(doc(db, 'private', uid), { chars }, { merge: true });
+}
+
 export async function writePrivate(user) {
   await setDoc(doc(db, 'private', user.uid), { email: user.email || '', lastLogin: Date.now() }, { merge: true });
 }
