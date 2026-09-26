@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'A proper tutorial, and everyone on the newest version',
+    changes: [
+      'A new tutorial for new heroes, Roblox style: one objective at a time in a gold banner at the top, a bouncing arrow over the real tree, rock, monster or dungeon you need (or on the edge of the screen pointing the way, with the distance), a glowing ring on the button to press, and STEP COMPLETE with gold and XP for every step. Finishing it gives 150 gold and a Race Stone',
+      'Walk, chop a tree, mine a rock, draw your sword, beat a monster (a practice slime turns up if nothing is around), dash, open your Backpack, and find a dungeon',
+      'Skip it any time; play it again from Save & Settings',
+      'An old version can no longer be played: if a newer one is out, a Reload screen stands in front of the game and it will not start. Mid-game, a new version pauses the world behind the same screen, and Reload saves first',
+    ],
+  },
+  {
     title: 'No more "Your people are gone"',
     changes: [
       'The old village rules - old age, hunger, sickness, raids, missile strikes and village events - could still reach your hero, and when they did the world ended with "Your people are gone" and a button that wiped it. Now nothing kills you off: whatever the cause you are knocked out and wake at home, like any other defeat',

@@ -3342,3 +3342,98 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
   button:disabled:active, .btn:disabled:active { scale: 1; filter: none; }
 }
 @media (pointer: coarse) and (not (any-pointer: fine)) { .helm-key { display: none !important; } }
+
+/* ------------------------------------------------------------------ the hero tutorial
+   Roblox-style: one objective in a bold banner at the top, a bouncing arrow over the real thing in the world (or on
+   the edge of the screen pointing the way, with the distance), a glowing ring on the button to press, and a big
+   STEP COMPLETE when it is done. Nothing here takes a tap: it all lets touches through to the game. */
+.tq-banner {
+  position: fixed; left: 50%; top: 70px; transform: translateX(-50%); z-index: 20; pointer-events: none;
+  width: min(440px, calc(100vw - 24px)); box-sizing: border-box; padding: 8px 12px 8px;
+  border-radius: 14px; border: 2px solid #ffcf5a;
+  background: linear-gradient(180deg, rgba(40,26,12,.94), rgba(22,14,8,.94));
+  box-shadow: 0 6px 0 rgba(0,0,0,.35), 0 0 24px rgba(255,190,80,.25);
+  color: #fff1d6; font-family: var(--num);
+}
+.tq-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tq-step { flex: none; font-size: 10px; letter-spacing: 1.4px; color: #ffcf5a; padding: 2px 7px; border-radius: 999px; background: rgba(255,207,90,.16); }
+.tq-title { flex: 1 1 auto; min-width: 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 0 #000; }
+.tq-count { flex: none; font-size: 15px; color: #8aff9a; text-shadow: 0 2px 0 #000; }
+.tq-reward { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: #ffe08a; }
+.tq-reward img { width: 14px; height: 14px; image-rendering: pixelated; }
+.tq-skip { pointer-events: auto; flex: none; padding: 2px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.3); color: rgba(255,241,214,.7); font: inherit; font-size: 11px; cursor: pointer; }
+.tq-hint { margin-top: 4px; font-family: inherit; font-size: 12px; line-height: 1.3; color: rgba(255,241,214,.85); }
+.tq-bar { margin-top: 6px; height: 5px; border-radius: 3px; background: rgba(0,0,0,.5); overflow: hidden; }
+.tq-bar > i { display: block; height: 100%; background: linear-gradient(90deg, #ffb13a, #ffe08a); transition: width .4s ease; }
+
+/* the marker in the world: an arrow bobbing above a ring on the ground */
+.tq-beacon { position: fixed; left: 0; top: 0; z-index: 14; pointer-events: none; width: 0; height: 0; }
+.tq-beacon-arrow {
+  position: absolute; left: -14px; top: -78px; width: 0; height: 0;
+  border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 22px solid #ffcf5a;
+  filter: drop-shadow(0 3px 0 #7a4a10) drop-shadow(0 0 8px rgba(255,200,90,.9));
+  animation: tq-bob .8s ease-in-out infinite;
+}
+.tq-beacon-ring {
+  position: absolute; left: -26px; top: -10px; width: 52px; height: 20px; border-radius: 50%;
+  border: 3px solid #ffcf5a; box-shadow: 0 0 12px rgba(255,200,90,.8);
+  animation: tq-ring 1.1s ease-out infinite;
+}
+@keyframes tq-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 12px; } }
+@keyframes tq-ring { 0% { scale: .5; opacity: 1; } 100% { scale: 1.4; opacity: 0; } }
+
+/* off screen: an arrow on the edge pointing the way, with how far */
+.tq-edge { position: fixed; left: 0; top: 0; z-index: 14; pointer-events: none; width: 0; height: 0; }
+.tq-edge-arrow {
+  position: absolute; left: -16px; top: -16px; width: 32px; height: 32px;
+  display: grid; place-items: center; transform-origin: 50% 50%;
+}
+.tq-edge-arrow::before {
+  content: ''; width: 0; height: 0; margin-left: 8px;
+  border-top: 13px solid transparent; border-bottom: 13px solid transparent; border-left: 22px solid #ffcf5a;
+  filter: drop-shadow(0 0 6px rgba(255,200,90,.9)) drop-shadow(0 2px 0 #7a4a10);
+  animation: tq-pulse .9s ease-in-out infinite;
+}
+.tq-edge-dist { position: absolute; left: -24px; top: 18px; width: 48px; text-align: center; font-family: var(--num); font-size: 12px; color: #ffe08a; text-shadow: 0 2px 0 #000, 0 0 4px #000; }
+@keyframes tq-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+
+/* the button to press: a glowing ring around it and an arrow bobbing towards it */
+.tq-point { position: fixed; z-index: 40; pointer-events: none; box-sizing: border-box; border-radius: 16px; border: 3px solid #ffcf5a; box-shadow: 0 0 0 3px rgba(255,207,90,.25), 0 0 22px rgba(255,190,80,.8); animation: tq-pulse .9s ease-in-out infinite; }
+.tq-point-arrow {
+  position: absolute; left: 50%; top: -34px; margin-left: -13px; width: 0; height: 0;
+  border-left: 13px solid transparent; border-right: 13px solid transparent; border-top: 20px solid #ffcf5a;
+  filter: drop-shadow(0 3px 0 #7a4a10); animation: tq-bob .8s ease-in-out infinite;
+}
+.tq-point.below .tq-point-arrow { top: auto; bottom: -34px; border-top: 0; border-bottom: 20px solid #ffcf5a; }
+.tq-glow { filter: brightness(1.2) !important; }
+
+/* STEP COMPLETE */
+.tq-pop {
+  position: fixed; left: 50%; top: 32%; z-index: 45; pointer-events: none; text-align: center;
+  transform: translateX(-50%); font-family: var(--num); animation: tq-pop 1.8s ease-out forwards;
+}
+.tq-pop.big { animation-duration: 3.2s; }
+.tq-pop-head { font-size: 30px; letter-spacing: 2px; color: #ffcf5a; text-shadow: 0 4px 0 #6a3a08, 0 0 22px rgba(255,190,80,.8); }
+.tq-pop.big .tq-pop-head { font-size: 38px; }
+.tq-pop-title { margin-top: 2px; font-size: 16px; color: #fff1d6; text-shadow: 0 2px 0 #000; }
+.tq-pop-reward { margin-top: 6px; display: inline-block; padding: 4px 14px; border-radius: 999px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,207,90,.6); font-size: 14px; color: #8aff9a; }
+@keyframes tq-pop { 0% { scale: .4; opacity: 0; } 12% { scale: 1.12; opacity: 1; } 20% { scale: 1; } 80% { opacity: 1; } 100% { opacity: 0; translate: 0 -20px; } }
+
+/* where the banner sits on each screen */
+@media (max-width: 760px) and (min-height: 561px) { .tq-banner { top: calc(env(safe-area-inset-top) + 152px); } }
+@media (max-height: 560px) {
+  .tq-banner { top: calc(var(--side-top, 4px) + var(--side-bar, 46px) + 6px); width: min(400px, 52vw); padding: 6px 10px; }
+  .tq-title { font-size: 13px; } .tq-count { font-size: 13px; } .tq-hint { font-size: 11px; margin-top: 2px; }
+  .tq-bar { margin-top: 4px; }
+  .tq-pop-head { font-size: 24px; } .tq-pop.big .tq-pop-head { font-size: 30px; }
+  #ui:has(> .side) .tq-banner { visibility: hidden; }
+}
+
+/* the Reload screen: an old build stops here, in front of everything */
+.update-wall { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(ellipse at center, rgba(40,22,12,.94), rgba(8,5,10,.98)); }
+.update-wall-box { width: min(380px, 100%); box-sizing: border-box; padding: 22px 20px; border-radius: 16px; text-align: center;
+  border: 2px solid #ffcf5a; background: linear-gradient(180deg, #2c1c10, #160e08); box-shadow: 0 10px 0 rgba(0,0,0,.4), 0 0 30px rgba(255,190,80,.25); color: #fff1d6; }
+.update-wall-box h2 { margin: 0 0 8px; font-family: var(--num); color: #ffcf5a; font-size: 24px; letter-spacing: 1px; }
+.update-wall-box p { margin: 0 0 16px; font-size: 14px; line-height: 1.45; color: rgba(255,241,214,.85); }
+.update-reload { width: 100%; height: 48px; font-size: 18px !important; }

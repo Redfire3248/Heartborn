@@ -76,6 +76,7 @@ import { activeGoals, claimGoal, rewardText, goalsLeftInEra } from '../game/goal
 import { findAt, collectFind } from '../game/finds.js';
 import { describeBuilding, effectBadges } from '../data/describe.js';
 import { Tutorial } from './tutorial.js';
+import { HeroTutorial } from './heroTutorial.js';
 import { abilityOf, abilityCooldown, canUseAbility, useAbility } from '../game/abilities.js';
 import { canDoJob, isVersatile, professionLabel, PROFESSIONS } from '../game/professions.js';
 import { hasOffice, employmentOf, setTarget, applyNow, applyPreset, moveWorkers, autoPick, bestForOffice, STAFFABLE, JOB_SKILL } from '../game/employment.js';
@@ -335,13 +336,15 @@ export class HUD {
     this.els.goals = h(`div.card.goals${collapsed ? '.collapsed' : ''}`, this.els.goalsHead, this.els.goalsList);
     this.root.append(this.els.goals);
 
-    this.tutorial = on('tutorial') ? new Tutorial(this) : null;
+    this.tutorial = on('tutorial') ? new Tutorial(this) : null;   // the old village one, switched off
+    this.quest = new HeroTutorial(this);   // the hero tutorial: objectives, arrows in the world, rewards
 
   }
 
   // ------------------------------------------------------------ per-frame
   tick(dt) {
     const g = this.game;
+    this.quest?.frame();
     // where you are, for everyone else in this world — however you are playing right now
     if (this.mp && !this.abroad) {
       const hg = this.dungeon || g;
@@ -3009,7 +3012,7 @@ export class HUD {
       h('div.set-list',
         item('👤', 'My profile', () => this.showProfile({ uid: this.user.uid, name: this.username })),
         item('🌍', 'Switch world', () => this.onSwitchWorld?.()),
-        this.tutorial ? item('🎓', 'Restart tutorial', () => { this.tutorial.restart(); this.closePanel(); }) : null,
+        item('🎓', 'Play the tutorial', () => { this.quest?.restart(); this.closePanel(); }),
         install,
         item('✥', 'Move controls (layout)', () => { this.closePanel(); setTimeout(() => openLayoutEditor(), 250); }),
         item('🚪', 'Sign out', this.onSignOut)),
@@ -4351,6 +4354,7 @@ export class HUD {
     this.houseEditor?.close();
     this.houseEditor = null;
     this.tutorial?.destroy();
+    this.quest?.destroy();
     this.root.replaceChildren();
   }
 }

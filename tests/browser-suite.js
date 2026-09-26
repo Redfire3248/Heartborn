@@ -591,6 +591,25 @@ export async function run() {
     H.endLead(g);
   });
 
+  await step('the tutorial: each step waits for the real thing and pays for it', async () => {
+    const T = await import('/src/ui/heroTutorial.js');
+    const hud = window.__hb?.app?.hud;
+    if (!hud?.quest) { ok(true, 'no game screen to run the tutorial on (skipped)'); return; }
+    const g = hud.game, q = hud.quest;
+    const was = JSON.stringify(g.state.rpg.tutorial || null);
+    q.restart();
+    hud.tick(0.016);
+    ok(q.active && q.t.step === 0 && !document.querySelector('.tq-banner').hidden, 'a restarted tutorial shows its first objective');
+    ok(T.STEPS.length >= 8 && T.STEPS.every(s => s.title && s.hint && s.progress && s.gold > 0), 'every step has an objective, a hint, a check and a reward');
+    q.t.step = 1; q.t.started = false; hud.tick(0.016);
+    const gold = g.state.resources.gold;
+    g.state.resources.wood += 3; hud.tick(0.016);
+    ok(q.t.step === 2 && g.state.resources.gold === gold + T.STEPS[1].gold, 'chopping wood completes the tree step and pays its gold');
+    q.skip();
+    ok(!q.active, 'it can be skipped');
+    g.state.rpg.tutorial = JSON.parse(was) || { step: 0, done: true };
+  });
+
   await step('lock-on stays on until you turn it off, and always holds the nearest foe', async () => {
     const Cr = await import('/src/game/creatures.js');
     const H = await import('/src/game/hero.js');

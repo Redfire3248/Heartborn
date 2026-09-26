@@ -1406,6 +1406,22 @@ const COMMANDS = {
       const I = await import('./indexBook.js'); I.openIndex(this.hud);
     },
   },
+  tutorial: {
+    usage: 'tutorial <restart|skip|next>', desc: 'The hero tutorial: start it again, skip it, or jump past the step you are on',
+    run([what = 'restart']) {
+      const q = this.hud?.quest;
+      if (!q) throw new Error('no game screen');
+      if (what === 'restart') { q.restart(); this.print('✓ tutorial restarted', 'ok'); return; }
+      if (what === 'skip') { q.skip(); this.print('✓ tutorial skipped', 'ok'); return; }
+      if (what === 'next') {
+        const M = q.constructor && q.t && !q.t.done;
+        if (!M) throw new Error('the tutorial is not running (tutorial restart)');
+        q.t.step++; q.t.started = false; q.key = '';
+        this.print(`✓ step ${q.t.step + 1}`, 'ok'); return;
+      }
+      throw new Error('tutorial <restart|skip|next>');
+    },
+  },
   dungeon: {
     usage: 'dungeon [floor|leave]', desc: 'Go straight down into a dungeon at any floor (deeper floors are harder), or leave the one you are in',
     run([floor = '1']) {

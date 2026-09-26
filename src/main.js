@@ -1,7 +1,7 @@
 import { loadAssets, spriteAvailable, allAssetsReady } from './core/assets.js';
 import { setPeopleSprites } from './data/objects.js';
 import { setupPWA } from './core/pwa.js';
-import { watchForUpdates } from './core/updateWatch.js';
+import { watchForUpdates, requireLatest } from './core/updateWatch.js';
 import { setupErrorReporting, reportError } from './net/errors.js';
 import { BUILD } from './core/version.js';
 import { setupSound } from './core/sound.js';
@@ -110,6 +110,7 @@ function showTitle() {
 
 async function enterGame(user) {
   if (!user) throw new Error('Please sign in first');
+  await requireLatest();   // an old build never gets into a world: it stops here behind the Reload screen
   await allAssetsReady();   // usually finished already: the rest of the art loads while you are on the title screen
   const ban = await getBan(user.uid);
   if (ban) {
@@ -384,6 +385,7 @@ let last = performance.now();
 function loop(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
+  if (window.__hbPaused) { requestAnimationFrame(loop); return; }   // an update is waiting: the world holds still until you reload
 
   if (app.mode === 'playing' && app.game) {
     app.input.update(dt);
