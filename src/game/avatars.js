@@ -40,8 +40,13 @@ export function setLook(g, id) {
  * so every view uses it; anyone still on an old avatar keeps their three-view art.
  */
 export function heroLook(g, view = 'front') {
-  const look = g?.state?.rpg?.look;
-  if (look && spriteAvailable(`races/${look}`)) return `races/${look}`;
+  const r = g?.state?.rpg;
+  // your race as the person you are - worked out here, not just read, because a fresh world has no look stored
+  // until something asks, and without one you were drawn as the old crowned avatar instead of your character
+  let base = r?.base;
+  if (base !== 'm' && base !== 'f') { try { base = localStorage.getItem('hb_base') === 'f' ? 'f' : 'm'; } catch { base = 'm'; } }
+  const look = r?.look && spriteAvailable(`races/${r.look}`) ? r.look : `${r?.race || 'human'}_${base}`;
+  if (spriteAvailable(`races/${look}`)) return `races/${look}`;
   return avatarArt(avatarId(g), view);
 }
 

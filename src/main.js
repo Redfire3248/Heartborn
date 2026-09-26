@@ -2,6 +2,7 @@ import { loadAssets, spriteAvailable, allAssetsReady } from './core/assets.js';
 import { setPeopleSprites } from './data/objects.js';
 import { setupPWA } from './core/pwa.js';
 import { watchForUpdates, requireLatest } from './core/updateWatch.js';
+import { dayFractionOf } from './game/game.js';
 import { setupErrorReporting, reportError } from './net/errors.js';
 import { BUILD } from './core/version.js';
 import { setupSound } from './core/sound.js';
@@ -66,15 +67,14 @@ async function boot() {
 // ------------------------------------------------------------------ title screen
 
 function startDemo() {
+  // the world you actually play in behind the title: open land, trees and rocks, monsters roaming in the evening
+  // light - not the old village game's villagers, tents and stockpile (whose art it also made every visitor download)
   const state = newState({ uid: 'demo', name: 'demo', villageName: 'demo' });
   const c = state.center;
-  const tx = Math.floor(c.x / TILE), ty = Math.floor(c.y / TILE);
-  state.buildings.push(
-    { id: 'd2', type: 'tent', tx: tx - 2, ty: ty - 2, built: true, progress: 1 },
-    { id: 'd3', type: 'tent', tx: tx + 2, ty: ty - 2, built: true, progress: 1 },
-    { id: 'd4', type: 'stockpile', tx: tx + 1, ty: ty + 1, built: true, progress: 1 },
-  );
-  state.time = DAY_LENGTH * 0.72;   // golden evening
+  state.soloHero = true;
+  state.villagers = [];
+  state.buildings = [];
+  state.time = DAY_LENGTH * dayFractionOf(18);   // golden evening
   state.nextEventAt = Infinity;
   app.demo = new Game(state);
   app.demo.offline = true;          // no logs/events on the title screen

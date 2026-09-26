@@ -3542,3 +3542,40 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .modal.race-modal { position: relative; }
 .modal.race-modal > .modal-x { position: absolute !important; top: 8px !important; right: 8px !important; margin: 0 !important; z-index: 3; }
 .rr-right .rr-panel-head { padding-right: 34px; }
+
+/* the number on a menu button: a red circle with a white rim, popping when it changes */
+.dock > button { position: relative; overflow: visible; }
+#ui .dock > button > .badge { position: absolute; top: -6px; right: -6px; z-index: 2; min-width: 19px; height: 19px; padding: 0 5px; box-sizing: border-box; border-radius: 999px; background: linear-gradient(180deg, #ff5a4a, #d9261a); border: 2px solid #fff; color: #fff; font: 700 11px/15px var(--num); text-align: center; box-shadow: 0 2px 0 rgba(0,0,0,.45), 0 0 8px rgba(255,70,50,.6); pointer-events: none; }
+#ui .dock > button > .badge.pop { animation: badge-pop .35s ease-out; }
+@keyframes badge-pop { 0% { scale: .3; } 60% { scale: 1.25; } 100% { scale: 1; } }
+@media (max-height: 560px) { #ui .dock > button > .badge { top: -5px; right: -5px; min-width: 17px; height: 17px; font-size: 10px; line-height: 13px; } }
+
+/* ------------------------------------------------------------------ phones: panels, not side bars
+   On a phone a side bar squeezed into one edge never looked right. Build, World, Settings and the rest now open
+   as a proper panel in the middle of the screen, like the Backpack: sideways it hangs from just under the top row
+   (so the menu icons sit above it like tabs) down to the bottom; upright it fills the space between the material
+   bar and the menu bar. The world dims behind it, and it pops in instead of sliding from a side. */
+@keyframes panel-pop { from { opacity: 0; scale: .94; } to { opacity: 1; scale: 1; } }
+@media (pointer: coarse), (max-width: 760px), (max-height: 560px) {
+  #ui:has(> .side)::after { content: ''; position: fixed; inset: 0; z-index: 29; background: rgba(6, 4, 10, .5); pointer-events: none; }
+  #ui > .side { animation-name: panel-pop !important; animation-duration: .16s !important; border-radius: 16px !important; box-shadow: 0 18px 50px rgba(0,0,0,.6) !important; }
+}
+@media (max-height: 560px) {
+  #ui > .side {
+    top: calc(var(--side-top) + var(--side-bar) + 6px) !important; bottom: calc(env(safe-area-inset-bottom) + 6px) !important;
+    left: 50% !important; right: auto !important; transform: translateX(-50%) !important;
+    width: min(560px, calc(100vw - 24px)) !important; height: auto !important; max-height: none !important; padding-top: 0 !important;
+  }
+  /* the top row stays where it is, above the dim, so its icons switch panels like tabs */
+  #ui:has(> .side) .topbar { visibility: visible !important; }
+  #ui:has(> .side) .dock { left: 50% !important; transform: translateX(-50%) !important; z-index: 31 !important; }
+  #ui:has(> .side) .topbar { z-index: 31 !important; }
+}
+@media (max-width: 760px) and (min-height: 561px) {
+  #ui > .side {
+    top: calc(env(safe-area-inset-top) + 50px) !important; bottom: calc(var(--dock-h, 58px) + 8px) !important;
+    left: 8px !important; right: 8px !important; width: auto !important; height: auto !important; max-height: none !important; transform: none !important;
+  }
+  #ui:has(> .side) .dock { z-index: 31 !important; }
+  #ui:has(> .side) .topbar { z-index: 31 !important; }
+}

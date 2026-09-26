@@ -80,7 +80,7 @@ async function loadOne(key) {
  *   anything else is fetched the first time something actually draws it (see want()), so art nobody uses
  *   is never downloaded at all.
  */
-const FIRST = key => /^(nature|hero|races|ui)\//.test(key);
+const FIRST = key => /^(nature|hero|races|ui)\//.test(key) && !/^races\/.*_[mf]2$/.test(key);   // not the retired second set of race faces
 const CORE = key => /^(items|gear|combat|effects|characters)\//.test(key);
 
 let restReady = Promise.resolve();

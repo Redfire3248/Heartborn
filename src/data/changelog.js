@@ -1,6 +1,15 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Red number badges, proper panels on phones, and you are drawn as yourself',
+    changes: [
+      'A red number on a menu button when something in there wants you: World for invites, Bag for unspent points and Race Stones waiting, Chat for messages you have not seen, and Settings after an update until you open it',
+      'On a phone, Build, World, Settings and the rest open as a proper panel in the middle of the screen instead of a bar squeezed against one edge, with the world dimmed behind; sideways the menu icons sit above it like tabs',
+      'A new world drew you as the old crowned avatar until something asked for your race: you are always your character now',
+      'The title screen shows the world you actually play in - open land and roaming monsters in the evening light - instead of the old village game',
+    ],
+  },
+  {
     title: 'Every race redrawn in the game’s own pixel style, and a real Race Stone',
     changes: [
       'All 26 characters - every race as Adam and as Eve - are redrawn as chunky pixel sprites that match the rest of the game, instead of the detailed paintings that stood out from it',

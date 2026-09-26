@@ -345,6 +345,7 @@ export class HUD {
   tick(dt) {
     const g = this.game;
     this.quest?.frame();
+    if ((this._badgeT = (this._badgeT || 0) + dt) > 0.4) { this._badgeT = 0; this.updateBadges(); }
     // where you are, for everyone else in this world — however you are playing right now
     if (this.mp && !this.abroad) {
       const hg = this.dungeon || g;
@@ -1086,6 +1087,7 @@ export class HUD {
   /** Adds a line to the chat log: something said, or something that happened. */
   addChatLine(line) {
     this.chatLines.push({ ...line, at: Date.now() });
+    if (!this.chatPinned && line.name && line.name !== this.username) this.unreadChat = (this.unreadChat || 0) + 1;   // someone else spoke while the chat was shut
     if (this.chatLines.length > 80) this.chatLines.shift();
     this.showChat();
   }
@@ -1095,7 +1097,8 @@ export class HUD {
     this.chatPinned = !this.chatPinned;
     this.root.querySelector('.dock-chat')?.classList.toggle('on', this.chatPinned);
     this.root.classList.toggle('chat-open', this.chatPinned);
-    if (this.chatPinned) this.openChat(); else this.closeChat();
+    if (this.chatPinned) { this.openChat(); this.unreadChat = 0; } else this.closeChat();
+    this.updateBadges();
   }
 
   /** Opens the chat: the log unrolls and the box is ready to type in. */
@@ -1874,6 +1877,7 @@ export class HUD {
   togglePanel(id) { if (this.panel === id) this.closePanel(); else this.openPanel(id); }
 
   openPanel(id) {
+    if (id === 'settings') { try { localStorage.setItem('hb-seen-version', BUILD.version); } catch { /* private window */ } }   // what is new has been seen
     // switching tabs inside the same dock group keeps the panel: no slide-in animation replay
     if (this.panelEl && this.panel && groupOf(this.panel) && groupOf(this.panel) === groupOf(id)) {
       this.friendsUnsub?.();
@@ -3112,12 +3116,29 @@ export class HUD {
       h('div.faint', `Latest: ${LATEST_CHANGES.title} — ${LATEST_CHANGES.changes.join(' · ')}`));
   }
 
+  /**
+   * The red number on a menu button: something in there wants you. World counts your invites and offers, Bag your
+   * unspent attribute points and the Race Stones waiting to be rolled, Chat the messages you have not seen, and
+   * Settings shows 1 after an update until you open it (what is new is in there). Checked a few times a second.
+   */
   updateBadges() {
-    const btn = this.els.dock.world;
-    if (!btn || !this.mp) return;
-    btn.querySelector('.badge')?.remove();
-    const n = this.mp.inbox.filter(o => o.status === 'pending' || o.status === 'seen').length;
-    if (n) btn.append(h('span.badge', n));
+    const set = (btn, n) => {
+      if (!btn) return;
+      let b = btn.querySelector(':scope > .badge');
+      const text = n > 99 ? '99+' : String(n);
+      if (!n) { b?.remove(); return; }
+      if (!b) { b = h('span.badge'); btn.append(b); }
+      if (b.textContent !== text) { b.textContent = text; b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
+    };
+    const g = this.game, r = rpgOf(g);
+    set(this.els.dock.world, this.mp ? this.mp.inbox.filter(o => o.status === 'pending' || o.status === 'seen').length : 0);
+    const bag = [...this.root.querySelectorAll('.dock > button')].find(b => b.querySelector('.dock-label')?.textContent === 'Bag');
+    set(bag, (r.points || 0) + Math.max(0, Math.floor(r.raceStones || 0)));
+    set(this.root.querySelector('.dock-chat'), this.chatPinned ? 0 : (this.unreadChat || 0));
+    let seen = null;
+    try { seen = localStorage.getItem('hb-seen-version'); } catch { /* private window */ }
+    set(this.els.dock.settings, seen && seen !== BUILD.version ? 1 : 0);
+    if (!seen) try { localStorage.setItem('hb-seen-version', BUILD.version); } catch { /* first visit: nothing is new yet */ }
   }
 
   /** The kill streak: the number, the name it has earned and the window running out. */
