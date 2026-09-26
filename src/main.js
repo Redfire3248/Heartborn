@@ -239,7 +239,8 @@ function startGame(user, game, { online = true } = {}) {
     writeProfile(user, game).catch(e => console.warn('profile', e));
   }
 
-  game.on('extinct', () => extinctScreen(() => { document.querySelector('.modal-bg')?.remove(); restart(); }));
+  // an old village world that really has lost everyone can start again; a hero world never wipes itself
+  game.on('extinct', () => { if (game.solo || game.hero) return; extinctScreen(() => { document.querySelector('.modal-bg')?.remove(); restart(); }); });
 }
 
 async function visitRealm(uid) {

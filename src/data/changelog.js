@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'No more "Your people are gone"',
+    changes: [
+      'The old village rules - old age, hunger, sickness, raids, missile strikes and village events - could still reach your hero, and when they did the world ended with "Your people are gone" and a button that wiped it. Now nothing kills you off: whatever the cause you are knocked out and wake at home, like any other defeat',
+      'A hero does not grow old, go hungry or fall sick any more',
+      'A hero world can never show that screen or reset itself',
+    ],
+  },
+  {
     title: 'Long days, short nights, more breath, and a phone that feels every tap',
     changes: [
       'Days last longer and nights are short: daylight now takes 82% of each day (about 74 seconds) and the night about 16. Nothing that counts days changes',

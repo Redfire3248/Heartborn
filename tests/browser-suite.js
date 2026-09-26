@@ -573,6 +573,24 @@ export async function run() {
     H.endLead(g);
   });
 
+  await step('the hero is never killed off, so a world never ends with "Your people are gone"', async () => {
+    const H = await import('/src/game/hero.js');
+    const V = await import('/src/game/villagers.js');
+    const g = new Game(newState({ uid: 'kx', name: 'T', villageName: 'V' }));
+    g.state.soloHero = true;
+    g.state.villagers.length = 1;
+    H.startLead(g, g.state.villagers[0]);
+    const me = H.heroOf(g);
+    let extinct = 0;
+    g.on('extinct', () => extinct++);
+    for (const why of ['passed away peacefully', 'starved to death', 'was slain by a wolf', 'died in the missile strike']) V.killVillager(g, me, why);
+    ok(g.state.villagers.includes(me) && me.hp > 0 && !extinct, 'old age, hunger, raids and strikes knock you out instead of ending the world');
+    me.age = 90; me.hunger = 0; me.sick = true;
+    H.updateHero(g, 0.016, {});
+    ok(me.age <= 30 && me.hunger === 100 && !me.sick, 'a hero does not grow old, go hungry or fall sick');
+    H.endLead(g);
+  });
+
   await step('lock-on stays on until you turn it off, and always holds the nearest foe', async () => {
     const Cr = await import('/src/game/creatures.js');
     const H = await import('/src/game/hero.js');

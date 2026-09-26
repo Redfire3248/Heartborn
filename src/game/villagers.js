@@ -126,6 +126,17 @@ export function gainSkill(g, v, skill, silent = false) {
 export function killVillager(g, v, reason) {
   const s = g.state;
   if (!s.villagers.includes(v)) return;
+  /*
+   * You are never killed off. The old village rules (old age, hunger, sickness, raids, missile strikes, village
+   * events) could still reach the one villager a hero world has - you - and removing it ended the world with
+   * "Your people are gone" and a button that wiped the save. Whatever the reason, you are knocked out and wake
+   * at home instead, like any other defeat.
+   */
+  if (g.hero?.id === v.id || (g.solo && s.villagers.length <= 1)) {
+    v.hunger = 100; v.sick = false; v.age = Math.min(v.age || 20, 30);
+    if (!knockOutHero(g, v)) v.hp = Math.max(v.hp || 0, 60);
+    return;
+  }
   v._alive = false;
   s.villagers = s.villagers.filter(x => x !== v);
   for (const x of s.villagers) if (x.partner === v.id) { x.partner = null; x.happy = clamp(x.happy - 25, 0, 100); }

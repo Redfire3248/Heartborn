@@ -910,6 +910,9 @@ export function updateHero(g, dt, controls = {}) {
   h.stagger = Math.max(0, (h.stagger || 0) - dt);
   if (v._whiteFlash > 0) v._whiteFlash -= dt;
   if (h.stagger > 0) controls = { ...controls, mx: 0, my: 0, act: false, dash: false, block: false };   // stunned by a hit
+  // a hero does not grow old, go hungry or fall sick: those were the village game's, and could kill you off
+  v.hunger = 100; v.sick = false;
+  if ((v.age || 0) > 30) v.age = 30;
   // what other players can do to you for a laugh (see the troll pranks): each one wears off by itself
   const now = g.state.time;
   if (h.sizeUntil) {   // tiny or huge
