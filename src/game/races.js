@@ -331,19 +331,41 @@ export function rollWeighted() {
 }
 
 /**
- * Spends one stone and rolls. Whatever comes up is unlocked for good and worn straight away, so a roll always
- * changes something. Returns what you got and whether it was new.
+ * Spends one stone and decides the roll - but does not hand it over. The wheel shows the spin first and gives you
+ * the race when it lands (applyRoll). The result is kept on your hero until then, so closing the window mid-spin
+ * cannot lose it or roll it again: it is handed over the next time anything asks.
  */
-export function rollRace(g) {
+export function decideRoll(g) {
   if (stonesOf(g) < 1) return { error: 'You have no Race Stones' };
+  applyRoll(g);   // anything left over from before goes first
   addStones(g, -1);
   const key = rollWeighted();
+  const look = RACES[key].looks[Math.floor(Math.random() * RACES[key].looks.length)];
   const held = isUnlocked(g, key);
-  const look = RACES[key].looks[Math.floor(Math.random() * RACES[key].looks.length)];   // the roll gives you a face too
-  if (held) { setRace(g, key, lookOf(g) && RACES[key].looks.includes(lookOf(g)) ? lookOf(g) : look); return { ok: true, key, fresh: false, tier: RACES[key].tier, look }; }
-  if (!slotsFull(g)) { storeRace(g, key); setRace(g, key, look); return { ok: true, key, fresh: true, tier: RACES[key].tier, look }; }
-  // no room: the wheel still landed, but you must say what it pushes out
-  return { ok: true, key, fresh: true, tier: RACES[key].tier, look, needsSlot: true };
+  const res = { ok: true, key, look, fresh: !held, tier: RACES[key].tier, needsSlot: !held && slotsFull(g) };
+  g.state.rpg.pendingRoll = res;
+  return res;
+}
+
+/** Hands over a decided roll (when the wheel lands). Returns what was handed over, or null if nothing was waiting. */
+export function applyRoll(g) {
+  const r = g?.state?.rpg;
+  const res = r?.pendingRoll;
+  if (!res) return null;
+  r.pendingRoll = null;
+  if (!RACES[res.key]) return null;
+  if (res.needsSlot) return res;   // no room: the player says which slot it replaces (acceptRoll)
+  if (!res.fresh) setRace(g, res.key, lookOf(g) && RACES[res.key].looks.includes(lookOf(g)) ? lookOf(g) : res.look);
+  else { storeRace(g, res.key); setRace(g, res.key, res.look); }
+  return res;
+}
+
+/** Spends one stone and rolls, handing it over at once (the admin command and anything without a wheel). */
+export function rollRace(g) {
+  const res = decideRoll(g);
+  if (res.error) return res;
+  applyRoll(g);
+  return res;
 }
 
 /** Takes the race a full-slot roll produced, in place of one you are holding. */

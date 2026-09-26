@@ -3437,3 +3437,7 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .update-wall-box h2 { margin: 0 0 8px; font-family: var(--num); color: #ffcf5a; font-size: 24px; letter-spacing: 1px; }
 .update-wall-box p { margin: 0 0 16px; font-size: 14px; line-height: 1.45; color: rgba(255,241,214,.85); }
 .update-reload { width: 100%; height: 48px; font-size: 18px !important; }
+/* a choice that has a colour of its own (rarities): its name in that colour, lit up in it when chosen */
+.ap-choices .btn.ap-tinted { color: var(--tint) !important; border-color: color-mix(in srgb, var(--tint) 45%, transparent) !important; background: rgba(0,0,0,.25) !important; }
+.ap-choices .btn.ap-tinted.primary { color: #1a0f08 !important; background: var(--tint) !important; border-color: var(--tint) !important; box-shadow: 0 0 12px color-mix(in srgb, var(--tint) 60%, transparent); }
+.ap-choices { display: flex; flex-wrap: wrap; gap: 5px; }

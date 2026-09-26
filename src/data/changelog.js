@@ -1,6 +1,14 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'The wheel pays out when it lands, and no more white statues',
+    changes: [
+      'The race wheel gives you the race when it lands, not when you press Spin: you no longer change behind the spinning wheel. The result is kept safe if you close the window mid-spin, and handed over then',
+      'In a shared world, a monster you hit could stay white and dazed with stars round its head forever on your screen, because the host runs the monsters and your copy never counted the stun down. It wears off now',
+      'Forge gear in the Admin panel picks a rarity by name, in its own colour (Common to Mythic, and Admin), instead of a number',
+    ],
+  },
+  {
     title: 'A proper tutorial, and everyone on the newest version',
     changes: [
       'A new tutorial for new heroes, Roblox style: one objective at a time in a gold banner at the top, a bouncing arrow over the real tree, rock, monster or dungeon you need (or on the edge of the screen pointing the way, with the distance), a glowing ring on the button to press, and STEP COMPLETE with gold and XP for every step. Finishing it gives 150 gold and a Race Stone',

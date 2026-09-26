@@ -139,7 +139,7 @@ function cardFor(panel, def) {
         h('div.ap-stepper', h('button', { onclick: () => step(-(a.big || 1)) }, '−'), val, h('button', { onclick: () => step(a.big || 1) }, '+')));
     }
     if (a.kind === 'choice') {
-      const btns = a.options.map(o => h(`button.btn.sm${values[a.id] === o.key ? '.primary' : ''}`, { onclick: () => {
+      const btns = a.options.map(o => h(`button.btn.sm${values[a.id] === o.key ? '.primary' : ''}${o.color ? '.ap-tinted' : ''}`, { style: o.color ? { '--tint': o.color } : {}, onclick: () => {
         values[a.id] = o.key;
         btns.forEach(b => b.classList.toggle('primary', b === btns[a.options.indexOf(o)]));
         refresh();
@@ -203,7 +203,10 @@ const PAGES = {
     ] },
     { cmd: 'gear', name: 'Forge gear', desc: 'A weapon or a piece of armour', args: [
       { id: 'what', name: 'Piece', kind: 'pick', items: gearItems },
-      { id: 'rarity', name: 'Rarity', kind: 'number', def: 3, min: 0, max: 5 },
+      { id: 'rarity', name: 'Rarity', kind: 'choice', def: '3', options: [
+        { key: '0', name: 'Common', color: '#d9d4c7' }, { key: '1', name: 'Rare', color: '#5aa9ff' }, { key: '2', name: 'Epic', color: '#c77dff' },
+        { key: '3', name: 'Legendary', color: '#ffb347' }, { key: '4', name: 'Mythic', color: '#ff4d6d' }, { key: '5', name: 'Admin', color: '#ff3cf0' },
+      ] },
     ] },
     { cmd: 'attune', name: 'Attune to an ore', desc: 'Gives you enough of it to work', args: [
       { id: 'ore', name: 'Ore', kind: 'pick', items: oreItems },

@@ -10,7 +10,7 @@ import { h, icon, modal, toggleMenu } from './dom.js';
 import { play } from '../core/sound.js';
 import {
   RACES, RACE_KEYS, RACE_TIERS, tierOf, raceOf, lookOf, raceArt, setRace, setLookOnly,
-  stonesOf, rollRace, raceSlots, RACE_SLOTS, slotsFull, acceptRoll, dropRace, rollOrder,
+  stonesOf, decideRoll, applyRoll, raceSlots, RACE_SLOTS, slotsFull, acceptRoll, dropRace, rollOrder,
   BASES, baseOf, setBase, previewOf,
 } from '../game/races.js';
 
@@ -19,7 +19,8 @@ const pct = m => `${m > 1 ? '+' : ''}${Math.round((m - 1) * 100)}%`;
 export function openRaceMenu(hud) {
   if (toggleMenu('race-modal', { sameView: true })) return null;
   const g = hud.game;
-  const m = modal([], { cls: 'race-modal', closeX: true });
+  applyRoll(g);   // a spin that was cut short by closing the window is handed over now
+  const m = modal([], { cls: 'race-modal', closeX: true, onClose: () => applyRoll(g) });
   let spinning = false;
   let pending = null;   // a roll that landed with no slot free
 
@@ -52,7 +53,7 @@ export function openRaceMenu(hud) {
   const CELL = 92;
   const spin = async () => {
     if (spinning) return;
-    const res = rollRace(g);
+    const res = decideRoll(g);   // decided now, handed over when the wheel lands
     if (res.error) { hud.hint(res.error, 2200); return; }
     spinning = true;
     render();
@@ -85,6 +86,7 @@ export function openRaceMenu(hud) {
     tick();
     await new Promise(r => setTimeout(r, dur + 250));
     spinning = false;
+    applyRoll(g);   // it has landed: now it is yours
     if (res.needsSlot) pending = { key: res.key, look: res.look };
     const d = RACES[res.key], tier = RACE_TIERS[d.tier];
     hud.toast?.({ text: `${res.fresh ? 'New race! ' : ''}${d.name} — ${tier.name}`, kind: res.tier >= 3 ? 'good' : 'event' });

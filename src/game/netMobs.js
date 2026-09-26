@@ -69,6 +69,13 @@ export function applyNetMobs(g, mobs) {
 export function glideNetMobs(g, dt) {
   for (const c of g.state.creatures) {
     if (!c.net || c._nx == null) continue;
+    // the host runs these monsters, so their own update never runs here - but our blows still mark our copy
+    // (dazed, flashing white). Those marks have to wear off here too, or a monster you hit stays a white,
+    // star-crowned statue on your screen for as long as it lives.
+    if (c._whiteFlash > 0) c._whiteFlash = Math.max(0, c._whiteFlash - dt);
+    if (c._hurtFlash > 0) c._hurtFlash = Math.max(0, c._hurtFlash - dt);
+    if (c._stunned > 0) c._stunned = Math.max(0, c._stunned - dt);
+    if (c._chill && g.state.time >= c._chill.until) c._chill = null;   // and a chill tints it blue until it thaws
     const k = Math.min(1, dt * 9);
     const dx = c._nx - c.x, dy = c._ny - c.y;
     if (Math.hypot(dx, dy) > TILE * 6) { c.x = c._nx; c.y = c._ny; continue; }   // teleported (or a long gap): just be there
