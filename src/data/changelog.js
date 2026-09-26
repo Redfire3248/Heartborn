@@ -1,6 +1,13 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Updates download far less',
+    changes: [
+      'The game’s code used to be one big file that changed with every update, so after each update everyone downloaded all of it again - on a slow connection that was most of the wait. It is split now: Firebase, the game’s rules, the screens and the update notes are separate files, and an update only downloads the ones it changed',
+      'The admin tools are only ever downloaded by admins',
+    ],
+  },
+  {
     title: 'The game opens much faster',
     changes: [
       'The loading screen used to wait for about 270 pictures before showing anything - including 108 frames of the old hero animation that nothing draws any more. It now waits only for the ground and trees; menus, races, items and creatures load while you are on the title screen',

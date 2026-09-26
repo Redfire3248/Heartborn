@@ -20,7 +20,8 @@ import { ensureProfile, updateProfileStats, getWorld, leaveOrCloseWorld, SOLO_WO
 import { worldPicker } from './ui/social.js';
 import { Multiplayer } from './net/multiplayer.js';
 import { HUD } from './ui/hud.js';
-import { AdminConsole } from './ui/adminConsole.js';
+// the admin console is only ever downloaded by an admin: everyone else never pays for it
+const loadAdminConsole = () => import('./ui/adminConsole.js').then(m => m.AdminConsole);
 import { loadingScreen, loginScreen, nameVillage, chooseUsername, bannedScreen, offlineSummary, extinctScreen } from './ui/screens.js';
 
 setupPWA();
@@ -239,7 +240,7 @@ function startGame(user, game, { online = true } = {}) {
     app.adminStatus = status;
     if (status !== 'admin' || app.hud !== hud) return;
     hud.setAdmin(true);   // the Admin button goes up now that we know, on whatever device this is
-    app.console = new AdminConsole({ game, mp: app.mp, user, hud });
+    loadAdminConsole().then(AdminConsole => { if (app.hud === hud) app.console = new AdminConsole({ game, mp: app.mp, user, hud }); });
   });
   if (app.mp) {
     app.mp.on('reset', () => { clearLocalSave(user.uid); restart(); });
@@ -424,12 +425,12 @@ function loop(now) {
 if (import.meta.env.DEV) {
   window.__hb = {
     app, renderer,
-    startLocal(villageName = 'Test Hearth') {
+    async startLocal(villageName = 'Test Hearth') {
       document.querySelectorAll('.screen, .vignette, .footer-note').forEach(e => e.remove());
       const user = { uid: 'dev', displayName: 'Dev Tester', email: 'dev@local', photoURL: '' };
       app.user = user;
       startGame(user, new Game(newState({ uid: 'dev', name: 'Dev', villageName })), { online: false });
-      app.console = new AdminConsole({ game: app.game, mp: null, user, hud: app.hud });
+      app.console = new (await loadAdminConsole())({ game: app.game, mp: null, user, hud: app.hud });
     },
     /** Emulator only (?emu): sign in anonymously and stay on the title screen, so the rest can be clicked through. */
     async devSignIn() {

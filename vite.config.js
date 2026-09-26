@@ -98,8 +98,28 @@ export default defineConfig({
   preview: { port: 5173, headers },
   build: {
     outDir: 'dist', assetsInlineLimit: 0, chunkSizeWarningLimit: 1500,
-    // Firebase (most of the download) goes in its own file: it rarely changes, so browsers keep it cached across game updates
-    rollupOptions: { output: { manualChunks: id => (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase') ? 'firebase' : undefined) } },
+    /*
+     * The download is split by how often each part changes, so an update only re-downloads what it touched instead
+     * of one big file every time (on a slow connection that one file was most of the wait):
+     *   firebase  - the Firebase library: changes almost never
+     *   changelog - the update notes: change every update, but small, and nothing else has to come with them
+     *   engine    - the game's rules, data, saving and networking (src/game, data, core, net): never imports the
+     *               screens or the renderer, so it can stand on its own without any chance of a loading-order loop
+     *   the rest  - screens and drawing, the part most updates touch
+     * Anything only some players need (the admin tools) stays out of all of these and loads when asked for.
+     */
+    rollupOptions: {
+      output: {
+        // groups claim their modules highest priority first, so Firebase is never swallowed by the game's own group
+        advancedChunks: {
+          groups: [
+            { name: 'firebase', test: /node_modules[\\/](@firebase|firebase)[\\/]/, priority: 30 },
+            { name: 'changelog', test: /src[\\/]data[\\/]changelog\.js/, priority: 20 },
+            { name: 'engine', test: /src[\\/](game|data|core|net)[\\/]|tools[\\/]sheets\.js/, priority: 10 },
+          ],
+        },
+      },
+    },
   },
   // pre-bundle Firebase when the dev server starts instead of on the first page load
   optimizeDeps: { include: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/database'] },
