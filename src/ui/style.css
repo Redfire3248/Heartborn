@@ -3252,3 +3252,55 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 @media (max-height: 560px) {
   #ui .save-banner, #ui .update-bar { top: calc(var(--side-top) + var(--side-bar) + 4px) !important; }
 }
+/* the radar is a circle and nothing else: it wore the frosted-glass card style, which blurred a square of the
+   world behind it */
+#ui .minimap { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: none !important; box-shadow: none !important; border: 0 !important; border-radius: 50% !important; }
+
+/* ------------------------------------------------------------------ the material bar
+   It wrapped onto a second line whenever there were more materials than room, so the "+N" button (which only
+   steps in when the bar overflows) never did, and a lone material sat on a line of its own. Now it is one row that
+   runs the full width of the screen and never wraps; what does not fit folds into "+N" at the end, which opens
+   your Materials. (Sideways it is two rows, filled column by column, with the same +N.) */
+@media (min-height: 561px) {
+  #ui .topbar { left: 10px !important; right: 10px !important; max-width: none !important; transform: none !important; }
+  #ui .topbar > .card:first-child {
+    display: flex !important; flex-wrap: nowrap !important; overflow: hidden !important;
+    flex: 1 1 auto !important; min-width: 0 !important; justify-content: flex-start !important; grid-template-columns: none !important;
+  }
+  #ui .topbar > .card:first-child > .res { flex: 0 0 auto !important; }
+}
+#ui .topbar > .card:first-child { overflow: hidden !important; }
+#ui .topbar .res.overflow { display: none !important; }
+#ui .topbar .res-more { flex: 0 0 auto !important; margin-left: auto; padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(255,215,106,.45); background: rgba(255,215,106,.12); color: #ffe9b0; font: inherit; font-weight: 700; cursor: pointer; }
+#ui .topbar .res-more[hidden] { display: none !important; }
+
+/* ------------------------------------------------------------------ Admin window: cleaner controls
+   The close cross sat in the window's own layout, which pushed the title bar 7px down from the top edge. It is
+   laid over the bar now, so the bar is flush with the window. Buttons are words only; the pictures live in the
+   sidebar, where they name the sections. A choice is one chip that shows what is chosen and opens the grid. */
+.admin-panel { position: fixed; }
+.admin-panel > .modal-x { position: absolute !important; top: 6px !important; right: 8px !important; margin: 0 !important; }
+.admin-panel .ap-frame { margin: 0 !important; }
+
+.ap-nav-item { gap: 10px !important; }
+.ap-nav-item img, .ap-nav-item .px-icon { width: 24px; height: 24px; image-rendering: pixelated; flex: none; }
+
+.ap-choose {
+  display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%;
+  height: 32px; padding: 0 10px 0 12px; border-radius: 11px;
+  border: 1px solid rgba(255,154,90,.45); background: rgba(255,154,90,.10);
+  color: #ffd9c0; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.ap-choose > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-choose:hover { border-color: rgba(255,154,90,.8); background: rgba(255,154,90,.18); }
+.ap-choose.empty { color: rgba(255,230,210,.55); border-style: dashed; font-weight: 500; }
+.ap-choose-caret { font-style: normal; font-size: 11px; opacity: .7; }
+
+/* numbers you can type: the box reads as a box */
+.ap-stepper input.ap-num {
+  width: 64px; height: 30px; box-sizing: border-box; padding: 0 6px; text-align: center;
+  border-radius: 9px; border: 1px solid rgba(255,255,255,.16); background: rgba(0,0,0,.35);
+  color: #ffe6d2; font-family: var(--num); font-size: 14px;
+}
+.ap-stepper input.ap-num:focus { outline: none; border-color: rgba(255,154,90,.8); }
+.ap-run { justify-content: flex-end; }

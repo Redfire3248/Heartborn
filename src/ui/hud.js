@@ -1467,7 +1467,7 @@ export class HUD {
     this._resFitKey = key;
     for (const el of all) el.classList.remove('overflow');
     more.hidden = true;
-    const tooBig = () => card.scrollWidth > card.clientWidth + 1 || card.offsetHeight > 80;   // items do not shrink, so an overfull bar shows up as overflow
+    const tooBig = () => card.scrollWidth > card.clientWidth + 1;   // the bar never wraps, so anything that does not fit shows up as overflow
     let hidden = 0;
     for (let i = all.length - 1; i > 0 && tooBig(); i--) {
       all[i].classList.add('overflow');
@@ -2933,12 +2933,16 @@ export class HUD {
     else { this.els.adminBtn?.remove(); this.els.adminBtn = null; }
   }
 
-  /** The button itself, on every device: a labelled one on a computer, an icon where there is no room. */
+  /**
+   * The button itself: a ">" in the menu dock, with the rest of the menus, rather than a pill floating over the
+   * world. That puts it in the top row on a phone held sideways and in the bottom bar held upright.
+   */
   showAdminButton() {
     if (this.els.adminBtn?.isConnected) return;
-    this.els.adminBtn = h('button.admin-btn', { title: 'Admin panel (F3). The command line is F2.', 'aria-label': 'Admin panel', onclick: () => this.openAdminPanel() },
-      pxIcon('gear', 20), h('span.admin-btn-text', 'Admin'), h('span.admin-btn-key', 'F3'));
-    this.root.append(this.els.adminBtn);
+    const dock = this.root.querySelector('.dock');
+    this.els.adminBtn = h('button.dock-admin', { title: 'Admin panel (F3)', 'aria-label': 'Admin panel', onclick: () => this.openAdminPanel() },
+      hasArt('ui/ap_console') ? icon('ui/ap_console', 34) : pxIcon('gear', 26), h('span.dock-label', 'Admin'), h('span.tip', 'Admin panel (F3)'));
+    (dock || this.root).append(this.els.adminBtn);
   }
 
   /** The admin panel, from the button or from F3. Only ever reachable by an admin account. */

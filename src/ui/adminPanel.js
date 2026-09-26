@@ -21,10 +21,8 @@ import { pxIcon } from './pixelIcons.js';
  * A tab's picture: the drawn sheet icon once it is in, the built-in glyph until then, so the panel is never
  * missing an icon while the art is being made.
  */
-const navIcon = (key, glyph) => (spriteAvailable(`ui/ap_${key}`) ? icon(`ui/ap_${key}`, 16) : pxIcon(glyph, 16));
+const navIcon = (key, glyph) => (spriteAvailable(`ui/ap_${key}`) ? icon(`ui/ap_${key}`, 24) : pxIcon(glyph, 22));
 
-/** The same idea for the buttons: the drawn icon beside the word, and nothing at all if the art is not in. */
-const apIcon = (name, size = 14) => (spriteAvailable(`ui/ap_${name}`) ? icon(`ui/ap_${name}`, size) : null);
 
 const nice = k => String(k).replace(/_/g, ' ').replace(/(^|\s)\w/g, m => m.toUpperCase());
 
@@ -55,11 +53,32 @@ const gearItems = async () => {
   const R = await import('../game/rpg.js');
   return Object.entries(R.CATALOG).flatMap(([slot, list]) => Object.entries(list).map(([k, d]) => ({ key: k, name: d.name || nice(k), art: d.icon, tag: nice(slot) })));
 };
-const playerItems = async panel => {
+/*
+ * Everybody you could pick, by their player name. The key is their account id, never a name: names used to be
+ * village names ("Infinity's Hearth"), which a prank could not find on the island and which the command line split
+ * in two at the space and the apostrophe - so trolls silently did nothing.
+ */
+const playerItems = async (panel, { me = false, all = false } = {}) => {
   const list = await panel.console.loadPlayers().catch(() => []);
-  const live = new Set((panel.game.livePlayers || []).map(p => p.name));
-  return (list || []).map(p => ({ key: p.name || p.uid, name: p.name || 'Player', art: 'ui/character', tag: live.has(p.name) ? 'here' : p.online ? 'online' : 'away' }));
+  const mp = panel.console.mp || panel.console.hud?.mp;
+  const here = new Set((panel.game.livePlayers || []).map(p => p.uid));
+  const seen = new Map();
+  for (const p of [...(list || []), ...(mp?.players || [])]) {
+    if (!p?.uid || p.uid === mp?.uid || p.uid === panel.console.user?.uid) continue;
+    const prev = seen.get(p.uid) || {};
+    seen.set(p.uid, { ...prev, ...p, online: prev.online || p.online });
+  }
+  const rows = [...seen.values()].map(p => ({
+    key: p.uid, name: p.name || 'Player', art: 'ui/character',
+    tag: here.has(p.uid) ? 'here' : p.online ? 'online' : 'away',
+  })).sort((a, b) => (a.tag === 'here' ? 0 : a.tag === 'online' ? 1 : 2) - (b.tag === 'here' ? 0 : b.tag === 'online' ? 1 : 2) || a.name.localeCompare(b.name));
+  return [
+    ...(me ? [{ key: 'me', name: 'Me', art: 'ui/character', tag: 'you' }] : []),
+    ...(all ? [{ key: '*', name: 'Everyone', art: 'items/population', tag: 'all' }] : []),
+    ...rows,
+  ];
 };
+
 
 /** A grid of things to tap, with its own search. Resolves with a key, or null if closed. */
 function pickFrom(title, items, { any = false } = {}) {
@@ -91,17 +110,31 @@ function pickFrom(title, items, { any = false } = {}) {
 
 // ------------------------------------------------------------------ one command, as a row of controls
 
+/** What you last set on each card, so pressing Run (which redraws the page) never throws your choices away. */
+const cardValues = new WeakMap();
+const cardLabels = new WeakMap();
+
 function cardFor(panel, def) {
-  const values = {};
-  for (const a of def.args || []) values[a.id] = a.def ?? (a.kind === 'number' ? 1 : '');
-  const out = h('code.ap-line');
+  if (!cardValues.has(def)) {
+    const v = {};
+    for (const a of def.args || []) v[a.id] = a.def ?? (a.kind === 'number' ? 1 : '');
+    cardValues.set(def, v);
+    cardLabels.set(def, {});
+  }
+  const values = cardValues.get(def), labels = cardLabels.get(def);
   const line = () => [def.cmd, ...(def.args || []).map(a => String(values[a.id] ?? '').trim()).filter(Boolean)].join(' ');
-  const refresh = () => { out.textContent = line(); };
+  const refresh = () => {};   // the card no longer prints its command line; the values are read when you press Run
 
   const control = a => {
     if (a.kind === 'number') {
-      const val = h('b.ap-num', String(values[a.id]));
-      const step = n => { values[a.id] = Math.max(a.min ?? 0, Math.min(a.max ?? 9999, (Number(values[a.id]) || 0) + n)); val.textContent = String(values[a.id]); refresh(); };
+      // the number is a box you can type in, with - and + either side for small nudges
+      const clamp = n => Math.max(a.min ?? 0, Math.min(a.max ?? 9999, Math.round(Number(n) || 0)));
+      const val = h('input.ap-num', { type: 'text', inputMode: 'numeric', value: String(values[a.id]), 'aria-label': a.name });
+      val.addEventListener('focus', () => val.select());
+      val.addEventListener('input', () => { val.value = val.value.replace(/[^0-9]/g, '').slice(0, 7); if (val.value !== '') values[a.id] = clamp(val.value); refresh(); });
+      val.addEventListener('change', () => { values[a.id] = clamp(val.value); val.value = String(values[a.id]); refresh(); });
+      val.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') val.blur(); });   // typing here never moves your hero
+      const step = n => { values[a.id] = clamp((Number(values[a.id]) || 0) + n); val.value = String(values[a.id]); refresh(); };
       return h('div.ap-arg', h('span.ap-arg-name', a.name),
         h('div.ap-stepper', h('button', { onclick: () => step(-(a.big || 1)) }, '−'), val, h('button', { onclick: () => step(a.big || 1) }, '+')));
     }
@@ -113,23 +146,27 @@ function cardFor(panel, def) {
       } }, o.name));
       return h('div.ap-arg', h('span.ap-arg-name', a.name), h('div.ap-choices', ...btns));
     }
-    const val = h('b.ap-picked', values[a.id] ? nice(values[a.id]) : '—');
-    return h('div.ap-arg', h('span.ap-arg-name', a.name), val,
-      h('button.btn.sm.primary', { onclick: async () => {
-        const k = await pickFrom(a.name, await a.items(panel), { any: a.any });
+    // one chip: what is chosen, and tapping it opens the grid to choose again (no separate "Select" button)
+    const val = h('span', values[a.id] ? (labels[a.id] || a.label || nice(values[a.id])) : `Choose ${a.name.toLowerCase()}`);
+    return h('div.ap-arg', h('span.ap-arg-name', a.name),
+      h(`button.ap-choose${values[a.id] ? '' : '.empty'}`, { onclick: async e => {
+        const btn = e.currentTarget;
+        const items = await a.items(panel);
+        const k = await pickFrom(a.name, items, { any: a.any });
         if (k == null) return;
         values[a.id] = k;
-        val.textContent = nice(k);
+        val.textContent = labels[a.id] = items.find(it => it.key === k)?.name || nice(k);
+        btn.classList.remove('empty');
         play('click');
         refresh();
-      } }, apIcon('select'), 'Select'));
+      } }, val, h('i.ap-choose-caret', '▾')));
   };
 
   refresh();
   return h('div.ap-card',
     h('div.ap-card-head', h('b', def.name), h('span.faint', def.desc)),
     (def.args || []).length ? h('div.ap-args', ...def.args.map(control)) : null,
-    h('div.ap-run', out, h('div.spacer'), h('button.btn.primary', { onclick: () => panel.send(line()) }, apIcon('run'), def.runLabel || 'Run')));
+    h('div.ap-run', h('div.spacer'), h('button.btn.primary', { onclick: () => panel.send(line()) }, def.runLabel || 'Run')));
 }
 
 // ------------------------------------------------------------------ the pages
@@ -159,7 +196,8 @@ const PAGES = {
     ] },
   ] },
   items: { name: 'Items', icon: 'box', cards: [
-    { cmd: 'give me', name: 'Give resources', desc: 'Anything in your bag, or all of it', args: [
+    { cmd: 'give', name: 'Give resources', desc: 'To you, to anyone, or to everyone', args: [
+      { id: 'who', name: 'Who', kind: 'pick', def: 'me', label: 'Me', items: panel => playerItems(panel, { me: true, all: true }) },
       { id: 'what', name: 'Resource', kind: 'pick', any: true, items: resourceItems },
       { id: 'n', name: 'How many', kind: 'number', def: 100, min: 1, max: 9999, big: 100 },
     ] },
@@ -235,7 +273,8 @@ export function openAdminPanel(hud, adminConsole) {
   if (!con) { hud.hint('The console is not loaded', 1800); return null; }
   const g = hud.game;
   let page = 'home';
-  let trollWho = null;
+  let msgTo = null;   // null: everyone (a global banner); otherwise { uid, name }
+  let trollWho = null, trollName = '';   // the account id the pranks go to, and the name it shows as
 
   const logRows = [];
   const panel = {
@@ -280,22 +319,48 @@ export function openAdminPanel(hud, adminConsole) {
         h('div.ap-row-acts',
           h('button.btn.sm', { onclick: () => panel.send(`tp ${p.name}`) }, 'Go to'),
           h('button.btn.sm', { onclick: () => panel.send(`tp ${p.name} here`) }, 'Bring'),
-          h('button.btn.sm.ghost', { onclick: () => { trollWho = p.name; page = 'troll'; render(); } }, 'Troll'),
+          h('button.btn.sm', { onclick: () => { msgTo = { uid: p.uid, name: p.name || 'Player' }; render(); } }, 'Message'),
+          h('button.btn.sm.ghost', { onclick: () => { trollWho = p.uid; trollName = p.name || 'Player'; page = 'troll'; render(); } }, 'Troll'),
           h('button.btn.sm.danger', { onclick: () => panel.send(`ban ${p.name}`) }, 'Ban')))) : [h('div.faint', 'Nobody matches that')]));
     };
     search.addEventListener('input', () => con.loadPlayers().then(draw).catch(() => draw([])));
     box.append(h('div.faint', 'Loading…'));
     con.loadPlayers().then(draw).catch(() => draw([]));
-    return h('div.ap-page', search, box);
+    return h('div.ap-page', messageCard(), search, box);
+  };
+
+  /** One box for talking to people: everyone at once as a banner, or a single player. */
+  const messageCard = () => {
+    const text = h('input.input', { placeholder: msgTo ? `Message ${msgTo.name}…` : 'Message everyone…', maxLength: 160 });
+    const send = () => {
+      const t = text.value.trim();
+      if (!t) return;
+      panel.send(msgTo ? `msg ${msgTo.uid} ${t}` : `broadcast ${t}`);
+      text.value = '';
+    };
+    text.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') send(); });
+    return h('div.ap-card.ap-msg',
+      h('div.ap-card-head', h('b', 'Send a message'), h('span.faint', msgTo ? `Only ${msgTo.name} sees it` : 'A banner on every player’s screen')),
+      h('div.ap-arg', h('span.ap-arg-name', 'To'),
+        h('div.ap-choices',
+          h(`button.btn.sm${msgTo ? '' : '.primary'}`, { onclick: () => { msgTo = null; render(); } }, 'Everyone'),
+          h(`button.btn.sm${msgTo ? '.primary' : ''}`, { onclick: async () => {
+            const items = await playerItems(panel);
+            const k = await pickFrom('Player', items);
+            if (k == null) return;
+            msgTo = { uid: k, name: items.find(it => it.key === k)?.name || 'Player' }; render();
+          } }, msgTo ? msgTo.name : 'One player'))),
+      h('div.ap-run', text, h('button.btn.primary', { onclick: send }, 'Send')));
   };
 
   const trollPage = () => {
-    const who = h('div.ap-arg', h('span.ap-arg-name', 'Who'), h('b.ap-picked', trollWho ? nice(trollWho) : '—'),
-      h('button.btn.sm.primary', { onclick: async () => {
-        const k = await pickFrom('Player', await playerItems(panel));
+    const who = h('div.ap-arg', h('span.ap-arg-name', 'Who'),
+      h(`button.ap-choose${trollWho ? '' : '.empty'}`, { onclick: async () => {
+        const items = await playerItems(panel);
+        const k = await pickFrom('Player', items);
         if (k == null) return;
-        trollWho = k; play('click'); render();
-      } }, 'Select'));
+        trollWho = k; trollName = items.find(it => it.key === k)?.name || 'Player'; play('click'); render();
+      } }, h('span', trollWho ? trollName : 'Choose a player'), h('i.ap-choose-caret', '▾')));
     const search = h('input.input', { placeholder: 'Search pranks…', autocomplete: 'off' });
     const grid = h('div.ap-pranks');
     const draw = () => {
@@ -303,7 +368,7 @@ export function openAdminPanel(hud, adminConsole) {
       const list = PRANKS.filter(([k, n, d]) => !q || n.toLowerCase().includes(q) || k.includes(q) || d.toLowerCase().includes(q));
       grid.replaceChildren(...list.map(([k, n, d]) => h('button.ap-prank', {
         disabled: !trollWho,
-        title: trollWho ? `${n} on ${trollWho}` : 'Pick somebody first',
+        title: trollWho ? `${n} on ${trollName}` : 'Pick somebody first',
         onclick: () => panel.send(`troll ${trollWho} ${k}`),
       }, h('b', n), h('span', d))));
     };
@@ -386,7 +451,7 @@ export function openAdminPanel(hud, adminConsole) {
             : page === 'logs' ? logsPage()
               : cardsPage(page);
     body.replaceChildren(h('div.ap-page-head', h('h2', PAGES[page].name), h('div.spacer'),
-      h('button.btn.sm.ghost', { onclick: () => { m.close(); con.toggle(); } }, apIcon('console'), 'Command line')), content);
+      h('button.btn.sm.ghost', { onclick: () => { m.close(); con.toggle(); } }, 'Command line')), content);
     if (!keepSearch) navSearch.value = '';
   };
 
@@ -394,8 +459,7 @@ export function openAdminPanel(hud, adminConsole) {
   const bar = h('div.ap-bar',
     avatar(hud.username || 'Admin', 26),
     h('div.ap-bar-who', h('b', hud.username || 'Admin'), h('span.ap-rank', 'Admin')),
-    h('div.spacer'),
-    h('span.ap-bar-hint', 'Drag me'));
+    h('div.spacer'));
   const side = h('div.ap-side', navSearch, nav);
   const m = modal([h('div.ap-frame', bar, h('div.ap-window', side, body))], { cls: 'admin-panel', closeX: true });
   render();

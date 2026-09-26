@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
-import { readdirSync, existsSync, writeFileSync } from 'node:fs';
+import { readdirSync, existsSync, writeFileSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 
@@ -18,11 +19,27 @@ function spriteList() {
   return {
     name: 'sprite-list',
     resolveId: s => (s === id ? resolved : null),
-    load: s => (s === resolved ? `export default ${JSON.stringify(scan())};` : null),
+    // HASHES: a short fingerprint of each picture (both sizes), put on its URL. Phones answer sprites from the
+    // service worker's cache first, so a redrawn icon kept the old picture until some later visit; a changed file
+    // is now a new URL and comes fresh at once, while every unchanged one stays cached.
+    load: s => {
+      if (s !== resolved) return null;
+      const keys = scan();
+      const lo = join(process.cwd(), 'public', 'assets-lo');
+      const hashes = {};
+      for (const k of keys) {
+        const h = createHash('md5').update(readFileSync(join(dir, `${k}.png`)));
+        const l = join(lo, `${k}.png`);
+        if (existsSync(l)) h.update(readFileSync(l));
+        hashes[k] = h.digest('hex').slice(0, 8);
+      }
+      return `export default ${JSON.stringify(keys)};
+export const HASHES = ${JSON.stringify(hashes)};`;
+    },
     configureServer(server) {
       // new sprites sliced while the dev server runs show up after a reload
       server.watcher.add(dir);
-      server.watcher.on('add', f => {
+      server.watcher.on('all', (ev, f) => {
         if (!f.endsWith('.png')) return;
         const mod = server.moduleGraph.getModuleById(resolved);
         if (mod) server.moduleGraph.invalidateModule(mod);

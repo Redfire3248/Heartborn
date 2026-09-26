@@ -209,9 +209,27 @@ export class Renderer {
       ctx.fillRect(0, 0, this.canvas.width / this.dpr, this.canvas.height / this.dpr);
       ctx.restore();
     }
+    this.drawBlind(g, ox, oy, s);
     this.drawBubbles(g, ox, oy, s);
     this.drawFloaters(g, ox, oy, s);
     this.drawEnemyMarkers(g, ox, oy, s);
+  }
+
+  /** Blinded (a prank): the night closes in until only a small circle around you is left. */
+  drawBlind(g, ox, oy, s) {
+    const h = g.hero, v = h && g.state.villagers.find(x => x.id === h.id);
+    if (!v || !((h.blindUntil || 0) > g.state.time)) return;
+    const ctx = this.ctx, W = this.canvas.width / this.dpr, H = this.canvas.height / this.dpr;
+    const x = (v.x * s + ox) / this.dpr, y = (v.y * s + oy) / this.dpr;
+    const left = h.blindUntil - g.state.time, fade = Math.min(1, left / 0.6);   // the last moment lifts it gently
+    const r = TILE * 2.2 * s / this.dpr;
+    const gr = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 1.6);
+    gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.97)');
+    ctx.save();
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = gr;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
   }
 
   drawTerrain(g, view) {

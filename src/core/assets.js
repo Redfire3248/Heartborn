@@ -1,5 +1,5 @@
 import '../../tools/sheets.js';
-import SPRITE_FILES from 'virtual:sprite-list';
+import SPRITE_FILES, { HASHES } from 'virtual:sprite-list';
 
 const AVAILABLE = new Set(SPRITE_FILES);
 
@@ -50,7 +50,7 @@ export function setArtSet(set) {
   try { localStorage.setItem('hb-art', set); } catch {}
 }
 
-const url = (key, attempt) => `${import.meta.env.BASE_URL}${ART_SET === 'lo' ? 'assets-lo' : 'assets'}/${key}.png${attempt ? `?r=${attempt}` : ''}`;
+const url = (key, attempt) => `${import.meta.env.BASE_URL}${ART_SET === 'lo' ? 'assets-lo' : 'assets'}/${key}.png?h=${HASHES[key] || '0'}${attempt ? `&r=${attempt}` : ''}`;
 function fetchImage(key, attempt = 0) {
   return new Promise((resolve, reject) => {
     const img = new Image();

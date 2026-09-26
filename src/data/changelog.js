@@ -1,6 +1,21 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Pranks that work, gifts for anyone, messages for everyone, and one clean material bar',
+    changes: [
+      'Trolls work. The panel listed villages ("Infinity’s Hearth") where a prank needs a player, so nothing was ever found; it now picks people by their account and shows their player name. Tiny, huge, drunk, blind and dance also did nothing but show a message - now they shrink or grow you, walk you backwards, black out all but a circle around you, and spin you on the spot',
+      'Give resources has a Who: you, any player, or everyone',
+      'Players has a message box: a banner for everyone at once, or a message to one player',
+      'Numbers in the Admin panel are boxes you can type in, with - and + beside them, and a card remembers what you set after you press Run',
+      'No more command lines printed on the cards, no pictures on the buttons, and a choice is one chip that shows what is chosen - tap it to choose again. The section icons are bigger in the sidebar instead',
+      'The Admin window’s title bar sits flush with its top edge, without the "Drag me" label',
+      'The Admin button is a > in the menu dock with the other menus, instead of a pill floating over the world',
+      'The material bar is one row across the full width of the screen and never wraps; whatever does not fit becomes +N at the end, which opens your Materials',
+      'Phones show the same icons as computers: pictures now carry a fingerprint, so a redrawn icon is fetched fresh instead of the phone keeping its old saved copy. The phone versions of 36 boat pictures were also out of date and have been remade',
+      'The frosted square behind the radar is gone',
+    ],
+  },
+  {
     title: 'A tidy Worlds screen on phones, and side panels that sit cleanly sideways',
     changes: [
       'The Worlds screen header on a phone is two rows instead of five: castle, title and Back across the top, and Adam and Eve underneath at full width. It had been spending 248 pixels on an icon alone on a line, an empty row and a Back button on its own',

@@ -249,8 +249,8 @@ export class AdminConsole {
   optionsFor(kind) {
     if (Array.isArray(kind)) return kind.map(v => ({ value: v, label: v, detail: '' }));
     const players = (this.players || []).map(p => ({
-      value: (p.villageName || p.uid).replace(/\s+/g, '_'), label: p.villageName || p.uid,
-      detail: `${p.name || ''}${p.ban ? ' · banned' : ''}`, online: p.online,
+      value: (p.name || p.uid).replace(/\s+/g, '_'), label: p.name ? `${p.name}${p.villageName ? ` · ${p.villageName}` : ''}` : p.uid,   // a player is their name; the village is a note beside it
+      detail: p.ban ? 'banned' : '', online: p.online,
     }));
     const me = { value: 'me', label: 'me', detail: 'your own village' };
     const star = detail => ({ value: '*', label: '*', detail });
@@ -430,7 +430,7 @@ export class AdminConsole {
   playerSpot(name) {
     const want = String(name || '').toLowerCase();
     if (!want) return null;
-    const match = list => list.find(p => (p.name || '').toLowerCase() === want) || list.find(p => (p.name || '').toLowerCase().startsWith(want));
+    const match = list => list.find(p => p.uid === name) || list.find(p => (p.name || '').toLowerCase() === want) || list.find(p => (p.name || '').toLowerCase().startsWith(want));   // an account id first: the panel picks by id
     const live = match(this.game?.livePlayers || []);
     if (live) return live;
     const mp = this.mp || this.hud?.mp;
@@ -471,6 +471,8 @@ export class AdminConsole {
     if (!query) throw new Error('missing player (use "me", a village name, player name, email or uid)');
     if (query === 'me') return { me: true, uid: this.user.uid, villageName: this.game.state.owner.villageName };
     const list = await this.loadPlayers();
+    const byId = list.find(p => p.uid === query);   // the panel names people by account id
+    if (byId) return byId;
     const q = query.toLowerCase().replace(/_/g, ' ');
     const exact = list.filter(p => [p.uid, p.email, p.villageName, p.name].some(x => (x || '').toLowerCase() === q));
     if (exact.length === 1) return exact[0];
@@ -563,7 +565,7 @@ const COMMANDS = {
         if (p.me) { for (const [k, v] of Object.entries(res)) this.game.state.resources[k] = Math.max(0, (this.game.state.resources[k] || 0) + v); this.game.emit('change'); }
         else await api.sendCommand(p.uid, { type: 'give', res });
       }
-      this.print(`✓ gave ${Object.entries(res).map(([k, v]) => `${v} ${k}`).join(', ')} to ${targets.length === 1 ? targets[0].villageName : `${targets.length} villages`}`, 'ok');
+      this.print(`✓ gave ${Object.entries(res).map(([k, v]) => `${v} ${k}`).join(', ')} to ${targets.length === 1 ? (targets[0].me ? 'you' : targets[0].name || targets[0].villageName) : `${targets.length} players`}`, 'ok');
     },
   },
   karma: {
@@ -576,7 +578,7 @@ const COMMANDS = {
         if (p.me) { this.game.state.karma = n; this.game.emit('change'); }
         else await api.sendCommand(p.uid, { type: 'karma', value: n });
       }
-      this.print(`✓ karma of ${targets.length === 1 ? targets[0].villageName : `${targets.length} villages`} → ${n}`, 'ok');
+      this.print(`✓ karma of ${targets.length === 1 ? (targets[0].me ? 'you' : targets[0].name || targets[0].villageName) : `${targets.length} players`} → ${n}`, 'ok');
     },
   },
   shield: {
@@ -588,7 +590,7 @@ const COMMANDS = {
         if (p.me) this.game.state.shieldUntil = Date.now() + hrs * 3600000;
         else await api.sendCommand(p.uid, { type: 'shield', hours: hrs });
       }
-      this.print(`✓ ${hrs}h shield for ${targets.length === 1 ? targets[0].villageName : `${targets.length} villages`}`, 'ok');
+      this.print(`✓ ${hrs}h shield for ${targets.length === 1 ? (targets[0].me ? 'you' : targets[0].name || targets[0].villageName) : `${targets.length} players`}`, 'ok');
     },
   },
   msg: {
@@ -598,7 +600,7 @@ const COMMANDS = {
       if (!text) throw new Error('message is empty');
       const targets = (await this.resolveMany(who)).filter(p => !p.me);
       for (const p of targets) await api.sendCommand(p.uid, { type: 'message', text });
-      this.print(`✓ message queued for ${targets.length === 1 ? targets[0].villageName : `${targets.length} players`}`, 'ok');
+      this.print(`✓ message queued for ${targets.length === 1 ? (targets[0].me ? 'you' : targets[0].name || targets[0].villageName) : `${targets.length} players`}`, 'ok');
     },
   },
   broadcast: {
@@ -654,7 +656,7 @@ const COMMANDS = {
         if (p.me) this.game.spawnRaiders(k, n);
         else await api.sendCommand(p.uid, { type: 'spawn', creature: k, count: n });
       }
-      this.print(`✓ ${n} ${type === '*' ? `of each of ${kinds.length} creatures` : type} → ${targets.length === 1 ? targets[0].villageName : `${targets.length} villages`}`, 'ok');
+      this.print(`✓ ${n} ${type === '*' ? `of each of ${kinds.length} creatures` : type} → ${targets.length === 1 ? (targets[0].me ? 'you' : targets[0].name || targets[0].villageName) : `${targets.length} players`}`, 'ok');
     },
   },
   warband: {

@@ -910,6 +910,22 @@ export function updateHero(g, dt, controls = {}) {
   h.stagger = Math.max(0, (h.stagger || 0) - dt);
   if (v._whiteFlash > 0) v._whiteFlash -= dt;
   if (h.stagger > 0) controls = { ...controls, mx: 0, my: 0, act: false, dash: false, block: false };   // stunned by a hit
+  // what other players can do to you for a laugh (see the troll pranks): each one wears off by itself
+  const now = g.state.time;
+  if (h.sizeUntil) {   // tiny or huge
+    if (h.sizeUntil > now) v.size = h.sizeMult || 1;
+    else { h.sizeUntil = 0; h.sizeMult = 1; v.size = 1; }
+  }
+  if ((h.danceUntil || 0) > now) {   // made to dance: no walking, no fighting, spinning on the spot
+    controls = { ...controls, mx: 0, my: 0, act: false, dash: false, block: false };
+    h.facing = now * 9;
+    v._walking = true;
+  }
+  if ((h.drunkUntil || 0) > now && (controls.mx || controls.my)) {   // drunk: the stick answers backwards, and wanders
+    const m = Math.hypot(controls.mx || 0, controls.my || 0);
+    const a = Math.atan2(controls.my || 0, controls.mx || 0) + Math.PI + Math.sin(now * 2.3) * 0.9;
+    controls = { ...controls, mx: Math.cos(a) * m, my: Math.sin(a) * m };
+  }
   h.sinceHit = (h.sinceHit ?? 99) + dt; h.sinceAttack = (h.sinceAttack ?? 99) + dt;
   if (h.arc) { h.arc.t -= dt; if (h.arc.t <= 0) h.arc = null; }
   if (h.atkAnim) h.atkAnim.t += dt;
