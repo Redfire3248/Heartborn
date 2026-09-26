@@ -48,6 +48,10 @@ const app = {
 
 boot();
 
+/** How long each step of starting up took, in ms since the page began loading (the Doctor reports these). */
+const times = window.__hbTimes = { script: Math.round(performance.now()) };
+const mark = k => { times[k] = Math.round(performance.now()); };
+
 async function boot() {
   document.getElementById('boot')?.remove();
   const loading = loadingScreen();
@@ -56,12 +60,15 @@ async function boot() {
     loadAssets(p => loading.progress(p * 0.9, 'Loading sprites…')),
     Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 700))]),
   ]);
+  mark('titleArt');
+  allAssetsReady().then(() => mark('allArt'));
   setPeopleSprites(spriteAvailable('people/farmer_m'));   // profession sprites once the People sheet is sliced
   loading.progress(1, 'Waking the world…');
   startDemo();
   requestAnimationFrame(loop);
   loading.remove();
   showTitle();
+  mark('title');
 }
 
 // ------------------------------------------------------------------ title screen

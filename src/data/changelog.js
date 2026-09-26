@@ -1,6 +1,12 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'The game opens much faster',
+    changes: [
+      'The loading screen used to wait for about 270 pictures before showing anything - including 108 frames of the old hero animation that nothing draws any more. It now waits only for the ground and trees; menus, races, items and creatures load while you are on the title screen',
+    ],
+  },
+  {
     title: 'Red number badges, proper panels on phones, and you are drawn as yourself',
     changes: [
       'A red number on a menu button when something in there wants you: World for invites, Bag for unspent points and Race Stones waiting, Chat for messages you have not seen, and Settings after an update until you open it',

@@ -75,13 +75,15 @@ async function loadOne(key) {
  * Every one of ~1,300 pictures used to be downloaded at start, including all the art of the old village game -
  * villagers, kingdom buildings, units, houses' insides - most of which nothing draws any more, and the title
  * screen waited on the old villagers before it would open. Now:
- *   FIRST  - the ground, your hero and the menus: awaited, it is what the first screen shows.
- *   CORE   - items, gear, fighting, effects and creatures: fetched quietly straight after.
+ *   FIRST  - the ground and trees: awaited, it is all the title screen shows.
+ *   CORE   - menus, races, items, gear, fighting, effects and creatures: fetched while you are on the title
+ *            screen, and awaited only when you enter a world (usually long finished by then).
+ * The old hero animation frames (hero/) are no longer drawn anywhere, so they are not fetched at all unless asked.
  *   anything else is fetched the first time something actually draws it (see want()), so art nobody uses
  *   is never downloaded at all.
  */
-const FIRST = key => /^(nature|hero|races|ui)\//.test(key) && !/^races\/.*_[mf]2$/.test(key);   // not the retired second set of race faces
-const CORE = key => /^(items|gear|combat|effects|characters)\//.test(key);
+const FIRST = key => /^nature\//.test(key);   // the title screen's ground and trees: all it waits for
+const CORE = key => /^(ui|races|items|gear|combat|effects|characters)\//.test(key) && !/^races\/.*_[mf]2$/.test(key);   // fetched while you are on the title screen
 
 let restReady = Promise.resolve();
 /** Resolves once every sprite (not just the title-screen ones) has loaded. */
