@@ -5,6 +5,7 @@ import { watchForUpdates, requireLatest } from './core/updateWatch.js';
 import { dayFractionOf } from './game/game.js';
 import { setCharAdmin, onCharacterEarned, mergeCharacters } from './game/characters.js';
 import { mainMenu } from './ui/mainMenu.js';
+import { onAccountRaceChanged, mergeAccountRace } from './game/races.js';
 import { setupErrorReporting, reportError } from './net/errors.js';
 import { BUILD } from './core/version.js';
 import { setupSound } from './core/sound.js';
@@ -17,7 +18,7 @@ import { makeVisitGame, visitCenter } from './game/visit.js';
 import { getProfile } from './net/save.js';
 import { signInWithGoogle, signInWithEmail, createAccount, resetPassword, signOut, onAuth, adminStatus } from './net/firebase.js';
 import { h, modal } from './ui/dom.js';
-import { loadSave, writeSave, writeProfile, writePrivate, loadAccountChars, saveAccountChars, getBan, clearLocalSave, getUsername, claimUsername, setWorld, currentWorld, listWorldSaves, deleteWorldSave, oldVillage } from './net/save.js';
+import { loadSave, writeSave, writeProfile, writePrivate, loadAccountChars, loadAccountRecord, saveAccountRaceCloud, saveAccountChars, getBan, clearLocalSave, getUsername, claimUsername, setWorld, currentWorld, listWorldSaves, deleteWorldSave, oldVillage } from './net/save.js';
 import { ensureProfile, updateProfileStats, getWorld, leaveOrCloseWorld, SOLO_WORLD } from './net/social.js';
 import { worldPicker } from './ui/social.js';
 import { Multiplayer } from './net/multiplayer.js';
@@ -126,8 +127,11 @@ function showTitle() {
  */
 async function syncCharacters(user) {
   onCharacterEarned(all => saveAccountChars(user.uid, all).catch(() => {}));
-  const cloud = await loadAccountChars(user.uid);
+  onAccountRaceChanged(race => saveAccountRaceCloud(user.uid, race).catch(() => {}));
+  const record = await loadAccountRecord(user.uid);
+  const cloud = record.chars || {};
   mergeCharacters(cloud);
+  mergeAccountRace(record.race);   // your race, slots and stones, whichever copy is newer
   const { earnedCharacters } = await import('./game/characters.js');
   const mine = earnedCharacters();
   if (Object.keys(mine).some(k => !cloud[k])) saveAccountChars(user.uid, mine).catch(() => {});

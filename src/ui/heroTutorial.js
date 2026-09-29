@@ -117,7 +117,7 @@ export const STEPS = [
     id: 'bag', title: 'Open your Backpack', gold: 15, xp: 25,
     hint: () => (TOUCH() ? 'Tap Bag: your gear, tools and loot live there' : `Press ${keyLabel(keyOf('backpack'))} or tap Bag: your gear, tools and loot live there`),
     progress: () => [document.querySelector('.backpack-modal') ? 1 : 0, 1],
-    point: hud => [...hud.root.querySelectorAll('.dock button')].find(b => /bag|backpack/i.test(b.textContent)) || null,
+    point: hud => [...hud.root.querySelectorAll('.dock.dock-open button')].find(b => /bag|backpack/i.test(b.textContent)) || hud.root.querySelector('.dock-toggle'),   // the menu button until it is open
   },
   {
     id: 'dungeon', title: 'Enter a dungeon', gold: 100, xp: 150,

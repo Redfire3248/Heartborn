@@ -16,7 +16,7 @@ export const LAYOUT_ITEMS = [
   { sel: '.hotbar-wrap', name: 'Hotbar' },
   { sel: '.vitals-strip', name: 'Health' },
   { sel: '.topbar', name: 'Resources' },
-  { sel: '.dock', name: 'Menu' },
+  { sel: '.dock-toggle', name: 'Menu' },
   { sel: '.minimap', name: 'Minimap' },
 ];
 
@@ -78,6 +78,9 @@ ${rulesFor(port)}}
 
 /** True when the player has put this control somewhere of their own on the screen they are holding. */
 export const isLaidOut = sel => !!load()[sel];
+
+/** Puts every control back where it started, for sideways ('land') or upright ('port') screens. */
+export function resetLayout(o = orient()) { try { localStorage.removeItem(storeKey(o)); } catch {} writeSheet(); }
 
 /** Kept for callers: the stylesheet does the work, so this only makes sure it is written. */
 export function applyLayout() { writeSheet(); }

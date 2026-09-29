@@ -10,11 +10,11 @@ import { h, icon, avatar } from './dom.js';
 import { play } from '../core/sound.js';
 import { BUILD, latestChanges } from '../core/version.js';
 import { CHARACTERS, hasCharacter, unseenCharacters, markCharactersSeen } from '../game/characters.js';
-import { lastBase, lastRace, chooseBase, lookFor } from '../game/races.js';
+import { lastBase, chooseBase, lookFor, accountRace, loadAccountRaceInto, RACES, RACE_TIERS } from '../game/races.js';
 import * as social from '../net/social.js';
 
 const PAGES = [
-  ['play', 'PLAY'], ['worlds', 'WORLDS'], ['character', 'CHARACTER'], ['friends', 'FRIENDS'], ['settings', 'SETTINGS'], ['account', 'ACCOUNT'],
+  ['play', 'PLAY'], ['worlds', 'WORLDS'], ['character', 'CHARACTER'], ['race', 'RACE'], ['friends', 'FRIENDS'], ['settings', 'SETTINGS'], ['account', 'ACCOUNT'],
 ];
 
 /**
@@ -39,9 +39,26 @@ export function mainMenu(opts) {
     panel);
   document.getElementById('ui').append(root);
 
+  /*
+   * A phone on its side gets the laptop menu, just smaller: the whole screen is laid out at 1280x720 and scaled
+   * down to fit, centred, rather than rearranged. Upright phones keep their own stacked layout.
+   */
+  const fit = () => {
+    const sideways = innerWidth > innerHeight && innerHeight < 600;
+    root.classList.toggle('mm-scaled', sideways);
+    if (!sideways) { root.style.transform = ''; root.style.width = ''; return; }
+    // laid out 720 tall and as wide as the screen's own shape, then scaled: it fills the screen edge to edge
+    const s = innerHeight / 720;
+    root.style.width = `${Math.round(innerWidth / s)}px`;
+    root.style.transform = `scale(${s})`;
+  };
+  fit();
+  addEventListener('resize', fit);
+
   const seenVersion = () => { try { return localStorage.getItem('hb-seen-version'); } catch { return null; } };
   const badges = () => ({
     character: unseenCharacters().length,
+    race: Math.max(0, Math.floor(accountRace()?.stones || 0)),   // Race Stones waiting to be rolled
     friends: friends ? Object.values(friends).filter(v => v === 'in').length : 0,
     settings: seenVersion() && seenVersion() !== BUILD.version ? 1 : 0,
   });
@@ -50,13 +67,14 @@ export function mainMenu(opts) {
     const b = badges();
     nav.replaceChildren(...PAGES.map(([id, name]) => h(`button.mm-item${page === id ? '.on' : ''}`, {
       onclick: () => { page = id; play('click'); if (id === 'character') markCharactersSeen(); if (id === 'settings') { try { localStorage.setItem('hb-seen-version', BUILD.version); } catch { /* private */ } } render(); },
-    }, h('span.mm-arrow', page === id ? '▸' : ''), h('span', name), b[id] ? h('span.mm-badge', String(b[id])) : null)));
+    }, h('span.mm-arrow'), h('span', name), b[id] ? h('span.mm-badge', String(b[id])) : null)));   // the arrow only appears on hover
     who.replaceChildren(avatar(opts.username || '?', 26), h('span', opts.username ? `Signed in as ${opts.username}` : 'Signed in: you will choose a name next'));
   };
 
   // ------------------------------------------------------------- the pages
   const card = (...kids) => h('div.mm-card', ...kids);
-  const look = () => `races/${lookFor(lastRace(), lastBase())}`;
+  const myRace = () => (RACES[accountRace()?.race] ? accountRace().race : 'human');
+  const look = () => `races/${lookFor(myRace(), lastBase())}`;   // you, as the race you are in every world
 
   const playPage = () => {
     const newest = saves?.[0];
@@ -92,6 +110,39 @@ export function mainMenu(opts) {
         onclick: () => { if (!mine) return; chooseBase(c.id); play('click'); render(); },
       }, icon(`races/${lookFor('human', c.id)}`, 64), h('b', c.name), mine ? (on ? h('i', 'Chosen') : null) : h('i.mm-lock', c.how));
     })));
+
+  /*
+   * The race wheel, from the menu. Your race lives with your account, so it is rolled here on the account itself:
+   * a small stand-in "game" holds it, and every change the wheel makes is saved back to the account.
+   */
+  const accountGame = () => {
+    const g = { state: { rpg: {} }, fx: {}, emit() {}, noAccountRace: false };
+    loadAccountRaceInto(g);
+    return g;
+  };
+  const racePage = () => {
+    const key = myRace(), d = RACES[key], t = RACE_TIERS[d.tier];
+    const stones = Math.max(0, Math.floor(accountRace()?.stones || 0));
+    const i = d.passive.indexOf(': ');
+    return h('div.mm-play',
+      h('div.mm-hero', h('div.mm-glow'), icon(look(), 200)),
+      card(
+        h('span.mm-cap', 'Your race, in every world'),
+        h('b.mm-title', { style: { color: d.color } }, d.name),
+        h('span.mm-sub', { style: { color: t.color } }, t.name),
+        h('span.mm-sub', i > 0 ? `${d.passive.slice(0, i)}: ${d.passive.slice(i + 2)}` : d.passive),
+        h('span.mm-sub', `${stones} Race Stone${stones === 1 ? '' : 's'} to roll`),
+        h('button.btn.primary.mm-play-btn', {
+          onclick: async () => {
+            const M = await import('./raceMenu.js');
+            const g = accountGame();
+            const stand = { game: g, hint: t => opts.hint?.(t), toast: () => {} };
+            const m = M.openRaceMenu(stand);
+            const done = new MutationObserver(() => { if (!m?.el?.isConnected) { done.disconnect(); render(); } });
+            done.observe(document.getElementById('ui'), { childList: true, subtree: true });
+          },
+        }, 'ROLL')));
+  };
 
   const friendsPage = () => {
     const input = h('input.input', { placeholder: 'Add a friend by username', maxLength: 16 });
@@ -141,7 +192,7 @@ export function mainMenu(opts) {
 
   const render = () => {
     drawNav();
-    panel.replaceChildren(({ play: playPage, worlds: worldsPage, character: characterPage, friends: friendsPage, settings: settingsPage, account: accountPage })[page]());
+    panel.replaceChildren(({ play: playPage, worlds: worldsPage, character: characterPage, race: racePage, friends: friendsPage, settings: settingsPage, account: accountPage })[page]());
   };
 
   // what the pages need from the network: your worlds, and your friends with their names
@@ -162,7 +213,7 @@ export function mainMenu(opts) {
     hide() { root.style.display = 'none'; },
     show() { root.style.display = ''; render(); },
     setUsername(name) { opts.username = name; render(); },
-    remove() { unsubFriends?.(); root.remove(); },
+    remove() { unsubFriends?.(); removeEventListener('resize', fit); root.remove(); },
   };
 }
 

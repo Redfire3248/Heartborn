@@ -233,6 +233,7 @@ export function setRace(g, id, look = null) {
   if (isCharacter(look) && hasCharacter(look)) r.base = look;
   r.look = lookFor(id, baseOf(g));
   try { localStorage.setItem(LAST_RACE, id); localStorage.setItem(LAST_LOOK, r.look); } catch { /* private window */ }
+  saveAccountRace(g);
   g.emit?.('change');
   return true;
 }
@@ -291,6 +292,7 @@ export const stonesOf = g => Math.max(0, Math.floor(g?.state?.rpg?.raceStones ||
 export function addStones(g, n = 1) {
   const r = (g.state.rpg ||= {});
   r.raceStones = Math.max(0, (r.raceStones || 0) + n);
+  saveAccountRace(g);
   g.emit?.('change');
   return r.raceStones;
 }
@@ -324,6 +326,7 @@ export function storeRace(g, key, index = null) {
   } else {
     list[Math.max(0, Math.min(RACE_SLOTS - 1, index))] = key;
   }
+  saveAccountRace(g);
   g.emit?.('change');
   return true;
 }
@@ -335,6 +338,7 @@ export function dropRace(g, key) {
   const next = list.find(k => k !== key);
   g.state.rpg.raceSlots = list.filter(k => k !== key);
   if (raceOf(g) === key) setRace(g, next);
+  saveAccountRace(g);
   g.emit?.('change');
   return true;
 }
@@ -364,6 +368,7 @@ export function decideRoll(g) {
   const held = isUnlocked(g, key);
   const res = { ok: true, key, look, fresh: !held, tier: RACES[key].tier, needsSlot: !held && slotsFull(g) };
   g.state.rpg.pendingRoll = res;
+  saveAccountRace(g);
   return res;
 }
 
@@ -373,6 +378,7 @@ export function applyRoll(g) {
   const res = r?.pendingRoll;
   if (!res) return null;
   r.pendingRoll = null;
+  saveAccountRace(g);
   if (!RACES[res.key]) return null;
   if (res.needsSlot) return res;   // no room: the player says which slot it replaces (acceptRoll)
   if (!res.fresh) setRace(g, res.key, lookOf(g) && RACES[res.key].looks.includes(lookOf(g)) ? lookOf(g) : res.look);
@@ -393,4 +399,64 @@ export function acceptRoll(g, key, look, index) {
   if (!storeRace(g, key, index)) return false;
   setRace(g, key, look);
   return true;
+}
+
+// ------------------------------------------------------------------ your race belongs to your account
+/*
+ * The race you are, the three races in your slots and your Race Stones are yours in every world: roll in one world
+ * and you are that race in all of them, and stones found anywhere pile up in one place. They are kept on this device
+ * and in your private account record in the cloud; each world loads them when it starts and saves them back on every
+ * change.
+ */
+const ACCOUNT_RACE = 'hb_race_acct';
+let onAccountRace = null;
+/** The game sets this to send each change up to the cloud. */
+export const onAccountRaceChanged = fn => { onAccountRace = fn; };
+
+export function accountRace() {
+  try { return JSON.parse(localStorage.getItem(ACCOUNT_RACE) || 'null'); } catch { return null; }
+}
+function writeAccountRace(v) {
+  try { localStorage.setItem(ACCOUNT_RACE, JSON.stringify(v)); } catch { /* private window */ }
+}
+
+/** Saves what this world holds as the account's race. */
+export function saveAccountRace(g) {
+  const r = g?.state?.rpg;
+  if (!r || g.noAccountRace) return;
+  const v = {
+    race: validRace(r.race) ? r.race : 'human',
+    slots: (Array.isArray(r.raceSlots) ? r.raceSlots : [r.race || 'human']).filter(validRace).slice(0, RACE_SLOTS),
+    stones: Math.max(0, Math.floor(r.raceStones || 0)),
+    pending: r.pendingRoll || null,
+    at: Date.now(),
+  };
+  writeAccountRace(v);
+  try { onAccountRace?.(v); } catch { /* offline: it goes up next time */ }
+}
+
+/**
+ * Puts the account's race into a world as it starts. A world that still has Race Stones of its own from before
+ * races were shared adds them to the pile, once.
+ */
+export function loadAccountRaceInto(g) {
+  const r = (g.state.rpg ||= {});
+  const a = accountRace();
+  if (!a) { r.stonesShared = true; saveAccountRace(g); return; }
+  const own = r.stonesShared ? 0 : Math.max(0, Math.floor(r.raceStones || 0));
+  r.race = validRace(a.race) ? a.race : 'human';
+  r.raceSlots = (a.slots || [r.race]).filter(validRace);
+  if (!r.raceSlots.includes(r.race)) r.raceSlots.unshift(r.race);
+  r.raceStones = Math.max(0, Math.floor(a.stones || 0)) + own;
+  r.pendingRoll = a.pending || null;
+  r.stonesShared = true;
+  r.look = lookFor(r.race, baseOf(g));
+  if (own) saveAccountRace(g);
+}
+
+/** Takes the account's race from the cloud when it is newer than this device's. */
+export function mergeAccountRace(cloud) {
+  const local = accountRace();
+  if (cloud && cloud.race && (!local || (cloud.at || 0) > (local.at || 0))) { writeAccountRace(cloud); return true; }
+  return false;
 }

@@ -768,7 +768,7 @@ export async function run() {
     ok(me.hp !== 1 || true, 'and it does not happen twice in a row');
     // a look belongs to its race
     // two people, and a race is a version of one of them: the zombie you is the human you
-    ok(Ra.BASES.length === 2, 'there are two people in the game');
+    ok(Ra.BASES.length >= 10 && Ra.BASES[0].id === 'm' && Ra.BASES[1].id === 'f', 'Adam, Eve and the people you can earn');
     Ra.setBase(g, 'f');
     Ra.setRace(g, 'zombie');
     ok(Ra.lookOf(g) === 'zombie_f', 'your race puts your own person in it', Ra.lookOf(g));

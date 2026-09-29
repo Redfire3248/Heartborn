@@ -15,7 +15,7 @@ import { openBossBook } from './bossBook.js';
 import { RANKS, fmtRun } from '../game/bossIndex.js';
 import { streakLeft } from '../game/streak.js';
 import { noticeInvite, noticeJoined, noticeChat, noticeTrade, noticesAllowed, noticesSupported, noticesBlocked, noticesOff, setNoticesOff, askToNotify, sendNotice, registerForPush } from '../core/notify.js';
-import { openLayoutEditor, watchLayout, isLaidOut } from './layoutEdit.js';
+import { openLayoutEditor, watchLayout, isLaidOut, resetLayout } from './layoutEdit.js';
 import { quickCraft, setQuickCraft } from '../core/prefs.js';
 import { TRAITS as FORGE_TRAITS, abilityOf as weaponAbility } from '../game/forging.js';
 import { openTableMenu, openMaterialsBag, matIcon } from './tableMenu.js';
@@ -77,6 +77,7 @@ import { findAt, collectFind } from '../game/finds.js';
 import { describeBuilding, effectBadges } from '../data/describe.js';
 import { Tutorial } from './tutorial.js';
 import { unlockForAchievement, unlockFromAchievements } from '../game/characters.js';
+import { loadAccountRaceInto } from '../game/races.js';
 import { HeroTutorial } from './heroTutorial.js';
 import { abilityOf, abilityCooldown, canUseAbility, useAbility } from '../game/abilities.js';
 import { canDoJob, isVersatile, professionLabel, PROFESSIONS } from '../game/professions.js';
@@ -264,6 +265,13 @@ export class HUD {
     dock.append(h('button', { onclick: () => openBackpack(this) }, icon('ui/inventory', 34), h('span.dock-label', 'Bag'), h('span.tip', 'Backpack: gear, tools, items (E)')));
     dock.append(h('button.dock-chat', { onclick: () => this.toggleChatPinned() }, icon('items/chat', 34), h('span.dock-label', 'Chat'), h('span.tip', 'Chat with the world (Enter)')));
     this.root.append(dock);
+    // all of those live behind one small button in the corner: tap it and they open beside it, tap one and it closes
+    this.els.dockEl = dock;
+    this.els.dockToggle = h('button.dock-toggle', { title: 'Menu', 'aria-label': 'Menu', onclick: e => { e.stopPropagation(); this.setDock(!this.dockOpen); } },
+      h('span.dock-bars', h('i'), h('i'), h('i')));
+    this.root.append(this.els.dockToggle);
+    dock.addEventListener('click', e => { if (e.target.closest('button')) this.setDock(false); });
+    addEventListener('pointerdown', e => { if (this.dockOpen && !e.target.closest?.('.dock, .dock-toggle')) this.setDock(false); }, true);
 
     this.els.feed = h('div.feed');
     this.root.append(this.els.feed);
@@ -338,6 +346,8 @@ export class HUD {
     this.root.append(this.els.goals);
 
     this.tutorial = on('tutorial') ? new Tutorial(this) : null;   // the old village one, switched off
+    rpgOf(this.game);   // a new world's hero record first, so the account race goes into a whole one
+    loadAccountRaceInto(this.game);   // your race, slots and stones are the same in every world
     this.quest = new HeroTutorial(this);   // the hero tutorial: objectives, arrows in the world, rewards
     unlockFromAchievements(this.game.state.rpg?.achievements);   // anything this world already achieved counts
 
@@ -1882,6 +1892,24 @@ export class HUD {
     if (this.buildType && !this.root.contains(this.hintEl)) this.hint(TOUCH ? `Placing ${BUILDINGS[this.buildType].name}: tap or drag to build · tap Cancel to stop` : `Placing ${BUILDINGS[this.buildType].name} — click or drag to build · Right-click/Esc to cancel`);
   }
 
+  /** Opens or closes the corner menu, next to wherever its button sits (it can be moved in Settings > Layout). */
+  setDock(open) {
+    const dock = this.els.dockEl, btn = this.els.dockToggle;
+    if (!dock || !btn) return;
+    this.dockOpen = !!open;
+    if (open) {
+      const r = btn.getBoundingClientRect();
+      const below = r.top + r.height / 2 < innerHeight / 2, right = r.left + r.width / 2 < innerWidth / 2;
+      dock.style.setProperty('--dock-x', right ? `${Math.round(r.left)}px` : 'auto');
+      dock.style.setProperty('--dock-r', right ? 'auto' : `${Math.round(innerWidth - r.right)}px`);
+      dock.style.setProperty('--dock-y', below ? `${Math.round(r.bottom + 6)}px` : 'auto');
+      dock.style.setProperty('--dock-b', below ? 'auto' : `${Math.round(innerHeight - r.top + 6)}px`);
+      play('click');
+    }
+    dock.classList.toggle('dock-open', this.dockOpen);
+    btn.classList.toggle('on', this.dockOpen);
+  }
+
   // ------------------------------------------------------------ panels
   togglePanel(id) { if (this.panel === id) this.closePanel(); else this.openPanel(id); }
 
@@ -1900,7 +1928,7 @@ export class HUD {
     this.closePanel();
     this.panel = id;
     this.els.dock[id]?.classList.add('on');
-    this.panelEl = h('div.card.side');
+    this.panelEl = h(`div.card.side${id === 'settings' ? '.side-full' : ''}`);
     this.root.append(this.panelEl);
     this.refreshPanel();
   }
@@ -1917,7 +1945,7 @@ export class HUD {
   head(ic, title, sub) {
     return h('div.side-head', icon(ic, 32), h('div', h('h2', title), sub ? h('div.faint', sub) : null), h('div.spacer'),
       h('button.btn.icon.ghost.panel-x', { onclick: () => this.closePanel(), title: 'Close' }, '✕'),
-      h('button.btn.sm.panel-back', { onclick: () => this.closePanel() }, '‹ Back'));
+      h('button.btn.sm.panel-back', { onclick: () => this.closePanel() }, 'Close'));
   }
 
   refreshPanel() {
@@ -2602,7 +2630,7 @@ export class HUD {
         h('div', h('b', w.name || 'World'), h('div.faint', w.wid === 'solo' ? 'Solo world — only you live here' : `World with friends${w.owner === this.user.uid ? ' · you host it' : ''}`))),
       isPrivate && w.code ? h('div.row', { style: { flexWrap: 'wrap' } }, h('span.faint', 'Invite code'), h('span.chip', { style: { fontFamily: 'var(--num)', letterSpacing: '3px', userSelect: 'text' } }, w.code), h('span.faint', 'or invite friends in the Friends tab')) : null,
       h('div.row', { style: { flexWrap: 'wrap' } },
-        h('button.btn.sm', { onclick: () => this.onSwitchWorld?.() }, '🌍 Switch world'),
+        h('button.btn.sm', { onclick: () => this.onSwitchWorld?.() }, 'Leave'),
         mp ? h(`button.btn.sm${this.game.state.pvp ? '.danger' : ''}`, {
           title: 'When you both have this on, your blows land on each other. It can only be changed out of a fight.',
           onclick: () => {
@@ -3000,63 +3028,89 @@ export class HUD {
     return wrap;
   }
 
+  /**
+   * Settings: the whole screen, with a tab for each kind of setting - General, Controls, Layout (where everything
+   * sits on screen), Sound and Graphics - so nothing is buried at the bottom of one long list.
+   */
   settingsPanel() {
     const g = this.game;
-    const body = h('div.side-body');
-    const saveBtn = h('button.btn.primary', {
-      onclick: async () => {
-        saveBtn.disabled = true;
-        try { await this.onSave(); this.hint('Village saved to the cloud ☁', 1500); } catch (e) { this.hint(`Save failed: ${e.message}`, 3000); }
-        saveBtn.disabled = false;
-        this.refreshPanel();
-      },
-    }, '☁ Save now');
-    const item = (ic, label, onclick) => h('button.set-item', { onclick }, h('span.set-icon', ic), h('span', label), h('span.set-arrow', '›'));
-    const danger = h('details.set-danger',
-      h('summary', 'Danger zone'),
-      h('div.faint', 'Abandoning deletes this village forever and three new humans start over.'),
-      h('button.btn.danger.sm', { onclick: async () => { if (await confirmModal('Abandon village?', 'Your village will be lost forever and three new humans will start over.', { okLabel: 'Abandon', okClass: 'danger' })) this.onRestart(); } }, 'Abandon village'));
-    const install = installButton('button.set-item');
-    body.append(
-      h('div.set-card',
-        h('div.user-pill', avatar(g.state.owner.name, 38),
-          h('div', h('div', { style: { fontWeight: 700 } }, g.state.owner.name), h('div.faint', `${g.state.owner.villageName} · founded ${new Date(g.state.createdAt).toLocaleDateString()}`))),
-        h('div.row', saveBtn, h('span.faint', this.lastSavedAt ? `Last saved ${timeAgo(this.lastSavedAt)}` : 'Autosaves every 30s'))),
-      h('div.set-list',
-        item('👤', 'My profile', () => this.showProfile({ uid: this.user.uid, name: this.username })),
-        item('🌍', 'Switch world', () => this.onSwitchWorld?.()),
-        item('🎓', 'Play the tutorial', () => { this.quest?.restart(); this.closePanel(); }),
-        install,
-        item('✥', 'Move controls (layout)', () => { this.closePanel(); setTimeout(() => openLayoutEditor(), 250); }),
-        item('🚪', 'Sign out', this.onSignOut)),
-      h('h3', 'Notices'),
-      this.noticeRow(),
-      h('h3', 'Gameplay'),
-      h('label.set-toggle', h('input', { type: 'checkbox', checked: quickCraft(), onchange: e => setQuickCraft(e.target.checked) }), h('span', 'Quick craft: skip the minigames for tools and potions')),
-      h('h3', 'Effects'),
-      (() => {
-        const now = () => { try { return localStorage.getItem('hb-quality') || 'auto'; } catch { return 'auto'; } };
-        const row = h('div.row', { style: { flexWrap: 'wrap', gap: '5px' } });
-        const draw = () => row.replaceChildren(
-          ...[['auto', 'Automatic'], ['high', 'Everything'], ['low', 'Keep it smooth']].map(([v, label]) =>
-            h(`button.btn.sm${now() === v ? '.primary' : ''}`, {
-              title: v === 'auto' ? 'Switches the extras off by itself when the game starts to stutter' : v === 'high' ? 'Weather, sparks and glows, always' : 'No weather and fewer sparks, for older phones',
-              onclick: () => { try { localStorage.setItem('hb-quality', v); } catch {} draw(); },
-            }, label)),
-          h('span.faint', { style: { alignSelf: 'center' } }, this.renderer?.lowFx ? 'now: smooth' : 'now: everything'));
-        draw();
-        return row;
-      })(),
-      h('h3', 'Sound'),
-      this.soundSliders(),
-      h('h3', 'Controls'),
-      this.controlsSettings(),
-      h('h3', 'Version'),
-      this.versionRow(),
-      danger);
-    // the install entry gets the same look as the other rows
-    install.replaceChildren(h('span.set-icon', '📲'), h('span', 'Install app'), h('span.set-arrow', '›'));
-    return [this.head('items/save', 'Save & Settings'), body];
+    const tab = this.setTab || 'general';
+    const TABS = [['general', 'General'], ['controls', 'Controls'], ['layout', 'Layout'], ['sound', 'Sound'], ['graphics', 'Graphics']];
+    const tabs = h('div.set-tabs', ...TABS.map(([id, label]) => h(`button.set-tab${tab === id ? '.on' : ''}`, { onclick: () => { this.setTab = id; this.refreshPanel(); } }, label)));
+    const body = h('div.side-body.set-body');
+    const item = (label, onclick, cls = '') => h(`button.set-item${cls}`, { onclick }, h('span', label), h('span.set-arrow', '›'));
+    const choice = (key, def, opts, after) => {
+      const now = () => { try { return localStorage.getItem(key) || def; } catch { return def; } };
+      const row = h('div.set-seg');
+      const draw = () => row.replaceChildren(...opts.map(([v, label, tip]) => h(`button.btn.sm${now() === v ? '.primary' : ''}`, {
+        title: tip || '', onclick: () => { try { localStorage.setItem(key, v); } catch { /* private window */ } draw(); after?.(v); },
+      }, label)));
+      draw();
+      return row;
+    };
+    const line = (label, control, note) => h('div.set-line', h('div.set-line-text', h('b', label), note ? h('span.faint', note) : null), control);
+
+    if (tab === 'general') {
+      const saveBtn = h('button.btn.primary.sm', {
+        onclick: async () => {
+          saveBtn.disabled = true;
+          try { await this.onSave(); this.hint('Saved to the cloud', 1500); } catch (e) { this.hint(`Save failed: ${e.message}`, 3000); }
+          saveBtn.disabled = false;
+          this.refreshPanel();
+        },
+      }, 'Save now');
+      const install = installButton('button.set-item');
+      install.replaceChildren(h('span', 'Install app'), h('span.set-arrow', '›'));
+      const danger = h('details.set-danger',
+        h('summary', 'Danger zone'),
+        h('div.faint', 'Abandoning deletes this world forever and you start over.'),
+        h('button.btn.danger.sm', { onclick: async () => { if (await confirmModal('Abandon world?', 'This world will be lost forever and you will start over.', { okLabel: 'Abandon', okClass: 'danger' })) this.onRestart(); } }, 'Abandon world'));
+      body.append(
+        h('div.set-card',
+          h('div.user-pill', avatar(g.state.owner.name, 38),
+            h('div', h('div', { style: { fontWeight: 700 } }, g.state.owner.name), h('div.faint', `${g.state.owner.villageName} · started ${new Date(g.state.createdAt).toLocaleDateString()}`))),
+          h('div.row', saveBtn, h('span.faint', this.lastSavedAt ? `Last saved ${timeAgo(this.lastSavedAt)}` : 'Saves by itself every 30s'))),
+        h('div.set-list',
+          item('My profile', () => this.showProfile({ uid: this.user.uid, name: this.username })),
+          item('Play the tutorial', () => { this.quest?.restart(); this.closePanel(); }),
+          install,
+          item('Leave to the menu', () => this.onSwitchWorld?.(), '.set-leave')),
+        h('h3', 'Gameplay'),
+        h('label.set-toggle', h('input', { type: 'checkbox', checked: quickCraft(), onchange: e => setQuickCraft(e.target.checked) }), h('span', 'Quick craft: skip the minigames for tools and potions')),
+        h('h3', 'Notices'),
+        this.noticeRow(),
+        h('h3', 'Version'),
+        this.versionRow(),
+        h('div.set-list', item('Sign out', this.onSignOut)),
+        danger);
+    } else if (tab === 'controls') {
+      const touch = matchMedia('(pointer: coarse)').matches;
+      body.append(
+        touch ? h('h3', 'Touch') : null,
+        touch ? h('div.set-list', item('Move and resize the stick and buttons', () => { this.closePanel(); setTimeout(() => openLayoutEditor(), 250); })) : null,
+        h('h3', touch ? 'Keys, with a keyboard' : 'Keys'), this.controlsSettings());
+    } else if (tab === 'layout') {
+      const moved = orient => { try { return Object.keys(JSON.parse(localStorage.getItem(`hb-layout-${orient}`) || '{}')).length; } catch { return 0; } };
+      const sideways = innerWidth > innerHeight;
+      body.append(
+        h('h3', 'Where things sit'),
+        h('div.faint', 'Drag the stick, the buttons, the hotbar, your health, the resources and the minimap wherever you like, and make them bigger or smaller. Sideways and upright screens each keep their own layout.'),
+        h('div.set-list', item('Move and resize controls', () => { this.closePanel(); setTimeout(() => openLayoutEditor(), 250); })),
+        line('Sideways layout', h('button.btn.sm', { disabled: !moved('land'), onclick: () => { resetLayout('land'); this.refreshPanel(); this.hint('Sideways layout reset', 1500); } }, 'Reset'),
+          `${moved('land') ? `${moved('land')} moved` : 'The default'}${sideways ? ' · this screen' : ''}`),
+        line('Upright layout', h('button.btn.sm', { disabled: !moved('port'), onclick: () => { resetLayout('port'); this.refreshPanel(); this.hint('Upright layout reset', 1500); } }, 'Reset'),
+          `${moved('port') ? `${moved('port')} moved` : 'The default'}${sideways ? '' : ' · this screen'}`));
+    } else if (tab === 'sound') {
+      body.append(h('h3', 'Volume'), this.soundSliders());
+    } else if (tab === 'graphics') {
+      body.append(
+        h('h3', 'Effects'),
+        line('Weather, sparks and glows', choice('hb-quality', 'auto', [['auto', 'Automatic', 'Switches the extras off by itself when the game starts to stutter'], ['high', 'Everything'], ['low', 'Smooth', 'No weather and fewer sparks, for older phones']]),
+          this.renderer?.lowFx ? 'Now: smooth' : 'Now: everything'),
+        h('h3', 'Pictures'),
+        line('Art', choice('hb-art', 'auto', [['auto', 'Automatic'], ['hi', 'Sharp'], ['lo', 'Fast']], () => location.reload()), 'Reloads the game'));
+    }
+    return [this.head('items/save', 'Settings'), tabs, body];
   }
 
   /** Settings → Controls: click a key to change it (keys that clash swap), or reset them all. */
@@ -3131,7 +3185,9 @@ export class HUD {
    * Settings shows 1 after an update until you open it (what is new is in there). Checked a few times a second.
    */
   updateBadges() {
+    let total = 0;
     const set = (btn, n) => {
+      if (btn !== this.els.dockToggle) total += n || 0;
       if (!btn) return;
       let b = btn.querySelector(':scope > .badge');
       const text = n > 99 ? '99+' : String(n);
@@ -3147,6 +3203,7 @@ export class HUD {
     let seen = null;
     try { seen = localStorage.getItem('hb-seen-version'); } catch { /* private window */ }
     set(this.els.dock.settings, seen && seen !== BUILD.version ? 1 : 0);
+    set(this.els.dockToggle, total);   // the corner button adds up everything waiting behind it
     if (!seen) try { localStorage.setItem('hb-seen-version', BUILD.version); } catch { /* first visit: nothing is new yet */ }
   }
 

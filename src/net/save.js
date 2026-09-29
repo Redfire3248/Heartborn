@@ -174,7 +174,14 @@ export async function writeProfile(user, g) {
 
 /** The characters this account has earned (private: only you and admins can read it). */
 export async function loadAccountChars(uid) {
-  try { const snap = await getDoc(doc(db, 'private', uid)); return (snap.exists() && snap.data().chars) || {}; } catch { return {}; }
+  return (await loadAccountRecord(uid)).chars || {};
+}
+/** Everything the account keeps across worlds: the characters earned and the race (with its slots and stones). */
+export async function loadAccountRecord(uid) {
+  try { const snap = await getDoc(doc(db, 'private', uid)); return snap.exists() ? snap.data() : {}; } catch { return {}; }
+}
+export async function saveAccountRaceCloud(uid, race) {
+  await setDoc(doc(db, 'private', uid), { race }, { merge: true });
 }
 export async function saveAccountChars(uid, chars) {
   await setDoc(doc(db, 'private', uid), { chars }, { merge: true });

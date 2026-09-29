@@ -1,6 +1,4 @@
 import { h, icon, avatar, modal, timeAgo, confirmModal } from './dom.js';
-import { BASES, lastBase, lookFor } from '../game/races.js';
-import { hasCharacter } from '../game/characters.js';
 import { ERAS } from '../data/buildings.js';
 import * as social from '../net/social.js';
 
@@ -13,25 +11,6 @@ const ui = () => document.getElementById('ui');
 // ------------------------------------------------------------------ world picker
 
 /** Resolves with { world, name, kind, seed, importOld } once the player picks (or makes) a world. */
-/**
- * Who you are before you pick a world. There are two people in the game and every race is a version of one of
- * them, so this is the one choice that outlives a world: it is remembered and every new world starts with it.
- */
-function basePicker() {
-  const wrap = h('div.wp-base');
-  const draw = () => {
-    const now = lastBase();
-    wrap.replaceChildren(
-      h('span.wp-base-cap', 'Character'),
-      ...BASES.filter(b => hasCharacter(b.id)).map(b => h(`button.wp-base-btn${now === b.id ? '.on' : ''}`, {
-        title: `${b.name} — ${b.desc}`,
-        onclick: () => { try { localStorage.setItem('hb_base', b.id); } catch { /* private window */ } draw(); },
-      }, icon(`races/${lookFor('human', b.id)}`, 34), h('span', b.name))));
-  };
-  draw();
-  return wrap;
-}
-
 export function worldPicker({ user, username, lastWorld = null, listWorldSaves, deleteWorldSave, oldVillage }) {
   return new Promise(resolve => {
     const unsubs = [];
@@ -41,9 +20,8 @@ export function worldPicker({ user, username, lastWorld = null, listWorldSaves, 
     const root = h('div.screen.world-picker',
       h('div.card.wp',
         h('div.wp-head', icon('buildings/castle', 40),
-          h('div', h('h2', 'Worlds'), h('div.faint', `Playing as ${username} · every world is different, with its own land, monsters, loot and save`)),
+          h('div', h('h2', 'Worlds')),
           h('div.spacer'),
-          basePicker(),
           h('button.btn.sm.ghost.back-btn', { onclick: () => { for (const u of unsubs) u(); root.remove(); resolve({ back: true }); } }, '← Back')),
         h('div.wp-body', h('div.col', body, err), side)));
     ui().append(root);

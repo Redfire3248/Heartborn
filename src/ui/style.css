@@ -740,7 +740,7 @@ ul.effects li.warn { color: #ffb4a8; }
 /* settings: one tidy list instead of scattered buttons */
 .set-card { display: flex; flex-direction: column; gap: 10px; padding: 10px; border-radius: 12px; background: rgba(0, 0, 0, .22); border: 1px solid rgba(255, 255, 255, .05); }
 .set-list { display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: rgba(0, 0, 0, .2); }
-.set-item { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; border: 0; border-bottom: 1px solid rgba(255, 255, 255, .05); background: transparent; color: var(--text); text-align: left; cursor: pointer; font-size: 14.5px; }
+.set-item { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; border: 0; border-bottom: 1px solid rgba(255, 255, 255, .05); background: transparent; color: var(--text); text-align: left; cursor: pointer; font-size: 14.5px; }
 .set-item:last-child { border-bottom: 0; }
 .set-item:hover { background: rgba(255, 255, 255, .05); }
 .set-icon { font-size: 17px; text-align: center; }
@@ -3637,19 +3637,9 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .mm-news { font-size: 12px; color: rgba(255,241,214,.75); line-height: 1.4; }
 .mm-news ul { margin: 4px 0 0; padding-left: 18px; }
 
-/* sideways phone: the same, smaller */
-@media (max-height: 560px) {
-  .screen.main-menu { gap: 14px; padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left)); grid-template-columns: minmax(210px, 32%) 1fr; }
-  .mm-logo { font-size: 32px; letter-spacing: 4px; }
-  .mm-tag { font-size: 10.5px; margin-bottom: 8px; }
-  .mm-item { height: 32px; font-size: 16px; }
-  .mm-hero { width: 150px; height: 170px; } .mm-hero img { width: 150px !important; height: 150px !important; }
-  .mm-card { padding: 12px; gap: 7px; }
-  .mm-title { font-size: 17px; }
-  .mm-play-btn { height: 42px; font-size: 19px !important; }
-  .mm-chars { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
-  .mm-char { padding: 5px 2px; } .mm-char img { width: 44px !important; height: 44px !important; }
-}
+/* sideways phone: the laptop menu itself, shrunk to fit (see mainMenu.js fit()) */
+.screen.main-menu.mm-scaled { inset: auto; left: 0; top: 0; height: 720px; transform-origin: 0 0; }
+.screen.main-menu.mm-scaled .mm-shade { position: absolute; }
 /* upright phone: the menu on top, the page underneath */
 @media (max-width: 640px) and (min-height: 561px) {
   .screen.main-menu { grid-template-columns: 1fr; grid-template-rows: auto 1fr; overflow-y: auto; }
@@ -3663,3 +3653,73 @@ body.dragging-item, body.dragging-item * { cursor: grabbing !important; }
 .mm-shade { z-index: 0 !important; }
 .mm-left, .mm-panel { position: relative; z-index: 1; }
 .rr-bases { flex-wrap: wrap; justify-content: center; max-width: 92%; }
+
+/* menu buttons come alive under the pointer like PLAY: they brighten and glow, an arrow slides in, and a band of light sweeps across */
+.mm-item { position: relative; overflow: hidden; transition: color .15s, background .2s, border-color .2s, box-shadow .2s, padding-left .18s ease-out; }
+.mm-item::after { content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 45%; background: linear-gradient(100deg, transparent, rgba(255,230,160,.35), transparent); transform: skewX(-18deg); opacity: 0; pointer-events: none; }
+.mm-item:hover, .mm-item:focus-visible { color: #ffe08a; padding-left: 12px; border-color: rgba(255,207,90,.45); background: linear-gradient(90deg, rgba(255,190,90,.18), rgba(255,190,90,0)); box-shadow: 0 0 16px rgba(255,160,60,.18); text-shadow: 0 0 10px rgba(255,190,90,.55); }
+.mm-item:hover::after, .mm-item:focus-visible::after { opacity: 1; animation: mm-sweep .7s ease-out; }
+.mm-item:hover .mm-arrow::before { content: "\25B8"; }
+.mm-item.on .mm-arrow::before { content: none; }
+@keyframes mm-sweep { from { left: -60%; } to { left: 120%; } }
+.mm-play-btn { position: relative; overflow: hidden; }
+.mm-play-btn::after { content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.45), transparent); transform: skewX(-18deg); pointer-events: none; }
+.mm-play-btn:hover::after { animation: mm-sweep .7s ease-out; }
+
+/* nothing stays lit: the frame, glow and arrow show only under the pointer (the page you are on just shows on the right) */
+.mm-item.on { color: rgba(255,241,214,.78); border-color: transparent; background: transparent; }
+.mm-item.on:hover, .mm-item.on:focus-visible { color: #ffe08a; border-color: rgba(255,207,90,.45); background: linear-gradient(90deg, rgba(255,190,90,.18), rgba(255,190,90,0)); }
+.mm-item.on:hover .mm-arrow::before { content: "\25B8"; }
+
+/* ------------------------------------------------------------------ Settings, full screen with tabs */
+html body #ui .side.side-full { position: fixed !important; inset: 0 !important; left: 0 !important; top: 0 !important; right: 0 !important; bottom: 0 !important; width: auto !important; height: auto !important; max-height: none !important; transform: none !important; border-radius: 0 !important; z-index: 360 !important; background: rgba(12,8,16,.97) !important; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); box-sizing: border-box; animation: setFade .15s ease-out !important; }
+@keyframes setFade { from { opacity: 0; } to { opacity: 1; } }
+html body #ui .side.side-full .side-head { max-width: 760px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+html body #ui .side.side-full .panel-x { display: none !important; }
+html body #ui .side.side-full .panel-back { display: inline-flex !important; }
+.set-tabs { display: flex; gap: 6px; max-width: 760px; width: 100%; margin: 0 auto; padding: 0 14px 8px; box-sizing: border-box; overflow-x: auto; scrollbar-width: none; flex-shrink: 0; border-bottom: 1px solid rgba(255,207,90,.2); }
+.set-tab { flex: 1 0 auto; height: 34px; padding: 0 14px; border-radius: 9px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); color: rgba(255,241,214,.75); font-family: var(--num); font-size: 15px; letter-spacing: 1px; cursor: pointer; }
+.set-tab:hover { color: #ffe08a; border-color: rgba(255,207,90,.4); }
+.set-tab.on { color: #ffe08a; border-color: rgba(255,207,90,.7); background: linear-gradient(180deg, rgba(255,190,90,.22), rgba(255,190,90,.06)); }
+html body #ui .side.side-full .set-body { max-width: 760px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.set-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.04); }
+.set-line-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.set-line-text .faint { font-size: 12px; }
+.set-seg { display: flex; gap: 5px; flex-wrap: wrap; }
+.set-item.set-leave { color: #ffb08a; }
+@media (max-height: 560px) {
+  .set-tab { height: 30px; font-size: 13.5px; padding: 0 10px; }
+  html body #ui .side.side-full .side-head { padding-top: 6px; padding-bottom: 6px; }
+}
+
+/* ------------------------------------------------------------------ the corner menu
+   Build, World, Settings, Bag, Chat and Admin no longer sit on screen: one small button in the top-left corner
+   opens them, next to itself. */
+.dock-toggle { position: fixed; left: calc(env(safe-area-inset-left) + 8px); top: calc(env(safe-area-inset-top) + 8px); z-index: 13; width: 44px; height: 44px; padding: 0; border-radius: 11px; border: 1px solid rgba(255,207,90,.45); background: linear-gradient(180deg, #3a2a4c, #271c34); box-shadow: 0 3px 0 #0b0712; display: grid; place-items: center; cursor: pointer; }
+.dock-toggle:hover, .dock-toggle.on { border-color: #ffcf5a; background: linear-gradient(180deg, #5a3a2a, #3a2420); }
+.dock-bars { display: flex; flex-direction: column; gap: 4px; width: 20px; }
+.dock-bars i { display: block; height: 3px; border-radius: 2px; background: #ffe6c0; transition: transform .15s, opacity .15s; }
+.dock-toggle.on .dock-bars i:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.dock-toggle.on .dock-bars i:nth-child(2) { opacity: 0; }
+.dock-toggle.on .dock-bars i:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+.dock-toggle .badge { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 99px; background: var(--bad); border: 2px solid #fff; color: #fff; font-size: 10.5px; font-weight: 700; display: grid; place-items: center; }
+#ui .topbar { left: calc(env(safe-area-inset-left) + 60px) !important; transform: none !important; }
+
+#ui .dock:not(.dock-open) { display: none !important; }
+html body #ui .dock.dock-open { position: fixed !important; left: var(--dock-x, 8px) !important; right: var(--dock-r, auto) !important; top: var(--dock-y, 58px) !important; bottom: var(--dock-b, auto) !important; transform: none !important; width: auto !important; height: auto !important; max-height: calc(100vh - 70px); overflow-y: auto; display: grid !important; grid-template-columns: repeat(3, 66px); gap: 6px !important; padding: 8px !important; margin: 0 !important; z-index: 355 !important; border-radius: 14px !important; animation: dockPop .14s ease-out; }
+@keyframes dockPop { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+html body #ui .dock.dock-open button { position: relative; width: 66px !important; height: 60px !important; flex: none !important; padding: 4px 2px !important; display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 11px !important; transform: none !important; }
+html body #ui .dock.dock-open button img, html body #ui .dock.dock-open button .px-icon { width: 28px !important; height: 28px !important; }
+html body #ui .dock.dock-open .dock-label { display: block !important; font-size: 11px; line-height: 1; color: var(--dim); white-space: nowrap; }
+html body #ui .dock.dock-open button.on .dock-label { color: var(--gold); }
+html body #ui .dock.dock-open hr, html body #ui .dock.dock-open .tip { display: none !important; }
+@media (max-height: 560px) {
+  .dock-toggle { width: 38px; height: 38px; left: calc(env(safe-area-inset-left) + 6px); top: calc(env(safe-area-inset-top) + 4px); }
+  #ui .topbar { left: calc(env(safe-area-inset-left) + 50px) !important; }
+  html body #ui .dock.dock-open { grid-template-columns: repeat(3, 60px); }
+  html body #ui .dock.dock-open button { width: 60px !important; height: 54px !important; }
+}
+@media (pointer: coarse), (max-width: 820px) {
+  :root { --dock-h: 0px !important; --ui-floor: calc(var(--hot-h) + env(safe-area-inset-bottom)) !important; }
+}
+html body #ui .dock.dock-open button .badge { position: absolute; top: -5px !important; right: -5px !important; min-width: 18px !important; height: 18px !important; padding: 0 4px !important; font-size: 11px !important; line-height: 18px; display: grid !important; place-items: center; border-radius: 99px; background: var(--bad); color: #fff; font-weight: 700; }

@@ -1,6 +1,18 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'A new main menu, one race everywhere, and characters to earn',
+    changes: [
+      'After you sign in, the game plays behind a new menu: Play, Worlds, Character, Race, Friends, Settings and Account. On a sideways phone it is the computer menu, just smaller',
+      'Your race, race slots and Race Stones now belong to your account: the same in every world, and stones found in any world stack together. Roll from the Race page in the menu or in game',
+      'Eight new characters - Nia, Bram, Luna, Zed, Sable, Ivy, Rook and Kai - each earned through an achievement, every one drawn in every race',
+      'In game, Build, World, Settings, Bag and Chat sit behind one small menu button in the corner; its badge adds up everything waiting',
+      'Settings fills the screen with tabs: General, Controls, Layout (move and resize every control, or reset them), Sound and Graphics',
+      'Switch world is now Leave, which saves and takes you back to the menu',
+      'Starting a brand new world could fail with an error: fixed',
+    ],
+  },
+  {
     title: 'A fresh start for everyone',
     changes: [
       'Every world, server, save and leaderboard entry from before today is cleared away: everyone starts a new world from scratch, on the game as it is now. Your username and account stay',
