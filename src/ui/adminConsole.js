@@ -80,6 +80,7 @@ const EXAMPLES = {
   god: [['god', 'toggle invincibility'], ['god off', 'turn it off']],
   level: [['level 20', 'level 20 with the points for it'], ['level 50 0', 'level 50, no extra points']],
   potions: [['potions 10', 'carry 10 health potions']],
+  boat: [['boat', 'a random boat, rolled like the Crafting Table'], ['boat sloop', 'a sloop'], ['boat cutter', 'the rarest: a corsair cutter']],
   tp: [['tp cursor', 'to where your mouse points'], ['tp cave', 'to a dungeon entrance'], ['tp boss', 'in a dungeon: straight to the boss (opens the door)'], ['tp 40 60', 'to tile 40, 60']],
   kill: [['kill', 'monsters within 12 tiles (with loot)'], ['kill all', 'every monster'], ['kill all noloot', 'remove them without drops']],
   chest: [['chest', 'a chest at your cursor'], ['chest boss 3', 'three boss chests']],
@@ -1544,6 +1545,17 @@ const COMMANDS = {
       if (this.hud) this.hud._hotbarKey = null;
       this.game.emit('change');
       this.print(`✓ +${add} potions (${r.potions} now)`, 'ok');
+    },
+  },
+  boat: {
+    usage: 'boat [raft|rowboat|skiff|longboat|sloop|cog|galley|cutter]', desc: 'Give yourself a boat (random with no type), then walk up to water to ride it',
+    async run([type]) {
+      const S = await import('../game/sailing.js');
+      if (type && !S.BOATS[type]) { this.print(`No such boat. Try: ${Object.keys(S.BOATS).join(', ')}`, 'err'); return; }
+      let boat;
+      if (type) { const d = S.BOATS[type]; boat = { id: `s${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`, type, hull: d.hull, name: `${d.name} ${S.fleetOf(this.game).filter(b => b.type === type).length + 1}` }; S.fleetOf(this.game).push(boat); this.game.emit('change'); }
+      else boat = S.rollBoat(this.game);
+      this.print(`✓ ${boat.name} is yours: walk up to the water to ride it`, 'ok');
     },
   },
   tp: {

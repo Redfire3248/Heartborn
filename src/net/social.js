@@ -1,5 +1,5 @@
 import { beforeReset } from '../core/constants.js';
-import { ref, get, set, update, remove, onValue, push, serverTimestamp, onDisconnect } from 'firebase/database';
+import { ref, get, set, update, remove, onValue, push, serverTimestamp, onDisconnect, query, orderByChild, equalTo } from 'firebase/database';
 import { doc, getDoc } from 'firebase/firestore';
 import { rtdb, db } from './firebase.js';
 import { usernameKey } from './save.js';
@@ -9,7 +9,7 @@ import { usernameKey } from './save.js';
  *
  * profiles/{uid}                 public profile: name, joinedAt, stats
  * friends/{uid}/{other}          'out' (I asked) | 'in' (they asked) | 'friend'
- * worlds/{wid}                   { name, owner, ownerName, code, createdAt }
+ * worlds/{wid}                   { name, owner, ownerName, code, createdAt, public }   public: listed for anyone to join
  * worldMembers/{wid}/{uid}       true
  * worldInvites/{uid}/{wid}       { name, from, fromName, ts }
  * worldCodes/{CODE}              wid
@@ -81,18 +81,30 @@ export async function removeFriend(me, otherUid) {
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const newCode = () => Array.from({ length: 6 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
 
-export async function createWorld(me, meName, name) {
+export async function createWorld(me, meName, name, { isPublic = false } = {}) {
   name = name.trim().slice(0, 28);
   if (name.length < 3) throw new Error('World name needs at least 3 letters');
   const wid = push(ref(rtdb, 'worlds')).key;
   const code = newCode();
   const seed = Math.floor(Math.random() * 2 ** 31);   // everyone on the server gets the same kind of world
-  await set(ref(rtdb, `worlds/${wid}`), { name, owner: me, ownerName: meName, code, seed, createdAt: Date.now(), status: 'open' });
+  await set(ref(rtdb, `worlds/${wid}`), { name, owner: me, ownerName: meName, code, seed, createdAt: Date.now(), status: 'open', public: !!isPublic });
   await update(ref(rtdb), {
     [`worldMembers/${wid}/${me}`]: true,
     [`worldCodes/${code}`]: wid,
   });
   return { wid, name, code, seed, owner: me, status: 'open' };
+}
+
+/** Public servers: listed on the Multiplayer page, and anyone can join one without a code. Newest first. */
+export async function listPublicWorlds(limit = 30) {
+  const snap = await get(query(ref(rtdb, 'worlds'), orderByChild('public'), equalTo(true)));
+  return Object.entries(snap.val() || {}).map(([wid, w]) => ({ wid, ...w })).filter(w => !beforeReset(w.createdAt) && w.status !== 'closed')
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, limit);
+}
+
+/** The owner opens their server to everyone, or makes it invite-and-code only again. */
+export async function setWorldPublic(wid, on) {
+  await update(ref(rtdb, `worlds/${wid}`), { public: !!on });
 }
 
 export async function getWorld(wid) {

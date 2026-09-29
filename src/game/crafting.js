@@ -3,6 +3,7 @@ import { luckOf, lucky } from './loot.js';
 import { CATALOG, RARITY, BLADE_SPECIALS, makeGear, takeGear, rpgOf, slotOf, questProgress } from './rpg.js';
 import { TOOLS, TOOL_KINDS, giveTool } from './tools.js';
 import { CONSUMABLES, giveItem } from './consumables.js';
+import { rollBoat } from './sailing.js';
 
 /*
  * Crafting: turn wood, stone, coal, iron, gold, gems and food into tools, weapons, armour and potions.
@@ -101,6 +102,8 @@ for (const [key, c] of Object.entries(CONSUMABLES)) RECIPES.push({ id: `item:${k
 
 RECIPES.push({ id: 'potion:health', cat: 'potions', name: 'Health Potion', icon: 'gear/health_potion', cost: { food: 25 }, makes: { potion: 1 }, desc: 'Heals 45% of your health (E to drink)' });
 RECIPES.push({ id: 'potion:health5', cat: 'potions', name: '5 Health Potions', icon: 'gear/health_potion', cost: { food: 110 }, makes: { potion: 5 }, desc: 'A batch of five, a little cheaper' });
+
+RECIPES.push({ id: 'boat:random', cat: 'tools', name: 'Boat', icon: 'boats2/rowboat', cost: { wood: 40 }, makes: { boat: true }, desc: 'Lash one together and see what you get: mostly rafts and rowboats, now and then a sloop, and very rarely a corsair cutter. Walk up to water to ride it' });
 
 export const CRAFT_CATS = [['tools', 'Tools'], ['weapons', 'Weapons'], ['armour', 'Armour & Shields'], ['potions', 'Potions & Items']];
 
@@ -203,6 +206,10 @@ export function craft(g, id, hero = null, { score = 0.5 } = {}) {
   } else if (m.item) {
     extra = lucky(g, 0.2) ? 1 : 0;
     giveItem(g, m.item, 1 + extra);
+  } else if (m.boat) {
+    const boat = rollBoat(g, luckOf(g) + score);   // a good craft and good luck lean towards the rare ones
+    made = boat.name.replace(/ \d+$/, '');
+    item = { boat };
   }
   const r = rpgOf(g);
   r.crafted = (r.crafted || 0) + 1;

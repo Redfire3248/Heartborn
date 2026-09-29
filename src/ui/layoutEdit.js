@@ -2,7 +2,7 @@
  * Screen layout editor: drag the on-screen controls (stick, buttons, hotbar, health...) wherever you like and resize them.
  * Saved on this device, separately for upright (portrait) and sideways (landscape) screens.
  */
-import { h } from './dom.js';
+import { h, icon } from './dom.js';
 
 /** What can be moved. Each is found by its selector; missing or hidden ones are skipped. */
 export const LAYOUT_ITEMS = [
@@ -181,4 +181,31 @@ export function openLayoutEditor(onClose) {
   addEventListener('resize', onResize);
   document.getElementById('ui').append(wrap);
   refresh();
+}
+
+/**
+ * The layout editor from the main menu, where there is no game on screen: a darkened stand-in of the game screen
+ * is put up - the stick, the buttons, the hotbar, your health, the resources, the menu button and the minimap, in
+ * the same places the game puts them - so you can see what you are moving. It goes away when you press Done.
+ */
+export function openLayoutPreview(onClose) {
+  const ui = document.getElementById('ui');
+  const hearts = Array.from({ length: 10 }, (_, i) => h(`i.mock-heart${i < 7 ? '.on' : ''}`));
+  const mock = h('div.layout-mock',
+    h('div.layout-mock-shade'),
+    h('div.topbar', h('div.card.mock-card', 'Gold 0 · Wood 15 · Stone 10')),
+    h('button.dock-toggle', h('span.dock-bars', h('i'), h('i'), h('i'))),
+    h('div.card.minimap', h('div.mock-map')),
+    h('div.vitals-strip', ...hearts),
+    h('div.hero-pad',
+      h('div.hero-stick', h('div.hero-knob')),
+      h('button.hero-act', icon('items/sword', 40), h('span', 'ATTACK')),
+      h('button.hero-dash', h('span', 'DASH')),
+      h('button.hero-block', icon('items/shield', 32), h('span', 'BLOCK')),
+      h('button.hero-potion', icon('gear/health_potion', 30)),
+      h('button.hero-lock', h('i.mock-lock'))),
+    h('div.hotbar-wrap', h('div.hotbar', ...Array.from({ length: 9 }, () => h('button.hot-slot.empty')))));
+  ui.append(mock);
+  watchLayout();
+  requestAnimationFrame(() => openLayoutEditor(() => { mock.remove(); onClose?.(); }));
 }

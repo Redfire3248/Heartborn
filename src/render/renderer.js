@@ -595,7 +595,7 @@ export class Renderer {
     ctx.restore();
     if (d > 4) {
       ctx.save();
-      ctx.font = 'bold 8px "Pixelify Sans", sans-serif'; ctx.textAlign = 'center';
+      ctx.font = 'bold 8px "Pixelify Sans", "Pixelify Sans", sans-serif'; ctx.textAlign = 'center';
       const tx = v.x + Math.cos(a) * (r + 12), ty = v.y - TILE * 0.3 + Math.sin(a) * (r + 12) + 3;
       ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.strokeText(`${Math.round(d)}`, tx, ty);
       ctx.fillStyle = '#fff'; ctx.fillText(`${Math.round(d)}`, tx, ty);
@@ -636,7 +636,7 @@ export class Renderer {
     if (h.combo > 1 && since < 1.1) {
       ctx.save();
       ctx.globalAlpha = Math.max(0, 1 - since / 1.1);
-      ctx.font = 'bold 11px "Pixelify Sans", sans-serif'; ctx.textAlign = 'center';
+      ctx.font = 'bold 11px "Pixelify Sans", "Pixelify Sans", sans-serif'; ctx.textAlign = 'center';
       const txt = h.combo >= 3 ? 'FINISH!' : `x${h.combo}`;
       ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.85)';
       ctx.strokeText(txt, v.x + 22, v.y - TILE * 1.5);
@@ -791,7 +791,7 @@ export class Renderer {
     const { ctx } = this;
     const hero = g.hero && g.state.villagers.find(v => v.id === g.hero.id);
     if (hero && Math.hypot(hero.x - e.x, hero.y - e.y) < TILE * 4) {
-      ctx.font = 'bold 7px system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.font = 'bold 7px system-ui, "Pixelify Sans", sans-serif'; ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillText('Dungeon: strike to enter', e.x + 0.6, e.y - S * 0.95 + 0.6);
       ctx.fillStyle = '#ffd76a'; ctx.fillText('Dungeon: strike to enter', e.x, e.y - S * 0.95);
     }
@@ -997,11 +997,11 @@ export class Renderer {
       const hero = g.state.villagers.find(v => v.id === g.hero.id);
       const door = doorOf(g, b);
       if (hero && Math.hypot(hero.x - door.x, hero.y - door.y) < TILE * 2.2) {
-        ctx.font = 'bold 7px system-ui, sans-serif'; ctx.textAlign = 'center';
+        ctx.font = 'bold 7px system-ui, "Pixelify Sans", sans-serif'; ctx.textAlign = 'center';
         ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillText('Walk in to enter', door.x + 0.6, door.y + 9.6);
         ctx.fillStyle = '#ffd76a'; ctx.fillText('Walk in to enter', door.x, door.y + 9);
         const by = `Built by ${builderOf(g, b)}`;
-        ctx.font = '6px system-ui, sans-serif';
+        ctx.font = '6px system-ui, "Pixelify Sans", sans-serif';
         ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillText(by, door.x + 0.5, door.y + 17.5);
         ctx.fillStyle = '#f0e6d0'; ctx.fillText(by, door.x, door.y + 17);
         ctx.fillStyle = 'rgba(255,215,106,0.35)';
@@ -1246,7 +1246,7 @@ export class Renderer {
       if (c.lvl && !def.boss && this.camera.zoom > 1.2) {   // how tough it is, next to you
         const mine = g.state.rpg?.level || 1;
         ctx.save();
-        ctx.font = 'bold 7px "Pixelify Sans", sans-serif'; ctx.textAlign = 'center';
+        ctx.font = 'bold 7px "Pixelify Sans", "Pixelify Sans", sans-serif'; ctx.textAlign = 'center';
         ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(0,0,0,.85)';
         const txt = `Lv ${c.lvl}`;
         const y = c.y - size + offsetY - (hp < max ? 8 : 4);
@@ -1296,7 +1296,7 @@ export class Renderer {
     if (c._windup > 0) {   // winding up a blow: a red warning, time to dodge or block
       const k = 0.5 + 0.5 * Math.sin(this.time * 30);
       ctx.fillStyle = `rgba(255,60,40,${0.6 + k * 0.4})`;
-      ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
+      ctx.font = 'bold 14px "Pixelify Sans", sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('!', c.x, c.y - size + offsetY - 8);
     }
     if (c.elite && !c.bounty) {   // Elite: a golden ring and its title
@@ -1448,7 +1448,7 @@ export class Renderer {
       this.drawShip(`boats/${o.type}`, o.x, o.y, o.a, TILE * (1.5 + (BOATS[o.type]?.guns || 1) * 0.12));
       bar(ctx, o.x - 16, o.y - TILE * 1.1, 32, (o.hull || 0) / (o.max || 1), '#ff9a4a');
       ctx.save();
-      ctx.font = '600 9px Rubik, sans-serif';
+      ctx.font = '600 9px Rubik, "Pixelify Sans", sans-serif';
       ctx.textAlign = 'center';
       ctx.lineWidth = 3;
       ctx.strokeStyle = 'rgba(10, 8, 16, .9)';
@@ -1480,7 +1480,7 @@ export class Renderer {
       bar(ctx, m.x - 15, m.y - size * 0.55, 30, m.hull / m.max, def.boss ? '#ff4d6d' : '#ff9a4a');
       if (def.boss) {
         ctx.save();
-        ctx.font = '700 9px Rubik, sans-serif';
+        ctx.font = '700 9px Rubik, "Pixelify Sans", sans-serif';
         ctx.textAlign = 'center';
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(10, 8, 16, .9)';
@@ -1586,7 +1586,7 @@ export class Renderer {
     const { ctx } = this;
     const t = performance.now();
     const W = this.canvas.width / this.dpr, H = this.canvas.height / this.dpr;
-    ctx.font = '600 11px Rubik, "Segoe UI", sans-serif';
+    ctx.font = '600 11px Rubik, "Segoe UI", "Pixelify Sans", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     let drawn = 0;
@@ -1770,7 +1770,7 @@ export class Renderer {
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = 'bold 11px sans-serif';
+    ctx.font = 'bold 11px "Pixelify Sans", sans-serif';
     for (const gr of groups.values()) {
       const a = gr.a / gr.n;
       const dx = Math.cos(a), dy = Math.sin(a);
@@ -1799,7 +1799,7 @@ export class Renderer {
 
   drawFloaters(g, ox, oy, s) {
     const { ctx } = this;
-    ctx.font = '600 13px Rubik, "Segoe UI", sans-serif';
+    ctx.font = '600 13px Rubik, "Segoe UI", "Pixelify Sans", sans-serif';
     ctx.textAlign = 'center';
     ctx.lineJoin = 'round';
     for (const f of g.fx.floaters) {

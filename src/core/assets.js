@@ -187,7 +187,7 @@ function placeholder(key) {
   else {
     ctx.beginPath(); ctx.roundRect(8, 8, 48, 48, 8); ctx.fill();
     ctx.strokeStyle = '#1b1622'; ctx.lineWidth = 3; ctx.stroke();
-    ctx.fillStyle = '#1b1622'; ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#1b1622'; ctx.font = 'bold 22px "Pixelify Sans", sans-serif'; ctx.textAlign = 'center';
     ctx.fillText(name[0].toUpperCase(), 32, 40);
   }
   return c;

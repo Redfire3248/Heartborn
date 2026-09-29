@@ -39,7 +39,7 @@ const CAPPED = ['food', 'wood', 'stone', 'coal', 'iron', 'weapons', 'bombs'];
  * (5:00 to 20:00) takes 82% of the day and the night only 18%, so days feel long and nights are short.
  * The day starts at midnight, as before, so nothing that counts days changes.
  */
-const DAY_SHARE = 0.82, NIGHT_SHARE = 1 - DAY_SHARE;
+const DAY_SHARE = 0.7, NIGHT_SHARE = 1 - DAY_SHARE;
 const EARLY = NIGHT_SHARE * 5 / 9, LATE = NIGHT_SHARE * 4 / 9;   // the night's two ends: midnight to 5, and 20 to midnight
 /** Fraction of the day (0..1) to the hour on the clock (0..24). */
 export function hourAt(f) {

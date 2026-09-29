@@ -586,7 +586,7 @@ export class HouseEditor {
       ctx.strokeStyle = 'rgba(255,215,106,0.7)'; ctx.lineWidth = 1.5;
       ctx.beginPath(); [P(x, y + 1), P(x + 1, y + 1), P(x + 1, y)].forEach(([a, b2], i) => (i ? ctx.lineTo(a, b2) : ctx.moveTo(a, b2))); ctx.stroke();
       const c = iso(x + 0.5, y + 0.5);
-      ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,215,106,0.85)';
+      ctx.font = '11px system-ui, "Pixelify Sans", sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,215,106,0.85)';
       ctx.fillText(name, c.x, c.y + 4);
     }
     ctx.strokeStyle = 'rgba(40,25,15,0.25)'; ctx.lineWidth = 1;
@@ -785,7 +785,7 @@ export class HouseEditor {
     const top = iso(box.x + box.w / 2, box.y + box.d / 2);
     const hint = this.mode === 'remove' ? ' (click to remove)' : this.mode === 'use' ? (BEDS.has(it.type) ? ' (sleep)' : FURNITURE[it.type]?.station ? ' (craft)' : it.type === 'stairs' ? ' (go up)' : it.type === 'landing' ? ' (go down)' : it.store ? ' (open)' : '') : '';
     const text = def.name + hint;
-    ctx.font = 'bold 13px system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.font = 'bold 13px system-ui, "Pixelify Sans", sans-serif'; ctx.textAlign = 'center';
     const tw = ctx.measureText(text).width;
     const ty = top.y - box.h - 22 - (it._lift || 0);
     ctx.fillStyle = 'rgba(20,14,28,0.85)'; ctx.fillRect(top.x - tw / 2 - 6, ty - 13, tw + 12, 19);

@@ -225,7 +225,10 @@
       ".read": "auth != null",
       "$wid": {
         ".write": "auth != null && ((!data.exists() && newData.child('owner').val() === auth.uid) || data.child('owner').val() === auth.uid || (auth != null && root.child('admins').child(auth.uid).val() === true))"
-      }
+      },
+      ".indexOn": [
+        "public"
+      ]
     },
     "worldMembers": {
       "$wid": {

@@ -57,6 +57,52 @@ export function buildBoat(g, type) {
   return { ok: true, boat };
 }
 
+/**
+ * Boats from the Crafting Table: you lash one together and see what you get. Most come out rafts and rowboats;
+ * now and then a longboat or a sloop, and very rarely a war galley or a corsair cutter.
+ */
+export const BOAT_ODDS = { raft: 40, rowboat: 28, skiff: 16, longboat: 8, sloop: 5, cog: 2, galley: 0.7, cutter: 0.3 };
+export function rollBoat(g, luck = 0) {
+  const weights = Object.entries(BOAT_ODDS).map(([k, w], i) => [k, w * (1 + luck * i * 0.15)]);   // luck tilts it towards the rare ones
+  let r = Math.random() * weights.reduce((n, [, w]) => n + w, 0), type = 'raft';
+  for (const [k, w] of weights) { r -= w; if (r <= 0) { type = k; break; } }
+  const def = BOATS[type];
+  const boat = { id: `s${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`, type, hull: def.hull, name: `${def.name} ${fleetOf(g).filter(b => b.type === type).length + 1}` };
+  fleetOf(g).push(boat);
+  g.emit('change');
+  return boat;
+}
+
+/** The best boat you have that can go out now (toughest and fastest first), or null. */
+export const bestBoat = g => [...shipsInPort(g)].sort((a, b) => (BOATS[b.type].hull * BOATS[b.type].speed) - (BOATS[a.type].hull * BOATS[a.type].speed))[0] || null;
+
+/** Open water right beside a spot on land (within reach of someone standing on the shore), or null. */
+export function waterBeside(g, x, y, reach = 1.6) {
+  const cx = x / TILE, cy = y / TILE;
+  let best = null, bd = Infinity;
+  for (let ty = Math.floor(cy - reach - 1); ty <= Math.ceil(cy + reach); ty++) for (let tx = Math.floor(cx - reach - 1); tx <= Math.ceil(cx + reach); tx++) {
+    if (!g.world.isWater(tx, ty)) continue;
+    const d = Math.hypot(tx + 0.5 - cx, ty + 0.5 - cy);
+    if (d <= reach + 0.5 && d < bd) { bd = d; best = { tx, ty }; }
+  }
+  if (!best) return null;
+  let ax = 0, ay = 0;   // face away from the shore, out to where the water is
+  for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) if ((dx || dy) && g.world.isWater(best.tx + dx, best.ty + dy)) { ax += dx; ay += dy; }
+  return { x: (best.tx + 0.5) * TILE, y: (best.ty + 0.5) * TILE, angle: Math.atan2(ay, ax) };
+}
+
+/** Dry land close to a boat, to step off onto, or null when the shore is too far. */
+function landBeside(g, x, y, reach = 3) {
+  const cx = x / TILE, cy = y / TILE;
+  let best = null, bd = Infinity;
+  for (let ty = Math.floor(cy - reach); ty <= Math.ceil(cy + reach); ty++) for (let tx = Math.floor(cx - reach); tx <= Math.ceil(cx + reach); tx++) {
+    if (g.world.isWater(tx, ty) || !g.world.walkableTile(tx, ty)) continue;
+    const d = Math.hypot(tx + 0.5 - cx, ty + 0.5 - cy);
+    if (d < bd) { bd = d; best = { x: (tx + 0.5) * TILE, y: (ty + 0.5) * TILE }; }
+  }
+  return best;
+}
+
 /** The water tile next to the shipyard where boats set out. */
 function launchSpot(g) {
   const yard = g.builtBuildings().find(b => b.type === 'shipyard');
@@ -78,16 +124,17 @@ function launchSpot(g) {
   return { x: (best.tx + 0.5) * TILE, y: (best.ty + 0.5) * TILE, angle: Math.atan2(ay, ax) };
 }
 
-export function setSail(g, boatId) {
+export function setSail(g, boatId, from = null) {   // from: a spot on the shore to push off from, instead of the shipyard
   if (g.sail) return { error: 'Already at sea' };
   const boat = fleetOf(g).find(b => b.id === boatId);
   if (!boat) return { error: 'No such boat' };
   if (boat.hull <= 0) return { error: 'This boat needs repairs' };
   if (boat.awayUntil > Date.now()) return { error: 'This boat is away carrying an invasion' };
-  const spot = launchSpot(g);
-  if (!spot) return { error: 'The shipyard has no open water' };
+  const spot = from ? waterBeside(g, from.x, from.y) : launchSpot(g);
+  if (!spot) return { error: from ? 'Walk right up to the water first' : 'The shipyard has no open water' };
+  const heroId = g.hero?.id || null;
   g.hero = null;   // the ruler goes aboard
-  g.sail = { boatId, type: boat.type, x: spot.x, y: spot.y, angle: spot.angle, speed: 0, reload: 0, shots: [], monsters: [], loot: [], nextRiseAt: 14, time: 0, sunk: 0, gold: 0, wake: [], others: new Map(), seats: [], seatReload: [] };
+  g.sail = { boatId, type: boat.type, x: spot.x, y: spot.y, angle: spot.angle, speed: 0, reload: 0, shots: [], monsters: [], loot: [], nextRiseAt: 14, time: 0, sunk: 0, gold: 0, wake: [], others: new Map(), seats: [], seatReload: [], heroId };
   g.log(`The ${boat.name} sets sail!`, 'event');
   g.emit('change');
   return { ok: true };
@@ -99,6 +146,10 @@ export function returnToPort(g) {
   const boat = fleetOf(g).find(b => b.id === s.boatId);
   g.log(`The ${boat?.name || 'boat'} returns to port${s.sunk ? ` after sinking ${s.sunk} ship${s.sunk === 1 ? '' : 's'}` : ''}${s.gold ? ` with ${s.gold} gold of treasure` : ''}.`, 'good');
   if (s.arena) g.seaNet?.leave();
+  // step ashore wherever the boat has come in, if there is land close by; far out, you are rowed back home
+  const land = !s.arena && landBeside(g, s.x, s.y);
+  const v = land && s.heroId && g.state.villagers.find(x => x.id === s.heroId);
+  if (v) { v.x = land.x; v.y = land.y; v.path = null; v._task = null; }
   g.sail = null;
   g.emit('change');
 }
@@ -221,9 +272,11 @@ export function updateSailing(g, dt, controls = {}) {
   s.speed += (target - s.speed) * Math.min(1, dt * 1.6);
   s.angle += (controls.turn || 0) * dt * (1.2 + Math.abs(s.speed) / top);
   const nx = s.x + Math.cos(s.angle) * s.speed * dt, ny = s.y + Math.sin(s.angle) * s.speed * dt;
-  if (waterAt(g, nx, ny) && nx > TILE && ny > TILE && nx < (MAP_W - 1) * TILE && ny < (MAP_H - 1) * TILE) { s.x = nx; s.y = ny; }
+  // the world's own size: worlds grew past the old fixed map, and boats were walled in at its old edge
+  const mw = seaWorld(g).w || MAP_W, mh = seaWorld(g).h || MAP_H;
+  if (waterAt(g, nx, ny) && nx > TILE && ny > TILE && nx < (mw - 1) * TILE && ny < (mh - 1) * TILE) { s.x = nx; s.y = ny; }
   else { s.speed *= -0.3; s.bump = 0.3; }   // ran aground: bounce off the shore
-  s.atEdge = s.x < TILE * 3 || s.y < TILE * 3 || s.x > (MAP_W - 3) * TILE || s.y > (MAP_H - 3) * TILE;
+  s.atEdge = s.x < TILE * 3 || s.y < TILE * 3 || s.x > (mw - 3) * TILE || s.y > (mh - 3) * TILE;
   if (Math.abs(s.speed) > TILE && chance(dt * 12)) s.wake.push({ x: s.x - Math.cos(s.angle) * TILE * 0.6, y: s.y - Math.sin(s.angle) * TILE * 0.6, life: 1.2 });
   for (const w of s.wake) w.life -= dt;
   s.wake = s.wake.filter(w => w.life > 0);

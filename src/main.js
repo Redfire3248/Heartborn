@@ -85,7 +85,7 @@ function startDemo() {
   state.soloHero = true;
   state.villagers = [];
   state.buildings = [];
-  state.time = DAY_LENGTH * dayFractionOf(18);   // golden evening
+  state.time = DAY_LENGTH * dayFractionOf(17);   // late afternoon, and it stays there
   state.nextEventAt = Infinity;
   app.demo = new Game(state);
   app.demo.offline = true;          // no logs/events on the title screen
@@ -144,7 +144,10 @@ function showMenu(user, loginScreen) {
   loginScreen.hide();
   if (app.menu) { app.menu.setUsername(app.username); app.menu.show(); return; }
   app.menu = mainMenu({
-    user, username: app.username, listWorldSaves,
+    user, username: app.username, listWorldSaves, deleteWorldSave,
+    // the key bindings and volume settings, the very same ones the game's Settings shows
+    controls: () => HUD.prototype.controlsSettings.call({ hint() {} }),
+    sound: () => HUD.prototype.soundSliders.call({}),
     onPlay: async choice => {
       try { await enterGame(app.user, choice); } catch (e) { console.warn(e); app.menu?.show(); }
     },
@@ -452,6 +455,7 @@ function loop(now) {
     }
   } else if (app.demo) {
     app.demo.update(dt);
+    app.demo.state.time = DAY_LENGTH * dayFractionOf(17);   // the world behind the menu stays in the afternoon light: it never turns to night
     const c = app.demo.state.center;
     const t = now / 1000;
     renderer.camera.x = c.x + Math.cos(t * 0.05) * TILE * 6;

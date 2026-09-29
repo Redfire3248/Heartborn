@@ -70,7 +70,7 @@ import { computeBridges, bridgeAt } from '../game/bridges.js';
 import { talentLabel, fullName, EGO_PROUD } from '../game/talents.js';
 import { SPELLS, canCast, castSpell } from '../game/magic.js';
 import { UPGRADES, MAX_LEVEL, PER_LEVEL, jobLevel, upgradeCost, upgradeJob, OFFICE_UPGRADES, officeLevel, officeUpgradeCost, upgradeOffice } from '../game/upgrades.js';
-import { BOATS, fleetOf, buildBoat, setSail, returnToPort, repairBoat, updateSailing, fire, RELOAD, seaLift, enterOpenSea, boatArt } from '../game/sailing.js';
+import { BOATS, fleetOf, buildBoat, setSail, returnToPort, repairBoat, updateSailing, fire, RELOAD, seaLift, enterOpenSea, boatArt, waterBeside, bestBoat } from '../game/sailing.js';
 import { TOPICS, talkTo } from '../game/talk.js';
 import { activeGoals, claimGoal, rewardText, goalsLeftInEra } from '../game/goals.js';
 import { findAt, collectFind } from '../game/finds.js';
@@ -381,6 +381,7 @@ export class HUD {
       const c = this.renderer.camera;
       if (g.sail) { c.x += (g.sail.x - c.x) * Math.min(1, dt * 4); c.y += (g.sail.y - c.y) * Math.min(1, dt * 4); }
     }
+    this.updateBoatPrompt(dt);
     // the person you control: your avatar at home, or your visitor / spy in another land
     const abroad = this.visiting && this.abroad?.land?.hero ? this.abroad : null;
     const hg = abroad ? abroad.land : this.dungeon && !this.visiting ? this.dungeon : !this.visiting ? g : null;
@@ -510,6 +511,11 @@ export class HUD {
     if (k === 'enter' && this.mp && !this.game.sail) { this.openChat(); return; }
     if (is(k, 'map')) { openIslandMap(this); return; }
     if (k === 'escape' && this.visiting) { this.onReturnHome(); return; }
+    // Esc: shut whatever is open (a window, a panel, the menu), and with nothing open, open the menu
+    if (k === 'escape' && !this.game.sail && !this.buildType && !this.demolishMode && !this.game.selected && !document.querySelector('#ui .modal-bg, #ui .layout-edit')) {
+      if (this.panel) this.closePanel(); else this.setDock(!this.dockOpen);
+      return;
+    }
     if (is(k, 'inventory')) { this.inventory(); return; }
     if (is(k, 'backpack') && !this.game.sail) { if (!this.useStation()) openBackpack(this); return; }
     if ((k === '`' || k === '~') && !this.game.sail) { this.inventory(); return; }   // the bag of loose things sits on the tilde key
@@ -880,12 +886,54 @@ export class HUD {
   useStation() {
     const g = this.game, v = heroOf(g);
     if (this.dungeon || this.visiting || !v) return false;
-    if (!(atTable(g, v) || atEnchantTable(g, v) || atStall(g, v))) return false;
+    if (!(atTable(g, v) || atEnchantTable(g, v) || atStall(g, v))) {
+      if (this._boatReady) { this.rideBoat(); return true; }   // at the water's edge, E pushes off
+      return false;
+    }
     const st = nearestStation(g, v);
     if (st?.type === 'market_stall') openShop(this);
     else if (st?.type === 'enchanting_table' || (!st && atEnchantTable(g, v) && !atTable(g, v))) openEnchantMenu(this);
     else this.openTable();
     return true;
+  }
+
+  /**
+   * At the water's edge: a button to push off in your best boat (E does it too). With no boat, it says where to
+   * get one. Checked a few times a second, not every frame.
+   */
+  updateBoatPrompt(dt) {
+    if ((this._boatT = (this._boatT || 0) + dt) < 0.25) return;
+    this._boatT = 0;
+    const g = this.game;
+    const v = !this.dungeon && !this.visiting && !this.houseEditor && !g.sail && !g.hero?.inHouse ? heroOf(g) : null;
+    const spot = v && waterBeside(g, v.x, v.y);
+    const boat = spot ? bestBoat(g) : null;
+    this._boatReady = boat ? boat.id : null;
+    let el = this.els.boatPrompt;
+    if (!spot) { if (el) el.hidden = true; return; }
+    if (!el) { el = this.els.boatPrompt = h('button.boat-prompt', { onclick: () => this.rideBoat() }); this.root.append(el); }
+    el.hidden = false;
+    const key = boat ? `${boat.id}` : 'none';
+    if (el.dataset.k === key) return;
+    el.dataset.k = key;
+    el.classList.toggle('none', !boat);
+    el.replaceChildren(...[icon(boat ? boatArt(boat.type) : 'boats2/raft', 30),
+      h('span', boat ? `Ride the ${BOATS[boat.type].name}` : 'No boat yet: make one at a Crafting Table'),
+      boat && !TOUCH ? h('kbd', 'E') : null].filter(Boolean));
+  }
+
+  /** Push off from the shore where you stand, in your best boat. */
+  rideBoat() {
+    const g = this.game, v = heroOf(g), boat = bestBoat(g);
+    if (!v) return;
+    if (!boat) { this.hint('Make a boat at a Crafting Table first (wood, and a little luck)', 2500); return; }
+    const r = setSail(g, boat.id, { x: v.x, y: v.y });
+    if (r.error) { this.hint(r.error, 2000); return; }
+    play('ability');
+    this.closePanel();
+    if (this.els.boatPrompt) this.els.boatPrompt.hidden = true;
+    this.renderer.camera.zoom = Math.max(this.renderer.camera.zoom, 1.8);
+    this.hint(TOUCH ? 'Steer with the wheel and fire with the button. Sail up to any shore and tap Go ashore.' : 'W A S D to steer, Space fires. Sail up to any shore and press Esc to go ashore.', 5000);
   }
 
   /** The inventory grid opens above the hotbar: click a thing to put it in the selected slot. */
@@ -1892,18 +1940,12 @@ export class HUD {
     if (this.buildType && !this.root.contains(this.hintEl)) this.hint(TOUCH ? `Placing ${BUILDINGS[this.buildType].name}: tap or drag to build · tap Cancel to stop` : `Placing ${BUILDINGS[this.buildType].name} — click or drag to build · Right-click/Esc to cancel`);
   }
 
-  /** Opens or closes the corner menu, next to wherever its button sits (it can be moved in Settings > Layout). */
+  /** Opens or closes the menu: the corner button or Esc, and it opens in the middle of the screen. */
   setDock(open) {
     const dock = this.els.dockEl, btn = this.els.dockToggle;
     if (!dock || !btn) return;
     this.dockOpen = !!open;
     if (open) {
-      const r = btn.getBoundingClientRect();
-      const below = r.top + r.height / 2 < innerHeight / 2, right = r.left + r.width / 2 < innerWidth / 2;
-      dock.style.setProperty('--dock-x', right ? `${Math.round(r.left)}px` : 'auto');
-      dock.style.setProperty('--dock-r', right ? 'auto' : `${Math.round(innerWidth - r.right)}px`);
-      dock.style.setProperty('--dock-y', below ? `${Math.round(r.bottom + 6)}px` : 'auto');
-      dock.style.setProperty('--dock-b', below ? 'auto' : `${Math.round(innerHeight - r.top + 6)}px`);
       play('click');
     }
     dock.classList.toggle('dock-open', this.dockOpen);
@@ -3584,7 +3626,7 @@ export class HUD {
     const actions = h('div.sail-actions',
       s.atEdge && !s.arena ? h('button.btn.sm.primary', { onclick: () => this.enterSea() }, 'Enter the Open Sea') : null,
       s.atEdge && !s.arena ? h('button.btn.sm', { onclick: () => this.openMap() }, 'World Map') : null,
-      h('button.btn.sm.ghost', { onclick: () => returnToPort(g) }, 'Return to port'));
+      h('button.btn.sm.ghost', { onclick: () => returnToPort(g) }, 'Go ashore'));
     bar2.replaceChildren(status, actions);
     // the helm is built once, so a held wheel or cannon is never interrupted by a status update
     if (!this.els.helm) { this.els.helm = this.buildHelm(); this.root.append(this.els.helm); }

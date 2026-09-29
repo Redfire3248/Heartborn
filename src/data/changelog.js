@@ -1,6 +1,20 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Boats you can ride, Play and Multiplayer, and the pixel font everywhere',
+    changes: [
+      'Boats finally sail: they were walled in at the edge of the old, smaller map, so they could not move at all in today’s bigger worlds',
+      'Walk up to any water with a boat and a Ride button appears (E on a keyboard). Sail up to any shore and Go ashore to step off right there',
+      'Make a boat at the Crafting Table for 40 wood and see what you get: mostly rafts and rowboats, now and then a sloop, and very rarely a corsair cutter',
+      'The menu is now Play (your own worlds, and a new one) and Multiplayer (your servers, invitations, public servers anyone can join, and making or joining one by code)',
+      'Settings in the menu has Controls, Layout, Sound and Graphics. Moving controls shows a dark stand-in of the game screen so you can see where everything goes',
+      'Esc opens and closes the menu in the middle of the screen; the corner button still does too',
+      'The race page says Open. The world behind the menu stays in daylight. Nights are a little longer than before, still shorter than days',
+      'One pixel font for everything, numbers included',
+      'On phones the dungeon map sits small in the top corner instead of over your buttons, and at sea the boat card sits along the top',
+    ],
+  },
+  {
     title: 'A new main menu, one race everywhere, and characters to earn',
     changes: [
       'After you sign in, the game plays behind a new menu: Play, Worlds, Character, Race, Friends, Settings and Account. On a sideways phone it is the computer menu, just smaller',
