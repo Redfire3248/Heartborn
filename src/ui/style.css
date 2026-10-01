@@ -3799,3 +3799,12 @@ html body #ui .dock.dock-open button .badge { top: 50% !important; right: 14px !
   html body #ui .dock.dock-open button img, html body #ui .dock.dock-open button .px-icon { width: 28px !important; height: 28px !important; }
   html body #ui .dock.dock-open .dock-label { font-size: 16px !important; }
 }
+
+/* the card for whatever you tapped (a rock, a tree, a monster): small, so it covers as little of the world as possible */
+html body #ui .inspector { width: 210px !important; padding: 8px 10px !important; gap: 5px !important; font-size: 12px; }
+html body #ui .inspector .portrait { width: 44px !important; height: 44px !important; border-radius: 9px; }
+html body #ui .inspector .portrait img { width: 38px !important; height: 38px !important; }
+html body #ui .inspector .title { font-size: 15px !important; }
+html body #ui .inspector .close { top: 4px !important; right: 4px !important; transform: scale(.8); }
+html body #ui .inspector .chip { font-size: 11px; padding: 1px 7px; }
+.screen.loading { z-index: 500; }

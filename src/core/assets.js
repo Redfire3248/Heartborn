@@ -83,9 +83,14 @@ async function loadOne(key) {
  *   is never downloaded at all.
  */
 const FIRST = key => /^nature\//.test(key);   // the title screen's ground and trees: all it waits for
-const CORE = key => /^(ui|races|items|gear|combat|effects|characters)\//.test(key) && !/^races\/.*_[mf]2$/.test(key);   // fetched while you are on the title screen
+// fetched while you are on the title screen. Not the races and characters (2.7 MB, over half of it): every race in
+// every version of every person, when a world only ever shows a handful - those come the first time one is drawn
+const CORE = key => /^(ui|items|gear|combat|effects)\//.test(key);
 
 let restReady = Promise.resolve();
+let coreDone = 0, coreTotal = 0;
+/** How far the background art download has got: { done, total } (for the loading screen). */
+export const assetProgress = () => ({ done: coreDone, total: coreTotal });
 /** Resolves once every sprite (not just the title-screen ones) has loaded. */
 export const allAssetsReady = () => restReady;
 
@@ -114,7 +119,8 @@ export async function loadAssets(onProgress) {
   const first = wanted.filter(FIRST), core = wanted.filter(k => !FIRST(k) && CORE(k));
   let done = 0;
   await download(first, () => onProgress?.(++done / first.length), 16);
-  restReady = download(core, null, ART_SET === 'lo' ? 6 : 10).then(() => { version++; });   // redraw cached terrain/icons once the core art is in
+  coreTotal = core.length;
+  restReady = download(core, () => { coreDone++; }, ART_SET === 'lo' ? 6 : 10).then(() => { version++; });   // redraw cached terrain/icons once the core art is in
 }
 
 /** Fetches one picture the first time something asks for it. Nothing waits: it simply appears once it arrives. */
@@ -130,6 +136,11 @@ function want(key) {
     if (!img) retryLater(key);
     if (/^(nature|dtiles|dungeon)\//.test(key)) bumpSoon();   // only the ground and dungeon floors are painted into caches; everything else is drawn fresh each frame
   });
+}
+
+/** Fetch these pictures now and resolve once they are in (or have failed): the few a world needs on its first frame. */
+export function preload(keys) {
+  return Promise.all(keys.filter(k => k && AVAILABLE.has(k)).map(k => (images.has(k) ? null : loadOne(k).then(img => { images.set(k, entry(img || placeholder(k))); }))));
 }
 
 /** The address of a picture, fingerprint included, for anything that shows it as an <img>. */

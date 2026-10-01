@@ -420,7 +420,7 @@ export class HUD {
       if (hg === g && !this.houseEditor) {
         const biome = heroBiome(g);
         if (biome && biome !== this._biome) {
-          if (this._biome) this.biomeBanner(biome);
+          // no banner naming the land you walk into (asked for twice): biomeBanner stays, switched off
           questProgress(g, 'explore', { type: biome, v: heroOf(g) });
           this._biome = biome;
         }

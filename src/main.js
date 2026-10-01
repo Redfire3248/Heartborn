@@ -1,11 +1,11 @@
-import { loadAssets, spriteAvailable, allAssetsReady } from './core/assets.js';
+import { loadAssets, spriteAvailable, allAssetsReady, assetProgress, preload } from './core/assets.js';
 import { setPeopleSprites } from './data/objects.js';
 import { setupPWA } from './core/pwa.js';
 import { watchForUpdates, requireLatest } from './core/updateWatch.js';
 import { dayFractionOf } from './game/game.js';
 import { setCharAdmin, onCharacterEarned, mergeCharacters } from './game/characters.js';
 import { mainMenu } from './ui/mainMenu.js';
-import { onAccountRaceChanged, mergeAccountRace } from './game/races.js';
+import { onAccountRaceChanged, mergeAccountRace, lookOf, lookFor, accountRace, lastBase } from './game/races.js';
 import { setupErrorReporting, reportError } from './net/errors.js';
 import { BUILD } from './core/version.js';
 import { setupSound } from './core/sound.js';
@@ -157,12 +157,25 @@ function showMenu(user, loginScreen) {
 
 // ------------------------------------------------------------------ entering the game
 
+/*
+ * Pressing Play. This used to do one network step after another - check the version, wait for every picture,
+ * check for a ban, find the server, load the save - on a blank screen. Now a loading screen goes up at once and
+ * says what is happening, the network steps run side by side, and only the art the first frame needs is waited
+ * for (the rest keeps arriving while you play).
+ */
 async function enterGame(user, picked = null) {   // picked: a world chosen on the menu, straight in; none: the Worlds screen
   if (!user) throw new Error('Please sign in first');
-  await requireLatest();   // an old build never gets into a world: it stops here behind the Reload screen
-  await allAssetsReady();   // usually finished already: the rest of the art loads while you are on the title screen
-  const ban = await getBan(user.uid);
+  let loading = picked ? loadingScreen() : null;
+  const step = (p, label) => loading?.progress(p, label);
+  const patient = (p, ms, fallback = null) => Promise.race([
+    Promise.resolve(p).catch(() => fallback),
+    new Promise(res => setTimeout(() => res(fallback), ms)),
+  ]);
+  step(0.05, 'Checking for updates…');
+  // the version check and the ban check talk to different places: ask both at once
+  const [, ban] = await Promise.all([requireLatest(), patient(getBan(user.uid), 8000)]);
   if (ban) {
+    loading?.remove();
     bannedScreen(ban, async () => { await signOut(); location.reload(); });
     return;
   }
@@ -170,27 +183,29 @@ async function enterGame(user, picked = null) {   // picked: a world chosen on t
   app.menu?.hide();   // the name screen and the Worlds screen stand on their own
 
   if (!app.username) {
+    loading?.remove(); loading = null;
     const name = await chooseUsername(n => claimUsername(user.uid, n), { onBack: () => location.reload() });
     if (!name) return;
     app.username = name;
   }
   ensureProfile(user.uid, app.username).catch(e => console.warn('profile', e));
-  // every step from here talks to the network. None of them may leave you on a blank screen:
-  // if one does not answer, we carry on with what we have.
-  const patient = (p, ms, fallback = null) => Promise.race([
-    Promise.resolve(p).catch(() => fallback),
-    new Promise(res => setTimeout(() => res(fallback), ms)),
-  ]);
   // pick a world (solo worlds and servers each keep their own save), then play in it
   const choice = picked || await worldPicker({ user, username: app.username, lastWorld: lastWorld(user.uid), listWorldSaves, deleteWorldSave, oldVillage });
-  if (choice.back) { app.menu?.show(); return; }   // back to the menu, not a reload
-  document.querySelectorAll('.screen.login, .vignette, .footer-note').forEach(e => e.remove());
-  app.menu?.remove(); app.menu = null;
+  if (choice.back) { loading?.remove(); app.menu?.show(); return; }   // back to the menu, not a reload
+  if (!loading) loading = loadingScreen();
+  step(0.15, `Loading ${choice.name || 'your world'}…`);
   setWorld(choice.world);
-  app.world = choice.kind === 'server' ? (await patient(getWorld(choice.world), 8000)) || { wid: choice.world, name: choice.name } : { wid: choice.world, name: choice.name };
+  // the server's details and your save at the same time; the art keeps downloading underneath
+  const [world, saved] = await Promise.all([
+    choice.kind === 'server' ? patient(getWorld(choice.world), 8000) : null,
+    choice.isNew ? null : patient(loadSave(user.uid), 15000),
+  ]);
+  app.world = world || { wid: choice.world, name: choice.name };
   app.world.kind = choice.kind;
-  let state = choice.isNew ? null : await patient(loadSave(user.uid), 15000);
+  let state = saved;
   if (!state && choice.importOld) state = choice.importOld;   // an old village becomes this world
+  step(0.4, choice.isNew || !state ? 'Shaping the land…' : 'Waking the world…');
+  await new Promise(r => setTimeout(r, 0));   // let the screen show the step before the work below
   if (!state) {
     const seed = choice.seed ?? app.world.seed ?? [...String(choice.world)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
     state = newState({ uid: user.uid, name: app.username, villageName: `${app.username}'s Hearth`, seed });
@@ -206,8 +221,31 @@ async function enterGame(user, picked = null) {   // picked: a world chosen on t
     if (away > 120 && state.villagers.length) summary = game.simulate(away);
   }
 
+  // the art: wait for the menus, items and fighting art (with the bar moving as it comes), but never more than
+  // a few seconds - on a slow connection the rest simply appears as it arrives - plus your own hero picture
+  const artStart = Date.now();
+  const hero = preload([`races/${lookOf(game)}`, `races/${lookFor(accountRace()?.race || 'human', lastBase())}`]);   // the world's, and your account race (which it switches to)
+  await Promise.race([
+    Promise.all([allAssetsReady(), hero]),
+    new Promise(res => {
+      const tick = () => {
+        const { done, total } = assetProgress();
+        step(0.45 + 0.5 * (total ? done / total : 1), total && done < total ? `Unpacking pictures… ${Math.round((done / total) * 100)}%` : 'Almost there…');
+        if (Date.now() - artStart > 6000) res(); else setTimeout(tick, 120);
+      };
+      tick();
+    }),
+  ]);
+  step(1, 'Here we go!');
+
+  document.querySelectorAll('.screen.login, .vignette, .footer-note').forEach(e => e.remove());
+  app.menu?.remove(); app.menu = null;
   rememberWorld(user.uid, { wid: choice.world, name: app.world.name, kind: choice.kind });
   startGame(user, game, { online: choice.kind === 'server' });
+  let gone = false;
+  const lift = () => { if (!gone) { gone = true; loading?.remove(); } };
+  requestAnimationFrame(() => requestAnimationFrame(lift));   // gone once the world has drawn
+  setTimeout(lift, 1500);   // and never later than this, even if the page is not drawing
   setTimeout(() => app.hud?.announce(state.worldName || 'Your world'), 400);   // just its name: a world holds every biome, not one
   if (choice.code) setTimeout(() => app.hud?.hint(`Server created. Share its code: ${choice.code}`, 9000), 900);
   if (summary) offlineSummary(summary);
@@ -469,6 +507,12 @@ function loop(now) {
 if (import.meta.env.DEV) {
   window.__hb = {
     app, renderer,
+    /** The real Play button path (loading screen and all) with a stand-in account: the network steps fail fast and it carries on. */
+    async enter(choice = { world: `solo_${Date.now().toString(36)}`, name: 'Test World', kind: 'solo', isNew: true }) {
+      app.user = { uid: 'dev', displayName: 'Dev Tester', email: 'dev@local', photoURL: '' };
+      app.username = 'Dev';
+      return enterGame(app.user, choice);
+    },
     async startLocal(villageName = 'Test Hearth') {
       document.querySelectorAll('.screen, .vignette, .footer-note').forEach(e => e.remove());
       const user = { uid: 'dev', displayName: 'Dev Tester', email: 'dev@local', photoURL: '' };

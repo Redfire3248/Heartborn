@@ -1,6 +1,16 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Getting into a world is much quicker, with a loading screen',
+    changes: [
+      'Pressing Play shows a loading screen straight away that says what it is doing, instead of a frozen menu',
+      'The checks before a world opens now happen side by side instead of one after another',
+      'The game no longer waits for 2.7 MB of art for every race and every character before letting you in: only your own hero is fetched, the rest come when they first appear. The rest of the art is waited for a few seconds at most',
+      'The card for whatever you tap (a rock, a tree, a monster) is much smaller',
+      'The banner naming the land you walk into is gone again',
+    ],
+  },
+  {
     title: 'Much less lag',
     changes: [
       'Every panel and bar blurred the moving game behind it, redrawn every single frame: that blur is gone (they look the same, they were nearly solid anyway)',
