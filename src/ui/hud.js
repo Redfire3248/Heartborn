@@ -411,7 +411,7 @@ export class HUD {
       this.updateBossBar(hg, dt);
       if (hg._pickSound) { hg._pickSound = false; play('pickup'); }
       { const me = heroOf(hg); const low = !!me && !this.houseEditor && me.hp > 0 && me.hp < (hg.hero.maxHp || 100) * 0.25; if (low !== this._lowHp) { this._lowHp = low; this.root.classList.toggle('low-hp', low); } }
-      if (this.els.abilityBtn && hg.hero) { const left = Math.max(0, (hg.hero.abilityReady || 0) - hg.state.time), max = hg.hero.abilityMax || 1; this.els.abilityBtn.style.setProperty('--cd', String(left / max)); this.els.abilityBtn.classList.toggle('cooling', left > 0); const wpn = rpgOf(hg).gear.weapon; this.els.abilityBtn.hidden = !weaponAbility(wpn); }
+      if (this.els.abilityBtn && hg.hero) { const left = Math.max(0, (hg.hero.abilityReady || 0) - hg.state.time), max = hg.hero.abilityMax || 1; this.els.abilityBtn.style.setProperty('--cd', String(left / max)); this.els.abilityBtn.classList.toggle('cooling', left > 0); const wpn = rpgOf(hg).gear.weapon; const off = !weaponAbility(wpn); if (this.els.abilityBtn.hidden !== off) this.els.abilityBtn.hidden = off; }
       this.updateSkillChip(hg);
       this.updateStreak(hg);
       updateLockOn(hg);

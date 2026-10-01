@@ -3778,3 +3778,11 @@ html body #ui .dock.dock-open button .badge { position: absolute; top: -5px !imp
   html body #ui.at-sea .helm { bottom: calc(env(safe-area-inset-bottom) + 8px) !important; }
 }
 html body #ui.at-sea .vitals-strip, html body #ui.at-sea .hotbar-wrap, html body #ui.at-sea .boat-prompt { display: none !important; }
+
+/* the resource bar is only as long as what you have in it, and grows as you find more kinds of things */
+#ui .topbar { right: auto !important; width: max-content !important; }
+#ui .topbar > .card:first-child { flex: 0 1 auto !important; width: auto !important; }
+
+/* no live blur behind anything, on any screen: every card re-blurred the moving game under it every frame, which
+   is what made computers lag. The cards are nearly solid, so they look the same without it */
+*, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }

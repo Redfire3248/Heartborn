@@ -20,6 +20,9 @@ import { TOOLS } from '../game/tools.js';
 import { CREATURES } from '../data/objects.js';
 import { keyOf, keyLabel } from '../core/controls.js';
 
+/** Only touch `hidden` when it really changes: writing it every frame, even unchanged, makes the browser restyle the page every frame. */
+const setHidden = (el, v) => { if (el.hidden !== v) el.hidden = v; };
+
 const TOUCH = () => matchMedia('(pointer: coarse)').matches;
 const tileSpot = o => ({ x: (o.x + 0.5) * TILE, y: (o.y + 0.5) * TILE });
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -179,7 +182,7 @@ export class HeroTutorial {
 
   drawBanner(step, have, need) {
     const key = `${this.t.step}|${have}|${step.hint(this.g)}`;
-    this.banner.hidden = false;
+    setHidden(this.banner, false);
     if (key === this.key) return;
     this.key = key;
     this.banner.replaceChildren(
@@ -195,18 +198,18 @@ export class HeroTutorial {
 
   /** The world marker: over the target when it is on screen, on the screen's edge pointing at it when it is not. */
   drawTarget(p, v) {
-    if (!p || !v) { this.beacon.hidden = true; this.edge.hidden = true; return; }
+    if (!p || !v) { setHidden(this.beacon, true); setHidden(this.edge, true); return; }
     const r = this.hud.renderer;
     const s = r.worldToScreen(p.x, p.y);
     const W = innerWidth, H = innerHeight, m = 40;
     if (s.x > m && s.x < W - m && s.y > m && s.y < H - m) {
-      this.edge.hidden = true;
-      this.beacon.hidden = false;
+      setHidden(this.edge, true);
+      setHidden(this.beacon, false);
       this.beacon.style.transform = `translate(${Math.round(s.x)}px, ${Math.round(s.y)}px)`;
       return;
     }
-    this.beacon.hidden = true;
-    this.edge.hidden = false;
+    setHidden(this.beacon, true);
+    setHidden(this.edge, false);
     const c = { x: W / 2, y: H / 2 };
     const ang = Math.atan2(s.y - c.y, s.x - c.x);
     // where the line from the middle to the target leaves the screen, kept inside a margin
@@ -219,9 +222,9 @@ export class HeroTutorial {
 
   /** A glowing ring and a bouncing arrow on the button the step wants you to press. */
   drawPointer(el) {
-    if (!el || !el.isConnected || el.getBoundingClientRect().width < 1) { this.pointer.hidden = true; this.clearGlow(); return; }
+    if (!el || !el.isConnected || el.getBoundingClientRect().width < 1) { setHidden(this.pointer, true); this.clearGlow(); return; }
     const b = el.getBoundingClientRect();
-    this.pointer.hidden = false;
+    setHidden(this.pointer, false);
     Object.assign(this.pointer.style, { left: `${b.left - 6}px`, top: `${b.top - 6}px`, width: `${b.width + 12}px`, height: `${b.height + 12}px` });
     // the arrow comes from above, or from below when the button is near the top of the screen
     this.pointer.classList.toggle('below', b.top < 90);
