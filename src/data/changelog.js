@@ -6,6 +6,7 @@ export const CHANGELOG = [
       'Every panel and bar blurred the moving game behind it, redrawn every single frame: that blur is gone (they look the same, they were nearly solid anyway)',
       'Two things on screen were being re-set every frame even when nothing changed, which made the browser restyle the whole page 60 times a second. They only change now when they need to',
       'The resource bar is only as long as what you have, and grows as you find more kinds of things, instead of stretching across the whole top of the screen',
+      'The menu (corner button or Esc) is a bigger list: each menu is a full-width row with its icon and name',
     ],
   },
   {

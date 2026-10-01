@@ -3786,3 +3786,16 @@ html body #ui.at-sea .vitals-strip, html body #ui.at-sea .hotbar-wrap, html body
 /* no live blur behind anything, on any screen: every card re-blurred the moving game under it every frame, which
    is what made computers lag. The cards are nearly solid, so they look the same without it */
 *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+
+/* the menu popup is a list: one full-width row per menu, icon then name, bigger */
+html body #ui .dock.dock-open { display: flex !important; flex-direction: column !important; width: min(360px, calc(100vw - 32px)) !important; gap: 6px !important; padding: 10px !important; }
+html body #ui .dock.dock-open button { width: 100% !important; height: 56px !important; flex-direction: row !important; justify-content: flex-start !important; gap: 14px !important; padding: 0 16px !important; }
+html body #ui .dock.dock-open button img, html body #ui .dock.dock-open button .px-icon { width: 34px !important; height: 34px !important; }
+html body #ui .dock.dock-open .dock-label { font-size: 18px !important; color: var(--text); letter-spacing: .5px; }
+html body #ui .dock.dock-open button .badge { top: 50% !important; right: 14px !important; transform: translateY(-50%); min-width: 22px !important; height: 22px !important; font-size: 12px !important; }
+@media (max-height: 560px) {
+  html body #ui .dock.dock-open { width: min(340px, calc(100vw - 32px)) !important; gap: 4px !important; padding: 8px !important; }
+  html body #ui .dock.dock-open button { height: 44px !important; }
+  html body #ui .dock.dock-open button img, html body #ui .dock.dock-open button .px-icon { width: 28px !important; height: 28px !important; }
+  html body #ui .dock.dock-open .dock-label { font-size: 16px !important; }
+}
