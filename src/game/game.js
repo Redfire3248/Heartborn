@@ -32,6 +32,9 @@ import { ensureProfession, shareHousehold, canDoJob, randomTrade, TRADE_TOOL, gr
 import { dailyPeople, ensureRuler, rulerEffects, carriedLuck } from './dynasty.js';
 import { LAW_CATEGORIES, NO_LAW_EFFECTS, DEFAULT_LAWS, LAW_COST, lawOption } from '../data/laws.js';
 
+/** Placed and ready at once: the stations you use with your own hands, and walls. */
+const INSTANT = new Set(['crafting_table', 'enchanting_table', 'market_stall', 'campfire', 'wall_wood', 'wall_stone', 'gate_wood', 'gate_stone', 'stockpile', 'tent']);
+
 const CAPPED = ['food', 'wood', 'stone', 'coal', 'iron', 'weapons', 'bombs'];
 
 /*
@@ -466,6 +469,9 @@ export class Game {
     const b = { id: `b${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`, type, tx, ty, size: def.size, built: false, progress: 0, builtBy: this.state.owner?.name || null };
     this.state.buildings.push(b);
     this.puff(this.buildingCenter(b), 'effects/dust', 6);
+    // like Minecraft: a table, a campfire, a stall or a stretch of wall is there the moment you put it down;
+    // only real buildings are a site you have to work on
+    if (INSTANT.has(type) || (def.work || 0) <= 6) this.finishBuilding(b);
     this.emit('change');
     return { ok: true, building: b };
   }

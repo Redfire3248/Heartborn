@@ -1,6 +1,20 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Crafting tables that open, buildings everyone sees, and inviting players by name',
+    changes: [
+      'A Crafting Table, Enchanting Table, market stall, campfire, tent or wall is ready the moment you place it. Bigger buildings are still a site you swing at to build',
+      'Stand next to a table or stall and an Open button appears (E on a keyboard), so phones can use them too',
+      'On a server, a building someone has only just started shows as a site for everyone, not as finished; when it is finished, it is finished for everyone',
+      'Buildings no longer vanish for players who join a busy server later, and undoing a building removes it for everyone else too',
+      'Invite anyone to your server by their username, from the World panel in game or the Multiplayer page: no code, no need to be friends',
+      'Invitations pop up straight away wherever you are, on the menu or mid-game, with a Join button',
+      'Public servers list your own public servers too, and the owner can switch a server public or private from the World panel',
+      'The build list is compact: small rows, two to a line, so you can see what there is',
+      'Editing a house keeps the room in view: the buttons are one slim row at the top and the furniture is smaller',
+    ],
+  },
+  {
     title: 'Getting into a world is much quicker, with a loading screen',
     changes: [
       'Pressing Play shows a loading screen straight away that says what it is doing, instead of a frozen menu',

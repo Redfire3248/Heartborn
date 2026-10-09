@@ -1,4 +1,4 @@
-import { watchInvites, declineInvite, joinWorld } from '../net/social.js';
+import { watchInvites, declineInvite, joinWorld, inviteByName, setWorldPublic } from '../net/social.js';
 import { openBackpack } from './backpack.js';
 import { openIslandMap, exploreAround, saveExplored, fogCanvas, addMarker } from './islandMap.js';
 import { PETS } from '../game/pets.js';
@@ -897,6 +897,23 @@ export class HUD {
     return true;
   }
 
+  /** Invite anyone to this server by their username: they get a popup with Join, wherever they are. */
+  inviteRow(w) {
+    const input = h('input.input', { placeholder: 'Invite a player by username', maxLength: 16, onkeydown: e => { e.stopPropagation(); if (e.key === 'Enter') send(); } });
+    const note = h('span.faint.invite-note');
+    const btn = h('button.btn.sm.primary', { onclick: () => send() }, 'Invite');
+    const send = async () => {
+      btn.disabled = true; note.textContent = '';
+      try {
+        const who = await inviteByName({ wid: w.wid, name: w.name }, this.user.uid, this.username || this.game.state.owner.name, input.value);
+        note.textContent = `Invited ${who.name}: they can join from anywhere`;
+        input.value = '';
+      } catch (e) { note.textContent = e.message; }
+      btn.disabled = false;
+    };
+    return h('div.col', { style: { gap: '4px' } }, h('div.row.invite-row', input, btn), note);
+  }
+
   /**
    * At the water's edge: a button to push off in your best boat (E does it too). With no boat, it says where to
    * get one. Checked a few times a second, not every frame.
@@ -906,20 +923,25 @@ export class HUD {
     this._boatT = 0;
     const g = this.game;
     const v = !this.dungeon && !this.visiting && !this.houseEditor && !g.sail && !g.hero?.inHouse ? heroOf(g) : null;
-    const spot = v && waterBeside(g, v.x, v.y);
+    // standing by a table or stall: one button opens it (phones have no E key, so this is how they use one)
+    const st = v ? nearestStation(g, v) : null;
+    const spot = !st && v && waterBeside(g, v.x, v.y);
     const boat = spot ? bestBoat(g) : null;
     this._boatReady = boat ? boat.id : null;
     let el = this.els.boatPrompt;
-    if (!spot) { if (el) el.hidden = true; return; }
-    if (!el) { el = this.els.boatPrompt = h('button.boat-prompt', { onclick: () => this.rideBoat() }); this.root.append(el); }
+    if (!st && !spot) { if (el) el.hidden = true; return; }
+    if (!el) { el = this.els.boatPrompt = h('button.boat-prompt', { onclick: () => (this._promptStation ? this.useStation() : this.rideBoat()) }); this.root.append(el); }
     el.hidden = false;
-    const key = boat ? `${boat.id}` : 'none';
+    this._promptStation = !!st;
+    const key = st ? `st:${st.id}` : boat ? `${boat.id}` : 'none';
     if (el.dataset.k === key) return;
     el.dataset.k = key;
-    el.classList.toggle('none', !boat);
-    el.replaceChildren(...[icon(boat ? boatArt(boat.type) : 'boats2/raft', 30),
-      h('span', boat ? `Ride the ${BOATS[boat.type].name}` : 'No boat yet: make one at a Crafting Table'),
-      boat && !TOUCH ? h('kbd', 'E') : null].filter(Boolean));
+    el.classList.toggle('none', !st && !boat);
+    el.classList.toggle('station', !!st);
+    const name = st ? (BUILDINGS[st.type]?.name || 'Table') : '';
+    el.replaceChildren(...[icon(st ? (BUILDINGS[st.type]?.sprite || 'buildings/crafting_table') : boat ? boatArt(boat.type) : 'boats2/raft', 30),
+      h('span', st ? `Open the ${name}` : boat ? `Ride the ${BOATS[boat.type].name}` : 'No boat yet: make one at a Crafting Table'),
+      (st || boat) && !TOUCH ? h('kbd', 'E') : null].filter(Boolean));
   }
 
   /** Push off from the shore where you stand, in your best boat. */
@@ -1730,13 +1752,14 @@ export class HUD {
     const a = this.undoStack?.pop();
     if (!a) { this.hint('Nothing to undo', 1200); return false; }
     if (a.kind === 'place') {
-      // remove what was placed; unfinished buildings give their full cost back
+      // remove what was placed, with its full cost back (tables and walls are finished the moment they go down,
+      // so "unfinished" no longer means "just placed"); on a server it goes for everyone else too
       let n = 0;
       for (const b of a.buildings) {
         if (!g.state.buildings.includes(b)) continue;
-        const refund = b.built ? 0.4 : 1;
-        for (const [k, v] of Object.entries(BUILDINGS[b.type].cost)) g.state.resources[k] += Math.floor(v * refund);
+        for (const [k, v] of Object.entries(BUILDINGS[b.type].cost)) g.state.resources[k] += v;
         g.state.buildings = g.state.buildings.filter(x => x !== b);
+        if (b.id && !b.theirs) g.netSend?.({ t: 'build-', id: b.id });
         n++;
       }
       g.recalc();
@@ -2232,7 +2255,7 @@ export class HUD {
       }
       if (on('housesOnly')) {   // homes only: every kind, cheapest first
         const homes = Object.entries(BUILDINGS).filter(([type]) => buildingOn(type)).sort(([, a], [, b]) => Object.values(a.cost).reduce((x, y) => x + y, 0) - Object.values(b.cost).reduce((x, y) => x + y, 0));
-        body.append(h('div.faint', 'Place it, then swing at the site to build it.'));
+        body.append(h('div.faint', 'Tables, stalls and walls are ready the moment you place them. Bigger buildings: swing at the site to build them.'));
         body.append(h('div.bgrid', homes.map(([type, def]) => this.buildCard(type, def))));
         return;
       }
@@ -2670,9 +2693,18 @@ export class HUD {
     body.append(h('div.law-cat',
       h('div.row', icon(w.wid === 'solo' ? 'buildings/campfire' : 'buildings/fortress', 28),
         h('div', h('b', w.name || 'World'), h('div.faint', w.wid === 'solo' ? 'Solo world — only you live here' : `World with friends${w.owner === this.user.uid ? ' · you host it' : ''}`))),
-      isPrivate && w.code ? h('div.row', { style: { flexWrap: 'wrap' } }, h('span.faint', 'Invite code'), h('span.chip', { style: { fontFamily: 'var(--num)', letterSpacing: '3px', userSelect: 'text' } }, w.code), h('span.faint', 'or invite friends in the Friends tab')) : null,
+      isPrivate && mp ? this.inviteRow(w) : null,
+      isPrivate && w.code ? h('div.row', { style: { flexWrap: 'wrap' } }, h('span.faint', 'Or share the code'), h('span.chip', { style: { fontFamily: 'var(--num)', letterSpacing: '3px', userSelect: 'text' } }, w.code)) : null,
       h('div.row', { style: { flexWrap: 'wrap' } },
         h('button.btn.sm', { onclick: () => this.onSwitchWorld?.() }, 'Leave'),
+        // the owner can list the server for everyone (or take it off the list)
+        isPrivate && mp && w.owner === this.user.uid ? h(`button.btn.sm${w.public ? '.primary' : ''}`, {
+          title: 'Public servers are listed on the Multiplayer page for anyone to join',
+          onclick: async () => {
+            try { await setWorldPublic(w.wid, !w.public); w.public = !w.public; this.hint(w.public ? 'Public: anyone can find and join it' : 'Private: invites and the code only', 2200); } catch (e) { this.hint(e.message, 2500); }
+            this.refreshPanel();
+          },
+        }, w.public ? 'Public: on' : 'Public: off') : null,
         mp ? h(`button.btn.sm${this.game.state.pvp ? '.danger' : ''}`, {
           title: 'When you both have this on, your blows land on each other. It can only be changed out of a fight.',
           onclick: () => {

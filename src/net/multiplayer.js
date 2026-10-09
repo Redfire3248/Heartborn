@@ -128,7 +128,9 @@ export class Multiplayer {
     // the shared world: every change anyone makes to the island (chopped, mined, paved, built, knocked down)
     if (this.world !== 'realm') {
       hookWorldSync(this.g, e => this.sendEdit(e));
-      const editQ = query(ref(rtdb, `${this.w}edits`), orderByChild('ts'), limitToLast(600));
+      // the whole log (trimming keeps it short, and never drops a building that still stands), so someone
+      // joining late sees every building, not only the ones put up recently
+      const editQ = query(ref(rtdb, `${this.w}edits`), orderByChild('ts'), limitToLast(3000));
       this.unsubs.push(onChildAdded(editQ, snap => {
         const e = snap.val();
         if (!e || e.uid === this.uid) return;         // our own changes already happened here
@@ -1077,11 +1079,14 @@ export class Multiplayer {
   /** Keeps the log from growing for ever: the oldest records go once there are a lot of them. */
   async pruneEdits() {
     try {
-      const snap = await get(query(ref(rtdb, `${this.w}edits`), orderByChild('ts'), limitToLast(1200)));
+      const snap = await get(query(ref(rtdb, `${this.w}edits`), orderByChild('ts'), limitToLast(3000)));
       const all = snap.val() || {};
       const keys = Object.keys(all);
       if (keys.length < 1100) return;
-      const oldest = keys.sort((a, b) => (all[a].ts || 0) - (all[b].ts || 0)).slice(0, keys.length - 800);
+      // buildings that still stand are never trimmed: without their record, anyone joining later would not see them
+      const knocked = new Set(keys.filter(k => all[k].t === 'build-').map(k => all[k].id));
+      const keeps = k => (all[k].t === 'build+' && !knocked.has(all[k].b?.id)) || (all[k].t === 'build=' && !knocked.has(all[k].id));
+      const oldest = keys.filter(k => !keeps(k)).sort((a, b) => (all[a].ts || 0) - (all[b].ts || 0)).slice(0, Math.max(0, keys.length - 800));
       const gone = {};
       for (const k of oldest) gone[k] = null;
       await update(ref(rtdb, `${this.w}edits`), gone);

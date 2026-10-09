@@ -3808,3 +3808,82 @@ html body #ui .inspector .title { font-size: 15px !important; }
 html body #ui .inspector .close { top: 4px !important; right: 4px !important; transform: scale(.8); }
 html body #ui .inspector .chip { font-size: 11px; padding: 1px 7px; }
 .screen.loading { z-index: 500; }
+.boat-prompt.station { border-color: #ffcf5a; background: linear-gradient(180deg, #4a3420, #2e2016); color: #ffe6c0; box-shadow: 0 3px 0 #0b0712, 0 0 16px rgba(255,190,90,.35); }
+
+/* the build list: compact rows, several to a line where there is room, so you see the choices at a glance */
+html body #ui .bgrid { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) !important; gap: 6px !important; }
+html body #ui .bcard { display: flex !important; flex-direction: row !important; align-items: center !important; gap: 8px !important; padding: 5px 8px !important; min-height: 0 !important; height: auto !important; }
+html body #ui .bcard .thumb { width: 42px !important; height: 42px !important; flex: 0 0 42px; padding: 0 !important; }
+html body #ui .bcard .thumb img { width: 38px !important; height: 38px !important; }
+html body #ui .bcard .name { font-size: 13.5px !important; line-height: 1.1; }
+html body #ui .bcard .badges { display: flex; flex-wrap: wrap; gap: 3px !important; margin-top: 2px; }
+html body #ui .bcard .badge-fx, html body #ui .bcard .cost, html body #ui .bcard .chip { font-size: 10.5px !important; padding: 0 5px !important; }
+html body #ui .bcard .badge-fx img, html body #ui .bcard .px-icon { width: 12px !important; height: 12px !important; }
+html body #ui .bcard .desc { display: none; }
+@media (max-height: 560px) {
+  html body #ui .side .side-body > input.input, html body #ui .side .side-body .search { height: 32px !important; font-size: 13px; }
+}
+/* the Crafting Table's slots fit a sideways phone */
+@media (max-height: 560px) {
+  html body #ui .table-modal .table-slots, html body .modal .table-slots { gap: 6px !important; }
+  html body .modal .table-slot { height: 78px !important; min-height: 0 !important; }
+}
+html body #ui .bcard .bcard-main { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; align-items: center !important; gap: 3px 5px !important; min-width: 0; }
+html body #ui .bcard .bcard-main .name { flex: 1 0 100%; }
+html body #ui .bcard .badges, html body #ui .bcard .costs { display: contents !important; }
+@media (max-height: 560px) {
+  html body #ui .side:not(.side-full) .side-head { padding-top: 4px !important; padding-bottom: 4px !important; }
+  html body #ui .side:not(.side-full) .side-head h2 { font-size: 15px !important; }
+  html body #ui .side:not(.side-full) .side-head .faint { display: none; }
+  html body #ui .side:not(.side-full) .side-head .panel-x { width: 30px !important; height: 30px !important; }
+  html body #ui .side:not(.side-full) .side-body { padding: 6px 8px !important; gap: 6px !important; }
+}
+html body #ui .build-search-row { display: flex !important; flex-direction: row !important; align-items: center; gap: 6px !important; flex-wrap: nowrap !important; }
+html body #ui .build-search-row .build-search { flex: 1 1 auto; min-width: 0; height: 34px !important; }
+html body #ui .build-search-row .build-tools { display: flex; gap: 4px; flex: 0 0 auto; }
+
+/* editing a house: the controls along the top and the furniture along the bottom stay slim, so the room shows */
+html body #ui .house-top { flex-direction: row !important; flex-wrap: wrap; align-items: center !important; justify-content: center; gap: 6px 8px !important; padding: 6px 10px !important; }
+html body #ui .house-top > * { margin: 0 !important; }
+html body #ui .house-piece { width: 74px !important; min-width: 74px !important; height: auto !important; min-height: 0 !important; padding: 4px 3px !important; gap: 2px !important; }
+html body #ui .house-piece img { width: 30px !important; height: 30px !important; }
+html body #ui .house-piece .house-piece-cost { flex-direction: row !important; flex-wrap: wrap; justify-content: center; gap: 2px !important; height: auto !important; }
+html body #ui .house-piece .house-piece-cost > * { font-size: 10px !important; padding: 0 4px !important; }
+html body #ui .house-piece > span, html body #ui .house-piece .house-piece-name { font-size: 10.5px !important; line-height: 1.1; }
+html body #ui .house-bottom { padding: 6px 8px !important; gap: 4px !important; }
+html body #ui .house-tab { width: 36px !important; height: 32px !important; padding: 2px !important; }
+html body #ui .house-tab img { width: 22px !important; height: 22px !important; }
+html body #ui .house-search { height: 30px !important; }
+@media (max-height: 560px) {
+  html body #ui .house-top { top: calc(env(safe-area-inset-top) + 4px) !important; max-width: calc(100vw - 16px); padding: 4px 8px !important; }
+  html body #ui .house-top .btn { height: 26px !important; min-height: 0 !important; padding: 0 8px !important; font-size: 11.5px !important; }
+  html body #ui .house-top .btn img { width: 16px !important; height: 16px !important; }
+  html body #ui .house-top .house-title { font-size: 12px; }
+  html body #ui .house-top .house-swatch, html body #ui .house-top [class*="swatch"] { width: 20px !important; height: 20px !important; }
+  html body #ui .house-bottom { bottom: calc(env(safe-area-inset-bottom) + 4px) !important; }
+  html body #ui .house-tabrow { gap: 4px !important; }
+  html body #ui .house-search { width: 140px !important; height: 28px !important; font-size: 12px; }
+}
+html body #ui .house-palette { align-items: flex-start !important; height: auto !important; }
+html body #ui .house-piece .house-piece-cost .chip { gap: 2px !important; font-size: 10px !important; padding: 0 4px !important; height: 16px !important; }
+html body #ui .house-piece .house-piece-cost .chip img { width: 11px !important; height: 11px !important; }
+html body #ui .house-piece .house-piece-name { font-size: 10.5px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+html body #ui .house-top { display: flex !important; flex-wrap: nowrap !important; width: auto !important; max-width: calc(100vw - 16px) !important; }
+html body #ui .house-top .house-floor, html body #ui .house-top .house-builder { display: none !important; }
+html body #ui .house-top .house-modes, html body #ui .house-top .house-designs { display: flex !important; flex-wrap: nowrap; gap: 4px !important; align-items: center; margin: 0 !important; }
+html body #ui .house-top .house-designs button, html body #ui .house-top .house-designs > span:not(:first-child) { width: 20px !important; height: 20px !important; min-width: 0 !important; padding: 0 !important; }
+html body #ui .house-top .house-designs > :first-child { font-size: 11px; }
+
+/* invitation popups: slide in at the top, wherever you are */
+.invite-pops { position: fixed; top: calc(env(safe-area-inset-top) + 10px); left: 50%; transform: translateX(-50%); z-index: 480; display: flex; flex-direction: column; gap: 6px; width: min(460px, calc(100vw - 24px)); pointer-events: none; }
+.invite-pop { pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: 8px 10px !important; border: 1px solid #ffcf5a !important; box-shadow: 0 8px 24px rgba(0,0,0,.55), 0 0 18px rgba(255,190,90,.25) !important; animation: invitePop .22s ease-out; }
+.invite-pop.going { opacity: 0; transform: translateY(-8px); transition: opacity .2s, transform .2s; }
+.invite-pop-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; font-size: 12.5px; }
+.invite-pop-text b { font-size: 14px; color: #ffe6c0; }
+.invite-pop-text span { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.invite-pop-note { color: #ff9d8a !important; }
+@keyframes invitePop { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+.invite-row { display: flex; gap: 6px; flex-wrap: nowrap; } .invite-row .input { flex: 1; min-width: 0; }
+.invite-note:empty { display: none; }
+.mm-col { display: flex; flex-direction: column; gap: 4px; }
+.mm-pick { width: auto; max-width: 140px; height: 32px; }

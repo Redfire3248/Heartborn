@@ -128,6 +128,26 @@ export function mainMenu(opts) {
         msg));
   };
 
+  /** Invite anyone by username to one of your servers: they get a popup with Join, wherever they are. */
+  const inviteBox = servers => {
+    const input = h('input.input', { placeholder: 'Invite a player by username', maxLength: 16 });
+    const pick = servers.length > 1 ? h('select.input.mm-pick', ...servers.map(s => h('option', { value: s.wid }, s.name || 'Server'))) : null;
+    const note = h('span.mm-sub');
+    const btn = h('button.btn.sm.primary', {
+      onclick: async () => {
+        const s = servers.find(x => x.wid === (pick ? pick.value : servers[0].wid));
+        btn.disabled = true; note.textContent = '';
+        try {
+          const who = await social.inviteByName({ wid: s.wid, name: s.name }, user.uid, opts.username || 'Someone', input.value);
+          note.textContent = `Invited ${who.name} to ${s.name}`;
+          input.value = '';
+        } catch (e) { note.textContent = e.message; }
+        btn.disabled = false;
+      },
+    }, 'Invite');
+    return h('div.mm-col', h('div.mm-add', input, pick, btn), note);
+  };
+
   /** Multiplayer: servers only. Yours, invitations, public servers anyone can join, and make or join one. */
   const onlinePage = () => {
     const servers = (saves || []).filter(s => s.kind === 'server');
@@ -145,11 +165,13 @@ export function mainMenu(opts) {
         h('button.btn.sm.primary', { onclick: () => attempt(async () => { await social.joinWorld(user.uid, inv.wid, inv.name); const w = await social.getWorld(inv.wid); opts.onPlay({ world: inv.wid, name: inv.name, kind: 'server', seed: w?.seed }); }) }, 'Join')))) : null,
       h('span.mm-cap', 'Your servers'),
       !saves ? h('span.mm-sub', 'Loading…') : servers.length ? h('div.mm-list', ...servers.slice(0, 6).map(worldRow)) : h('span.mm-sub', 'You are on no servers yet.'),
+      servers.length ? inviteBox(servers) : null,
       h('span.mm-cap', 'Public servers'),
       !publics ? h('span.mm-sub', 'Looking for servers…')
-        : publics.filter(w => !mine.has(w.wid)).length ? h('div.mm-list', ...publics.filter(w => !mine.has(w.wid)).slice(0, 8).map(w => h('div.mm-row',
-          h('div.mm-row-text', h('b', w.name), h('span', `Hosted by ${w.ownerName || 'someone'} · made ${ago(w.createdAt)}`)),
-          h('button.btn.sm.primary', { onclick: () => joinPublic(w) }, 'Join'))))
+        // every public server, yours included (so you can see it is listed for everyone)
+        : publics.length ? h('div.mm-list', ...publics.slice(0, 10).map(w => h('div.mm-row',
+          h('div.mm-row-text', h('b', w.name), h('span', w.owner === user.uid ? `Yours · everyone can see and join it` : `Hosted by ${w.ownerName || 'someone'} · made ${ago(w.createdAt)}`)),
+          h('button.btn.sm.primary', { onclick: () => joinPublic(w) }, mine.has(w.wid) ? 'Play' : 'Join'))))
           : h('span.mm-sub', 'No public servers right now. Make one and anyone can join.'),
       h('span.mm-cap', 'Make a server'),
       h('div.mm-add', sName, h('button.btn.sm.primary', { onclick: () => attempt(async () => {

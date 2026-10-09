@@ -19,7 +19,8 @@ import { getProfile } from './net/save.js';
 import { signInWithGoogle, signInWithEmail, createAccount, resetPassword, signOut, onAuth, adminStatus } from './net/firebase.js';
 import { h, modal } from './ui/dom.js';
 import { loadSave, writeSave, writeProfile, writePrivate, loadAccountChars, loadAccountRecord, saveAccountRaceCloud, saveAccountChars, getBan, clearLocalSave, getUsername, claimUsername, setWorld, currentWorld, listWorldSaves, deleteWorldSave, oldVillage } from './net/save.js';
-import { ensureProfile, updateProfileStats, getWorld, leaveOrCloseWorld, SOLO_WORLD } from './net/social.js';
+import { ensureProfile, updateProfileStats, getWorld, leaveOrCloseWorld, SOLO_WORLD, joinWorld } from './net/social.js';
+import { watchInvitePopups } from './ui/invitePopup.js';
 import { worldPicker } from './ui/social.js';
 import { Multiplayer } from './net/multiplayer.js';
 import { HUD } from './ui/hud.js';
@@ -114,6 +115,9 @@ function showTitle() {
       if (name && app.user?.uid === user.uid) app.username = name;   // never overwrite a name claimed meanwhile
     }
     if (user) syncCharacters(user);
+    // invitations pop up wherever you are, from now until you sign out
+    if (user && app.invitesFor !== user.uid) { app.stopInvites?.(); app.invitesFor = user.uid; app.stopInvites = watchInvitePopups(user.uid, joinInvite); }
+    if (!user) { app.stopInvites?.(); app.stopInvites = null; app.invitesFor = null; }
     if (app.mode !== 'title') return;
     screen.update(user, app.username);
     if (user) showMenu(user, screen);
@@ -139,6 +143,26 @@ async function syncCharacters(user) {
   app.menu?.refresh?.();
 }
 
+/**
+ * Join from an invitation popup. On the menu it goes straight in; in the middle of a world it saves, and the page
+ * reloads straight into the server you were invited to (see showMenu).
+ */
+async function joinInvite(inv) {
+  if (!app.user) throw new Error('Sign in first');
+  await joinWorld(app.user.uid, inv.wid, inv.name);
+  const w = await getWorld(inv.wid);
+  if (!w) throw new Error('That server is gone');
+  const choice = { world: inv.wid, name: w.name || inv.name, kind: 'server', seed: w.seed };
+  if (app.mode === 'playing') {
+    await save(true).catch(() => {});
+    app.mp?.stop();
+    try { sessionStorage.setItem('hb_join', JSON.stringify(choice)); } catch { /* private window: back to the menu instead */ }
+    location.reload();
+    return;
+  }
+  await enterGame(app.user, choice);
+}
+
 /** Signed in: the main menu, over the world playing behind it. */
 function showMenu(user, loginScreen) {
   loginScreen.hide();
@@ -153,6 +177,10 @@ function showMenu(user, loginScreen) {
     },
     onSignOut: async () => { app.menu?.remove(); app.menu = null; await signOut(); },
   });
+  // came here from an invitation while playing somewhere else: straight on into that server
+  let pending = null;
+  try { pending = JSON.parse(sessionStorage.getItem('hb_join') || 'null'); sessionStorage.removeItem('hb_join'); } catch { /* none */ }
+  if (pending?.world) enterGame(app.user, pending).catch(e => { console.warn(e); app.menu?.show(); });
 }
 
 // ------------------------------------------------------------------ entering the game

@@ -35,10 +35,16 @@ export function hookWorldSync(g, send) {
 
   const origPlace = g.placeBuilding.bind(g);
   g.placeBuilding = (type, tx, ty) => {
-    const r = origPlace(type, tx, ty);
-    if (r.ok && r.building) emit({ t: 'build+', b: { id: r.building.id, type, tx, ty, by: g.state.owner?.name || 'Someone' } });
+    g._placing = true;   // a table finished as it is placed goes out once, as built, not twice
+    let r;
+    try { r = origPlace(type, tx, ty); } finally { g._placing = false; }
+    // done: whether it is standing yet (a table is, a hut is a site until someone finishes it)
+    if (r.ok && r.building) emit({ t: 'build+', b: { id: r.building.id, type, tx, ty, by: g.state.owner?.name || 'Someone', done: r.building.built ? 1 : 0 } });
     return r;
   };
+  // a site finished here is finished for everyone (it may have been placed already built: then it was sent so)
+  const origFinish = g.finishBuilding.bind(g);
+  g.finishBuilding = b => { const r = origFinish(b); if (b?.id && !g._placing) emit({ t: 'build=', id: b.id }); return r; };
   const origDemolish = g.demolish.bind(g);
   g.demolish = b => { if (b?.id) emit({ t: 'build-', id: b.id }); return origDemolish(b); };
 }
@@ -68,9 +74,13 @@ export function applyEdit(g, e) {
           const o = w.objectAt(e.b.tx + x, e.b.ty + y);
           if (o) w.removeObject(s.objects, o);
         }
-        s.buildings.push({ id: e.b.id, type: e.b.type, tx: e.b.tx, ty: e.b.ty, size: def.size, built: true, progress: def.work || 0, builtBy: e.b.by || null, theirs: true });
+        const done = e.b.done !== 0;   // records from before sites were shared count as standing
+        s.buildings.push({ id: e.b.id, type: e.b.type, tx: e.b.tx, ty: e.b.ty, size: def.size, built: done, progress: done ? 1 : 0, builtBy: e.b.by || null, theirs: true });
         g.recalc?.();
       }
+    } else if (e.t === 'build=') {
+      const b = s.buildings.find(x => x.id === e.id);
+      if (b && !b.built) { b.built = true; b.progress = 1; g.recalc?.(); }
     } else if (e.t === 'build-') {
       const b = s.buildings.find(x => x.id === e.id);
       if (b) { s.buildings = s.buildings.filter(x => x !== b); g.recalc?.(); }

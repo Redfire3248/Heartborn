@@ -122,6 +122,17 @@ export async function inviteToWorld(world, me, meName, friendUid) {
   await set(ref(rtdb, `worldInvites/${friendUid}/${world.wid}`), { name: world.name, from: me, fromName: meName, ts: Date.now() });
 }
 
+/** Invite anyone to your server by their username: no code, no need to be friends. They get a popup to join. */
+export async function inviteByName(world, me, meName, username) {
+  const name = String(username || '').trim();
+  if (!name) throw new Error('Type their username');
+  const found = await findUserByName(name);
+  if (!found) throw new Error(`Nobody is called ${name}`);
+  if (found.uid === me) throw new Error('That is you');
+  await inviteToWorld(world, me, meName, found.uid);
+  return found;
+}
+
 export async function joinWorld(me, wid, name) {
   await update(ref(rtdb), {
     [`worldMembers/${wid}/${me}`]: true,
