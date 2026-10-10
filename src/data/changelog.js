@@ -1,6 +1,18 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'Easier to find your way around',
+    changes: [
+      'M opens the map now, like most games (World & players moved to P). Changed keys you set yourself stay as they are',
+      'The bag shows your wood, stone, food and gold under Materials, not just rare ores, so it is never just empty boxes',
+      'Tools sit side by side by kind instead of one row each, and the bag fits a sideways phone without cutting off your stats',
+      'Rankings are about heroes now: level, monsters slain, deepest dungeon and richest, with you highlighted',
+      'Player profiles show level, monsters slain, bosses felled, deepest floor and race instead of the old village numbers',
+      'Gone where they did nothing: the Chat button in single-player worlds, the old Realm Map of villages and armies, a tab row with one tab in it, and the stray Back button over the minimap (Leave is in Settings)',
+      'Side panels are a little wider on computers and move the tutorial out of the way; the race screen close button no longer covers its list',
+    ],
+  },
+  {
     title: 'Crafting tables that open, buildings everyone sees, and inviting players by name',
     changes: [
       'A Crafting Table, Enchanting Table, market stall, campfire, tent or wall is ready the moment you place it. Bigger buildings are still a site you swing at to build',

@@ -123,7 +123,7 @@ const DOCK_GROUPS = [
   { id: 'build', short: 'Build', icon: 'ui/build', tip: 'Build (B)', tabs: [['build', 'Build']] },
   { id: 'people', short: 'People', icon: 'items/population', tip: 'People & Court (J)', tabs: [['jobs', '👥 People & Jobs'], ['court', '👑 Court']] },
   { id: 'rule', short: 'Rule', icon: 'items/scroll', tip: 'Rule, Empire & Chronicle (K)', tabs: [['deeds', '📜 Laws'], ['empire', '👑 Empire'], ['log', '📖 Chronicle']] },
-  { id: 'realm', short: 'World', icon: 'ui/map', tip: 'Realm & Multiplayer (M)', tabs: [['world', '🌍 World'], ['ranks', '🏆 Rankings']], alias: ['map'], map: true },
+  { id: 'realm', short: 'World', icon: 'ui/map', tip: 'World, players and rankings', tabs: [['world', 'World'], ['ranks', 'Rankings']], alias: ['map'], map: false },   // the old Realm Map (other villages, armies, caravans) is switched off: the island map (M) is the map
   null,
   { id: 'settings', short: 'Settings', icon: 'ui/settings', tip: 'Save & Settings', tabs: [['settings', 'Settings']] },
 ];
@@ -263,7 +263,7 @@ export class HUD {
     // the two you reach for most: your Backpack and the chat, right on the rail
     dock.append(h('hr'));
     dock.append(h('button', { onclick: () => openBackpack(this) }, icon('ui/inventory', 34), h('span.dock-label', 'Bag'), h('span.tip', 'Backpack: gear, tools, items (E)')));
-    dock.append(h('button.dock-chat', { onclick: () => this.toggleChatPinned() }, icon('items/chat', 34), h('span.dock-label', 'Chat'), h('span.tip', 'Chat with the world (Enter)')));
+    if (this.mp) dock.append(h('button.dock-chat', { onclick: () => this.toggleChatPinned() }, icon('items/chat', 34), h('span.dock-label', 'Chat'), h('span.tip', 'Chat with the world (Enter)')));   // alone in a world there is nobody to chat with
     this.root.append(dock);
     // all of those live behind one small button in the corner: tap it and they open beside it, tap one and it closes
     this.els.dockEl = dock;
@@ -282,15 +282,17 @@ export class HUD {
     this.miniK = MAP_W / mapSize;   // bigger worlds are drawn smaller so the minimap keeps its size
     // clicking the minimap opens the World Map
     this.mini.addEventListener('click', () => openIslandMap(this));
-    this.root.append(h('div.card.minimap', { title: 'Open the World Map (V)' }, this.mini));
+    this.root.append(h('div.card.minimap', { title: 'Open the map (M)' }, this.mini));
     // back to the main screen (saves first); while visiting, back takes you home first
-    this.root.append(h('button.card.home-btn', {
-      title: 'Back to the main screen',
+    // only while visiting someone else's land (it takes you home): leaving the world is Leave, in Settings
+    this.root.append(this.els.homeBtn = h('button.card.home-btn', {
+      hidden: true,
+      title: 'Go home',
       onclick: () => {
         if (this.visiting) { this.onReturnHome(); return; }
         this.onBackToMenu?.();
       },
-    }, h('span.back-arrow', '‹'), h('span.home-label', 'Back')));
+    }, h('span.back-arrow', '‹'), h('span.home-label', 'Go home')));
     // jump the camera back to the village (the H key, for phones)
     this.root.append(h('button.card.center-btn', {
       title: 'Back to your village (H)',
@@ -382,6 +384,7 @@ export class HUD {
       if (g.sail) { c.x += (g.sail.x - c.x) * Math.min(1, dt * 4); c.y += (g.sail.y - c.y) * Math.min(1, dt * 4); }
     }
     this.updateBoatPrompt(dt);
+    if (this.els.homeBtn && this.els.homeBtn.hidden === !!this.visiting) this.els.homeBtn.hidden = !this.visiting;
     // the person you control: your avatar at home, or your visitor / spy in another land
     const abroad = this.visiting && this.abroad?.land?.hero ? this.abroad : null;
     const hg = abroad ? abroad.land : this.dungeon && !this.visiting ? this.dungeon : !this.visiting ? g : null;
@@ -2687,6 +2690,7 @@ export class HUD {
     const tabList = mp ? [['players', 'Players'], ['chat', 'Chat'], ['offers', `Offers${pending ? ` (${pending})` : ''}`], ['friends', 'Friends']] : [['friends', 'Friends']];
     const tabs = h('div.tabs', tabList.map(([id, label]) =>
       h(`button${this.worldTab === id ? '.on' : ''}`, { onclick: () => { this.worldTab = id; this.refreshPanel(); } }, label)));
+    if (tabList.length < 2) tabs.hidden = true;   // one tab is not a choice: no row for it
     const body = h('div.side-body');
     const w = this.world || {};
     const isPrivate = w.wid && w.wid !== 'realm' && w.wid !== 'solo';
@@ -3014,27 +3018,32 @@ export class HUD {
     ]);
   }
 
+  /** Rankings: the heroes, by level, monsters slain, how deep they have gone and how rich they are. */
   ranksPanel() {
-    this.rankTab ??= 'pop';
-    const tabs = h('div.tabs', [['pop', 'Population'], ['wealth', 'Wealth'], ['saints', 'Saints'], ['tyrants', 'Tyrants']].map(([id, label]) =>
+    const TABS = [['level', 'Level', 'level'], ['kills', 'Monsters slain', 'kills'], ['deep', 'Deepest dungeon', 'deepest'], ['gold', 'Richest', 'wealth']];
+    if (!TABS.some(t => t[0] === this.rankTab)) this.rankTab = 'level';
+    const tabs = h('div.tabs', TABS.map(([id, label]) =>
       h(`button${this.rankTab === id ? '.on' : ''}`, { onclick: () => { this.rankTab = id; this.rankData = null; this.refreshPanel(); } }, label)));
     const body = h('div.side-body');
-    const [field, dir] = { pop: ['pop', 'desc'], wealth: ['wealth', 'desc'], saints: ['karma', 'desc'], tyrants: ['karma', 'asc'] }[this.rankTab];
+    const field = TABS.find(t => t[0] === this.rankTab)[2];
     if (!this.rankData || this.rankData.tab !== this.rankTab) {
-      body.append(h('div.muted', 'Consulting the chronicles…'));
+      body.append(h('div.muted', 'Looking up the best heroes…'));
       const tab = this.rankTab;
-      leaderboard(field, dir).then(rows => { if (this.rankTab === tab) { this.rankData = { tab, rows }; this.refreshPanel(); } })
-        .catch(e => { body.replaceChildren(h('div.error-text', e.message)); });
+      leaderboard(field, 'desc').then(rows => { if (this.rankTab === tab) { this.rankData = { tab, rows }; this.refreshPanel(); } })
+        .catch(() => { body.replaceChildren(h('div.faint', 'The rankings could not be loaded right now. Try again in a moment.')); });
+    } else if (!this.rankData.rows.length) {
+      body.append(h('div.faint', 'Nobody is ranked yet: play a while and you will be the first.'));
     } else {
+      const me = this.user?.uid;
       const list = h('div.col', { style: { gap: '4px' } });
-      this.rankData.rows.forEach((p, i) => list.append(h('div.lb-row',
+      this.rankData.rows.forEach((p, i) => list.append(h(`div.lb-row${p.uid === me ? '.me' : ''}`,
         h('span.rank', i + 1),
-        avatar(p.name, 36),
-        h('div', h('div', { style: { fontWeight: 700 } }, p.villageName), h('div.faint', `${p.name} · ${ERAS[p.era || 0]?.name}`)),
-        h('span.score', field === 'karma' ? p.karma : fmt(p[field] || 0)))));
+        avatar(p.name, 30),
+        h('div', h('div', { style: { fontWeight: 700 } }, p.name || 'Hero'), h('div.faint', `Level ${p.level || 1}${p.deepest ? ` · floor ${p.deepest}` : ''}`)),
+        h('span.score', fmt(p[field] || 0)))));
       body.append(list);
     }
-    return [this.head('items/crown_leader', 'Leaderboards'), tabs, body];
+    return [this.head('items/crown_leader', 'Rankings'), tabs, body];
   }
 
   /**

@@ -5,7 +5,7 @@
  *
  * Hovering anything shows a card with its name, what it does and what it is worth.
  */
-import { h, icon, modal, rarityFrame, smallIcon, toggleMenu } from './dom.js';
+import { h, icon, modal, rarityFrame, smallIcon, toggleMenu, RES_ICON } from './dom.js';
 import { play } from '../core/sound.js';
 import { spriteAvailable } from '../core/assets.js';
 import { hasArt, gearIconKey } from '../render/gearArt.js';
@@ -202,7 +202,7 @@ export function openBackpack(hud, tab = null) {
         h('div.bp-row-head', h('b', 'Worn'), h('div.spacer'),
           r.bag.length ? h('button.btn.sm.primary', { onclick: () => { const n = equipBest(g); hud.hint(n ? `Put on ${n} better piece${n === 1 ? '' : 's'}` : 'You already wear your best', 1800); hud._bpSel = null; refresh(); } }, 'Equip best') : null,
           h(`button.btn.sm${sell ? '.danger' : ''}`, { onclick: () => { hud._sell = sell ? null : { gear: new Set(), tools: new Map() }; play('click'); render(); } }, sell ? 'Stop selling' : 'Sell…')),
-        h('div.bp-grid', ...worn.map(it => cell(it, true)), ...(worn.length ? [] : [h('div.faint', 'Nothing on yet')])),
+        worn.length ? h('div.bp-grid', ...worn.map(it => cell(it, true))) : h('div.faint', 'Nothing on yet: gear you find or forge goes in your bag below, tap it to put it on.'),
         picked ? h('div.bp-detail', { style: { borderColor: RARITY[picked.rarity].color } },
           icon(gearIconKey(picked) || 'items/relic', 40),
           h('div.bp-detail-text',
@@ -251,14 +251,17 @@ export function openBackpack(hud, tab = null) {
       };
       const out = [h('div.bp-row-head', h('span.faint', sell ? 'Tap tools to mark them for selling' : 'Tap a tool to put it in your hotbar'), h('div.spacer'),
         h(`button.btn.sm${sell ? '.danger' : ''}`, { onclick: () => { hud._sell = sell ? null : { gear: new Set(), tools: new Map() }; play('click'); render(); } }, sell ? 'Stop selling' : 'Sell…'))];
+      // the kinds sit side by side (a pickaxe, an axe and a rod is one row, not three)
+      const blocks = [];
       for (const grp of groups) {
         const ks = keys.filter(k => !seen.has(k) && grp.of(k)).sort((a, b) => (TOOLS[b].power || 0) - (TOOLS[a].power || 0));
         ks.forEach(k => seen.add(k));
         if (!ks.length) continue;
-        out.push(h('div.bp-row-head', h('b', grp.name), h('span.faint', String(ks.length))), h('div.bp-grid', ...ks.map(cell)));
+        blocks.push(h('div.bp-kind', h('div.bp-kind-name', grp.name), h('div.bp-grid', ...ks.map(cell))));
       }
       const rest = keys.filter(k => !seen.has(k));
-      if (rest.length) out.push(h('div.bp-row-head', h('b', 'Other')), h('div.bp-grid', ...rest.map(cell)));
+      if (rest.length) blocks.push(h('div.bp-kind', h('div.bp-kind-name', 'Other'), h('div.bp-grid', ...rest.map(cell))));
+      if (blocks.length) out.push(h('div.bp-kinds', ...blocks));
       if (!keys.length) out.push(h('div.faint', 'No tools yet: forge some at the Forge.'));
       return out;
     };
@@ -309,10 +312,15 @@ export function openBackpack(hud, tab = null) {
             h('span.bp-attune-n', `${fmtN(g.state.resources[att])} / ${ATTUNEMENTS[att].need}`))
         : h('div.bp-attune.off',
             h('div', h('b', 'No attunement'), h('div.faint', `Carry enough of one rare ore and it works on you on its own. ${ATTUNE_KEYS.filter(k => MATERIALS[k]).slice(0, 4).map(k => `${MATERIALS[k].name} ${ATTUNEMENTS[k].need}`).join(' · ')}…`)));
+      // the everyday things you carry (wood, stone, food, gold...) first: a new bag is never just empty boxes
+      const basics = Object.keys(RES_ICON).filter(k => !MATERIAL_KEYS.includes(k) && !['science', 'influence', 'weapons', 'bombs'].includes(k) && (g.state.resources[k] || 0) > 0);   // not the old village's science and influence
       return [
-        h('div.faint', 'Everything you can forge with. Hover one to see what it does.'),
+        h('div.bp-row-head', h('b', 'Resources'), h('span.faint', 'what you gather')),
+        basics.length ? h('div.bp-grid', ...basics.map(k => withTip(h('div.bp-cell', icon(RES_ICON[k], 34), h('span.hot-count', fmtN(g.state.resources[k]))),
+          () => [tipHead(k[0].toUpperCase() + k.slice(1), 'Resource'), h('div.faint', `You have ${g.state.resources[k]}`)]))) : h('div.faint', 'Chop trees and mine rocks to gather some.'),
+        h('div.bp-row-head', h('b', 'Rare ores'), h('span.faint', 'forge stronger things with them')),
+        cells.length ? h('div.bp-grid', ...cells) : h('div.faint', 'None yet: they come from deep rocks, dungeons and bosses.'),
         attCard,
-        h('div.bp-grid', ...cells, ...Array.from({ length: Math.max(0, 12 - cells.length) }, () => h('div.bp-cell.empty'))),
       ];
     };
 

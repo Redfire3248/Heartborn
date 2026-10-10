@@ -3887,3 +3887,25 @@ html body #ui .house-top .house-designs > :first-child { font-size: 11px; }
 .invite-note:empty { display: none; }
 .mm-col { display: flex; flex-direction: column; gap: 4px; }
 .mm-pick { width: auto; max-width: 140px; height: 32px; }
+
+/* the bag: tool kinds side by side, the header slimmer and the window as tall as a sideways phone allows */
+.bp-kinds { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.bp-kind { display: flex; flex-direction: column; gap: 4px; }
+.bp-kind-name { font-size: 12px; color: var(--dim); }
+@media (max-height: 560px) {
+  html body .modal.backpack-modal { top: calc(env(safe-area-inset-top) + 6px) !important; max-height: calc(100vh - 12px) !important; height: calc(100vh - 12px) !important; padding: 8px 12px !important; }
+  html body .modal.backpack-modal h2 { font-size: 16px !important; }
+  html body .modal.backpack-modal .tabs button, html body .modal.backpack-modal [class*="tab"] > button { height: 28px !important; padding: 0 9px !important; font-size: 12px !important; }
+}
+@media (max-height: 560px) {
+  html body #ui .side .group-tabs button, html body #ui .side .tabs button { height: 28px !important; min-height: 0 !important; padding: 0 10px !important; font-size: 12.5px !important; }
+  html body #ui .side .group-tabs, html body #ui .side .tabs { margin: 4px 8px !important; padding: 3px !important; gap: 4px !important; }
+}
+.lb-row.me { border-color: var(--gold) !important; background: rgba(255,190,90,.12) !important; }
+.race-modal .rr-right .rr-panel-head { padding-right: 40px; }   /* clear of the close button */
+
+/* computers: side panels a little wider (two build cards to a row), and the tutorial steps aside for them */
+@media (min-width: 1000px) and (min-height: 561px) {
+  html body #ui .side:not(.side-full) { width: min(470px, calc(100vw - 120px)) !important; }
+  #ui:has(> .side:not(.side-full)) .tq-banner { left: calc(50% + 250px) !important; transform: translateX(-50%) !important; max-width: calc(100vw - 600px); }
+}

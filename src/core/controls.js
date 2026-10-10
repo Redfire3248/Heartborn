@@ -16,9 +16,9 @@ export const ACTIONS = [
   { id: 'ability', label: 'Weapon ability', group: 'Fighting', def: 'f' },
   { id: 'backpack', label: 'Backpack: gear, tools, items, materials and your character', group: 'Screens', def: 'e' },
   { id: 'inventory', label: 'The bag of loose things (also on ~)', group: 'Screens', def: 'i' },
-  { id: 'map', label: 'World map', group: 'Screens', def: 'v' },
+  { id: 'map', label: 'Map', group: 'Screens', def: 'm' },   // M opens the map, as in most games
   { id: 'build', label: 'Build menu', group: 'Screens', def: 'b' },
-  { id: 'world', label: 'World & players', group: 'Screens', def: 'm' },
+  { id: 'world', label: 'World & players', group: 'Screens', def: 'p' },
   { id: 'demolish', label: 'Demolish tool', group: 'Building', def: 'x' },
   { id: 'rebuild', label: 'Build the last building again', group: 'Building', def: 'r' },
   ...Array.from({ length: 9 }, (_, i) => ({ id: `hot${i + 1}`, label: `Hotbar slot ${i + 1}`, group: 'Hotbar', def: String(i + 1) })),

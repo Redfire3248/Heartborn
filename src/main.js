@@ -422,6 +422,12 @@ async function save(force = false) {
       raidsWon: s.stats.raidsWon || 0,
       karma: Math.round(s.karma),
       dynasty: s.ruler?.dynasty || '',
+      // the hero: what the profile card shows now
+      bestLevel: Math.max(prev.bestLevel || 0, s.rpg?.level || 1),
+      kills: Math.max(prev.kills || 0, Math.round(s.rpg?.kills || 0)),
+      deepest: Math.max(prev.deepest || 0, s.rpg?.deepest || 0),
+      bosses: Math.max(prev.bosses || 0, Object.values(s.rpg?.bossLog || {}).filter(b => b.kills).length),
+      race: s.rpg?.race || 'human',
     };
     updateProfileStats(user.uid, app.bestStats);
     if (app.hud) { app.hud.lastSavedAt = Date.now(); app.hud.setSaveProblem(null); }
