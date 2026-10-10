@@ -1,6 +1,13 @@
 // Newest first. Shown by the admin `changelog` command and in Settings.
 export const CHANGELOG = [
   {
+    title: 'The last of the old village screens are gone',
+    changes: [
+      'Build cards show just the picture, the name and what it costs: no more housing, happiness, worker or karma badges from the old village game',
+      'A player’s profile is their hero card only: the old village box with Visit, Deal, March and Spy is switched off',
+    ],
+  },
+  {
     title: 'Easier to find your way around',
     changes: [
       'M opens the map now, like most games (World & players moved to P). Changed keys you set yourself stay as they are',

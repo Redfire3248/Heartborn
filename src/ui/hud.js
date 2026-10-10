@@ -2328,7 +2328,8 @@ export class HUD {
     h('div.thumb', icon(buildingSprite(type), 56), count ? h('span.bcount', `×${count}`) : null),
     h('div.bcard-main',
       h('div.name', def.name),
-      h('div.badges', effectBadges(type).map(b => h(`span.badge-fx${b.good ? '' : '.warn'}`, { title: b.tip }, h('i', b.icon), b.label === '' ? null : b.label))),
+      // the effect badges (housing, happiness, workers, karma...) are the old village game's: a hero sees name and cost
+      g.solo ? null : h('div.badges', effectBadges(type).map(b => h(`span.badge-fx${b.good ? '' : '.warn'}`, { title: b.tip }, h('i', b.icon), b.label === '' ? null : b.label))),
       h('div.costs', costChips(def.cost, g.state.resources))),
     locked ? h('span.lock', `🔒 ${ERAS[def.era].name}`) : null);
   }
@@ -4073,12 +4074,10 @@ export class HUD {
   }
 
   showProfile(p) {
-    const me = p.uid === this.user.uid;
+    // the hero's card only: the old village box (its era and people, and Visit, Deal, March and Spy) is switched off
     openProfile(p.uid, {
-      onSpy: !me && this.mp && on('spies') ? () => this.spyModal(p) : null,
-      user: this.user, username: this.username, world: this.world, village: p.villageName ? p : null,
-      onVisit: !me && this.mp ? () => this.askToVisit(p.uid) : null,
-      onDeal: null, onMarch: null,   // no caravan deals or marching armies in the hero game
+      user: this.user, username: this.username, world: this.world, village: null,
+      onVisit: null, onDeal: null, onMarch: null, onSpy: null,
     });
   }
 
